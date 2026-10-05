@@ -77,6 +77,8 @@ an offline test with a known expected result (see `libkan/tests/dsp_test.cpp`).
 - Prefer small, focused commits; one logical change per commit
 - PR title = the commit message of a squash merge
 - Reference the related issue when there is one
+- Parallel agent/human lanes use the **git worktree model**: one directory =
+  one branch = one component lane. See [docs/agent-workflow.md](docs/agent-workflow.md)
 
 ## 6. Licensing
 
