@@ -23,8 +23,10 @@
 - [ ] ADR: game engine choice (Godot 4 GDExtension vs SDL3/Vulkan) — Milestone 2
 - [ ] ADR: native plugin ABI for custom DSP/visual nodes (deferred until
       data-driven packs prove insufficient)
-- [ ] ADR: `kp` formula (weighted top-N + difficulty multiplier + dual-axis mix)
-- [ ] ADR: server implementation stack (TypeScript vs Go vs Rust)
+- [x] ADR: `kp` formula (weighted top-N + difficulty multiplier + dual-axis mix)
+      — `adr/0008-kp-formula.md` (proposed draft)
+- [x] ADR: server implementation stack (TypeScript vs Go vs Rust)
+      — `adr/0007-server-implementation-stack.md` (proposed draft)
 - [ ] ADR: stem/transcription model choices (HTDemucs, Basic Pitch) — Milestone 3
 - [ ] ADR: donation provider selection — Milestone 4
 
