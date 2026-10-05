@@ -1,0 +1,5 @@
+# Spectral ruleset for the kan! backend OpenAPI contract.
+# Primary linter is Redocly (see redocly.yaml); Spectral runs as a second
+# opinion with the standard OAS ruleset.
+extends:
+  - spectral:oas

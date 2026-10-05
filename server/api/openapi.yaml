@@ -1,0 +1,1904 @@
+openapi: 3.1.0
+info:
+  title: kan! backend API
+  version: 1.0.0-draft
+  description: |
+    Contract-first API for the kan! community backend (`server/`), per
+    [docs/architecture/backend-data-model.md](../../docs/architecture/backend-data-model.md).
+
+    Scope of v1: OAuth2 **device flow** auth for the game client, song/chart/pack
+    **catalog** with presigned downloads, **idempotent score submission** with
+    async validation, **profiles**, **leaderboards** (board key =
+    `chart_id` + `input_method` + `mod_mask`), ranked-workflow review endpoints,
+    GDPR export/erasure, and **billing webhooks** (provider HMAC-verified).
+
+    Ground rules:
+    - All endpoints are versioned under `/api/v1/`.
+    - All timestamps are RFC 3339 UTC. All identifiers are UUIDv7 strings.
+    - JSON field names are `snake_case`, mirroring the PostgreSQL schema.
+    - The server never proxies `.kan`/replay bytes: downloads return short-lived
+      presigned object-storage URLs (supporter fast-download hook).
+    - Score submission is idempotent: clients MUST send an `Idempotency-Key`.
+    - Webhook bodies are never trusted: providers sign payloads and events are
+      deduplicated by `provider_ref`.
+  contact:
+    name: kan! server maintainers
+    url: https://github.com/kan-rhythm/kan-rhythm/tree/main/server
+  license:
+    name: MIT
+    url: https://opensource.org/license/mit
+servers:
+  - url: https://api.kan.example/api/v1
+    description: Production (placeholder until domain is chosen)
+  - url: http://localhost:8080/api/v1
+    description: Local development
+
+security:
+  - oauth2Device: []
+
+tags:
+  - name: auth
+    description: OAuth2 device flow for the game client, token refresh
+  - name: profiles
+    description: Current user, public profiles, GDPR export/erasure, ranks
+  - name: catalog
+    description: Songs, song versions, charts, instrument packs, search, downloads
+  - name: ranked-review
+    description: Ranked-status QA workflow (ADR-0009)
+  - name: scores
+    description: Idempotent score submission, validation status, replays
+  - name: boards
+    description: Per-chart leaderboards and global/country/family ranks
+  - name: webhooks
+    description: Billing provider webhook receivers (donations/ design)
+
+paths:
+  # ---------------------------------------------------------------- auth ---
+  /auth/device/code:
+    post:
+      tags: [auth]
+      operationId: startDeviceFlow
+      summary: Start OAuth2 device authorization (game client login)
+      description: |
+        Client shows `user_code` + `verification_uri` to the player, then polls
+        `POST /auth/device/token` at most every `interval` seconds.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                client_id:
+                  type: string
+                  description: Public client identifier of the game build.
+                scope:
+                  type: string
+                  description: Space-separated scopes. Default `public submit_score`.
+              required: [client_id]
+      responses:
+        '200':
+          description: Device flow started.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceCodeResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /auth/device/token:
+    post:
+      tags: [auth]
+      operationId: pollDeviceToken
+      summary: Poll for device-flow access token
+      description: Returns `authorization_pending` until the player approves in the browser; RFC 8628 polling semantics with `slow_down` backpressure.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                device_code:
+                  type: string
+                client_id:
+                  type: string
+              required: [device_code, client_id]
+      responses:
+        '200':
+          description: Token issued (user completed browser authorization).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          description: |
+            Authorization not complete or failed. `error` is one of
+            `authorization_pending`, `slow_down`, `expired_token`,
+            `access_denied` (RFC 8628).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OAuthError'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /auth/refresh:
+    post:
+      tags: [auth]
+      operationId: refreshToken
+      summary: Exchange a refresh token for a new access token
+      description: Refresh tokens rotate on use; reuse of a rotated token revokes the family (theft detection).
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refresh_token:
+                  type: string
+                client_id:
+                  type: string
+              required: [refresh_token, client_id]
+      responses:
+        '200':
+          description: New token pair (refresh tokens rotate on use).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TokenResponse'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  # ------------------------------------------------------------ profiles ---
+  /me:
+    get:
+      tags: [profiles]
+      operationId: getMe
+      summary: Current user profile (private view)
+      description: Includes the email hash-free contact fields never exposed on public profiles.
+      responses:
+        '200':
+          description: The authenticated user.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateUser'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+    patch:
+      tags: [profiles]
+      operationId: updateMe
+      summary: Update profile fields (username, country, avatar)
+      description: Username changes are rate-limited and audited; avatar/background keys must come from a completed upload session.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                  minLength: 3
+                  maxLength: 24
+                  pattern: '^[A-Za-z0-9_\-]+$'
+                country:
+                  $ref: '#/components/schemas/CountryCode'
+                avatar_key:
+                  type: string
+                  description: Object-storage key from a prior avatar upload.
+                profile_bg_key:
+                  type: string
+      responses:
+        '200':
+          description: Updated profile.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PrivateUser'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: Username already taken.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+    delete:
+      tags: [profiles]
+      operationId: eraseMe
+      summary: GDPR erasure — anonymize/delete personal data
+      description: |
+        PII-minimal by design: no card data is ever stored (provider references
+        only). Erasure anonymizes the username/email, revokes tokens and
+        entitlements, and removes profile blobs. Scores are anonymized
+        (attribution removed), not deleted, to preserve board integrity.
+      responses:
+        '204':
+          description: Erasure accepted and applied.
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /me/export:
+    get:
+      tags: [profiles]
+      operationId: exportMe
+      summary: GDPR data export — presigned URL to a JSON archive
+      description: Assembles all stored personal data (PII-minimal by design) into a downloadable archive.
+      responses:
+        '202':
+          description: Export queued; poll until `download_url` is present.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [queued, ready]
+                  download_url:
+                    type: [string, 'null']
+                    format: uri
+                required: [status]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /users/{user_id}:
+    get:
+      tags: [profiles]
+      operationId: getUser
+      summary: Public profile of a user
+      description: Public fields plus kp stats; disabled accounts return a minimal tombstone.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: Public profile including kp stats.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PublicUser'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users/{user_id}/scores:
+    get:
+      tags: [profiles, scores]
+      operationId: getUserScores
+      summary: Recent scores of a user (newest first)
+      description: Only `valid` scores are visible to other users; owners see all their own scores.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+        - name: chart_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Filter to one chart.
+        - name: validity
+          in: query
+          schema:
+            $ref: '#/components/schemas/Validity'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of scores.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScorePage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /users/{user_id}/kp:
+    get:
+      tags: [profiles, boards]
+      operationId: getUserKp
+      summary: kp totals, global/country ranks, per-instrument-family ranks
+      description: Materialized from `kp_stats` (async recompute, debounced per user). See ADR-0008.
+      parameters:
+        - $ref: '#/components/parameters/UserId'
+      responses:
+        '200':
+          description: kp stats (ADR-0008).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/KpStats'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ------------------------------------------------------------- catalog ---
+  /songs:
+    get:
+      tags: [catalog]
+      operationId: searchSongs
+      summary: Search/browse the song catalog
+      description: Keyset-paginated full-text search; ranked-only filter available for the in-client song browser.
+      parameters:
+        - name: q
+          in: query
+          schema:
+            type: string
+          description: Full-text query over title/artist/source.
+        - name: ranked_status
+          in: query
+          schema:
+            $ref: '#/components/schemas/RankedStatus'
+        - name: family
+          in: query
+          schema:
+            $ref: '#/components/schemas/InstrumentFamily'
+          description: Only songs having at least one chart for this family.
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [relevance, newest, title, artist]
+            default: relevance
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Cursor'
+      responses:
+        '200':
+          description: Page of songs.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SongPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [catalog]
+      operationId: createSong
+      summary: Create a song with its first version (mapper)
+      description: |
+        Two-phase upload: this call registers metadata and returns presigned
+        `PUT` URLs for the `.kan` package. The client uploads bytes directly to
+        object storage, then the server verifies `manifest_sha256` on
+        finalize (`POST /song-versions/{id}/finalize`).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SongCreate'
+      responses:
+        '201':
+          description: Song + first version created; upload URLs provided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          $ref: '#/components/responses/PayloadTooLarge'
+
+  /songs/{song_id}:
+    get:
+      tags: [catalog]
+      operationId: getSong
+      summary: Song with version list and chart roll-up
+      description: Includes every published version and per-family chart counts for the song detail view.
+      parameters:
+        - $ref: '#/components/parameters/SongId'
+      responses:
+        '200':
+          description: Song detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SongDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /songs/{song_id}/versions:
+    post:
+      tags: [catalog]
+      operationId: createSongVersion
+      summary: Add a new version of an existing song
+      description: Version numbers increment per song; existing charts keep pointing at their original version until remapped.
+      parameters:
+        - $ref: '#/components/parameters/SongId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SongVersionCreate'
+      responses:
+        '201':
+          description: Version registered; upload URLs provided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /song-versions/{version_id}/finalize:
+    post:
+      tags: [catalog]
+      operationId: finalizeSongVersion
+      summary: Server verifies uploaded bytes against manifest_sha256
+      description: Publishes the version only when the stored object hash matches; mismatches are audited and the session is discarded.
+      parameters:
+        - $ref: '#/components/parameters/VersionId'
+      responses:
+        '200':
+          description: Version finalized and published.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SongVersion'
+        '409':
+          description: SHA-256 mismatch or incomplete upload.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /song-versions/{version_id}/download:
+    get:
+      tags: [catalog]
+      operationId: downloadSongVersion
+      summary: Presigned download URL for the `.kan` package
+      description: Short-lived URL; supporter entitlements route to the fast-download CDN (kan!supporter hook).
+      parameters:
+        - $ref: '#/components/parameters/VersionId'
+      responses:
+        '200':
+          description: Short-lived presigned URL (supporter fast-download CDN
+            hook applied server-side based on entitlements).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadUrl'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /charts:
+    get:
+      tags: [catalog]
+      operationId: listCharts
+      summary: List charts of a song version, optionally filtered by pack
+      description: Returns Layer 3 arrangement charts with status and kan!check summary fields.
+      parameters:
+        - name: song_version_id
+          in: query
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: instrument_pack_id
+          in: query
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            $ref: '#/components/schemas/RankedStatus'
+      responses:
+        '200':
+          description: Matching charts.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Chart'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [catalog]
+      operationId: createChart
+      summary: Register a `.kchart` arrangement (Layer 3) for a song version
+      description: |
+        Enforces the ROADMAP M4 gate: `size_bytes` < 50 KB. On finalize the
+        server runs `kan!check` automatically (Stage 0 of ADR-0009); its report
+        gates review submission.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChartCreate'
+      responses:
+        '201':
+          description: Chart registered; upload URL provided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '413':
+          description: Chart exceeds the 50 KB arrangement budget.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /charts/{chart_id}:
+    get:
+      tags: [catalog]
+      operationId: getChart
+      summary: Chart detail including kan!check report summary
+      description: Full chart row plus review state (votes, vetoes) for the ranked workflow UI.
+      parameters:
+        - $ref: '#/components/parameters/ChartId'
+      responses:
+        '200':
+          description: Chart detail.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChartDetail'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /charts/{chart_id}/download:
+    get:
+      tags: [catalog]
+      operationId: downloadChart
+      summary: Presigned download URL for the `.kchart` file (< 50 KB)
+      description: Enforces the ROADMAP M4 download-weight gate at the catalog layer.
+      parameters:
+        - $ref: '#/components/parameters/ChartId'
+      responses:
+        '200':
+          description: Short-lived presigned URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadUrl'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /packs:
+    get:
+      tags: [catalog]
+      operationId: listPacks
+      summary: List instrument packs
+      description: Public and unlisted packs; private packs only for their uploader.
+      parameters:
+        - name: family
+          in: query
+          schema:
+            $ref: '#/components/schemas/InstrumentFamily'
+      responses:
+        '200':
+          description: Matching packs.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InstrumentPack'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+    post:
+      tags: [catalog]
+      operationId: createPack
+      summary: Register a new instrument pack
+      description: Two-phase upload like songs; the manifest hash is verified on finalize.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PackCreate'
+      responses:
+        '201':
+          description: Pack registered; upload URL provided.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UploadSession'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+
+  /packs/{pack_id}/download:
+    get:
+      tags: [catalog]
+      operationId: downloadPack
+      summary: Presigned download URL for an instrument pack
+      description: Short-lived URL for the pack archive.
+      parameters:
+        - name: pack_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Short-lived presigned URL.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DownloadUrl'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ------------------------------------------------------- ranked review ---
+  /charts/{chart_id}/submit-review:
+    post:
+      tags: [ranked-review]
+      operationId: submitChartReview
+      summary: Mapper submits a chart to the pending queue
+      description: Requires `kan!check` PASS (hard gate, server-verified) and
+        mapper ownership. See ADR-0009.
+      parameters:
+        - $ref: '#/components/parameters/ChartId'
+      responses:
+        '200':
+          description: Chart moved to `pending`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Chart'
+        '403':
+          description: Not the mapper, or kan!check did not pass.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /charts/{chart_id}/feedback:
+    post:
+      tags: [ranked-review]
+      operationId: addChartFeedback
+      summary: Reviewer leaves structured feedback on a pending chart
+      description: Feedback is categorized for the ranked criteria checklist and recorded in the audit log.
+      parameters:
+        - $ref: '#/components/parameters/ChartId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                category:
+                  type: string
+                  enum: [timing, representation, difficulty_honesty, metadata,
+                         licensing, playability]
+                comment:
+                  type: string
+                  maxLength: 4000
+              required: [category, comment]
+      responses:
+        '201':
+          description: Feedback recorded (audited).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewEvent'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /charts/{chart_id}/vote:
+    post:
+      tags: [ranked-review]
+      operationId: voteChart
+      summary: Chart Reviewer vote — qualify, veto, or rank-reset
+      description: |
+        Server-side enforced (ADR-0009): voter must hold the Chart Reviewer
+        role for the chart's instrument family, must not be the mapper or song
+        author (conflict of interest), and the chart must have kan!check PASS
+        at vote time. Two `qualify` votes with zero vetoes start the 72 h
+        qualification freeze; any veto returns the chart to `pending`.
+      parameters:
+        - $ref: '#/components/parameters/ChartId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                vote:
+                  type: string
+                  enum: [qualify, veto, reset]
+                reason:
+                  type: string
+                  maxLength: 4000
+                  description: Mandatory for `veto` and `reset`.
+              required: [vote]
+      responses:
+        '200':
+          description: Vote recorded; chart status may transition.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReviewEvent'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          description: Vote conflicts with kan!check status or COI rules.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # -------------------------------------------------------------- scores ---
+  /scores:
+    post:
+      tags: [scores]
+      operationId: submitScore
+      summary: Submit a score (idempotent)
+      description: |
+        Submission pipeline (backend-data-model §5):
+        1. `Idempotency-Key` dedup — replaying the same key returns the
+           original result, never a second row.
+        2. Synchronous plausibility checks: chart exists and is `ranked`;
+           `manifest_sha256` matches the catalog; `client_hash` is a known
+           signed build; timing distribution plausibility (zero-jitter perfect
+           runs flag synthetic input).
+        3. Accepted scores are enqueued for async validation (replay
+           re-simulation with the shared C++ judgment core) — `validity`
+           starts as `pending`.
+        4. On `valid`: kp recompute + board upsert. On `cheat`: moderation
+           queue, board exclusion.
+        The response includes a presigned `PUT` URL for the replay blob
+        (micro-timing + cents curves); replay upload is required for the score
+        to leave `pending`.
+      parameters:
+        - $ref: '#/components/parameters/IdempotencyKey'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ScoreSubmit'
+      responses:
+        '202':
+          description: Accepted; validation pending.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreSubmitAck'
+        '200':
+          description: Duplicate `Idempotency-Key` — original ack replayed.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ScoreSubmitAck'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '409':
+          description: |
+            Rejected by plausibility checks. `code` is one of
+            `CHART_NOT_RANKED`, `MANIFEST_MISMATCH`, `UNKNOWN_CLIENT_BUILD`,
+            `IMPLAUSIBLE_TIMING`.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '422':
+          description: Missing `Idempotency-Key` header.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+  /scores/{score_id}:
+    get:
+      tags: [scores]
+      operationId: getScore
+      summary: Score detail with current validity verdict
+      description: "Validity transitions are async: `pending` → `valid`/`invalid`/`cheat` after replay re-simulation."
+      parameters:
+        - $ref: '#/components/parameters/ScoreId'
+      responses:
+        '200':
+          description: Score row.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Score'
+        '403':
+          description: Score belongs to another user and is not yet public
+            (invalid/cheat verdicts are never public).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /scores/{score_id}/replay:
+    get:
+      tags: [scores]
+      operationId: getReplay
+      summary: Presigned download URL for a valid score's replay curves
+      description: Replays of `valid` scores on `ranked` charts are public;
+        others are restricted to the owning user and moderators.
+      parameters:
+        - $ref: '#/components/parameters/ScoreId'
+      responses:
+        '200':
+          description: Presigned URL (replay blob + curves blob).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  replay:
+                    $ref: '#/components/schemas/DownloadUrl'
+                  curves:
+                    $ref: '#/components/schemas/DownloadUrl'
+                required: [replay]
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # -------------------------------------------------------------- boards ---
+  /charts/{chart_id}/leaderboard:
+    get:
+      tags: [boards]
+      operationId: getChartLeaderboard
+      summary: Precomputed leaderboard for one board
+      description: |
+        Board key = `(chart_id, input_method, mod_mask)`. Ranked charts only;
+        unranked charts return 409 `BOARD_NOT_RANKED`. Served from
+        `leaderboard_entries` (never a scores scan), Redis-cached 30–60 s.
+      parameters:
+        - $ref: '#/components/parameters/ChartId'
+        - name: input_method
+          in: query
+          required: true
+          schema:
+            $ref: '#/components/schemas/InputMethod'
+        - name: mod_mask
+          in: query
+          required: true
+          schema:
+            type: integer
+            format: int64
+            minimum: 0
+          description: Mod bitmask; `0` = no mods.
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [kp, score, accuracy_cents]
+            default: kp
+          description: Dual-axis boards may sort by intonation purity.
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Board entries with the requesting user's entry if any.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Leaderboard'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          description: Chart is not ranked (`BOARD_NOT_RANKED`).
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /ranks/global:
+    get:
+      tags: [boards, profiles]
+      operationId: getGlobalRanks
+      summary: Global kp ranking
+      description: Offset-paginated top ranks served from precomputed `kp_stats`.
+      parameters:
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Ranked users by kp_total.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+
+  /ranks/countries/{country}:
+    get:
+      tags: [boards, profiles]
+      operationId: getCountryRanks
+      summary: Country kp ranking
+      description: Same ordering restricted to one ISO 3166-1 alpha-2 country.
+      parameters:
+        - name: country
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/CountryCode'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Ranked users of one country.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankPage'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  /ranks/families/{family}:
+    get:
+      tags: [boards, profiles]
+      operationId: getFamilyRanks
+      summary: Per-instrument-family kp ranking (ROADMAP M4 fairness gate)
+      description: Family-scoped kp ranking from `kp_stats.instrument_ranks`.
+      parameters:
+        - name: family
+          in: path
+          required: true
+          schema:
+            $ref: '#/components/schemas/InstrumentFamily'
+        - $ref: '#/components/parameters/Limit'
+        - $ref: '#/components/parameters/Offset'
+      responses:
+        '200':
+          description: Ranked users by family-scoped kp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RankPage'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '404':
+          $ref: '#/components/responses/NotFound'
+
+  # ------------------------------------------------------------ webhooks ---
+  /webhooks/{provider}:
+    post:
+      tags: [webhooks]
+      operationId: receiveBillingWebhook
+      summary: Billing provider webhook receiver (donations)
+      description: |
+        PII-minimal and PCI-free by design: kan! never stores card data —
+        provider references only. Security contract:
+        - The request MUST carry the provider's HMAC signature header
+          (e.g. `X-Kan-Webhook-Signature: sha256=<hex>`, scheme documented per
+          provider once the donation-provider ADR lands). Unsigned or
+          bad-signature requests are rejected 401 without processing.
+        - A delivery timestamp is included in the signed payload; deliveries
+          older than 5 minutes are rejected (replay window).
+        - Events are deduplicated by `provider_ref` (unique in `donations`);
+          redeliveries are acked 200 without side effects (at-least-once safe).
+        - Processing is minimal and queued: verify → persist raw event →
+          enqueue entitlement update. Entitlement grants never happen
+          synchronously inside the webhook handler.
+        - The endpoint is rate-limited per source and monitored for floods.
+      security:
+        - webhookSignature: []
+      parameters:
+        - name: provider
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: '^[a-z0-9_]{1,32}$'
+          description: Registered provider slug (e.g. `stripe`, `paypal`).
+        - name: X-Kan-Webhook-Signature
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Provider HMAC over timestamp + raw body.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: Provider-native event envelope; persisted raw.
+              additionalProperties: true
+      responses:
+        '200':
+          description: Event accepted (or duplicate acked).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+                required: [received]
+        '400':
+          description: Malformed envelope.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '401':
+          description: Missing/invalid signature or expired delivery timestamp.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+
+components:
+  securitySchemes:
+    oauth2Device:
+      # OpenAPI has no native declaration for the device-authorization grant
+      # (RFC 8628); the flow endpoints are defined explicitly under /auth/*
+      # and the issued access tokens are used as bearer tokens.
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: |
+        Access token obtained via the OAuth2 device authorization grant
+        (RFC 8628): `POST /auth/device/code` → user approves in browser →
+        client polls `POST /auth/device/token`. Scopes granted at consent:
+        `public`, `submit_score`, `upload`, `review`, `moderate`.
+    webhookSignature:
+      type: apiKey
+      in: header
+      name: X-Kan-Webhook-Signature
+      description: Provider HMAC signature; verified before any processing.
+
+  parameters:
+    UserId:
+      name: user_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    SongId:
+      name: song_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    VersionId:
+      name: version_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ChartId:
+      name: chart_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    ScoreId:
+      name: score_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      description: Client-generated UUIDv4/v7; identical keys replay the
+        original response instead of creating duplicates.
+      schema:
+        type: string
+        format: uuid
+    Limit:
+      name: limit
+      in: query
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    Offset:
+      name: offset
+      in: query
+      schema:
+        type: integer
+        minimum: 0
+        default: 0
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque keyset cursor from a previous page.
+      schema:
+        type: string
+
+  responses:
+    BadRequest:
+      description: Malformed request.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Unauthorized:
+      description: Missing, expired, or insufficient token.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    Forbidden:
+      description: Authenticated but not allowed (role/ownership).
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    NotFound:
+      description: Entity not found.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    PayloadTooLarge:
+      description: Upload exceeds size policy.
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+    RateLimited:
+      description: Rate limit exceeded (Redis-backed). Retry after
+        `Retry-After` seconds.
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code:
+          type: string
+          description: Stable machine-readable error code.
+        message:
+          type: string
+          description: Human-readable English message.
+        details:
+          type: object
+          additionalProperties: true
+      required: [code, message]
+
+    OAuthError:
+      type: object
+      properties:
+        error:
+          type: string
+          enum: [authorization_pending, slow_down, expired_token,
+                 access_denied, invalid_request, invalid_client,
+                 invalid_grant, unsupported_grant_type]
+        error_description:
+          type: string
+      required: [error]
+
+    DeviceCodeResponse:
+      type: object
+      properties:
+        device_code:
+          type: string
+        user_code:
+          type: string
+          description: Short human-enterable code (e.g. `KAN-4F2J-91QZ`).
+        verification_uri:
+          type: string
+          format: uri
+        verification_uri_complete:
+          type: string
+          format: uri
+        expires_in:
+          type: integer
+          description: Seconds until the device code expires.
+        interval:
+          type: integer
+          description: Minimum polling interval in seconds.
+      required: [device_code, user_code, verification_uri, expires_in,
+                interval]
+
+    TokenResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          const: Bearer
+        expires_in:
+          type: integer
+        refresh_token:
+          type: string
+        scope:
+          type: string
+      required: [access_token, token_type, expires_in]
+
+    CountryCode:
+      type: string
+      pattern: '^[A-Z]{2}$'
+      description: ISO 3166-1 alpha-2.
+
+    UtcDateTime:
+      type: string
+      format: date-time
+
+    RankedStatus:
+      type: string
+      enum: [unranked, pending, ranked, loved, graveyard]
+
+    InstrumentFamily:
+      type: string
+      enum: [plucked, bowed, wind, keyboard, percussion, other]
+
+    Difficulty:
+      type: string
+      enum: [easy, normal, hard, insane, expert, expertplus]
+
+    InputMethod:
+      type: string
+      enum: [mic, line_in, midi]
+
+    Validity:
+      type: string
+      enum: [pending, valid, invalid, cheat]
+
+    License:
+      type: string
+      enum: [cc0, cc-by, cc-by-sa, cc-by-nc, original, licensed]
+
+    PublicUser:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        country:
+          $ref: '#/components/schemas/CountryCode'
+        avatar_url:
+          type: [string, 'null']
+          format: uri
+        profile_bg_url:
+          type: [string, 'null']
+          format: uri
+        created_at:
+          $ref: '#/components/schemas/UtcDateTime'
+        supporter:
+          type: boolean
+          description: Active supporter entitlement (tier details are private).
+        kp:
+          $ref: '#/components/schemas/KpStats'
+      required: [id, username, created_at, supporter]
+
+    PrivateUser:
+      allOf:
+        - $ref: '#/components/schemas/PublicUser'
+        - type: object
+          properties:
+            email:
+              type: string
+              format: email
+            supporter_tier:
+              type: [string, 'null']
+            disabled_at:
+              type: [string, 'null']
+              format: date-time
+
+    KpStats:
+      type: object
+      description: Per ADR-0008 — weighted top-N totals, dual-axis.
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        kp:
+          type: number
+          description: kp_total.
+        global_rank:
+          type: [integer, 'null']
+        country_rank:
+          type: [integer, 'null']
+        instrument_ranks:
+          type: object
+          description: Per-family kp and rank.
+          additionalProperties:
+            type: object
+            properties:
+              kp:
+                type: number
+              rank:
+                type: integer
+            required: [kp]
+        updated_at:
+          $ref: '#/components/schemas/UtcDateTime'
+      required: [user_id, kp, instrument_ranks, updated_at]
+
+    RankEntry:
+      type: object
+      properties:
+        rank:
+          type: integer
+        user:
+          $ref: '#/components/schemas/PublicUser'
+      required: [rank, user]
+
+    RankPage:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/RankEntry'
+        total:
+          type: integer
+        next_offset:
+          type: [integer, 'null']
+      required: [entries]
+
+    InstrumentPack:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        slug:
+          type: string
+        name:
+          type: string
+        family:
+          $ref: '#/components/schemas/InstrumentFamily'
+        format_version:
+          type: string
+          description: Semver of the pack format.
+        visibility:
+          type: string
+          enum: [public, unlisted, private]
+        created_at:
+          $ref: '#/components/schemas/UtcDateTime'
+      required: [id, slug, name, family, format_version, visibility,
+                created_at]
+
+    PackCreate:
+      type: object
+      properties:
+        slug:
+          type: string
+          pattern: '^[a-z0-9\-]{2,64}$'
+        name:
+          type: string
+          maxLength: 128
+        family:
+          $ref: '#/components/schemas/InstrumentFamily'
+        format_version:
+          type: string
+        manifest_sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        size_bytes:
+          type: integer
+          minimum: 1
+        visibility:
+          type: string
+          enum: [public, unlisted, private]
+          default: public
+      required: [slug, name, family, format_version, manifest_sha256,
+                size_bytes]
+
+    Song:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        artist:
+          type: string
+        source:
+          type: string
+        license:
+          $ref: '#/components/schemas/License'
+        ranked_status:
+          $ref: '#/components/schemas/RankedStatus'
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          $ref: '#/components/schemas/UtcDateTime'
+        updated_at:
+          $ref: '#/components/schemas/UtcDateTime'
+      required: [id, title, artist, license, ranked_status, created_by,
+                created_at, updated_at]
+
+    SongCreate:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 256
+        artist:
+          type: string
+          maxLength: 256
+        source:
+          type: string
+          maxLength: 256
+        license:
+          $ref: '#/components/schemas/License'
+        audio_license_evidence:
+          type: string
+          description: Required for `licensed`; URL/text proving rights.
+        version:
+          $ref: '#/components/schemas/SongVersionCreate'
+      required: [title, artist, license, version]
+
+    SongVersionCreate:
+      type: object
+      properties:
+        manifest_sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        size_bytes:
+          type: integer
+          minimum: 1
+        timing_points:
+          type: array
+          description: Layer 1 BPM snapshots.
+          items:
+            type: object
+            properties:
+              time_ms:
+                type: integer
+              bpm:
+                type: number
+            required: [time_ms, bpm]
+        canonical_score:
+          type: boolean
+          default: false
+          description: Whether this upload includes the Layer 2 canonical
+            score blob.
+      required: [manifest_sha256, size_bytes]
+
+    SongVersion:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        song_id:
+          type: string
+          format: uuid
+        version_no:
+          type: integer
+        manifest_sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        size_bytes:
+          type: integer
+        timing_points:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        canonical_score_key:
+          type: [string, 'null']
+        published_at:
+          type: [string, 'null']
+          format: date-time
+      required: [id, song_id, version_no, manifest_sha256, size_bytes]
+
+    SongDetail:
+      allOf:
+        - $ref: '#/components/schemas/Song'
+        - type: object
+          properties:
+            versions:
+              type: array
+              items:
+                $ref: '#/components/schemas/SongVersion'
+            chart_counts:
+              type: object
+              description: Charts per family/status roll-up.
+              additionalProperties:
+                type: integer
+          required: [versions]
+
+    SongPage:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Song'
+        next_cursor:
+          type: [string, 'null']
+      required: [entries]
+
+    Chart:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        song_version_id:
+          type: string
+          format: uuid
+        instrument_pack_id:
+          type: string
+          format: uuid
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        chart_key:
+          type: string
+          description: e.g. `guitar_hard`.
+        size_bytes:
+          type: integer
+          maximum: 51200
+          description: GATE — under 50 KB.
+        mapper_id:
+          type: string
+          format: uuid
+        status:
+          $ref: '#/components/schemas/RankedStatus'
+        created_at:
+          $ref: '#/components/schemas/UtcDateTime'
+      required: [id, song_version_id, instrument_pack_id, difficulty,
+                chart_key, size_bytes, mapper_id, status, created_at]
+
+    ChartCreate:
+      type: object
+      properties:
+        song_version_id:
+          type: string
+          format: uuid
+        instrument_pack_id:
+          type: string
+          format: uuid
+        difficulty:
+          $ref: '#/components/schemas/Difficulty'
+        chart_key:
+          type: string
+          pattern: '^[a-z0-9_]{2,64}$'
+        manifest_sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        size_bytes:
+          type: integer
+          minimum: 1
+          exclusiveMaximum: 51200
+      required: [song_version_id, instrument_pack_id, difficulty, chart_key,
+                manifest_sha256, size_bytes]
+
+    ChartDetail:
+      allOf:
+        - $ref: '#/components/schemas/Chart'
+        - type: object
+          properties:
+            manifest_sha256:
+              type: string
+            kancheck:
+              type: object
+              description: Latest kan!check report summary (ADR-0009 Stage 0).
+              properties:
+                status:
+                  type: string
+                  enum: [pass, warn, fail, not_run]
+                run_at:
+                  type: [string, 'null']
+                  format: date-time
+                report_url:
+                  type: [string, 'null']
+                  format: uri
+              required: [status]
+            review:
+              type: object
+              properties:
+                qualify_votes:
+                  type: integer
+                vetoes:
+                  type: integer
+                ranked_at:
+                  type: [string, 'null']
+                  format: date-time
+              required: [qualify_votes, vetoes]
+
+    ReviewEvent:
+      type: object
+      properties:
+        chart_id:
+          type: string
+          format: uuid
+        actor_id:
+          type: string
+          format: uuid
+        action:
+          type: string
+          enum: [feedback, qualify, veto, reset, submit_review, ranked]
+        reason:
+          type: [string, 'null']
+        created_at:
+          $ref: '#/components/schemas/UtcDateTime'
+      required: [chart_id, actor_id, action, created_at]
+
+    UploadSession:
+      type: object
+      description: Presigned upload targets; client PUTs bytes directly to
+        object storage, then finalizes.
+      properties:
+        entity:
+          type: object
+          description: Created song/version/chart/pack row.
+          additionalProperties: true
+        upload_url:
+          type: string
+          format: uri
+        upload_method:
+          type: string
+          const: PUT
+        upload_headers:
+          type: object
+          additionalProperties:
+            type: string
+        finalize_path:
+          type: string
+          description: API path to call after the upload completes.
+        expires_at:
+          $ref: '#/components/schemas/UtcDateTime'
+      required: [entity, upload_url, upload_method, finalize_path, expires_at]
+
+    DownloadUrl:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+        sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+        size_bytes:
+          type: integer
+        expires_at:
+          $ref: '#/components/schemas/UtcDateTime'
+      required: [url, sha256, expires_at]
+
+    ScoreSubmit:
+      type: object
+      properties:
+        chart_id:
+          type: string
+          format: uuid
+        manifest_sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: SHA-256 of the exact song-version manifest played.
+        input_method:
+          $ref: '#/components/schemas/InputMethod'
+        mod_mask:
+          type: integer
+          format: int64
+          minimum: 0
+          default: 0
+        client_hash:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: Signed build fingerprint of the client binary.
+        result:
+          type: object
+          properties:
+            total_score:
+              type: integer
+              minimum: 0
+            max_combo:
+              type: integer
+              minimum: 0
+            count_perfect:
+              type: integer
+              minimum: 0
+            count_great:
+              type: integer
+              minimum: 0
+            count_ok:
+              type: integer
+              minimum: 0
+            count_miss:
+              type: integer
+              minimum: 0
+            accuracy_cents:
+              type: number
+              minimum: 0
+              maximum: 9999.99
+              description: Mean absolute intonation deviation in cents.
+            timing_avg_ms:
+              type: number
+            timing_dev_ms:
+              type: number
+              minimum: 0
+          required: [total_score, max_combo, count_perfect, count_great,
+                     count_ok, count_miss, accuracy_cents, timing_avg_ms,
+                     timing_dev_ms]
+        replay_sha256:
+          type: string
+          pattern: '^[0-9a-f]{64}$'
+          description: Hash of the replay blob the client will upload to the
+            presigned URL; binds submission to replay (anti-swap).
+      required: [chart_id, manifest_sha256, input_method, client_hash, result,
+                replay_sha256]
+
+    ScoreSubmitAck:
+      type: object
+      properties:
+        score_id:
+          type: string
+          format: uuid
+        validity:
+          $ref: '#/components/schemas/Validity'
+        duplicate:
+          type: boolean
+          description: True when this response replays a prior idempotent
+            submission.
+        replay_upload:
+          $ref: '#/components/schemas/DownloadUrl'
+        replay_upload_note:
+          type: string
+          description: Use HTTP PUT to `replay_upload.url` within its expiry.
+      required: [score_id, validity, duplicate]
+
+    Score:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        chart_id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        instrument_family:
+          $ref: '#/components/schemas/InstrumentFamily'
+        input_method:
+          $ref: '#/components/schemas/InputMethod'
+        mod_mask:
+          type: integer
+          format: int64
+        total_score:
+          type: integer
+        max_combo:
+          type: integer
+        count_perfect:
+          type: integer
+        count_great:
+          type: integer
+        count_ok:
+          type: integer
+        count_miss:
+          type: integer
+        accuracy_cents:
+          type: number
+        timing_avg_ms:
+          type: number
+        timing_dev_ms:
+          type: number
+        kp:
+          type: [number, 'null']
+          description: Null until valid + ranked-chart kp recompute.
+        validity:
+          $ref: '#/components/schemas/Validity'
+        submitted_at:
+          $ref: '#/components/schemas/UtcDateTime'
+      required: [id, chart_id, user_id, instrument_family, input_method,
+                mod_mask, total_score, max_combo, count_perfect, count_great,
+                count_ok, count_miss, accuracy_cents, timing_avg_ms,
+                timing_dev_ms, validity, submitted_at]
+
+    ScorePage:
+      type: object
+      properties:
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/Score'
+        next_cursor:
+          type: [string, 'null']
+      required: [entries]
+
+    LeaderboardEntry:
+      type: object
+      properties:
+        rank_in_board:
+          type: integer
+        user:
+          $ref: '#/components/schemas/PublicUser'
+        score_id:
+          type: string
+          format: uuid
+        kp:
+          type: number
+        total_score:
+          type: integer
+        max_combo:
+          type: integer
+        accuracy_cents:
+          type: number
+        counts:
+          type: object
+          properties:
+            perfect:
+              type: integer
+            great:
+              type: integer
+            ok:
+              type: integer
+            miss:
+              type: integer
+          required: [perfect, great, ok, miss]
+      required: [rank_in_board, user, score_id, kp, total_score, max_combo,
+                accuracy_cents, counts]
+
+    Leaderboard:
+      type: object
+      properties:
+        chart_id:
+          type: string
+          format: uuid
+        input_method:
+          $ref: '#/components/schemas/InputMethod'
+        mod_mask:
+          type: integer
+          format: int64
+        entries:
+          type: array
+          items:
+            $ref: '#/components/schemas/LeaderboardEntry'
+        me:
+          description: Requesting user's best entry on this board, if any.
+          oneOf:
+            - $ref: '#/components/schemas/LeaderboardEntry'
+            - type: 'null'
+        total:
+          type: integer
+        next_offset:
+          type: [integer, 'null']
+      required: [chart_id, input_method, mod_mask, entries]

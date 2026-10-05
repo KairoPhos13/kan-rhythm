@@ -1,0 +1,7 @@
+# Redocly lint configuration for the kan! backend OpenAPI contract.
+# Server URLs are placeholders until the production domain is chosen, so the
+# example.com/localhost rule is disabled deliberately.
+extends:
+  - recommended
+rules:
+  no-server-example.com: off
