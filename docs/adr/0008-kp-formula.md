@@ -1,7 +1,9 @@
 # ADR-0008: `kp` (kan! points) formula — weighted top-N, difficulty multiplier, dual-axis mix
 
-- **Status:** Proposed (draft, design phase — numbers are starting points,
-  to be tuned against real play data before ranked launch)
+- **Status:** Accepted (2026-10-05, confirmed by project owner). Constants
+  (600, exponents, 0.65/0.35 mix ratio, w, N) are starting points tunable
+  against real play data; changes post-launch require an ADR amendment +
+  full kp recompute (see §4–5).
 - **Deciders:** server/ + ranked-criteria maintainers (draft by Agent 6)
 - **Related:** [docs/architecture/backend-data-model.md](../architecture/backend-data-model.md)
   §4, [docs/SPECIFICATION.md](../SPECIFICATION.md) (kp = osu!-pp-style

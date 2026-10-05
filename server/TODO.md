@@ -7,13 +7,13 @@ Implementation starts Milestone 4; spec/design work can start earlier.
 
 - [x] ADR: implementation stack (TypeScript/NestJS vs Go vs Rust) with
       hiring/contributor-ecosystem reasoning —
-      [docs/adr/0007-server-implementation-stack.md](../docs/adr/0007-server-implementation-stack.md) (proposed)
+      [docs/adr/0007-server-implementation-stack.md](../docs/adr/0007-server-implementation-stack.md) (accepted)
 - [x] ADR: `kp` formula (osu!-pp analog: weighted top-N, difficulty
       multiplier from chart features; dual-axis mix ratio timing vs cents) —
-      [docs/adr/0008-kp-formula.md](../docs/adr/0008-kp-formula.md) (proposed)
+      [docs/adr/0008-kp-formula.md](../docs/adr/0008-kp-formula.md) (accepted)
 - [x] ADR: ranked-status workflow & QA roles (kan!check pre-screen →
       community review → ranked), osu! BN precedent —
-      [docs/adr/0009-ranked-status-qa-workflow.md](../docs/adr/0009-ranked-status-qa-workflow.md) (proposed)
+      [docs/adr/0009-ranked-status-qa-workflow.md](../docs/adr/0009-ranked-status-qa-workflow.md) (accepted)
 - [x] OpenAPI v1 contract in `server/api/openapi.yaml` (auth, catalog,
       scores, profiles, boards, billing webhooks) — contract-first rule
       (passes redocly + spectral lint; see `server/api/`)

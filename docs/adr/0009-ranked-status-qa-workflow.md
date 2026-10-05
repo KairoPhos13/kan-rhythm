@@ -1,6 +1,6 @@
 # ADR-0009: Ranked-status workflow & QA roles
 
-- **Status:** Proposed (draft, design phase)
+- **Status:** Accepted (2026-10-05, confirmed by project owner)
 - **Deciders:** server/ + community maintainers (draft by Agent 6)
 - **Related:** [docs/architecture/backend-data-model.md](../architecture/backend-data-model.md)
   §4, [server/TODO.md](../../server/TODO.md), osu! Beatmap Nominator (BN)

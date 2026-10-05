@@ -14,8 +14,8 @@ Design of record: [docs/architecture/backend-data-model.md](../docs/architecture
 | API contract (OpenAPI 3.1, lint-clean) | [`api/openapi.yaml`](api/openapi.yaml) |
 | SQL migrations (PostgreSQL 16+, docker-validated) | [`migrations/`](migrations/README.md) |
 | Threat model (spoofing, replay tampering, Sybil, webhooks) | [`docs/threat-model.md`](docs/threat-model.md) |
-| ADR-0007 stack (TypeScript/NestJS proposed) | [`../docs/adr/0007-server-implementation-stack.md`](../docs/adr/0007-server-implementation-stack.md) |
-| ADR-0008 `kp` formula (dual-axis mix proposed) | [`../docs/adr/0008-kp-formula.md`](../docs/adr/0008-kp-formula.md) |
+| ADR-0007 stack (TypeScript/NestJS accepted) | [`../docs/adr/0007-server-implementation-stack.md`](../docs/adr/0007-server-implementation-stack.md) |
+| ADR-0008 `kp` formula (dual-axis mix accepted) | [`../docs/adr/0008-kp-formula.md`](../docs/adr/0008-kp-formula.md) |
 | ADR-0009 ranked workflow & QA roles | [`../docs/adr/0009-ranked-status-qa-workflow.md`](../docs/adr/0009-ranked-status-qa-workflow.md) |
 
 ## Key decisions (from the design doc)
