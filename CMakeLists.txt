@@ -4,7 +4,13 @@ project(kan-rhythm VERSION 0.1.0 LANGUAGES CXX C)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Optimización máxima para DSP en tiempo real
+option(KAN_BUILD_TESTS "Build component tests" ON)
+
+if(KAN_BUILD_TESTS)
+    enable_testing()
+endif()
+
+# Maximum optimization for real-time DSP
 if(MSVC)
     add_compile_options(/O2 /arch:AVX2)
 else()
@@ -13,7 +19,7 @@ endif()
 
 include(FetchContent)
 
-# Descarga automática de miniaudio (MIT-0)
+# Automatic download of miniaudio (MIT-0)
 FetchContent_Declare(
     miniaudio
     GIT_REPOSITORY https://github.com/mackron/miniaudio.git
@@ -22,12 +28,6 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(miniaudio)
 
-add_executable(kan_cli src/main.cpp)
-target_include_directories(kan_cli PRIVATE src ${miniaudio_SOURCE_DIR})
-
-# Enlaces de sistema para hilos de tiempo real en Linux/macOS
-if(UNIX AND NOT APPLE)
-    target_link_libraries(kan_cli PRIVATE pthread m dl)
-elseif(APPLE)
-    target_link_libraries(kan_cli PRIVATE "-framework CoreAudio" "-framework AudioToolbox" pthread m)
-endif()
+# Components (each top-level folder is designed to be splittable into its own repo)
+add_subdirectory(libkan)
+add_subdirectory(apps)

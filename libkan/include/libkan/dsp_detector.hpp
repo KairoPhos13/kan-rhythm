@@ -6,19 +6,24 @@
 
 namespace kan {
 
+/// Result of a pitch detection over an analysis window.
 struct PitchResult {
     bool valid = false;
     float frequency_hz = 0.0f;
     std::string note_name = "-";
-    float cents_offset = 0.0f;
+    float cents_offset = 0.0f; ///< Deviation in cents relative to equal temperament (A4 = 440 Hz)
 };
 
+/// Hybrid detection pipeline: a fast onset path (~2.6 ms per block) plus a
+/// harmonic pitch path (~20 ms) reporting note name and cents offset.
 class HybridDetector {
 public:
     explicit HybridDetector(float sample_rate = 48000.0f)
         : sample_rate_(sample_rate) {}
 
-    // VÍA RÁPIDA (~2.6 ms): Detecta el ataque físico antes de saber qué nota es
+    /// FAST PATH (~2.6 ms): detects the physical attack before knowing the note.
+    /// Measures the abrupt jump of the energy derivative against the noise floor.
+    /// Must run on the consumer thread (never inside the audio callback).
     bool process_onset_block(const float* samples, size_t count) noexcept {
         float energy = 0.0f;
         float hfc_derivative = 0.0f; // High-Frequency Slope
@@ -31,34 +36,36 @@ public:
         energy /= static_cast<float>(count);
         hfc_derivative /= static_cast<float>(count);
 
-        // Detección de salto brusco respecto al promedio móvil exponencial
+        // Abrupt-jump detection against the exponential moving average
         bool is_onset = false;
         if (cooldown_blocks_ == 0) {
             if (energy > noise_floor_ && hfc_derivative > prev_hfc_ * 3.2f) {
                 is_onset = true;
-                cooldown_blocks_ = 25; // ~65ms de anti-rebote entre golpes
+                cooldown_blocks_ = 25; // ~65 ms debounce between hits
             }
         } else {
             cooldown_blocks_--;
         }
 
-        // Actualizar memoria de energía con decaimiento rápido
+        // Update energy memory with fast decay
         prev_hfc_ = 0.75f * prev_hfc_ + 0.25f * hfc_derivative + 1e-7f;
         return is_onset;
     }
 
-    // VÍA ARMÓNICA (~20 ms): Algoritmo YIN ligero con interpolación parabólica
+    /// HARMONIC PATH (~20 ms): lightweight YIN algorithm with parabolic
+    /// interpolation for sub-sample accuracy (cents precision).
+    /// `window` should hold steady-state audio; attack transients degrade accuracy.
     PitchResult detect_pitch(const std::vector<float>& window) const noexcept {
         PitchResult res;
         const size_t W = window.size() / 2;
 
-        // Verificar energía mínima para no analizar silencio
+        // Minimum energy check to skip silence
         float rms = 0.0f;
         for (float s : window) rms += s * s;
         rms = std::sqrt(rms / window.size());
         if (rms < 0.008f) return res;
 
-        // Rango de búsqueda: 60 Hz (B1) a 1200 Hz (D6)
+        // Search range: 60 Hz (B1) to 1200 Hz (D6)
         const size_t tau_min = static_cast<size_t>(sample_rate_ / 1200.0f);
         const size_t tau_max = std::min(W, static_cast<size_t>(sample_rate_ / 60.0f));
 
@@ -75,7 +82,7 @@ public:
             cmndf[tau] = (running_sum > 0.0f) ? (diff_sum * tau / running_sum) : 1.0f;
         }
 
-        // Umbral estricto de periodicidad YIN
+        // Strict YIN periodicity threshold
         constexpr float threshold = 0.15f;
         size_t best_tau = 0;
         for (size_t tau = tau_min; tau < tau_max - 1; ++tau) {
@@ -87,7 +94,7 @@ public:
 
         if (best_tau == 0) return res;
 
-        // Interpolación parabólica para precisión sub-muestra (exactitud en cents)
+        // Parabolic interpolation for sub-sample precision (cents accuracy)
         float s0 = cmndf[best_tau - 1];
         float s1 = cmndf[best_tau];
         float s2 = cmndf[best_tau + 1];
@@ -105,6 +112,8 @@ private:
     float prev_hfc_ = 0.0001f;
     int cooldown_blocks_ = 0;
 
+    /// Converts a frequency to the nearest equal-tempered note name and the
+    /// deviation in cents relative to that note (A4 = 440 Hz reference).
     static void quantize_to_note(float freq, std::string& out_name, float& out_cents) noexcept {
         static const char* NAMES[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
         float midi_exact = 69.0f + 12.0f * std::log2(freq / 440.0f);

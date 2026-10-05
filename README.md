@@ -1,66 +1,92 @@
-# kan-rhythm ⚡
+# kan-rhythm
 
-**You kan!** Motor DSP híbrido en C++20 para detección de ritmo y afinación en tiempo real, con latencia de buffer de **~2.66 ms** (128 muestras @ 48 kHz).
+**You kan!** Hybrid DSP engine in C++20 for real-time rhythm detection and
+pitch/tuning analysis, with a buffer latency of **~2.66 ms** (128 samples @ 48 kHz).
 
-Sin burocracia: CMake descarga [miniaudio](https://github.com/mackron/miniaudio) automáticamente, abre tu micrófono en modo de ultra-baja latencia, pasa los datos por un **Ring Buffer Lock-Free (SPSC)** sin bloquear nunca el hilo de audio, y detecta en tiempo real:
+No bureaucracy: CMake downloads [miniaudio](https://github.com/mackron/miniaudio)
+automatically, opens your microphone in ultra-low-latency mode, moves the data
+through a **lock-free (SPSC) ring buffer** without ever blocking the audio
+thread, and detects in real time:
 
-- 🥁 **Onset** — el golpe rítmico instantáneo (~3 ms)
-- 🎵 **Nota musical** — pitch monofónico por autocorrelación YIN + desviación en **cents** respecto a A4 = 440 Hz (~21 ms post-ataque)
+- 🥁 **Onset** — the instant rhythmic hit (~3 ms)
+- 🎵 **Musical note** — monophonic pitch via YIN autocorrelation + deviation
+  in **cents** relative to A4 = 440 Hz (~21 ms post-attack)
 
-## Arquitectura
+> **Collaboration language: English.** All code, comments, commits, docs and
+> discussions in this repository are in English. See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## Architecture
 
 ```
-Micrófono (callback RT, cero bloqueos/allocs)
+Microphone (RT callback, zero blocking/allocs)
         │
         ▼
-LockFreeRingBuffer<float, 16384>   ← cola SPSC atómica (src/libkan/ring_buffer.hpp)
+LockFreeRingBuffer<float, 16384>   ← atomic SPSC queue (libkan/include/libkan/ring_buffer.hpp)
         │
         ▼
-HybridDetector                     ← pipeline híbrido (src/libkan/dsp_detector.hpp)
-  ├── process_onset_block()        ← VÍA RÁPIDA: salto de energía/derivada HFC (~2.6 ms/bloque)
-  └── detect_pitch()               ← VÍA ARMÓNICA: YIN ligero + interpolación parabólica (~20 ms)
+HybridDetector                     ← hybrid pipeline (libkan/include/libkan/dsp_detector.hpp)
+  ├── process_onset_block()        ← FAST PATH: energy/HFC-derivative jump (~2.6 ms/block)
+  └── detect_pitch()               ← HARMONIC PATH: lightweight YIN + parabolic interpolation (~20 ms)
         │
         ▼
-CLI en tiempo real (src/main.cpp)  ← ⚡ ONSET! → ✅ HIT CONFIRMADO (nota, Hz, cents)
+Real-time CLI (apps/kan_cli)       ← ⚡ ONSET! → ✅ HIT CONFIRMED (note, Hz, cents)
 ```
 
-## Estructura
+## Repository layout (monorepo)
+
+Each top-level component is designed to be splittable into its own repository later.
 
 ```
 kan-rhythm/
-├── CMakeLists.txt
-├── LICENSE                 (MIT)
-├── README.md
-└── src/
-    ├── libkan/
-    │   ├── ring_buffer.hpp   Comunicación sin bloqueos entre Audio y Juego
-    │   └── dsp_detector.hpp  Pipeline híbrido: Onset rápido + Pitch en cents
-    └── main.cpp              CLI de prueba en tiempo real con tu micrófono
+├── CMakeLists.txt      Superbuild: fetches miniaudio, adds all components
+├── CONTRIBUTING.md     Ground rules (English-only policy, RT-audio rules)
+├── AGENTS.md           Short rules digest for AI coding agents
+├── libkan/             Header-only real-time DSP library (the engine core)
+│   ├── include/libkan/
+│   └── tests/          Offline DSP tests with synthesized signals
+├── apps/
+│   └── kan_cli/        Real-time microphone benchmark CLI
+├── game/               Game client (future)
+├── charts/             Song/chart data + format spec (future)
+├── tools/              CLI utilities: validators, analysis, calibration (future)
+├── donations/          Donation engine — financial support for the project (future)
+├── assets/             Graphics, sounds, fonts (future)
+└── docs/               Architecture docs and design decisions (future)
 ```
 
-## Requisitos
+## Requirements
 
 - CMake ≥ 3.20
-- Compilador C++20 (GCC/Clang/MSVC)
-- Conexión a internet la primera vez (FetchContent descarga miniaudio, MIT-0)
-- Linux: ALSA (paquete `libasound2-dev` en Debian/Ubuntu)
+- C++20 compiler (GCC/Clang/MSVC)
+- Internet connection the first time (FetchContent downloads miniaudio, MIT-0)
+- Linux: ALSA (`libasound2-dev` on Debian/Ubuntu)
 
-## Compilar y ejecutar
+## Build & run
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
 cmake --build build -j
-./build/kan_cli
+./build/apps/kan_cli/kan_cli
 ```
 
-Toca una cuerda de guitarra, una tecla de piano o sopla una flauta frente al micrófono:
+Play a guitar string, a piano key, or blow a flute in front of the microphone:
 
 ```
-⚡ [ONSET! 300/PERFECT] Golpe detectado (<3ms) -> Evaluando tono...
-✅ [HIT CONFIRMADO en +22.3 ms] Nota:  A4 | Freq:  441.2 Hz | Desviacion: +4.7 cents
-🥁 [PERCUSIVO / MUTE] Ataque rítmico sin tono sostenido
+⚡ [ONSET! 300/PERFECT] Hit detected (<3ms) -> Evaluating pitch...
+✅ [HIT CONFIRMED at +22.3 ms] Note:  A4 | Freq:  441.2 Hz | Offset: +4.7 cents
+🥁 [PERCUSSIVE / MUTE] Rhythmic attack without sustained tone
 ```
 
-## Licencia
+## Tests
 
-MIT — ver [LICENSE](LICENSE). miniaudio es MIT-0 / dominio público.
+```bash
+ctest --test-dir build --output-on-failure
+```
+
+The offline DSP test feeds a synthesized, slightly detuned A4 (+10 cents)
+through the full pipeline and asserts onset detection plus pitch accuracy
+within ±3 Hz.
+
+## License
+
+MIT — see [LICENSE](LICENSE). miniaudio is MIT-0 / public domain.

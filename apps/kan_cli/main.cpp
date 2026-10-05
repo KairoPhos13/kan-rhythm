@@ -12,8 +12,8 @@
 #include <csignal>
 
 constexpr uint32_t SAMPLE_RATE = 48000;
-constexpr uint32_t BLOCK_SIZE  = 128; // 2.66 ms de latencia de buffer
-constexpr size_t   PITCH_WINDOW_SAMPLES = 2048; // ~42 ms de ventana deslizante
+constexpr uint32_t BLOCK_SIZE  = 128; // 2.66 ms of buffer latency
+constexpr size_t   PITCH_WINDOW_SAMPLES = 2048; // ~42 ms sliding window
 
 kan::LockFreeRingBuffer<float, 16384> g_audio_ring;
 std::atomic<bool> g_running{true};
@@ -22,7 +22,7 @@ void signal_handler(int /*sig*/) {
     g_running.store(false);
 }
 
-// Hilo de Audio de Tiempo Real (Cero bloqueos, cero allocs)
+// Real-time audio thread (zero blocking, zero allocations)
 void audio_capture_callback(ma_device* /*pDevice*/, void* /*pOutput*/, const void* pInput, ma_uint32 frameCount) {
     const float* in = static_cast<const float*>(pInput);
     if (in != nullptr) {
@@ -50,7 +50,7 @@ int main() {
 
     ma_device device;
     if (ma_device_init(nullptr, &config, &device) != MA_SUCCESS) {
-        std::cerr << "[ERROR] No se pudo inicializar el microfono/interfaz de audio.\n";
+        std::cerr << "[ERROR] Could not initialize the microphone/audio interface.\n";
         return -1;
     }
 
@@ -66,19 +66,19 @@ int main() {
 
     while (g_running.load()) {
         if (g_audio_ring.pop(block, BLOCK_SIZE)) {
-            // Actualizar ventana deslizante para análisis de tono
+            // Update the sliding window used for pitch analysis
             std::move(rolling_window.begin() + BLOCK_SIZE, rolling_window.end(), rolling_window.begin());
             std::copy(block, block + BLOCK_SIZE, rolling_window.end() - BLOCK_SIZE);
 
-            // 1. VÍA RÁPIDA: Detectar el ataque físico al instante
+            // 1. FAST PATH: detect the physical attack instantly
             if (detector.process_onset_block(block, BLOCK_SIZE)) {
                 onset_timestamp = std::chrono::high_resolution_clock::now();
                 waiting_pitch_confirmation = true;
                 blocks_since_onset = 0;
-                std::cout << "⚡ [ONSET! 300/PERFECT] Golpe detectado (<3ms) -> Evaluando tono...\r" << std::flush;
+                std::cout << "⚡ [ONSET! 300/PERFECT] Hit detected (<3ms) -> Evaluating pitch...\r" << std::flush;
             }
 
-            // 2. VÍA ARMÓNICA: Esperar ~4 bloques (~10ms de descarte transitorio) y validar nota
+            // 2. HARMONIC PATH: wait ~8 blocks (~21 ms of transient discard) and validate the note
             if (waiting_pitch_confirmation) {
                 blocks_since_onset++;
                 if (blocks_since_onset >= 8) { // ~21 ms post-onset
@@ -87,14 +87,14 @@ int main() {
                         auto now = std::chrono::high_resolution_clock::now();
                         double ms = std::chrono::duration<double, std::milli>(now - onset_timestamp).count();
 
-                        std::cout << "✅ [HIT CONFIRMADO en +" << std::fixed << std::setprecision(1) << ms << " ms] "
-                                  << "Nota: " << std::setw(3) << pitch.note_name
+                        std::cout << "✅ [HIT CONFIRMED at +" << std::fixed << std::setprecision(1) << ms << " ms] "
+                                  << "Note: " << std::setw(3) << pitch.note_name
                                   << " | Freq: " << std::setw(6) << pitch.frequency_hz << " Hz"
-                                  << " | Desviacion: " << std::showpos << pitch.cents_offset << std::noshowpos << " cents\n";
+                                  << " | Offset: " << std::showpos << pitch.cents_offset << std::noshowpos << " cents\n";
                         waiting_pitch_confirmation = false;
                     } else if (blocks_since_onset > 20) {
-                        // Si tras ~50ms fue solo un golpe percusivo sin nota clara
-                        std::cout << "🥁 [PERCUSIVO / MUTE] Ataque rítmico sin tono sostenido            \n";
+                        // If after ~50 ms it was only a percussive hit without a clear note
+                        std::cout << "🥁 [PERCUSSIVE / MUTE] Rhythmic attack without sustained tone  \n";
                         waiting_pitch_confirmation = false;
                     }
                 }
