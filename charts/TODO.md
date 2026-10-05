@@ -17,6 +17,10 @@ Spec reference: [docs/SPECIFICATION.md](../docs/SPECIFICATION.md) §5.
       (fret/string, transposition, simplifications), difficulty tiers
 - [ ] Instrument profile metadata: family, attack type (plucked/wind/bowed/
       keyboard), range, blanking window defaults
+- [ ] Instrument pack spec (platform-architecture.md §5): profile + technique
+      vocabulary (bend, vibrato, slide, harmonics, mute...) mapped onto
+      canonical-score articulations + fingering-hint data fields in Layer 3
+      (`fret`, `string`, `finger`, `bow_direction`) + helper renderer config
 - [ ] Versioning policy: adding an arrangement must not require re-uploading
       audio (gate: < 50 KB per new instrument arrangement)
 - [ ] Publish the spec so the community can build external tools

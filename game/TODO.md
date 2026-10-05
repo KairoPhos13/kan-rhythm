@@ -5,6 +5,10 @@ Milestones 2–3. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
 
 ## Milestone 2 — Vertical slice (game feel)
 
+Extensibility design of record:
+[docs/architecture/platform-architecture.md](../docs/architecture/platform-architecture.md)
+(scene graph layers, particles, skins, mods, instrument-pack helpers).
+
 - [ ] Engine decision + ADR: Godot 4 (GDExtension C++) vs own SDL3/Vulkan client
 - [ ] Single-lane note highway renderer @ 120+ FPS
       (gate: frame time jitter < 2 ms)
@@ -20,7 +24,15 @@ Milestones 2–3. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       fixed-instrument detune (gate: −35-cent detuned instrument matched
       in < 2 s, no audible artifacts)
 - [ ] Dynamic backing-track mix: attenuate target stem on combo (−12 dB),
-      abrupt energy loss on miss (Mute on Miss)
+      abrupt energy loss on miss (Mute on Miss) — via kanfx ducker node
+- [ ] Mods framework skeleton: mod interface (ranked_eligible, parameter
+      block), hooks for judgment windows / FX inserts / scroll speed /
+      autoplay; leaderboard mod_mask partitioning
+- [ ] Skin pack loader v0 (JSON manifest + atlas + SFX), default skin from assets/
+- [ ] Instrument-pack helper renderers: fret/string bubbles + finger numbers
+      (guitar), fingerings/hand splits (piano), fingering diagrams (winds),
+      bow-direction marks (bowed); intonation sustain lanes with per-pack
+      cent widths — all toggleable beginner→pro
 - [ ] Support 3 test instruments end-to-end: acoustic guitar (mic),
       recorder flute, keyboard/piano
 - [ ] Ambient-noise false-trigger testing (gate: < 1% @ 45 dB SPL, 50 cm)

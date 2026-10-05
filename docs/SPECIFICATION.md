@@ -152,3 +152,40 @@ song.kan
   gardens; users freely share `.kan` maps.
 - Business model: **donations** (`kan!supporter`-style: cosmetic benefits,
   fast direct downloads in-client, profile medals) — see `donations/`.
+
+## 8. Extensibility architecture (osu!-class quality target)
+
+Design of record: [architecture/platform-architecture.md](architecture/platform-architecture.md).
+Summary:
+
+- **Small stable core, big plugin surface:** everything creative is a
+  versioned data pack (`.kan` songs, instrument packs, skin packs, FX preset
+  packs); native plugin ABI deferred to its own ADR.
+- **Audio FX graph (`kanfx/`):** input/backing/sfx/master buses, RT-safe
+  nodes with atomic parameter automation; hosts the dynamic consonance pitch
+  shifter and mute-on-miss ducker; detection taps are non-consuming.
+- **Visual systems (`game/`):** layered scene graph, data-driven GPU
+  particles, shader post-chain, full skin replacement, per-frame cost
+  budgets against the <2 ms jitter gate.
+- **Instrument packs:** profile + technique vocabulary (bends, vibrato,
+  slides, harmonics, mutes) mapped onto canonical-score articulations with
+  per-technique detection strategies + fingering/intonation helper renderers,
+  all toggleable beginner→pro.
+- **Mods system:** osu!-parity modifiers with ranked eligibility flags;
+  leaderboards partition by mod bitmask.
+
+## 9. Backend platform (`server/`)
+
+Design of record: [architecture/backend-data-model.md](architecture/backend-data-model.md).
+Summary:
+
+- Modular monolith → services only when load demands; PostgreSQL single
+  source of truth, S3-compatible object storage for blobs, Redis for cache
+  and ingestion queue; OpenAPI contract-first.
+- Leaderboard key `(chart_id, input_method, mod_mask)`; ranked-only boards;
+  dual-axis scores (timing counts + intonation purity in cents).
+- `kp` = osu!-pp-style weighted top-N with chart-difficulty multiplier
+  (formula gets its own ADR).
+- Score integrity: idempotent submission, manifest hash verification,
+  server-side replay re-simulation, synthetic-injection classifier (≥99%
+  gate), append-only audit events.

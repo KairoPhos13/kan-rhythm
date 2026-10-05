@@ -13,10 +13,18 @@
 
 ## When milestones progress
 
+- [x] `architecture/platform-architecture.md` — extensibility: FX graph,
+      visuals, instrument packs, mods (design direction accepted)
+- [x] `architecture/backend-data-model.md` — server data model, leaderboards,
+      anti-cheat (design direction accepted)
 - [ ] `architecture/` — system overview + audio pipeline diagram + threading model
 - [ ] `dsp/` — onset detector tuning notes, YIN vs BACF comparison results,
       latency budget breakdown (measurements from apps/kan_cli harness)
 - [ ] ADR: game engine choice (Godot 4 GDExtension vs SDL3/Vulkan) — Milestone 2
+- [ ] ADR: native plugin ABI for custom DSP/visual nodes (deferred until
+      data-driven packs prove insufficient)
+- [ ] ADR: `kp` formula (weighted top-N + difficulty multiplier + dual-axis mix)
+- [ ] ADR: server implementation stack (TypeScript vs Go vs Rust)
 - [ ] ADR: stem/transcription model choices (HTDemucs, Basic Pitch) — Milestone 3
 - [ ] ADR: donation provider selection — Milestone 4
 

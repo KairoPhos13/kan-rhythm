@@ -70,14 +70,16 @@ kan-rhythm/
 │   ├── include/libkan/   ring_buffer.hpp, dsp_detector.hpp
 │   ├── tests/            Offline DSP tests with synthesized signals
 │   └── TODO.md
+├── kanfx/              Real-time audio FX graph: buses, consonance pitch-shift, ducker
 ├── apps/
 │   └── kan_cli/        Milestone 1 real-time microphone benchmark CLI
 ├── game/               kan! client + kan!forge editor (future)
 ├── charts/             .kan / .kchart format spec + song data (future)
 ├── tools/              CLI utilities: validators, analysis, calibration (future)
+├── server/             Backend: users, catalog, scores, kp leaderboards (future)
 ├── donations/          Donation engine — financial support for the project (future)
 ├── assets/             Graphics, sounds, fonts (future)
-└── docs/               Specification, roadmap, ADRs
+└── docs/               Specification, roadmap, architecture, ADRs
 ```
 
 ---

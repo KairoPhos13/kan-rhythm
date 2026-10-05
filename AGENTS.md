@@ -8,10 +8,12 @@ Follow these rules for every change in this repository. Full details in
    in this repo must be in English. This overrides the user's conversational
    language: reply to the user in their language, but never commit non-English
    content.
-2. **Monorepo components.** Top-level folders (`libkan/`, `apps/`, `game/`,
-   `charts/`, `tools/`, `donations/`, `assets/`, `docs/`) are future
-   standalone repos. Keep them self-contained; dependencies flow toward
-   `libkan/`, never out of it.
+2. **Monorepo components.** Top-level folders (`libkan/`, `kanfx/`, `apps/`,
+   `game/`, `charts/`, `tools/`, `server/`, `donations/`, `assets/`, `docs/`)
+   are future standalone repos. Keep them self-contained; dependencies flow
+   toward `libkan/`, never out of it (`kanfx/` may use `libkan/` primitives).
+   Architecture of record: `docs/architecture/platform-architecture.md` and
+   `docs/architecture/backend-data-model.md`.
 3. **Real-time safety.** Code on the audio callback path must not allocate,
    block, lock, or do I/O. Use the lock-free ring buffer in `libkan/`.
 4. **Build must stay clean.** C++20, `-Wall -Wextra`, no new warnings.

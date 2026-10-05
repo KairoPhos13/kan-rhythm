@@ -31,10 +31,12 @@ and never reach into another component's internals.
 | Folder        | Component                                                  |
 |---------------|------------------------------------------------------------|
 | `libkan/`     | Header-only real-time DSP library (onset + pitch detection)|
+| `kanfx/`      | Real-time audio FX graph (buses, consonance pitch-shift, ducker) |
 | `apps/`       | Executables (`kan_cli` benchmark, future tools)            |
 | `game/`       | **kan!** client + **kan!forge** editor                     |
 | `charts/`     | `.kan`/`.kchart` song data + format specification          |
 | `tools/`      | CLI utilities (incl. **kan!check** playability linter)     |
+| `server/`     | Backend: users, catalog, scores, leaderboards (`kp`)       |
 | `donations/`  | Donation engine — financial support (`kan!supporter`)      |
 | `assets/`     | Graphics, sounds, fonts                                    |
 | `docs/`       | Specification, roadmap, ADRs                               |

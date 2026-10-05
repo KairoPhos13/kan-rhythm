@@ -6,6 +6,12 @@ Start here: [SPECIFICATION.md](SPECIFICATION.md) (technical spec) ·
 [ROADMAP.md](ROADMAP.md) (milestones + release gates) ·
 [TODO.md](TODO.md) (documentation tasks, ADR backlog).
 
+Architecture deep-dives:
+[architecture/platform-architecture.md](architecture/platform-architecture.md)
+(extensibility: FX graph, visuals, instrument packs, mods) ·
+[architecture/backend-data-model.md](architecture/backend-data-model.md)
+(server: database model, leaderboards, anti-cheat).
+
 ## Intended contents
 
 - `architecture/` — system overview, audio pipeline diagrams, threading model
