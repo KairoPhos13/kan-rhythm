@@ -5,14 +5,15 @@
 #include "libkan/dsp_detector.hpp"
 #include "libkan/precondition.hpp"
 
-#include <iostream>
-#include <iomanip>
-#include <chrono>
-#include <thread>
+#include <algorithm>
 #include <atomic>
+#include <chrono>
 #include <csignal>
-#include <cstring>
 #include <cstdlib>
+#include <cstring>
+#include <iomanip>
+#include <iostream>
+#include <thread>
 #include <vector>
 
 constexpr uint32_t SAMPLE_RATE = 48000;
@@ -36,17 +37,22 @@ void audio_capture_callback(ma_device* /*pDevice*/, void* /*pOutput*/, const voi
 
 int main(int argc, char** argv) {
     // Options: --no-gate (disable the adaptive noise gate),
-    //          --noise-cal <ms> (initial room-silence calibration window).
+    //          --noise-cal <ms> (initial room-silence calibration window),
+    //          --profile <plucked|wind|keyboard> (instrument profile).
     bool use_gate = true;
     int noise_cal_ms = 500;
+    const char* profile_name = nullptr;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--no-gate") == 0) {
             use_gate = false;
         } else if (std::strcmp(argv[i], "--noise-cal") == 0 && i + 1 < argc) {
             noise_cal_ms = std::atoi(argv[++i]);
+        } else if (std::strcmp(argv[i], "--profile") == 0 && i + 1 < argc) {
+            profile_name = argv[++i];
         } else {
             std::cerr << "[ERROR] Unknown option: " << argv[i]
-                      << "\nUsage: kan_cli [--no-gate] [--noise-cal <ms>]\n";
+                      << "\nUsage: kan_cli [--no-gate] [--noise-cal <ms>]"
+                         " [--profile <plucked|wind|keyboard>]\n";
             return -1;
         }
     }
@@ -81,6 +87,22 @@ int main(int argc, char** argv) {
     ma_device_start(&device);
 
     kan::HybridDetector detector(SAMPLE_RATE);
+    kan::InstrumentProfile profile = kan::InstrumentProfile::plucked();
+    if (profile_name != nullptr) {
+        if (!kan::InstrumentProfile::from_name(profile_name, profile)) {
+            std::cerr << "[ERROR] Unknown profile '" << profile_name
+                      << "'. Valid: plucked, wind (bowed), keyboard (piano).\n";
+            ma_device_uninit(&device);
+            return -1;
+        }
+        std::cout << "[stage 2] instrument profile '" << profile_name
+                  << "': transient blanking " << profile.blanking_ms
+                  << " ms, pitch range " << profile.min_freq_hz << "-"
+                  << profile.max_freq_hz << " Hz\n";
+    }
+    detector.set_profile(profile);
+    constexpr float BLOCK_MS = 1000.0f * BLOCK_SIZE / SAMPLE_RATE;
+
     kan::Preconditioner preconditioner(SAMPLE_RATE);
     std::vector<float> calib_silence;
     if (use_gate && noise_cal_ms > 0) {
@@ -133,10 +155,12 @@ int main(int argc, char** argv) {
                 std::cout << "⚡ [ONSET! 300/PERFECT] Hit detected (<3ms) -> Evaluating pitch...\r" << std::flush;
             }
 
-            // 2. HARMONIC PATH: wait ~8 blocks (~21 ms of transient discard) and validate the note
+            // 2. HARMONIC PATH: stage-2 transient blanking per instrument
+            //    profile, then validate the note on the steady-state window.
             if (waiting_pitch_confirmation) {
                 blocks_since_onset++;
-                if (blocks_since_onset >= 8) { // ~21 ms post-onset
+                const float ms_since_onset = blocks_since_onset * BLOCK_MS;
+                if (!detector.in_transient_blanking(ms_since_onset)) {
                     auto pitch = detector.detect_pitch(rolling_window);
                     if (pitch.valid) {
                         auto now = std::chrono::high_resolution_clock::now();

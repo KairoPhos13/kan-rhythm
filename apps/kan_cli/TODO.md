@@ -9,6 +9,10 @@ without any graphics engine.
 - [x] Real-time callback pushing into lock-free ring buffer (zero allocs/locks)
 - [x] Live dual-path output: onset flash → pitch confirmation (note, Hz, cents)
 - [x] Clean SIGINT/SIGTERM shutdown
+- [x] Stage-0 preconditioning on the consumer thread (35 Hz HPF + adaptive
+      noise gate, `--noise-cal <ms>`, `--no-gate`)
+- [x] `--profile <instrument>`: select instrument profile (plucked/wind/keyboard);
+      stage-2 transient blanking driven by the profile
 
 ## Next
 
@@ -19,6 +23,5 @@ without any graphics engine.
       (supports the ≤4.5 ms gate)
 - [ ] `--calibrate`: 2-second reference-note flow printing the instrument's
       Δc global offset in cents
-- [ ] `--profile <instrument>`: select instrument profile (plucked/wind/keyboard)
 - [ ] Underrun counter + 60-minute soak mode (stability gate)
 - [ ] CSV event log mode for offline analysis of detection accuracy

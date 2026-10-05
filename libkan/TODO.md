@@ -11,13 +11,13 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
 - [x] Live CLI benchmark (`apps/kan_cli`) @ 48 kHz / 128 samples
 - [x] Preconditioning stage 0: 35 Hz high-pass filter + adaptive noise gate
       calibrated to room silence (`precondition.hpp`, offline ctest)
+- [x] Transient blanking (stage 2): freeze pitch evaluation 8–12 ms post-onset,
+      configurable per instrument profile (8 ms plucked / 15 ms wind-bowed)
+- [x] Instrument profiles struct (attack ramp offset, blanking window,
+      expected frequency range) — `instrument_profile.hpp`, `--profile` in kan_cli
 
 ## In progress / next (Milestone 1)
 
-- [ ] Transient blanking (stage 2): freeze pitch evaluation 8–12 ms post-onset,
-      configurable per instrument profile (8 ms plucked / 15 ms wind-bowed)
-- [ ] Instrument profiles struct (attack ramp offset, blanking window,
-      expected frequency range)
 - [ ] Integrate **Cycfi Q** (MIT) BACF monophonic detector bounded to
       ±2 semitones of the score-expected note; compare accuracy/latency vs YIN
 - [ ] Integrate **KissFFT** or **PFFFT** (BSD-3)

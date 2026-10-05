@@ -4,6 +4,8 @@
 #include <string>
 #include <algorithm>
 
+#include "instrument_profile.hpp"
+
 namespace kan {
 
 /// Result of a pitch detection over an analysis window.
@@ -28,6 +30,21 @@ public:
 
     /// Current onset energy floor (mean squared amplitude).
     float noise_floor() const noexcept { return noise_floor_; }
+
+    /// Select the instrument profile driving stage-2 transient blanking and
+    /// the pitch search range. Call from a setup thread.
+    void set_profile(const InstrumentProfile& profile) noexcept { profile_ = profile; }
+
+    /// Active instrument profile.
+    const InstrumentProfile& profile() const noexcept { return profile_; }
+
+    /// STAGE 2 — transient blanking: true while pitch evaluation must stay
+    /// frozen because `ms_since_onset` is inside the profile's blanking
+    /// window (attack transients are inharmonic noise that fools pitch
+    /// algorithms). RT-safe, side-effect free.
+    bool in_transient_blanking(float ms_since_onset) const noexcept {
+        return ms_since_onset < profile_.blanking_ms;
+    }
 
     /// FAST PATH (~2.6 ms): detects the physical attack before knowing the note.
     /// Measures the abrupt jump of the energy derivative against the noise floor.
@@ -73,9 +90,9 @@ public:
         rms = std::sqrt(rms / window.size());
         if (rms < 0.008f) return res;
 
-        // Search range: 60 Hz (B1) to 1200 Hz (D6)
-        const size_t tau_min = static_cast<size_t>(sample_rate_ / 1200.0f);
-        const size_t tau_max = std::min(W, static_cast<size_t>(sample_rate_ / 60.0f));
+        // Search range bounded by the instrument profile (defaults 60-1200 Hz)
+        const size_t tau_min = static_cast<size_t>(sample_rate_ / profile_.max_freq_hz);
+        const size_t tau_max = std::min(W, static_cast<size_t>(sample_rate_ / profile_.min_freq_hz));
 
         std::vector<float> cmndf(tau_max, 1.0f);
         float running_sum = 0.0f;
@@ -119,6 +136,7 @@ private:
     float noise_floor_ = 0.0005f;
     float prev_hfc_ = 0.0001f;
     int cooldown_blocks_ = 0;
+    InstrumentProfile profile_{};
 
     /// Converts a frequency to the nearest equal-tempered note name and the
     /// deviation in cents relative to that note (A4 = 440 Hz reference).

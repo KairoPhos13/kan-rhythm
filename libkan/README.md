@@ -16,13 +16,15 @@ detection pipeline that decouples rhythm from pitch.
 ```
 libkan/
 ├── include/libkan/
-│   ├── ring_buffer.hpp    Lock-free SPSC queue
-│   ├── precondition.hpp   Stage 0: 35 Hz high-pass + adaptive noise gate
-│   └── dsp_detector.hpp   HybridDetector: onset + pitch-in-cents
+│   ├── ring_buffer.hpp         Lock-free SPSC queue
+│   ├── precondition.hpp        Stage 0: 35 Hz high-pass + adaptive noise gate
+│   ├── instrument_profile.hpp  Per-instrument profile presets (blanking, range)
+│   └── dsp_detector.hpp        HybridDetector: onset + stage-2 blanking + pitch
 ├── tests/
-│   ├── dsp_test.cpp       Offline test (synthesized detuned A4)
-│   └── precondition_test.cpp  Offline test (synthetic noise / thumps)
-└── TODO.md                Milestone 1 task list
+│   ├── dsp_test.cpp            Offline test (synthesized detuned A4)
+│   ├── precondition_test.cpp   Offline test (synthetic noise / thumps)
+│   └── blanking_test.cpp       Offline test (transient blanking / profiles)
+└── TODO.md                     Milestone 1 task list
 ```
 
 ## Usage
