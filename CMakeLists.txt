@@ -28,6 +28,35 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(miniaudio)
 
+# Cycfi Q (MIT): BACF bitstream-autocorrelation monophonic pitch detector
+# used by libkan's score-informed alternative detector (libkan_bacf).
+option(KAN_ENABLE_BACF "Fetch Cycfi Q (MIT) for the BACF pitch detector" ON)
+if(KAN_ENABLE_BACF)
+    set(Q_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    set(Q_BUILD_TEST OFF CACHE BOOL "" FORCE)
+    set(Q_BUILD_IO OFF CACHE BOOL "" FORCE)
+    set(Q_BUILD_PLUG OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        cycfi_q
+        GIT_REPOSITORY https://github.com/cycfi/q.git
+        GIT_TAG        v1.5.0
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(cycfi_q)
+
+    # Treat Cycfi Q + infra headers as SYSTEM includes: third-party warnings
+    # must not pollute the -Wall -Wextra clean-build rule (CONTRIBUTING §4).
+    foreach(_kan_q_target libq infra)
+        if(TARGET ${_kan_q_target})
+            get_target_property(_kan_q_inc ${_kan_q_target} INTERFACE_INCLUDE_DIRECTORIES)
+            if(_kan_q_inc)
+                set_target_properties(${_kan_q_target} PROPERTIES
+                    INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_kan_q_inc}")
+            endif()
+        endif()
+    endforeach()
+endif()
+
 # Components (each top-level folder is designed to be splittable into its own repo)
 add_subdirectory(libkan)
 add_subdirectory(apps)

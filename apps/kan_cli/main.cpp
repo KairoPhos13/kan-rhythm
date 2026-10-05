@@ -4,6 +4,9 @@
 #include "libkan/ring_buffer.hpp"
 #include "libkan/dsp_detector.hpp"
 #include "libkan/precondition.hpp"
+#ifdef KAN_CLI_HAVE_BACF
+#include "libkan/bacf_detector.hpp"
+#endif
 
 #include <algorithm>
 #include <atomic>
@@ -38,10 +41,12 @@ void audio_capture_callback(ma_device* /*pDevice*/, void* /*pOutput*/, const voi
 int main(int argc, char** argv) {
     // Options: --no-gate (disable the adaptive noise gate),
     //          --noise-cal <ms> (initial room-silence calibration window),
-    //          --profile <plucked|wind|keyboard> (instrument profile).
+    //          --profile <plucked|wind|keyboard> (instrument profile),
+    //          --detector <yin|bacf> (harmonic-path pitch detector).
     bool use_gate = true;
     int noise_cal_ms = 500;
     const char* profile_name = nullptr;
+    const char* detector_name = "yin";
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--no-gate") == 0) {
             use_gate = false;
@@ -49,12 +54,27 @@ int main(int argc, char** argv) {
             noise_cal_ms = std::atoi(argv[++i]);
         } else if (std::strcmp(argv[i], "--profile") == 0 && i + 1 < argc) {
             profile_name = argv[++i];
+        } else if (std::strcmp(argv[i], "--detector") == 0 && i + 1 < argc) {
+            detector_name = argv[++i];
         } else {
             std::cerr << "[ERROR] Unknown option: " << argv[i]
                       << "\nUsage: kan_cli [--no-gate] [--noise-cal <ms>]"
-                         " [--profile <plucked|wind|keyboard>]\n";
+                         " [--profile <plucked|wind|keyboard>]"
+                         " [--detector <yin|bacf>]\n";
             return -1;
         }
+    }
+    const bool use_bacf = std::strcmp(detector_name, "bacf") == 0;
+    if (use_bacf) {
+#ifndef KAN_CLI_HAVE_BACF
+        std::cerr << "[ERROR] This build has no BACF support (KAN_ENABLE_BACF=OFF).\n";
+        return -1;
+#else
+        std::cout << "[stage 3] harmonic path detector: Cycfi Q BACF (blind full-range)\n";
+#endif
+    } else if (std::strcmp(detector_name, "yin") != 0) {
+        std::cerr << "[ERROR] Unknown detector '" << detector_name << "'. Valid: yin, bacf.\n";
+        return -1;
     }
 
     std::cout << "====================================================\n";
@@ -104,6 +124,9 @@ int main(int argc, char** argv) {
     constexpr float BLOCK_MS = 1000.0f * BLOCK_SIZE / SAMPLE_RATE;
 
     kan::Preconditioner preconditioner(SAMPLE_RATE);
+#ifdef KAN_CLI_HAVE_BACF
+    kan::BacfDetector bacf(SAMPLE_RATE); // blind full-range mode (no chart in the CLI)
+#endif
     std::vector<float> calib_silence;
     if (use_gate && noise_cal_ms > 0) {
         calib_silence.reserve(static_cast<size_t>(SAMPLE_RATE / 1000 * noise_cal_ms));
@@ -152,8 +175,18 @@ int main(int argc, char** argv) {
                 onset_timestamp = std::chrono::high_resolution_clock::now();
                 waiting_pitch_confirmation = true;
                 blocks_since_onset = 0;
+#ifdef KAN_CLI_HAVE_BACF
+                if (use_bacf) bacf.reset(); // streak belongs to the new note
+#endif
                 std::cout << "⚡ [ONSET! 300/PERFECT] Hit detected (<3ms) -> Evaluating pitch...\r" << std::flush;
             }
+
+#ifdef KAN_CLI_HAVE_BACF
+            // Keep the BACF bitstream detector continuously fed so its
+            // internal state is warm when the blanking window ends.
+            kan::PitchResult bacf_pitch;
+            if (use_bacf) bacf_pitch = bacf.process_block(conditioned, BLOCK_SIZE);
+#endif
 
             // 2. HARMONIC PATH: stage-2 transient blanking per instrument
             //    profile, then validate the note on the steady-state window.
@@ -161,7 +194,12 @@ int main(int argc, char** argv) {
                 blocks_since_onset++;
                 const float ms_since_onset = blocks_since_onset * BLOCK_MS;
                 if (!detector.in_transient_blanking(ms_since_onset)) {
-                    auto pitch = detector.detect_pitch(rolling_window);
+#ifdef KAN_CLI_HAVE_BACF
+                    const kan::PitchResult pitch =
+                        use_bacf ? bacf_pitch : detector.detect_pitch(rolling_window);
+#else
+                    const kan::PitchResult pitch = detector.detect_pitch(rolling_window);
+#endif
                     if (pitch.valid) {
                         auto now = std::chrono::high_resolution_clock::now();
                         double ms = std::chrono::duration<double, std::milli>(now - onset_timestamp).count();

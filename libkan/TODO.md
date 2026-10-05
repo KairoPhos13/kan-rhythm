@@ -15,11 +15,13 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
       configurable per instrument profile (8 ms plucked / 15 ms wind-bowed)
 - [x] Instrument profiles struct (attack ramp offset, blanking window,
       expected frequency range) — `instrument_profile.hpp`, `--profile` in kan_cli
+- [x] Integrate **Cycfi Q** (MIT) BACF monophonic detector bounded to
+      ±2 semitones of the score-expected note; compare accuracy/latency vs YIN
+      — `bacf_detector.hpp`, `bounded_pitch.hpp` (fast confirmation stage),
+      A/B results in `docs/dsp/bacf-vs-yin.md`, `--detector` in kan_cli
 
 ## In progress / next (Milestone 1)
 
-- [ ] Integrate **Cycfi Q** (MIT) BACF monophonic detector bounded to
-      ±2 semitones of the score-expected note; compare accuracy/latency vs YIN
 - [ ] Integrate **KissFFT** or **PFFFT** (BSD-3)
 - [ ] Score-informed chord validation: Goertzel bank / 12-bin chroma
       projection over expected fundamentals + first 3 harmonics, cosine

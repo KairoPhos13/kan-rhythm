@@ -13,6 +13,8 @@ without any graphics engine.
       noise gate, `--noise-cal <ms>`, `--no-gate`)
 - [x] `--profile <instrument>`: select instrument profile (plucked/wind/keyboard);
       stage-2 transient blanking driven by the profile
+- [x] `--detector <yin|bacf>`: harmonic-path detector selection (Cycfi Q BACF
+      blind mode vs rolling-window YIN)
 
 ## Next
 
