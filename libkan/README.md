@@ -3,6 +3,9 @@
 Header-only real-time DSP library at the core of **kan!**: the hybrid
 detection pipeline that decouples rhythm from pitch.
 
+- **Stage 0 preconditioning:** zero-latency 4th-order 35 Hz high-pass +
+  adaptive noise gate calibrated to room silence (kills stand thumps and
+  ghost onsets from ambient noise)
 - **Fast path (~2.6 ms):** onset detection (HFC energy derivative) for
   instant rhythmic hit judgment
 - **Harmonic path (~20–30 ms):** monophonic pitch (YIN today, BACF planned)
@@ -14,9 +17,11 @@ detection pipeline that decouples rhythm from pitch.
 libkan/
 ├── include/libkan/
 │   ├── ring_buffer.hpp    Lock-free SPSC queue
+│   ├── precondition.hpp   Stage 0: 35 Hz high-pass + adaptive noise gate
 │   └── dsp_detector.hpp   HybridDetector: onset + pitch-in-cents
 ├── tests/
-│   └── dsp_test.cpp       Offline test (synthesized detuned A4)
+│   ├── dsp_test.cpp       Offline test (synthesized detuned A4)
+│   └── precondition_test.cpp  Offline test (synthetic noise / thumps)
 └── TODO.md                Milestone 1 task list
 ```
 

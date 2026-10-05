@@ -3,6 +3,7 @@
 
 #include "libkan/ring_buffer.hpp"
 #include "libkan/dsp_detector.hpp"
+#include "libkan/precondition.hpp"
 
 #include <iostream>
 #include <iomanip>
@@ -10,6 +11,9 @@
 #include <thread>
 #include <atomic>
 #include <csignal>
+#include <cstring>
+#include <cstdlib>
+#include <vector>
 
 constexpr uint32_t SAMPLE_RATE = 48000;
 constexpr uint32_t BLOCK_SIZE  = 128; // 2.66 ms of buffer latency
@@ -30,12 +34,32 @@ void audio_capture_callback(ma_device* /*pDevice*/, void* /*pOutput*/, const voi
     }
 }
 
-int main() {
+int main(int argc, char** argv) {
+    // Options: --no-gate (disable the adaptive noise gate),
+    //          --noise-cal <ms> (initial room-silence calibration window).
+    bool use_gate = true;
+    int noise_cal_ms = 500;
+    for (int i = 1; i < argc; ++i) {
+        if (std::strcmp(argv[i], "--no-gate") == 0) {
+            use_gate = false;
+        } else if (std::strcmp(argv[i], "--noise-cal") == 0 && i + 1 < argc) {
+            noise_cal_ms = std::atoi(argv[++i]);
+        } else {
+            std::cerr << "[ERROR] Unknown option: " << argv[i]
+                      << "\nUsage: kan_cli [--no-gate] [--noise-cal <ms>]\n";
+            return -1;
+        }
+    }
+
     std::cout << "====================================================\n";
     std::cout << "  kan! (libkan v0.1) - Hybrid DSP Engine Benchmark  \n";
     std::cout << "  Buffer: " << BLOCK_SIZE << " samples @ " << SAMPLE_RATE << " Hz (~2.66 ms)\n";
     std::cout << "  Grab your instrument. You kan! (Ctrl+C to exit)   \n";
     std::cout << "====================================================\n" << std::endl;
+    if (use_gate) {
+        std::cout << "[stage 0] 35 Hz high-pass + adaptive noise gate; keep the room\n"
+                  << "          quiet for the first " << noise_cal_ms << " ms to calibrate...\n";
+    }
 
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
@@ -57,7 +81,16 @@ int main() {
     ma_device_start(&device);
 
     kan::HybridDetector detector(SAMPLE_RATE);
+    kan::Preconditioner preconditioner(SAMPLE_RATE);
+    std::vector<float> calib_silence;
+    if (use_gate && noise_cal_ms > 0) {
+        calib_silence.reserve(static_cast<size_t>(SAMPLE_RATE / 1000 * noise_cal_ms));
+    }
+    const size_t calib_target = calib_silence.capacity();
+    bool gate_calibrated = !use_gate || calib_target == 0;
+
     float block[BLOCK_SIZE];
+    float conditioned[BLOCK_SIZE]; // stage-0 output feeds detection + pitch window
     std::vector<float> rolling_window(PITCH_WINDOW_SAMPLES, 0.0f);
 
     bool waiting_pitch_confirmation = false;
@@ -66,12 +99,34 @@ int main() {
 
     while (g_running.load()) {
         if (g_audio_ring.pop(block, BLOCK_SIZE)) {
+            // Stage 0 preconditioning (consumer thread, RT-safe primitives):
+            // 35 Hz high-pass + adaptive noise gate calibrated to room silence.
+            if (use_gate) {
+                if (!gate_calibrated) {
+                    calib_silence.insert(calib_silence.end(), block, block + BLOCK_SIZE);
+                    if (calib_silence.size() >= calib_target) {
+                        preconditioner.calibrate(calib_silence.data(), calib_silence.size());
+                        // Share the learned floor with the onset detector.
+                        const float floor_rms = preconditioner.gate().noise_floor_rms();
+                        detector.set_noise_floor(floor_rms * floor_rms);
+                        gate_calibrated = true;
+                        calib_silence.clear();
+                        calib_silence.shrink_to_fit();
+                        std::cout << "[stage 0] noise gate calibrated: floor RMS = "
+                                  << std::fixed << std::setprecision(5) << floor_rms << "\n";
+                    }
+                }
+                preconditioner.process_block(block, conditioned, BLOCK_SIZE);
+            } else {
+                std::memcpy(conditioned, block, BLOCK_SIZE * sizeof(float));
+            }
+
             // Update the sliding window used for pitch analysis
             std::move(rolling_window.begin() + BLOCK_SIZE, rolling_window.end(), rolling_window.begin());
-            std::copy(block, block + BLOCK_SIZE, rolling_window.end() - BLOCK_SIZE);
+            std::copy(conditioned, conditioned + BLOCK_SIZE, rolling_window.end() - BLOCK_SIZE);
 
             // 1. FAST PATH: detect the physical attack instantly
-            if (detector.process_onset_block(block, BLOCK_SIZE)) {
+            if (detector.process_onset_block(conditioned, BLOCK_SIZE)) {
                 onset_timestamp = std::chrono::high_resolution_clock::now();
                 waiting_pitch_confirmation = true;
                 blocks_since_onset = 0;

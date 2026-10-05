@@ -10,4 +10,8 @@ if(KAN_BUILD_TESTS)
     add_executable(libkan_dsp_test tests/dsp_test.cpp)
     target_link_libraries(libkan_dsp_test PRIVATE libkan)
     add_test(NAME libkan_dsp_test COMMAND libkan_dsp_test)
+
+    add_executable(libkan_precondition_test tests/precondition_test.cpp)
+    target_link_libraries(libkan_precondition_test PRIVATE libkan)
+    add_test(NAME libkan_precondition_test COMMAND libkan_precondition_test)
 endif()

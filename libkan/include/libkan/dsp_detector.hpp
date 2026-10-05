@@ -21,6 +21,14 @@ public:
     explicit HybridDetector(float sample_rate = 48000.0f)
         : sample_rate_(sample_rate) {}
 
+    /// Set the absolute energy floor (mean squared amplitude) an onset must
+    /// exceed. Feed this from a NoiseGate calibration so the onset detector
+    /// shares the learned room-silence level instead of the built-in default.
+    void set_noise_floor(float energy) noexcept { noise_floor_ = energy; }
+
+    /// Current onset energy floor (mean squared amplitude).
+    float noise_floor() const noexcept { return noise_floor_; }
+
     /// FAST PATH (~2.6 ms): detects the physical attack before knowing the note.
     /// Measures the abrupt jump of the energy derivative against the noise floor.
     /// Must run on the consumer thread (never inside the audio callback).

@@ -9,11 +9,11 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
 - [x] Monophonic pitch: lightweight YIN + parabolic interpolation, cents vs A4=440
 - [x] Offline ctest with synthesized +10-cent A4 (onset + pitch within ±3 Hz)
 - [x] Live CLI benchmark (`apps/kan_cli`) @ 48 kHz / 128 samples
+- [x] Preconditioning stage 0: 35 Hz high-pass filter + adaptive noise gate
+      calibrated to room silence (`precondition.hpp`, offline ctest)
 
 ## In progress / next (Milestone 1)
 
-- [ ] Preconditioning stage 0: 35 Hz high-pass filter + adaptive noise gate
-      calibrated to room silence
 - [ ] Transient blanking (stage 2): freeze pitch evaluation 8–12 ms post-onset,
       configurable per instrument profile (8 ms plucked / 15 ms wind-bowed)
 - [ ] Instrument profiles struct (attack ramp offset, blanking window,
