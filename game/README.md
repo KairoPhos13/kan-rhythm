@@ -1,9 +1,11 @@
 # game/
 
-The kan-rhythm game client: engine integration, rendering, gameplay logic,
-scoring, and the player-facing experience.
+The **kan!** game client (engine integration, rendering, gameplay logic,
+dual-axis scoring) and the integrated **kan!forge** map editor with local AI
+stem separation and note transcription.
 
-**Status:** planned — this folder is a placeholder.
+**Status:** planned — see [TODO.md](TODO.md) for the scoped task list
+(Milestones 2–3).
 
 ## Ground rules (apply from day one)
 

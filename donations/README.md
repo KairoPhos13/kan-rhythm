@@ -1,9 +1,10 @@
 # donations/
 
 The donation engine — the financial support layer for the whole kan-rhythm
-project.
+project (osu!-style: the game stays free, the community sustains it via
+`kan!supporter`).
 
-**Status:** planned — this folder is a placeholder.
+**Status:** planned — see [TODO.md](TODO.md) for the scoped task list.
 
 ## Vision
 

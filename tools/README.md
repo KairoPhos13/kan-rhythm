@@ -1,9 +1,9 @@
 # tools/
 
 Command-line utilities that support development and content creation for
-kan-rhythm.
+kan-rhythm, including the **kan!check** biomechanical playability linter.
 
-**Status:** planned — this folder is a placeholder.
+**Status:** planned — see [TODO.md](TODO.md) for the scoped task list.
 
 ## Intended tools
 

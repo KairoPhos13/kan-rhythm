@@ -2,7 +2,9 @@
 
 Architecture documentation and design decisions for kan-rhythm.
 
-**Status:** placeholder — add documents as the project grows.
+Start here: [SPECIFICATION.md](SPECIFICATION.md) (technical spec) ·
+[ROADMAP.md](ROADMAP.md) (milestones + release gates) ·
+[TODO.md](TODO.md) (documentation tasks, ADR backlog).
 
 ## Intended contents
 

@@ -1,9 +1,11 @@
 # charts/
 
-Song and chart data for kan-rhythm: the chart format specification, official
-charts, and validation tooling references.
+Song and chart data for kan-rhythm: the **`.kan`** song-package format, the
+lightweight per-instrument **`.kchart`** arrangement files, official charts,
+and validation tooling references.
 
-**Status:** planned — this folder is a placeholder.
+**Status:** planned — see [TODO.md](TODO.md). Format spec draft:
+[docs/SPECIFICATION.md](../docs/SPECIFICATION.md) §5.
 
 ## Intended contents
 

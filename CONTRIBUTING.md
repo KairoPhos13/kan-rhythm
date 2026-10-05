@@ -32,12 +32,14 @@ and never reach into another component's internals.
 |---------------|------------------------------------------------------------|
 | `libkan/`     | Header-only real-time DSP library (onset + pitch detection)|
 | `apps/`       | Executables (`kan_cli` benchmark, future tools)            |
-| `game/`       | Game client (engine, rendering, gameplay logic)            |
-| `charts/`     | Song/chart data and the chart format specification         |
-| `tools/`      | CLI utilities (chart validator, analysis, calibration)     |
-| `donations/`  | Donation engine — financial support for the project        |
+| `game/`       | **kan!** client + **kan!forge** editor                     |
+| `charts/`     | `.kan`/`.kchart` song data + format specification          |
+| `tools/`      | CLI utilities (incl. **kan!check** playability linter)     |
+| `donations/`  | Donation engine — financial support (`kan!supporter`)      |
 | `assets/`     | Graphics, sounds, fonts                                    |
-| `docs/`       | Architecture docs and design decisions                     |
+| `docs/`       | Specification, roadmap, ADRs                               |
+
+Every component keeps a `TODO.md` with its scoped, milestone-linked task list.
 
 Dependencies point one way: `apps/`, `game/`, and `tools/` may depend on
 `libkan/`; `libkan/` must not depend on anything else in the monorepo.
