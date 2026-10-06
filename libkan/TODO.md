@@ -31,8 +31,10 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
 
 ## In progress / next (Milestone 1)
 
-## In progress / next (Milestone 1)
-
+- [x] Full instrument-range coverage (complete piano range A0–C8 incl.
+      bass ocarinas/bass guitars): all 88 keys detected + confirmed with
+      correct semitone identity; YIN sustains within 10 cents; physics
+      walls documented in `docs/dsp/range-coverage.md`
 - [x] Global detuning calibrator: measure Δc (cents) from a 2 s reference note,
       expose API to shift detector target frequencies — `calibration.hpp`
       (`DetuneCalibrator` + `TuningCompensation`), numbers in

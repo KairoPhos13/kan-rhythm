@@ -45,6 +45,12 @@ public:
     /// Current onset energy floor (mean squared amplitude).
     float noise_floor() const noexcept { return noise_floor_; }
 
+    /// YIN periodicity threshold (default 0.15): the CMNDF dip depth needed
+    /// to accept a pitch. Bright harmonic tones and fundamental-attenuated
+    /// bass (35 Hz HPF) push the dip up — raise to ~0.2 there, lower for
+    /// soft pure tones. See docs/dsp/range-coverage.md.
+    void set_periodicity_threshold(float t) noexcept { periodicity_threshold_ = t; }
+
     /// Select the instrument profile driving stage-2 transient blanking and
     /// the pitch search range. Call from a setup thread.
     void set_profile(const InstrumentProfile& profile) noexcept { profile_ = profile; }
@@ -135,11 +141,13 @@ public:
         // Search range bounded by the instrument profile (defaults 60-1200 Hz);
         // when the score provides an expected note (stage 3), the search is
         // further bounded to ±window_semitones around it, eliminating octave
-        // and subharmonic errors.
+        // and subharmonic errors. The +2 margin keeps the parabolic peak
+        // search inside the range at the very top of the instrument range
+        // (at ~3.5-4.2 kHz the whole band spans only ~3 integer lags).
         const float f_min = has_expected_note() ? bound_min_hz_ : profile_.min_freq_hz;
         const float f_max = has_expected_note() ? bound_max_hz_ : profile_.max_freq_hz;
         const size_t tau_min = std::max<size_t>(1, static_cast<size_t>(sample_rate_ / f_max));
-        const size_t tau_max = std::min(W, static_cast<size_t>(sample_rate_ / f_min));
+        const size_t tau_max = std::min(W, static_cast<size_t>(sample_rate_ / f_min) + 2);
 
         std::vector<float> cmndf(tau_max, 1.0f);
         float running_sum = 0.0f;
@@ -154,8 +162,8 @@ public:
             cmndf[tau] = (running_sum > 0.0f) ? (diff_sum * tau / running_sum) : 1.0f;
         }
 
-        // Strict YIN periodicity threshold
-        constexpr float threshold = 0.15f;
+        // Strict YIN periodicity threshold (configurable per spectrum).
+        const float threshold = periodicity_threshold_;
         size_t best_tau = 0;
         for (size_t tau = tau_min; tau < tau_max - 1; ++tau) {
             if (cmndf[tau] < threshold && cmndf[tau] < cmndf[tau + 1]) {
@@ -182,6 +190,7 @@ private:
     float sample_rate_;
     float noise_floor_ = 0.0005f;
     float prev_hfc_ = 0.0001f;
+    float periodicity_threshold_ = 0.15f;
     int cooldown_blocks_ = 0;
     InstrumentProfile profile_{};
     float expected_hz_ = 0.0f;

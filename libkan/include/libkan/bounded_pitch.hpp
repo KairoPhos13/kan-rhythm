@@ -60,14 +60,23 @@ public:
         const float f_max = expected_hz * factor;
         tau_min_ = std::max<size_t>(2, static_cast<size_t>(sample_rate_ / f_max));
         tau_max_ = static_cast<size_t>(std::ceil(sample_rate_ / f_min)) + 1;
+        // Correlation overlap beyond the longest candidate lag: half a
+        // period (clamped) — short overlaps left the NSDF peak broad enough
+        // for 30-50 cent ambiguity at low notes (range_test). Half a period
+        // costs ~2 ms of confirmation latency below ~150 Hz, where no
+        // latency gate exists anyway (docs/dsp/range-coverage.md).
+        const float period = sample_rate_ / expected_hz;
+        min_pairs_ = std::clamp(size_t(std::round(period / 2.0f)), size_t(64), size_t(512));
         nsdf_.assign(tau_max_ + 2, 0.0f);
     }
 
     bool has_expected_note() const noexcept { return expected_hz_ > 0.0f; }
 
     /// Minimum correlation overlap beyond the longest candidate lag
-    /// (default 64 samples ~ 1.33 ms at 48 kHz). Measured: sub-cent
-    /// accuracy on C4..A5, ~15 cents worst-case on E2 at this setting.
+    /// (default: half a period of the expected note, clamped to [64, 512]).
+    /// Measured: sub-cent accuracy on C4..A5, ~15 cents worst-case on E2 at
+    /// 64 pairs; half a period holds <25 cents across the full piano range
+    /// (range_test).
     void set_min_pairs(size_t pairs) noexcept { min_pairs_ = pairs > 0 ? pairs : 1; }
 
     /// Recommended clean-window length for the current expected note:

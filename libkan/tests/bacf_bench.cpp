@@ -304,14 +304,16 @@ int main() {
     // correlation pairs + block quantization; regression bounds below
     // (full gate analysis in docs/dsp/latency-measurements.md):
     // - every suite note must confirm
-    // - every note <= 24.5 ms; notes above 261 Hz < 16 ms (E2's floor is
-    //   8 ms blanking + 12.9 ms longest lag + 1.3 ms pairs + quantization)
+    // - every note <= 29.5 ms; notes above 261 Hz < 16 ms (E2's floor is
+    //   8 ms blanking + 12.9 ms longest lag + half-period overlap; the
+    //   half-period overlap trades ~4 ms at E2 for sub-cent accuracy —
+    //   see docs/dsp/range-coverage.md)
     // - avg abs err < 25 cents (confirmation stage; BACF/YIN refine cents)
     pass &= bounded.confirmed == int(total);
     if (bounded.confirmed) pass &= bounded.abs_err_sum_c / bounded.confirmed < 25.0;
     for (size_t n = 0; n < total; ++n) {
         if (bounded.per_note_ms[n] >= 0.0f) {
-            pass &= bounded.per_note_ms[n] <= 24.5f;
+            pass &= bounded.per_note_ms[n] <= 29.5f;
             if (SUITE[n].freq > 261.0f) pass &= bounded.per_note_ms[n] < 16.0f;
         }
     }

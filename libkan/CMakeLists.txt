@@ -57,6 +57,14 @@ if(KAN_BUILD_TESTS)
     target_link_libraries(libkan_tap_test PRIVATE libkan)
     add_test(NAME libkan_tap_test COMMAND libkan_tap_test)
 
+    add_executable(libkan_range_test tests/range_test.cpp)
+    target_link_libraries(libkan_range_test PRIVATE libkan)
+    if(TARGET libkan_bacf)
+        target_compile_definitions(libkan_range_test PRIVATE RANGE_TEST_HAVE_BACF=1)
+        target_link_libraries(libkan_range_test PRIVATE libkan_bacf)
+    endif()
+    add_test(NAME libkan_range_test COMMAND libkan_range_test)
+
     # Loopback regression harness: generate the WAV fixtures, then run the
     # pipeline over them (CTest fixture ordering guarantees the sequence).
     add_executable(libkan_fixture_gen tests/fixture_gen.cpp)
