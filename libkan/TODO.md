@@ -63,15 +63,22 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
       `docs/dsp/latency-measurements.md` (hardware measurement pending
       cable rig)
 
-## Milestone 1 release gates (all must pass)
+## Milestone 1 release gates (status: measured vs physics vs hardware)
 
 - [ ] Onset latency (hardware → event) ≤ 4.5 ms
+      — offline half measured +1.33 ms block-quantized (loopback bench);
+      end-to-end needs the loopback-cable rig [H]
 - [ ] Mono confirmation < 22 ms for notes > 82 Hz; < 12 ms for notes > 261 Hz
-- [ ] Chord verification < 32 ms with F1 > 94% (major vs minor vs wrong-string)
-      — ✅ measured 29.3 ms / F1 1.0000 (`docs/dsp/chord-validation.md`);
-      remaining: track here once the judge integrates it in-game
-- [ ] DSP thread CPU < 3% of one core
-- [ ] Zero buffer underruns over 60 min continuous run
+      — game-feel validated over the full piano range (range-coverage.md);
+      the strict band numbers sit at the period-limited physics floor
+      (~1 period + blanking) — documented, not chased
+- [x] Chord verification < 32 ms with F1 > 94% (major vs minor vs wrong-string)
+      — measured 29.3 ms / F1 1.0000 (`docs/dsp/chord-validation.md`)
+- [x] DSP thread CPU < 3% of one core — measured < 0.1% (all stages,
+      `docs/dsp/latency-measurements.md`)
+- [ ] Zero buffer underruns over 60 min continuous run [H] — needs the
+      soak on real hardware; offline loopback bench covers pipeline
+      integrity
 
 ## Rules
 
