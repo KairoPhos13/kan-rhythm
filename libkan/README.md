@@ -20,6 +20,7 @@ libkan/
 │   ├── ring_buffer.hpp         Lock-free SPSC queue
 │   ├── precondition.hpp        Stage 0: 35 Hz high-pass + adaptive noise gate
 │   ├── instrument_profile.hpp  Per-instrument profile presets (blanking, range)
+│   ├── calibration.hpp         Tuning compensation: Δc calibrator, Δc1..Δc6 matrix, EMA tonal center
 │   ├── dsp_detector.hpp        HybridDetector: onset + stage-2 blanking + YIN pitch
 │   ├── bacf_detector.hpp       Score-informed Cycfi Q BACF detector (needs libkan_bacf)
 │   └── bounded_pitch.hpp       Bounded-lag NSDF matcher: fast ±2-semitone confirmation

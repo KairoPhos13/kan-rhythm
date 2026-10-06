@@ -57,9 +57,11 @@ configure downloads miniaudio + Cycfi Q + KissFFT — MIT/BSD only).
 - **Score-informed confirmation** (`--expect`): the bounded-lag matcher
   confirms the expected note in ~20 ms of clean tone (measured 21 ms in the
   selftest) — the same code path the game will call per chart note.
-- **Δc calibration readout** (`--calibrate`): the 2-second reference-note
-  flow of SPECIFICATION §2 (measured value only — the compensation itself
-  is Milestone-1 item 5, not wired yet).
+- **Δc calibration (`--calibrate`)**: the 2-second reference-note flow of
+  SPECIFICATION §2 — prints your instrument's global detuning Δc and then
+  **applies** it: the tuner shows your residual vs your own tuning, and
+  `--expect` targets shift by the same Δc (measured: a +12-cent-sharp
+  instrument reads +0.0 cents after calibration).
 - Offline regression test (`--selftest`, wired into ctest).
 
 ## Known caveats (measured, not hidden)
@@ -91,8 +93,9 @@ configure downloads miniaudio + Cycfi Q + KissFFT — MIT/BSD only).
   tables live in `docs/dsp/latency-measurements.md` (offline benches);
   hardware→event latency needs a loopback-cable run (item 8).
 - **No visuals, no chart, no game loop.** Pure terminal.
-- **Detuning compensation is read-only**: `--calibrate` prints Δc but does
-  not yet shift detector targets (item 5).
+- **Per-string compensation (`Δc1..Δc6`) and relative tuning** exist as
+  libkan APIs (`calibration.hpp`) but the demo drives the global Δc only —
+  the guided strum flow and fretless relative-tuning readout are demo TODO.
 
 ## Ocarina quick start
 

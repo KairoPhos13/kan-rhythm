@@ -33,13 +33,15 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
 
 ## In progress / next (Milestone 1)
 
-- [ ] Global detuning calibrator: measure Δc (cents) from a 2 s reference note,
-      expose API to shift detector target frequencies
+- [x] Global detuning calibrator: measure Δc (cents) from a 2 s reference note,
+      expose API to shift detector target frequencies — `calibration.hpp`
+      (`DetuneCalibrator` + `TuningCompensation`), numbers in
+      `docs/dsp/calibration.md`, applied live in `kan_demo --calibrate`
 - [ ] Integrate **Signalsmith Stretch** (MIT) for real-time backing-track
-      pitch shift of ±Δc (BPM preserved)
-- [ ] Per-string compensation matrix API (`Δc1..Δc6`, 3 s guided strum input)
-- [ ] Relative-tuning mode for fretless instruments: interval evaluation vs
-      moving tonal center of gravity (EMA)
+      pitch shift of ±Δc (BPM preserved) — lives in kanfx's chain, not libkan
+- [x] Per-string compensation matrix API (`Δc1..Δc6`, 3 s guided strum input)
+- [x] Relative-tuning mode for fretless instruments: interval evaluation vs
+      moving tonal center of gravity (EMA) — `RelativeTuningTracker`
 - [ ] Technique validators (platform-architecture.md §5): cents-trajectory
       tracking for bend/vibrato/slide vs expected curves; envelope-shape
       checks for staccato/legato/accent/mute; spectral signature templates

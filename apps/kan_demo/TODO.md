@@ -24,8 +24,10 @@ the detection stack; gate validation stays in `apps/kan_cli`.
       frequency right after onset and hold it (measured +80..+130 cents on a
       pure tone). Investigate Cycfi Q `median3`/bias warmup; until fixed the
       demo defaults to YIN. Feeds the bacf-vs-yin.md A/B work.
-- [ ] Wire item-5 detuning compensation once `libkan` exposes it: apply Δc
-      to detector targets and `--expect` frequencies after `--calibrate`
+- [x] Wire item-5 detuning compensation: `--calibrate` now applies Δc to the
+      tuner readout and `--expect` targets (`calibration.hpp`)
+- [ ] Per-string matrix UI (`Δc1..Δc6` guided strum flow) — API ready in
+      `calibration.hpp`, demo shows global only
 - [ ] Live chord display once a two-handed instrument is picked up
       (validator exists in libkan; needs UI + strum-onset handling)
 - [ ] CSV event log (onset time, note, cents) for offline analysis

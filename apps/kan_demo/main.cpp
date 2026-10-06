@@ -22,6 +22,7 @@
 #include "libkan/instrument_profile.hpp"
 #include "libkan/precondition.hpp"
 #include "libkan/bounded_pitch.hpp"
+#include "libkan/calibration.hpp"
 #ifdef KAN_DEMO_HAVE_BACF
 #include "libkan/bacf_detector.hpp"
 #endif
@@ -472,9 +473,16 @@ int main(int argc, char** argv) {
     const size_t calib_target = calib.capacity();
     bool gate_calibrated = !use_gate || calib_target == 0;
 
-    // Calibration mode state: collect steady pitches for 2 s.
-    std::vector<float> cal_freqs;
-    bool cal_done = false;
+    // Calibration mode state (item 5): 2 s reference note -> Δc, applied to
+    // the tuner readout (and --expect targets) once complete.
+    kan::DetuneCalibrator calibrator(2.0f);
+    kan::TuningCompensation comp;
+    bool cal_done = !calibrate;
+    const auto session_start = std::chrono::steady_clock::now();
+    auto session_seconds = [&]() {
+        return float(std::chrono::duration<double>(
+            std::chrono::steady_clock::now() - session_start).count());
+    };
 
     // Tuner state: stable display, hysteresis against note flicker.
     float display_midi = -1.0f;
@@ -485,27 +493,35 @@ int main(int argc, char** argv) {
     auto on_pitch = [&](const kan::PitchResult& pr, float ms_after) {
         const float freq = pr.frequency_hz;
         const float exact_midi = 69.0f + 12.0f * std::log2(freq / 440.0f);
-        if (display_midi < 0.0f || std::fabs(exact_midi - display_midi) > 0.7f) {
-            display_midi = std::floor(exact_midi + 0.5f); // snap, ±50 c window
-        }
-        const float cents = (exact_midi - display_midi) * 100.0f;
 
-        if (calibrate && !cal_done) {
-            cal_freqs.push_back(freq);
-            if (cal_freqs.size() >= 120) { // ~2 s of steady readings
-                std::vector<float> tmp = cal_freqs;
-                std::nth_element(tmp.begin(), tmp.begin() + tmp.size() / 2, tmp.end());
-                const float med = tmp[tmp.size() / 2];
-                const float nearest = 440.0f * std::pow(2.0f, (std::floor(0.5f + (
-                    69.0f + 12.0f * std::log2(med / 440.0f))) - 69.0f) / 12.0f);
-                const float dc = 1200.0f * std::log2(med / nearest);
-                std::printf("\n[calibration] median %.2f Hz vs %s = %+.1f cents "
-                            "(Δc global offset)\n",
-                            med, midi_to_name(69.0f + 12.0f * std::log2(nearest / 440.0f)).c_str(), dc);
-                std::printf("[calibration] done. Continuing as a tuner...\n");
+        if (!cal_done) {
+            calibrator.add_frequency(freq, session_seconds());
+            if (calibrator.ready()) {
+                const auto m = calibrator.finish(); // nearest equal-tempered note
+                comp.set_global(m.delta_cents);
                 cal_done = true;
+                std::printf("\n[calibration] measured %.2f Hz vs %s = %+.2f cents "
+                            "(Δc global offset, spread %.2f)\n",
+                            m.measured_hz,
+                            midi_to_name(m.standard_midi).c_str(), m.delta_cents,
+                            m.spread_cents);
+                std::printf("[calibration] compensation applied: the tuner now shows "
+                            "your residual vs your OWN tuning.\n");
+                if (expect_note != nullptr) {
+                    pipeline.matcher.set_expected_note(comp.target_frequency(
+                        440.0f * std::pow(2.0f, (expected_midi - 69.0f) / 12.0f)));
+                    std::printf("[calibration] --expect target shifted by the same Δc.\n");
+                }
             }
         }
+
+        // Compensated readout: deviations relative to the instrument's own
+        // tuning (SPEC §2 dynamic consonance), not to fixed A440.
+        const float adj_midi = exact_midi - comp.global_cents / 100.0f;
+        if (display_midi < 0.0f || std::fabs(adj_midi - display_midi) > 0.7f) {
+            display_midi = std::floor(adj_midi + 0.5f); // snap, ±50 c window
+        }
+        const float cents = (adj_midi - display_midi) * 100.0f;
 
         ++pitches_shown;
         abs_cents_sum += std::fabs(cents);
