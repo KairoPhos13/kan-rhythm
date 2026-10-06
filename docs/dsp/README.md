@@ -254,6 +254,25 @@ Phase-1a experiment behind
 [architecture/note-description-stream.md](../architecture/note-description-stream.md)
 §2). Apps must not include these.
 
+### 2.13 `note_stream.hpp` — the per-note description stream
+
+"Register by note": each attack opens a record and facts stream as they
+become available — `HIT` (fixed at the onset, never revised), `PITCH`
+(provisional → one final estimate or `unresolved`), `CONTENT` (blind
+mono/polyphonic class + per-candidate presence/cents/amplitude when the
+caller supplies hypotheses, including notes still sustaining), `EXPRESSION`
+(envelope, vibrato, level), `CLOSE` (decay-relative end). `NoteEvent` is a
+fixed-size POD with audio-true flags only (MIX/HOP/POLYPHONIC/DOMINANT/
+UNEXPLAINED_ENERGY/LOW_REGISTER/SEARCH_SATURATED) — the stream never emits
+numbers the tool distrusts. `NoteEventStream` is lock-free SPSC with a
+visible drop counter; `NoteDescriber` splits the work into an
+allocation-free `process_block` fast path and scheduled `finalize_due()`
+long-window fits (an app may run the latter on a worker thread). Includes
+the JSONL schema-v1 writer and the blind `classify_content()` (Goertzel
+series counting). Design, measured evidence and the fairness rule:
+[note-description-stream.md](../architecture/note-description-stream.md);
+tests: `libkan/tests/note_stream_test.cpp` (six fixtures).
+
 ---
 
 ## 3. Assembling the game pipeline

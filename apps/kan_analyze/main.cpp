@@ -17,6 +17,7 @@
 #include "libkan/dsp_detector.hpp"
 #include "libkan/instrument_profile.hpp"
 #include "libkan/technique.hpp"
+#include "libkan/note_stream.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -404,6 +405,44 @@ void format_row(const NoteRec& n, size_t idx, char* buf, size_t cap) {
 }
 
 // ---------------------------------------------------------------------------
+// The per-note description stream (docs/architecture/note-description-stream.md):
+// one JSONL line per NoteEvent, the same schema kan_demo logs live. Offline
+// runs the same canonical consumer loop over 128-sample blocks, so the log
+// is byte-identical to a live capture of the same audio.
+void drain_events(kan::NoteEventStream& stream, FILE* f) {
+    kan::NoteEvent batch[64];
+    for (;;) {
+        const size_t got = stream.pop(batch, 64);
+        if (got == 0) break;
+        for (size_t i = 0; i < got; ++i) {
+            char buf[512];
+            if (kan::note_event_jsonl(batch[i], buf, sizeof(buf)) > 0) std::fputs(buf, f);
+        }
+    }
+}
+
+int write_event_stream(const std::vector<float>& sig,
+                       const kan::InstrumentProfile& profile, const char* path) {
+    FILE* f = std::fopen(path, "w");
+    if (f == nullptr) return -1;
+    kan::Preconditioner pre{float(SR)};
+    kan::NoteDescriber desc(float(SR), profile);
+    kan::NoteEventStream stream(8192);
+    desc.subscribe(stream);
+    std::vector<float> cond(B, 0.0f);
+    for (size_t off = 0; off + B <= sig.size(); off += B) {
+        pre.process_block(&sig[off], cond.data(), B);
+        desc.process_block(cond.data(), B);
+        while (desc.finalize_due()) {}
+        drain_events(stream, f);
+    }
+    desc.flush();
+    drain_events(stream, f);
+    std::fclose(f);
+    return 0;
+}
+
+// ---------------------------------------------------------------------------
 void print_report(const Report& r, bool json, FILE* out) {
     // Song-level features = the learner-evaluation rubric. MIX regions
     // (polyphony/duet overlaps) are unreliable for mono pitch — listed and
@@ -645,6 +684,7 @@ int main(int argc, char** argv) {
     const char* profile_name = "ocarina";
     const char* out_wav = nullptr;
     const char* json_out = nullptr;
+    const char* events_out = nullptr;
     bool json = false;
 
     for (int i = 1; i < argc; ++i) {
@@ -652,6 +692,7 @@ int main(int argc, char** argv) {
         else if (std::strcmp(argv[i], "--instrument") == 0 && i + 1 < argc) profile_name = argv[++i];
         else if (std::strcmp(argv[i], "--json") == 0) json = true;
         else if (std::strcmp(argv[i], "--json-out") == 0 && i + 1 < argc) json_out = argv[++i];
+        else if (std::strcmp(argv[i], "--events") == 0 && i + 1 < argc) events_out = argv[++i];
         else if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_wav = argv[++i];
         else if (std::strcmp(argv[i], "--help") == 0) {
             std::printf("kan_analyze — song performance descriptor\n"
@@ -659,6 +700,8 @@ int main(int argc, char** argv) {
                         "recorder|guitar|piano] [--json|--json-out f.json]\n"
                         "  kan_analyze --synth <ocarina|piano|duet|fx|hop> [...] [--out f.wav]\n"
                         "  kan_analyze --selftest   offline report-consistency check\n"
+                        "  --events <f.jsonl>  also write the per-note description stream\n"
+                        "                      (same schema as kan_demo --events)\n"
                         "  --out <f.wav>  also write the source audio (hear the scenario)\n");
             return 0;
         } else if (std::strcmp(argv[i], "--selftest") == 0) {
@@ -704,6 +747,15 @@ int main(int argc, char** argv) {
     }
 
     auto report = analyze(sig, source.c_str(), profile, window_ms);
+
+    // Optional: the per-note description stream (facts as they become
+    // available; one schema shared with the live path).
+    if (events_out != nullptr) {
+        if (write_event_stream(sig, profile, events_out) != 0) {
+            std::fprintf(stderr, "[ERROR] cannot write %s\n", events_out);
+            return -1;
+        }
+    }
 
     // Optional: write the source audio (so a synthesized scenario or a
     // decoded recording can actually be listened to).

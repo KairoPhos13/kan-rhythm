@@ -898,14 +898,22 @@ private:
         }
 
         // EXPRESSION: envelope + vibrato (measurements only; dynamics tiers
-        // are Phase 3 — the raw level in dBFS is reported now).
+        // are Phase 3 — the raw level in dBFS is reported now). Vibrato is
+        // only claimed from a stable pitch trajectory: an unstable one
+        // (hops / >200 c swings) would produce spurious rate/depth numbers,
+        // and the stream never emits numbers it distrusts.
         const float hop_ms = 1000.0f * float(bucket_samples_) / sr_;
         EnvelopeAnalyzer env;
         const EnvelopeMeasurement m =
             n.rms_count >= 4 ? env.measure(n.rms_series, n.rms_count, hop_ms)
                              : EnvelopeMeasurement{};
-        VibratoAnalyzer vib;
-        const VibratoMeasurement v = vib.measure(n.traj);
+        const bool stable_pitch = n.readings > 1
+            && float(n.hops) / float(n.readings - 1) <= 0.2f && n.max_dev <= 200.0f;
+        VibratoMeasurement v;
+        if (stable_pitch) {
+            VibratoAnalyzer vib;
+            v = vib.measure(n.traj);
+        }
         const float dyn_db = (m.peak > 0.0f) ? 20.0f * std::log10(m.peak) : -120.0f;
         emit(note_event::make_expression(n.id, end_ms, dyn_db, m.attack_ms, m.release_ms,
                                          m.sustain_ratio, v.rate_hz, v.depth_cents));

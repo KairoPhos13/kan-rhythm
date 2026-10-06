@@ -32,6 +32,8 @@ line. Those belong to `game/` (Milestone 2).
 | `--calibrate` | 2 s reference-note flow (`DetuneCalibrator`) → prints Δc and **applies** it (`TuningCompensation::set_global`): the tuner then shows residual vs the instrument's own tuning, and `--expect` targets shift by the same Δc. |
 | `--vibrato` | Live technique readout: `VibratoAnalyzer` over the per-note cents trajectory → "vib 5.1 Hz +33 c" or "vib --". Trajectory is cleared at each onset. |
 | `--csv <file>` | Per-**update** rows: `t_ms,note,hz,cents,vib_hz,vib_depth_c`. This is a raw live trace — NOT the aggregated per-note descriptor (that is `kan_analyze`'s job, same feature vocabulary). |
+| `--events <f.jsonl>` | The **per-note description stream** (libkan `note_stream.hpp`): HIT (fixed at the onset) → provisional pitch (display-only) → CONTENT (mono/polyphonic + per-candidate presence/cents/amplitude when `--candidates` is given) → final pitch or honest `unresolved` → EXPRESSION → CLOSE. Progressive on screen; JSONL on disk with the same schema as `kan_analyze --events` (live/offline diffable). |
+| `--candidates <f>` | Candidate hypotheses per attack (one line per attack, space-separated midis — include notes still sustaining from earlier attacks). Conditions the CONTENT measurements; absent hypotheses get low presence, never invented facts. Anonymous here (the demo has no chart to bind ids to). |
 | `--no-gate` / `--noise-cal <ms>` | Stage-0 noise gate bypass / room-silence calibration window (default 500 ms at startup). |
 | `--selftest` | Offline pipeline check on a synthesized ocarina note (wired into ctest as `kan_demo_selftest`). |
 

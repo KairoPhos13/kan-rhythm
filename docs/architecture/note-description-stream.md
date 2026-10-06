@@ -428,12 +428,7 @@ only).
 
 ## 8. Phase 2 implementation plan (decisions resolved, §7)
 
-Status: **libkan core + fixtures shipped** (`libkan_note_stream_test`, six
-fixtures green); app wiring next. Measured fact latencies on the fixtures
-(keyboard profile): HIT = onset block (≤ 2.7 ms quantized), provisional
-pitch ≈ +59 ms after the onset (6 ms blanking + 43 ms window + 10 ms
-grid), final facts at the evidence-window end ≈ +177 ms (or at the note's
-close for short notes), EXPRESSION/CLOSE at the decay-relative end.
+Status: **Phase 2 shipped** — libkan core + six fixtures (`libkan_note_stream_test`), `kan_analyze --events` (offline JSONL) and `kan_demo --events/--candidates` (progressive display, live JSONL). Measured fact latencies on the fixtures (keyboard profile): HIT = onset block (≤ 2.7 ms quantized), provisional pitch ≈ +59 ms after the onset (6 ms blanking + 43 ms window + 10 ms grid), final facts at the evidence-window end ≈ +177 ms (or at the note's close for short notes), EXPRESSION/CLOSE at the decay-relative end. Phase 3 (dynamics tiers pp..ff) is next.
 
 - `libkan/include/libkan/instrument_profile.hpp`: add
   `max_simultaneous_notes` (wind 1 / guitar 6 / piano 10) and the

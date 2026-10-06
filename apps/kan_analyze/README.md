@@ -8,11 +8,16 @@ on — a reference descriptor is both the **level seed** and the **rubric**.
 ```bash
 kan_analyze my_recording.mp3 --instrument ocarina [--json]
 kan_analyze --synth <ocarina|piano|duet|fx|hop>   # built-in offline scenarios
+kan_analyze my_recording.wav --events notes.jsonl # per-note description stream
 ```
 
 - Sources: WAV/MP3/FLAC (miniaudio decoder) or synthesized scenarios.
 - Instruments: `ocarina` (default), `flute`, `recorder`, `guitar`, `piano`.
-- Output: text report or `--json` (machine-readable events + features).
+- Output: text report or `--json` (machine-readable events + features);
+  `--events <f.jsonl>` writes the per-note description stream (HIT /
+  provisional / CONTENT / final / EXPRESSION / CLOSE facts,
+  `libkan/note_stream.hpp`) — the same schema `kan_demo --events` logs
+  live, byte-identical on the same audio.
 - One estimate per event: `midi`/`hz`/`cents` describe the same reading of
   the note (Hz derived from the note + cents pair). Rows the tool cannot
   estimate honestly print `-` (text) / `null` (JSON) in those columns.

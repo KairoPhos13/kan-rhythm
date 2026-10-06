@@ -24,6 +24,7 @@
 #include "libkan/bounded_pitch.hpp"
 #include "libkan/calibration.hpp"
 #include "libkan/technique.hpp"
+#include "libkan/note_stream.hpp"
 #ifdef KAN_DEMO_HAVE_BACF
 #include "libkan/bacf_detector.hpp"
 #endif
@@ -156,6 +157,8 @@ struct Pipeline {
 
     std::vector<float> rolling;   // YIN window (free mode)
     std::vector<float> clean;     // post-blanking window (--expect mode)
+    float conditioned_last[BLOCK_SIZE] = {0}; ///< stage-0 output of the last
+                                             /// block (the description stream)
 
     bool in_blanking = false;
     float ms_since_onset = 0.0f;
@@ -192,6 +195,7 @@ struct Pipeline {
         Result r;
         float conditioned[BLOCK_SIZE];
         pre.process_block(raw, conditioned, block);
+        std::memcpy(conditioned_last, conditioned, sizeof(conditioned));
 
         // Stage 1: fast onset. A new attack resets the trackers and re-arms
         // transient blanking (stage 2).
@@ -249,6 +253,94 @@ struct Pipeline {
         return r;
     }
 };
+
+// ---------------------------------------------------------------------------
+// Per-note description stream (docs/architecture/note-description-stream.md):
+// facts as they become available — HIT (fixed at the onset), provisional
+// pitch (display-only), CONTENT (mono/polyphonic + per-candidate
+// measurements), final pitch or honest "unresolved", EXPRESSION, CLOSE.
+// With --events the same facts go to a JSONL log (the schema kan_analyze
+// --events writes offline; live/offline byte-identical on the same audio).
+
+void print_event(const kan::NoteEvent& e, FILE* jsonl) {
+    if (jsonl != nullptr) {
+        char buf[512];
+        if (kan::note_event_jsonl(e, buf, sizeof(buf)) > 0) std::fputs(buf, jsonl);
+    }
+    switch (e.kind) {
+    case kan::NoteKind::Hit:
+        std::printf("\n▶ #%u ONSET\n", e.note_id);
+        return;
+    case kan::NoteKind::Pitch:
+        if (e.stage == kan::PitchStage::Unresolved || e.u.pitch.hz <= 0.0f) {
+            std::printf("  #%u pitch %s: unresolved%s%s\n", e.note_id,
+                        e.stage == kan::PitchStage::Final ? "final      " : "provisional",
+                        (e.flags & kan::kFlagHop) ? " [HOP]" : "",
+                        (e.flags & kan::kFlagMixed) ? " [MIX]" : "");
+        } else {
+            std::printf("  #%u pitch %s: %-4s %+6.1f c  %7.2f Hz%s\n", e.note_id,
+                        e.stage == kan::PitchStage::Final ? "final      " : "provisional",
+                        midi_to_name(e.u.pitch.midi).c_str(), double(e.u.pitch.cents),
+                        double(e.u.pitch.hz),
+                        (e.flags & kan::kFlagDominant) ? " [dominant]" : "");
+        }
+        return;
+    case kan::NoteKind::Content:
+        if (e.klass != kan::ContentClass::Unknown) {
+            if (e.klass == kan::ContentClass::Polyphonic) {
+                std::printf("  #%u content: polyphonic, %.0f unresolved\n",
+                            e.note_id, double(e.u.content.n_unresolved));
+            } else {
+                std::printf("  #%u content: mono\n", e.note_id);
+            }
+        } else {
+            std::printf("     cand %-4s presence %.2f %+6.1f c amp %.3f (sim %.2f)%s\n",
+                        midi_to_name(e.u.candidate.midi).c_str(),
+                        double(e.u.candidate.presence), double(e.u.candidate.cents),
+                        double(e.u.candidate.amplitude), double(e.u.candidate.similarity),
+                        (e.flags & kan::kFlagSearchSaturated) ? " [search-saturated]" : "");
+        }
+        return;
+    case kan::NoteKind::Expression:
+        std::printf("  #%u expression: level %.1f dB, attack %.0f ms, release %.0f ms, "
+                    "sustain %.2f", e.note_id, double(e.u.expression.dynamics_db),
+                    double(e.u.expression.attack_ms), double(e.u.expression.release_ms),
+                    double(e.u.expression.sustain_ratio));
+        if (e.u.expression.vib_rate_hz > 0.0f) {
+            std::printf(", vibrato %.1f Hz %.0f c", double(e.u.expression.vib_rate_hz),
+                        double(e.u.expression.vib_depth_c));
+        }
+        std::printf("\n");
+        return;
+    case kan::NoteKind::Close:
+        std::printf("  #%u close: %.0f ms\n", e.note_id, double(e.u.close.duration_ms));
+        return;
+    }
+}
+
+/// --candidates file: one line per attack, space-separated midi hypotheses
+/// (include notes still sustaining from earlier attacks). Consumed in
+/// attack order; anonymous hypotheses (the demo has no chart to bind to).
+std::vector<std::vector<float>> load_candidates(const char* path) {
+    std::vector<std::vector<float>> out;
+    FILE* f = std::fopen(path, "r");
+    if (f == nullptr) return out;
+    char line[256];
+    while (std::fgets(line, sizeof(line), f) != nullptr) {
+        std::vector<float> midis;
+        const char* p = line;
+        for (;;) {
+            char* end = nullptr;
+            const float v = std::strtof(p, &end);
+            if (end == p) break;
+            midis.push_back(v);
+            p = end;
+        }
+        if (!midis.empty()) out.push_back(std::move(midis));
+    }
+    std::fclose(f);
+    return out;
+}
 
 // ---------------------------------------------------------------------------
 // Synthesized ocarina-ish tone for --selftest: breathy attack (turbulence
@@ -336,6 +428,77 @@ int run_selftest() {
         pass &= onset && confirmed && confirm_ms > 0.0f && confirm_ms < 60.0f;
     }
 
+    // Per-note description stream: a chord with candidate hypotheses must
+    // produce per-candidate presence/cents facts, and the absent hypothesis
+    // must not be invented (the conditioned measurement path --candidates
+    // exercises live).
+    {
+        kan::InstrumentProfile piano = preset("piano").profile;
+        kan::NoteDescriber desc(float(SAMPLE_RATE), piano);
+        kan::NoteEventStream stream(1024);
+        desc.subscribe(stream);
+        std::vector<float> chord(size_t(0.6f * float(SAMPLE_RATE)), 0.0f);
+        const float freqs[3] = {261.63f, 329.63f, 392.00f}; // C4 E4 G4
+        for (size_t i = 0; i < chord.size(); ++i) {
+            const float t = float(i) / float(SAMPLE_RATE);
+            float s = 0.0f;
+            if (t < 0.008f) {
+                const uint32_t h = uint32_t(i) * 2654435761u + 3u;
+                s = 0.15f * (float(int((h ^ (h >> 13)) % 2000)) / 1000.0f - 1.0f)
+                  * (1.0f - t / 0.008f);
+            }
+            for (float f : freqs) {
+                for (int h = 1; h <= 4; ++h) {
+                    s += 0.33f * (0.5f / float(h)) * std::exp(-1.2f * t)
+                       * std::sin(2.0f * float(M_PI) * f * float(h) * t);
+                }
+            }
+            chord[i] = 0.6f * s;
+        }
+        kan::NoteDescriber::CandidateSet cs; // hypotheses for the next attack
+        cs.note_id = 0;
+        cs.count = 4;
+        cs.entries[0] = {0, 60.0f};
+        cs.entries[1] = {0, 64.0f};
+        cs.entries[2] = {0, 67.0f};
+        cs.entries[3] = {0, 69.0f}; // A4: absent — must not be invented
+        desc.set_candidates(cs);
+
+        bool hit = false, provisional = false, close_seen = false, absent_low = false;
+        int cand_seen = 0;
+        auto drain = [&]() {
+            kan::NoteEvent batch[32];
+            for (;;) {
+                const size_t got = stream.pop(batch, 32);
+                if (got == 0) break;
+                for (size_t k = 0; k < got; ++k) {
+                    const auto& e = batch[k];
+                    if (e.kind == kan::NoteKind::Hit) hit = true;
+                    if (e.kind == kan::NoteKind::Pitch
+                        && e.stage == kan::PitchStage::Provisional) provisional = true;
+                    if (e.kind == kan::NoteKind::Close) close_seen = true;
+                    if (e.kind == kan::NoteKind::Content
+                        && e.klass == kan::ContentClass::Unknown) {
+                        ++cand_seen;
+                        if (e.u.candidate.midi == 69.0f
+                            && e.u.candidate.presence <= 0.05f) absent_low = true;
+                    }
+                }
+            }
+        };
+        for (size_t off = 0; off + BLOCK_SIZE <= chord.size(); off += BLOCK_SIZE) {
+            desc.process_block(&chord[off], BLOCK_SIZE);
+            while (desc.finalize_due()) {}
+            drain();
+        }
+        desc.flush();
+        drain();
+        printf("note stream:  hit=%d provisional=%d candidate facts=%d "
+               "absent<=0.05=%d close=%d\n",
+               int(hit), int(provisional), cand_seen, int(absent_low), int(close_seen));
+        pass &= hit && provisional && cand_seen == 4 && absent_low && close_seen;
+    }
+
     printf(pass ? "SELFTEST PASS\n" : "SELFTEST FAIL\n");
     return pass ? 0 : 1;
 }
@@ -360,6 +523,15 @@ void print_usage() {
         "  --csv <file>          write per-note events (onset ms, note, Hz,\n"
         "                        cents, vibrato) — the descriptor feature\n"
         "                        stream for later evaluation\n"
+        "  --events <f.jsonl>    write the per-note description stream (HIT /\n"
+        "                        provisional / CONTENT / final / EXPRESSION /\n"
+        "                        CLOSE facts; same schema as kan_analyze\n"
+        "                        --events — live/offline diffable) and show\n"
+        "                        the facts progressively on screen\n"
+        "  --candidates <f>      candidate hypotheses per attack (one line per\n"
+        "                        attack, space-separated midis; include notes\n"
+        "                        still sustaining) — conditions the CONTENT\n"
+        "                        measurements (presence/cents/amplitude)\n"
         "  --no-gate             disable the adaptive noise gate\n"
         "  --noise-cal <ms>      room-silence calibration window (default 500)\n"
         "  --selftest            offline pipeline check (no audio device)\n"
@@ -373,6 +545,8 @@ int main(int argc, char** argv) {
     const char* expect_note = nullptr;
     const char* engine = "yin";
     const char* csv_path = nullptr;
+    const char* events_path = nullptr;
+    const char* candidates_path = nullptr;
     bool calibrate = false;
     bool vibrato_mode = false;
     bool use_gate = true;
@@ -391,6 +565,10 @@ int main(int argc, char** argv) {
             vibrato_mode = true;
         } else if (std::strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
             csv_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--events") == 0 && i + 1 < argc) {
+            events_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--candidates") == 0 && i + 1 < argc) {
+            candidates_path = argv[++i];
         } else if (std::strcmp(argv[i], "--no-gate") == 0) {
             use_gate = false;
         } else if (std::strcmp(argv[i], "--noise-cal") == 0 && i + 1 < argc) {
@@ -520,6 +698,51 @@ int main(int argc, char** argv) {
         std::fprintf(csv, "t_ms,note,hz,cents,vib_hz,vib_depth_c\n");
     }
 
+    // Per-note description stream: progressive facts on screen, optional
+    // JSONL log (--events), optional candidate hypotheses (--candidates).
+    FILE* events = nullptr;
+    if (events_path != nullptr) {
+        events = std::fopen(events_path, "w");
+        if (events == nullptr) {
+            std::fprintf(stderr, "[ERROR] cannot open %s for writing\n", events_path);
+            return -1;
+        }
+    }
+    std::vector<std::vector<float>> cand_lists;
+    if (candidates_path != nullptr) {
+        cand_lists = load_candidates(candidates_path);
+        if (cand_lists.empty()) {
+            std::fprintf(stderr, "[ERROR] no candidates read from %s\n", candidates_path);
+            return -1;
+        }
+    }
+    kan::NoteDescriber desc(float(SAMPLE_RATE), inst.profile);
+    kan::NoteEventStream ev_stream(4096);
+    desc.subscribe(ev_stream);
+    size_t cand_idx = 0;
+    auto drain_events = [&]() {
+        kan::NoteEvent batch[32];
+        for (;;) {
+            const size_t got = ev_stream.pop(batch, 32);
+            if (got == 0) break;
+            for (size_t k = 0; k < got; ++k) {
+                const auto& e = batch[k];
+                if (e.kind == kan::NoteKind::Hit && cand_idx < cand_lists.size()) {
+                    // Hypotheses for this attack (may include notes still
+                    // sustaining from earlier attacks — anonymous here).
+                    kan::NoteDescriber::CandidateSet cs;
+                    cs.note_id = e.note_id;
+                    const auto& midis = cand_lists[cand_idx++];
+                    cs.count = uint8_t(std::min<size_t>(midis.size(),
+                                                        kan::NoteDescriber::kMaxCandidates));
+                    for (size_t m = 0; m < cs.count; ++m) cs.entries[m] = {0, midis[m]};
+                    desc.set_candidates(cs);
+                }
+                print_event(e, events);
+            }
+        }
+    };
+
     auto on_pitch = [&](const kan::PitchResult& pr, float ms_after) {
         const float freq = pr.frequency_hz;
         const float exact_midi = 69.0f + 12.0f * std::log2(freq / 440.0f);
@@ -612,6 +835,14 @@ int main(int argc, char** argv) {
         }
 
         auto r = pipeline.process(block);
+
+        // The description stream consumes the same stage-0 audio: facts as
+        // they become available (HIT/provisional inline; long-window final
+        // measurements via finalize_due — movable to a worker thread).
+        desc.process_block(pipeline.conditioned_last, BLOCK_SIZE);
+        while (desc.finalize_due()) {}
+        drain_events();
+
         if (r.onset) {
             ++notes_played;
             vib_traj.clear(); // trajectory is per-note
@@ -621,6 +852,8 @@ int main(int argc, char** argv) {
         if (r.pitch) on_pitch(r.pr, r.ms_after_onset);
     }
 
+    desc.flush();
+    drain_events();
     std::printf("\n\n--- session summary ---\n");
     std::printf("onsets: %d, pitch updates: %d, avg |error| vs displayed note: %.1f cents\n",
                 notes_played, pitches_shown,
@@ -628,6 +861,10 @@ int main(int argc, char** argv) {
     if (csv != nullptr) {
         std::fclose(csv);
         std::printf("event log written to %s\n", csv_path);
+    }
+    if (events != nullptr) {
+        std::fclose(events);
+        std::printf("note-description stream written to %s\n", events_path);
     }
     if (calibrate && !cal_done) {
         std::printf("calibration: not enough steady readings; hold one note for ~2 s.\n");

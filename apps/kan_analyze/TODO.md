@@ -23,10 +23,9 @@ material and learner-evaluation rubric. See `docs/dsp/performance-analysis.md`.
 
 ## Next
 
-- [ ] Per-note description stream output: `--events <f.jsonl>` emitting the
+- [x] Per-note description stream output: `--events <f.jsonl>` emitting the
       `NoteEvent` stream (one schema shared with kan_demo and the live
-      path; live/offline byte-identical) — per
-      `docs/architecture/note-description-stream.md` (Phase 2)
+      path; live/offline byte-identical)
 - [ ] Decay-relative note-end rule (FX tails currently inflate durations;
       envelope decay metrics already reported; part of the stream's CLOSE
       fact)

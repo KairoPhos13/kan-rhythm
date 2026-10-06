@@ -46,6 +46,8 @@ configure downloads miniaudio + Cycfi Q + KissFFT — MIT/BSD only).
 | `--calibrate` | play one long comfortable note → prints your instrument's global detuning Δc in cents vs equal temperament (A4 = 440 Hz) and **applies** it |
 | `--vibrato` | live technique readout: vibrato rate (Hz) / depth (cents) from the cents trajectory — wide/slow *yuri*-style and classical vibrato both visible |
 | `--csv <file>` | write per-note events (t, note, Hz, cents, vibrato) — the same feature stream the learner is evaluated on |
+| `--events <f.jsonl>` | the per-note description stream (HIT / provisional / CONTENT / final / EXPRESSION / CLOSE facts) — progressive on screen, JSONL on disk; same schema as `kan_analyze --events`, live/offline diffable |
+| `--candidates <f>` | candidate hypotheses per attack (one line per attack, space-separated midis; include notes still sustaining) — conditions the CONTENT measurements (presence / cents / amplitude per candidate) |
 | `--no-gate` | disable the adaptive noise gate |
 | `--noise-cal <ms>` | room-silence calibration window at startup (default 500) |
 | `--selftest` | offline check on a synthesized note (no audio device needed) |
