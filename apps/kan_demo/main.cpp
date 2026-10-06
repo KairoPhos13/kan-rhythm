@@ -302,8 +302,10 @@ void print_event(const kan::NoteEvent& e, FILE* jsonl) {
         }
         return;
     case kan::NoteKind::Expression:
-        std::printf("  #%u expression: level %.1f dB, attack %.0f ms, release %.0f ms, "
+        std::printf("  #%u expression: level %.1f dB (%s), attack %.0f ms, release %.0f ms, "
                     "sustain %.2f", e.note_id, double(e.u.expression.dynamics_db),
+                    kan::dynamics_tier_name(
+                        kan::DynamicsTier(int(e.u.expression.dynamics_tier))),
                     double(e.u.expression.attack_ms), double(e.u.expression.release_ms),
                     double(e.u.expression.sustain_ratio));
         if (e.u.expression.vib_rate_hz > 0.0f) {

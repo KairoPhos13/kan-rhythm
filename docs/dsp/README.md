@@ -215,6 +215,7 @@ fields):
 | `VibratoAnalyzer::measure(TrajectoryBuffer)` → rate/depth/center/periodic | `VibratoSpec{rate band, depth band, min_duration, expect_straight, straight_tolerance}` | `check()`; `periodic` requires **≥3 oscillation cycles** (rate physics); straight-tone passages judged via `expect_straight` |
 | `BendAnalyzer::measure()` → endpoints/duration/monotonicity/fit error | `BendSpec{start/end cents, duration, CurveShape::Linear\|EaseOut, tolerances}` | shape-fit RMS ≤ `fit_tolerance_cents` |
 | `EnvelopeAnalyzer::measure(rms, n, hop_ms)` → duration/attack/release/sustain ratio/peak-to-−20 dB decay | `EnvelopeSpec{Articulation::Staccato\|Legato\|Accent\|Mute, thresholds}` | per-articulation boolean bands |
+| `DynamicsClassifier::observe(attack_peak)` → `DynamicsTier` (warming-up / pp..ff) | `Config{min_notes, floor_db}` + optional `calibrate(soft, loud)` anchors | session-relative ranking (converging) or calibrated extremes; "warming up" until `min_notes` (technique-validation.md) |
 | `SpectralSignatureValidator::measure(window)` → slot amplitudes + cosine similarity | `SpectralSignature{slot_hz[], weight[], threshold}` | similarity ≥ threshold (harmonic templates: 1.000 vs 0.558 measured) |
 
 `TrajectoryBuffer` holds `TrajectoryPoint{t_ms, cents}` (512 max). Feed

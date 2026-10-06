@@ -86,8 +86,9 @@ struct NoteEvent {
         struct { float midi; float presence; float cents; float amplitude;
                  float similarity; uint32_t cand_note_id; } candidate;
         struct { float n_unresolved; float dominant_share; } content;
-        struct { float dynamics_db; float attack_ms; float release_ms;
-                 float sustain_ratio; float vib_rate_hz; float vib_depth_c; } expression;
+        struct { float dynamics_db; float dynamics_tier; float attack_ms;
+                 float release_ms; float sustain_ratio; float vib_rate_hz;
+                 float vib_depth_c; } expression;
         struct { float end_ms; float duration_ms; float peak_rms; } close;
     } u;
 };
@@ -175,15 +176,18 @@ inline NoteEvent make_content_candidate(uint32_t note_id, float t_ms,
     return e;
 }
 
-/// EXPRESSION — how the note was played (measurements only).
+/// EXPRESSION — how the note was played (measurements only). `dynamics_tier`
+/// is a DynamicsTier (technique.hpp) carried as float for POD uniformity.
 inline NoteEvent make_expression(uint32_t note_id, float t_ms, float dynamics_db,
-                                 float attack_ms, float release_ms, float sustain_ratio,
-                                 float vib_rate_hz, float vib_depth_c) noexcept {
+                                 float dynamics_tier, float attack_ms, float release_ms,
+                                 float sustain_ratio, float vib_rate_hz,
+                                 float vib_depth_c) noexcept {
     NoteEvent e{};
     e.note_id = note_id;
     e.t_ms = t_ms;
     e.kind = NoteKind::Expression;
     e.u.expression.dynamics_db = dynamics_db;
+    e.u.expression.dynamics_tier = dynamics_tier;
     e.u.expression.attack_ms = attack_ms;
     e.u.expression.release_ms = release_ms;
     e.u.expression.sustain_ratio = sustain_ratio;
@@ -277,10 +281,13 @@ inline size_t note_event_jsonl(const NoteEvent& e, char* buf, size_t cap) noexce
         break;
     case NoteKind::Expression:
         std::snprintf(body, sizeof(body),
-                      ",\"dyn_db\":%.2f,\"attack_ms\":%.1f,\"release_ms\":%.1f,"
-                      "\"sustain\":%.3f,\"vib_hz\":%.2f,\"vib_depth_c\":%.1f",
-                      double(e.u.expression.dynamics_db), double(e.u.expression.attack_ms),
-                      double(e.u.expression.release_ms), double(e.u.expression.sustain_ratio),
+                      ",\"dyn_db\":%.2f,\"dyn_tier\":\"%s\",\"attack_ms\":%.1f,"
+                      "\"release_ms\":%.1f,\"sustain\":%.3f,\"vib_hz\":%.2f,"
+                      "\"vib_depth_c\":%.1f",
+                      double(e.u.expression.dynamics_db),
+                      dynamics_tier_name(DynamicsTier(int(e.u.expression.dynamics_tier))),
+                      double(e.u.expression.attack_ms), double(e.u.expression.release_ms),
+                      double(e.u.expression.sustain_ratio),
                       double(e.u.expression.vib_rate_hz), double(e.u.expression.vib_depth_c));
         break;
     case NoteKind::Close:
@@ -634,6 +641,7 @@ private:
         bool final_est_valid = false;
         float final_midi = 0.0f;
         float final_cents = 0.0f;
+        int dyn_tier = int(DynamicsTier::WarmingUp);
         TrajectoryBuffer traj;
         // envelope series (10 ms hop, fixed capacity)
         float rms_series[kRmsSeriesMax] = {0};
@@ -772,6 +780,10 @@ private:
     void finalize_note(NoteSlot& n) noexcept {
         n.finalized = true;
         n.final_due = false;
+        // Dynamics tier from the attack peak (Phase 3). Observed here, in
+        // strict note order, so the session-relative mapping is a pure
+        // function of the note sequence (live/offline equivalence).
+        n.dyn_tier = int(dynamics_.observe(n.peak_rms));
 
         // The finalize window is fixed by the note's own timeline (first
         // kFinalWindow clean samples after blanking, truncated at the note's
@@ -915,7 +927,8 @@ private:
             v = vib.measure(n.traj);
         }
         const float dyn_db = (m.peak > 0.0f) ? 20.0f * std::log10(m.peak) : -120.0f;
-        emit(note_event::make_expression(n.id, end_ms, dyn_db, m.attack_ms, m.release_ms,
+        emit(note_event::make_expression(n.id, end_ms, dyn_db, float(n.dyn_tier),
+                                         m.attack_ms, m.release_ms,
                                          m.sustain_ratio, v.rate_hz, v.depth_cents));
         emit(note_event::make_close(n.id, end_ms, end_ms,
                                     end_ms - n.onset_ms, m.peak));
@@ -944,6 +957,7 @@ private:
     InstrumentProfile profile_;
     HybridDetector detector_;
     HarmonicChordValidator validator_;
+    DynamicsClassifier dynamics_;
 
     NoteSlot notes_[kMaxOpenNotes];
     NoteEventStream* subscribers_[kMaxSubscribers] = {nullptr, nullptr, nullptr, nullptr};

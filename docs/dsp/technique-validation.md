@@ -51,6 +51,19 @@ the peak→−20 dB decay. Measured: legato (sustain 0.94) passes only legato;
 staccato (sustain 0.16, release 45 ms) passes only staccato; mute (−20 dB in
 70 ms) passes the mute spec.
 
+## Dynamics tiers (pp..ff)
+
+`DynamicsClassifier` turns one attack peak per note into a tier:
+**session-relative** by default (the tier ends track the observed level
+range and converge as notes accumulate; the first `min_notes` notes report
+`warming-up`, never a guess) or **calibrated** (the player marks one soft
+and one loud note, fixing the range ends). Measured
+(`libkan_technique_test`, soft vs loud synthesized passage): calibration →
+soft = `pp`, geometric mid = `mf`, loud = `ff`; session mode → first 8
+notes `warming-up`, then every soft note ranks below every loud note with
+the extremes landing on `pp` / `ff`. The tier is emitted as the description
+stream's EXPRESSION fact (`dyn_tier`) alongside the raw level in dBFS.
+
 ## Notes & limits
 
 - Vibrato rate needs **≥3 oscillation cycles** (rate physics): a 2 Hz

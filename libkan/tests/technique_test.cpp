@@ -271,6 +271,62 @@ int main() {
         pass &= m.periodic && std::fabs(m.rate_hz - rate) < 1.0f;
     }
 
+    // --- 6. Dynamics tiers: soft vs loud synthesized passage (Phase 3) ----
+    {
+        auto tone = [](float amp, float secs) {
+            std::vector<float> s(size_t(secs * SR), 0.0f);
+            for (size_t i = 0; i < s.size(); ++i) {
+                const float t = float(i) / SR;
+                s[i] = amp * std::exp(-t) * std::sin(2.0f * float(M_PI) * 440.0f * t);
+            }
+            return s;
+        };
+        auto peak = [](const std::vector<float>& s) {
+            float p = 0.0f;
+            for (float v : s) p = std::max(p, std::fabs(v));
+            return p;
+        };
+        const float soft = peak(tone(0.10f, 0.5f)); // quiet passage note
+        const float loud = peak(tone(0.80f, 0.5f)); // forte passage note
+        const float mid = std::sqrt(soft * loud);
+
+        // Calibration mode: soft/loud anchors fix the range ends.
+        kan::DynamicsClassifier cal;
+        const bool cal_ok = cal.calibrate(soft, loud);
+        const auto t_soft = cal.observe(soft);
+        const auto t_mid = cal.observe(mid);
+        const auto t_loud = cal.observe(loud);
+        printf("dynamics calibrated: ok=%d soft=%s mid=%s loud=%s\n", int(cal_ok),
+               kan::dynamics_tier_name(t_soft), kan::dynamics_tier_name(t_mid),
+               kan::dynamics_tier_name(t_loud));
+        pass &= cal_ok && t_soft == kan::DynamicsTier::Pp
+                && t_loud == kan::DynamicsTier::Ff && t_mid == kan::DynamicsTier::Mf;
+
+        // Session mode: warming up until enough notes, then soft < loud and
+        // the extremes land on pp / ff as the anchors converge.
+        kan::DynamicsClassifier ses;
+        bool warm = true;
+        for (int i = 0; i < 8; ++i) {
+            warm &= ses.observe(soft) == kan::DynamicsTier::WarmingUp;
+        }
+        int soft_max = 0, loud_min = 100;
+        kan::DynamicsTier last_soft = kan::DynamicsTier::WarmingUp;
+        kan::DynamicsTier last_loud = kan::DynamicsTier::WarmingUp;
+        for (int i = 0; i < 4; ++i) {
+            last_soft = ses.observe(soft);
+            last_loud = ses.observe(loud);
+            soft_max = std::max(soft_max, int(last_soft));
+            loud_min = std::min(loud_min, int(last_loud));
+        }
+        printf("dynamics session: warmup=%d soft max=%s loud min=%s last soft=%s "
+               "last loud=%s\n", int(warm), kan::dynamics_tier_name(
+                   kan::DynamicsTier(soft_max)),
+               kan::dynamics_tier_name(kan::DynamicsTier(loud_min)),
+               kan::dynamics_tier_name(last_soft), kan::dynamics_tier_name(last_loud));
+        pass &= warm && soft_max < loud_min && last_soft == kan::DynamicsTier::Pp
+                && last_loud == kan::DynamicsTier::Ff;
+    }
+
     printf(pass ? "TEST PASS\n" : "TEST FAIL\n");
     return pass ? 0 : 1;
 }

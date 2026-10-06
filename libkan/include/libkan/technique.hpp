@@ -24,6 +24,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
 
 namespace kan {
 
@@ -412,6 +413,106 @@ public:
         }
         return r;
     }
+};
+
+// ---------------------------------------------------------------------------
+// Dynamics tiers: how loud the note is played. Measurement only — the game
+// decides what a tier means for reward. Two operating modes (SPEC §2):
+//   - session-relative (default): tiers track the observed level range and
+//     converge as notes accumulate; the first `min_notes` notes report
+//     "warming up" instead of a guess;
+//   - calibration: the player marks one soft and one loud note
+//     (`calibrate(soft, loud)`), fixing the two anchors.
+// ---------------------------------------------------------------------------
+
+enum class DynamicsTier : uint8_t {
+    WarmingUp, ///< not enough notes seen yet and no calibration anchors
+    Pp,        ///< pianissimo — bottom of the range
+    P,
+    Mp,
+    Mf,
+    F,
+    Ff,        ///< fortissimo — top of the range
+};
+
+/// Name of a tier for logs/JSON ("pp" ... "ff", "warming-up").
+inline const char* dynamics_tier_name(DynamicsTier t) noexcept {
+    switch (t) {
+    case DynamicsTier::Pp: return "pp";
+    case DynamicsTier::P: return "p";
+    case DynamicsTier::Mp: return "mp";
+    case DynamicsTier::Mf: return "mf";
+    case DynamicsTier::F: return "f";
+    case DynamicsTier::Ff: return "ff";
+    default: return "warming-up";
+    }
+}
+
+/// Classifies per-note attack peaks into pp..ff. Allocation-free; the
+/// session anchors are plain running min/max of the observed peak levels
+/// (dBFS), so the mapping converges and is deterministic given the note
+/// sequence (live/offline equivalence).
+class DynamicsClassifier {
+public:
+    struct Config {
+        int min_notes = 8;    ///< notes before session tiers are trusted
+        float floor_db = -60.0f; ///< levels below this are silence, not "soft"
+    };
+
+    DynamicsClassifier() = default;
+    explicit DynamicsClassifier(const Config& cfg) noexcept : cfg_(cfg) {}
+
+    /// One note's attack peak (linear amplitude) -> tier. Call once per
+    /// note (its attack peak), in note order.
+    DynamicsTier observe(float peak_rms) noexcept {
+        const float db = (peak_rms > 0.0f) ? 20.0f * std::log10(peak_rms) : cfg_.floor_db;
+        if (db >= cfg_.floor_db) {
+            if (!have_level_) {
+                have_level_ = true;
+                lo_db_ = hi_db_ = db;
+            } else {
+                lo_db_ = std::min(lo_db_, db);
+                hi_db_ = std::max(hi_db_, db);
+            }
+        }
+        const DynamicsTier tier = classify(db); // warm-up counts this note
+        ++notes_;
+        return tier;
+    }
+
+    /// Optional calibration: the player's soft and loud reference notes
+    /// fix the range ends (no more warming up).
+    bool calibrate(float soft_rms, float loud_rms) noexcept {
+        if (soft_rms <= 0.0f || loud_rms <= soft_rms) return false;
+        lo_db_ = 20.0f * std::log10(soft_rms);
+        hi_db_ = 20.0f * std::log10(loud_rms);
+        calibrated_ = true;
+        have_level_ = true;
+        return true;
+    }
+
+    void reset() noexcept { *this = DynamicsClassifier(cfg_); }
+
+    bool calibrated() const noexcept { return calibrated_; }
+    int notes_seen() const noexcept { return notes_; }
+    float soft_db() const noexcept { return lo_db_; }
+    float loud_db() const noexcept { return hi_db_; }
+
+private:
+    DynamicsTier classify(float db) const noexcept {
+        if (!calibrated_ && notes_ < cfg_.min_notes) return DynamicsTier::WarmingUp;
+        const float span = hi_db_ - lo_db_;
+        if (span <= 1e-3f) return DynamicsTier::Mf; // single-level session
+        const float x = std::clamp((db - lo_db_) / span, 0.0f, 1.0f);
+        return DynamicsTier(int(DynamicsTier::Pp) + int(std::lround(5.0f * x)));
+    }
+
+    Config cfg_;
+    float lo_db_ = 0.0f;
+    float hi_db_ = 0.0f;
+    bool have_level_ = false;
+    bool calibrated_ = false;
+    int notes_ = 0;
 };
 
 // ---------------------------------------------------------------------------

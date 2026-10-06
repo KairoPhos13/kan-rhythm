@@ -257,8 +257,11 @@ Semantics per kind:
   plus, when candidates were supplied, one *candidate* event per candidate
   (`presence` share, `cents`, `amplitude` = fitted component RMS,
   `similarity` of the whole set, `cand_note_id`).
-- **Expression** — dynamics (Phase 3), envelope, vibrato. Facts only; the
-  spec/verdict layer of `technique.hpp` stays where it is.
+- **Expression** — dynamics (raw level in dBFS + tier pp..ff from
+  `DynamicsClassifier`: session-relative with a "warming up" state, or
+  calibrated soft/loud anchors), envelope, vibrato (claimed only from a
+  stable pitch trajectory). Facts only; the spec/verdict layer of
+  `technique.hpp` stays where it is.
 - **Close** — `end_ms` (decay-relative), duration, peak. Never revises
   earlier facts.
 
@@ -407,7 +410,12 @@ of audio (the retained history is 0.68 s).
    MIX/HOP (§2.7). The threshold is instrument-pack data (measured ~0.94
    on piano; wind attacks are mono by physics and bypass the classifier).
 7. **CLOSE is decay-relative** (L7) — pedal tails must not inflate
-   durations (§2.6).
+   durations (§2.6). In dense legato textures the mix-relative end closes
+   overlapping notes together (the mix never drops 20 dB below a note's
+   peak): per-note ends need the candidate-conditioned amplitude
+   trajectory (follow-up). Until then merged notes also lose their vibrato
+   claim (the readings of a merged note follow the texture → unstable →
+   suppressed) — honest, but lossy.
 
 ## 7. Decisions (resolved 2026-10-06)
 
@@ -428,7 +436,7 @@ only).
 
 ## 8. Phase 2 implementation plan (decisions resolved, §7)
 
-Status: **Phase 2 shipped** — libkan core + six fixtures (`libkan_note_stream_test`), `kan_analyze --events` (offline JSONL) and `kan_demo --events/--candidates` (progressive display, live JSONL). Measured fact latencies on the fixtures (keyboard profile): HIT = onset block (≤ 2.7 ms quantized), provisional pitch ≈ +59 ms after the onset (6 ms blanking + 43 ms window + 10 ms grid), final facts at the evidence-window end ≈ +177 ms (or at the note's close for short notes), EXPRESSION/CLOSE at the decay-relative end. Phase 3 (dynamics tiers pp..ff) is next.
+Status: **Phase 2 shipped** — libkan core + six fixtures (`libkan_note_stream_test`), `kan_analyze --events` (offline JSONL) and `kan_demo --events/--candidates` (progressive display, live JSONL). Measured fact latencies on the fixtures (keyboard profile): HIT = onset block (≤ 2.7 ms quantized), provisional pitch ≈ +59 ms after the onset (6 ms blanking + 43 ms window + 10 ms grid), final facts at the evidence-window end ≈ +177 ms (or at the note's close for short notes), EXPRESSION/CLOSE at the decay-relative end. **Phase 3 shipped** — dynamics tiers (pp..ff, session-relative + optional soft/loud calibration) as the EXPRESSION fact's `dyn_tier`, tested on a soft-vs-loud synthesized passage (`libkan_technique_test`).
 
 - `libkan/include/libkan/instrument_profile.hpp`: add
   `max_simultaneous_notes` (wind 1 / guitar 6 / piano 10) and the

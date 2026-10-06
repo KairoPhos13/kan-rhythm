@@ -31,14 +31,17 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
 
 ## In progress / next (Milestone 1)
 
-- [ ] **Per-note description stream** ("register by note"): `NoteEvent` POD
-      (HIT / PITCH provisional|final|unresolved / CONTENT / EXPRESSION /
-      CLOSE), candidate-pitch input API (incl. still-sustaining notes, no
-      allocation on the hot path), SPSC event stream + JSONL schema +
-      live/offline equivalence — implement per
-      `docs/architecture/note-description-stream.md` section 8 (Phase 2,
-      after design review; Phase 3 = dynamics tiers pp..ff in
-      `technique.hpp`)
+- [x] **Per-note description stream** ("register by note"): `note_stream.hpp`
+      (`NoteEvent` POD — HIT / PITCH provisional|final|unresolved / CONTENT /
+      EXPRESSION / CLOSE, candidate-pitch input API incl. still-sustaining
+      notes, SPSC event stream + JSONL v1, live/offline equivalence),
+      six fixtures in `note_stream_test.cpp`, dynamics tiers pp..ff
+      (`DynamicsClassifier`, session-relative + calibrated) — wired into
+      `kan_analyze --events` and `kan_demo --events/--candidates`.
+      Design + measured evidence: `docs/architecture/note-description-stream.md`
+- [ ] Per-note ends in dense polyphony: the decay-relative CLOSE rule is
+      mix-relative, so merged legato notes close together (and lose their
+      vibrato claim); needs the candidate-conditioned amplitude trajectory
 - [x] Full instrument-range coverage (complete piano range A0–C8 incl.
       bass ocarinas/bass guitars): all 88 keys detected + confirmed with
       correct semitone identity; YIN sustains within 10 cents; physics
