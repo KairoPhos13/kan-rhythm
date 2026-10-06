@@ -57,6 +57,26 @@ if(KAN_ENABLE_BACF)
     endforeach()
 endif()
 
+# Signalsmith Stretch (MIT): backing-track pitch shift with BPM preserved
+# (SPECIFICATION §2 dynamic consonance module). Primitive lives in libkan;
+# the bus wiring belongs to kanfx's backing chain.
+option(KAN_ENABLE_STRETCH "Fetch Signalsmith Stretch (MIT) for pitch shift" ON)
+if(KAN_ENABLE_STRETCH)
+    FetchContent_Declare(
+        signalsmith_stretch
+        GIT_REPOSITORY https://github.com/signalsmith-audio/signalsmith-stretch.git
+        GIT_TAG        main
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(signalsmith_stretch)
+    if(TARGET signalsmith-stretch)
+        get_target_property(_kan_stretch_inc signalsmith-stretch INTERFACE_INCLUDE_DIRECTORIES)
+        if(_kan_stretch_inc)
+            set_target_properties(signalsmith-stretch PROPERTIES
+                INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_kan_stretch_inc}")
+        endif()
+    endif()
+endif()
 # KissFFT (BSD-3): real FFT for the 12-bin chroma projection used by the
 # score-informed chord validator (libkan_fft). Static, float, no tools/tests.
 option(KAN_ENABLE_FFT "Fetch KissFFT (BSD-3) for chroma chord validation" ON)

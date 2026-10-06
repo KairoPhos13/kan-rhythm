@@ -39,8 +39,11 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
       expose API to shift detector target frequencies — `calibration.hpp`
       (`DetuneCalibrator` + `TuningCompensation`), numbers in
       `docs/dsp/calibration.md`, applied live in `kan_demo --calibrate`
-- [ ] Integrate **Signalsmith Stretch** (MIT) for real-time backing-track
-      pitch shift of ±Δc (BPM preserved) — lives in kanfx's chain, not libkan
+- [x] Integrate **Signalsmith Stretch** (MIT) for real-time backing-track
+      pitch shift of ±Δc (BPM preserved) — `pitch_shift.hpp`
+      (`PitchShifter` via `libkan_stretch`), measured: +50 c shift lands
+      458.8/452.9 Hz, 1.5x time-stretch preserves pitch within 17 c;
+      the bus wiring belongs to kanfx's backing chain
 - [x] Per-string compensation matrix API (`Δc1..Δc6`, 3 s guided strum input)
 - [x] Relative-tuning mode for fretless instruments: interval evaluation vs
       moving tonal center of gravity (EMA) — `RelativeTuningTracker`

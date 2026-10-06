@@ -28,6 +28,16 @@ if(TARGET kissfft)
     target_link_libraries(libkan_fft INTERFACE libkan kissfft::kissfft)
 endif()
 
+# Backing-track pitch-shift primitive (Signalsmith Stretch, MIT).
+if(TARGET signalsmith-stretch)
+    add_library(libkan_stretch INTERFACE)
+    target_link_libraries(libkan_stretch INTERFACE libkan signalsmith-stretch)
+    # Upstream's INTERFACE target carries no include dirs; the canonical
+    # header is include/signalsmith-stretch/signalsmith-stretch.h.
+    target_include_directories(libkan_stretch INTERFACE
+        ${signalsmith_stretch_SOURCE_DIR}/include)
+endif()
+
 if(KAN_BUILD_TESTS)
     add_executable(libkan_dsp_test tests/dsp_test.cpp)
     target_link_libraries(libkan_dsp_test PRIVATE libkan)
@@ -64,6 +74,12 @@ if(KAN_BUILD_TESTS)
         target_link_libraries(libkan_range_test PRIVATE libkan_bacf)
     endif()
     add_test(NAME libkan_range_test COMMAND libkan_range_test)
+
+    if(TARGET libkan_stretch)
+        add_executable(libkan_stretch_test tests/stretch_test.cpp)
+        target_link_libraries(libkan_stretch_test PRIVATE libkan_stretch)
+        add_test(NAME libkan_stretch_test COMMAND libkan_stretch_test)
+    endif()
 
     # Loopback regression harness: generate the WAV fixtures, then run the
     # pipeline over them (CTest fixture ordering guarantees the sequence).

@@ -22,6 +22,7 @@ libkan/
 │   ├── instrument_profile.hpp  Per-instrument profile presets (blanking, range)
 │   ├── calibration.hpp         Tuning compensation: Δc calibrator, Δc1..Δc6 matrix, EMA tonal center
 │   ├── technique.hpp           Technique validators: vibrato/bend/slide curves, envelope shapes, spectral signatures
+│   ├── pitch_shift.hpp         Backing-track pitch shift (Signalsmith Stretch, MIT) via libkan_stretch
 │   ├── dsp_detector.hpp        HybridDetector: onset + stage-2 blanking + YIN pitch
 │   ├── bacf_detector.hpp       Score-informed Cycfi Q BACF detector (needs libkan_bacf)
 │   └── bounded_pitch.hpp       Bounded-lag NSDF matcher: fast ±2-semitone confirmation
