@@ -20,6 +20,13 @@ the detection stack; gate validation stays in `apps/kan_cli`.
 
 ## Next
 
+- [ ] **Per-note description stream** (design + real-piano evidence in
+      `docs/architecture/note-description-stream.md`): `--events <f.jsonl>`
+      (shared schema with kan_analyze, live/offline identical), progressive
+      display (provisional → final pitch; "polyphonic, N unresolved" instead
+      of garbage), optional `--candidates` exercising the conditioned
+      measurement. Fulfils §4 A/D (explicit note boundaries, per-note rows)
+      with the stream instead of a second format.
 - [ ] **BACF free-tuner lock-in**: `--engine bacf` can latch a wrong
       frequency right after onset and hold it (measured +80..+130 cents on a
       pure tone). Investigate Cycfi Q `median3`/bias warmup; until fixed the

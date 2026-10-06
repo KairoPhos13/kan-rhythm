@@ -31,6 +31,14 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
 
 ## In progress / next (Milestone 1)
 
+- [ ] **Per-note description stream** ("register by note"): `NoteEvent` POD
+      (HIT / PITCH provisional|final|unresolved / CONTENT / EXPRESSION /
+      CLOSE), candidate-pitch input API (incl. still-sustaining notes, no
+      allocation on the hot path), SPSC event stream + JSONL schema +
+      live/offline equivalence — implement per
+      `docs/architecture/note-description-stream.md` section 8 (Phase 2,
+      after design review; Phase 3 = dynamics tiers pp..ff in
+      `technique.hpp`)
 - [x] Full instrument-range coverage (complete piano range A0–C8 incl.
       bass ocarinas/bass guitars): all 88 keys detected + confirmed with
       correct semitone identity; YIN sustains within 10 cents; physics
@@ -65,6 +73,18 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
       `kan_cli --latency-report`; loopback-cable procedure documented in
       `docs/dsp/latency-measurements.md` (hardware measurement pending
       cable rig)
+- [x] Score-informed chord validation on **real polyphonic piano material**
+      (Phase 1a evidence for the note stream): test-side probe
+      `tests/harmonic_probe.cpp` (`--dump`/`--measure`/`--bench`) + 28
+      hand-annotated attacks with negative controls
+      (`tests/harmonic_probe_notes.hpp`). Measured: presence separates
+      sounding from absent inside a complete candidate set (med 0.27 vs
+      0.01), 170 ms windows halve cents error (12.0c -> 6.0c; bass <C3
+      22.4c -> 13.9c), presence without similarity is meaningless, 7-8
+      sounding notes bias 6-modeled shares, blind mono/poly classifier
+      26/28 vs MIX/HOP 20/28, validate() cost 10.8/34.8/280 ms (n=3/6 at
+      1024, n=6 at 8192). Numbers + design: `docs/architecture/
+      note-description-stream.md` section 2
 
 ## Milestone 1 release gates (status: measured vs physics vs hardware)
 

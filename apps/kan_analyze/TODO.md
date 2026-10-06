@@ -23,8 +23,13 @@ material and learner-evaluation rubric. See `docs/dsp/performance-analysis.md`.
 
 ## Next
 
+- [ ] Per-note description stream output: `--events <f.jsonl>` emitting the
+      `NoteEvent` stream (one schema shared with kan_demo and the live
+      path; live/offline byte-identical) — per
+      `docs/architecture/note-description-stream.md` (Phase 2)
 - [ ] Decay-relative note-end rule (FX tails currently inflate durations;
-      envelope decay metrics already reported)
+      envelope decay metrics already reported; part of the stream's CLOSE
+      fact)
 - [ ] Score-informed mode: accept a chart template (expected notes) and run
       the bounded matcher + chord validator per event — the designed
       evaluation path for polyphony/companions

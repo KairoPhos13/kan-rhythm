@@ -101,6 +101,13 @@ if(KAN_BUILD_TESTS)
         add_executable(libkan_chroma_test tests/chroma_test.cpp)
         target_link_libraries(libkan_chroma_test PRIVATE libkan_fft)
         add_test(NAME libkan_chroma_test COMMAND libkan_chroma_test)
+
+        # Evidence probe for chord validation on real recordings (Phase 1 of
+        # the note-description-stream work). Test-side tool, deliberately NOT
+        # a ctest: it consumes real audio from test_results/ (gitignored).
+        # See libkan/tests/harmonic_probe_notes.hpp for the annotation.
+        add_executable(libkan_harmonic_probe tests/harmonic_probe.cpp)
+        target_link_libraries(libkan_harmonic_probe PRIVATE libkan_fft)
     endif()
 
     if(TARGET libkan_bacf)

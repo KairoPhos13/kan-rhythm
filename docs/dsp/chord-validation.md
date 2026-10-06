@@ -3,6 +3,12 @@
 Status: Milestone 1 gate 3 measured offline (synthesized strummed triads).
 Reproduce: `ctest --test-dir build -R 'chord|chroma'` (`libkan/tests/
 chord_test.cpp`, `chroma_test.cpp`, battery in `chord_suite.hpp`).
+Real-material follow-up (Phase 1a, piano with LH chords under RH melody,
+hand-written candidates + negative controls): presence/cents accuracy,
+low-register window length, >6 sounding notes, decay/pedal and blind
+mono-vs-polyphonic separation are measured in
+[../architecture/note-description-stream.md](../architecture/note-description-stream.md)
+§2 (probe: `libkan/tests/harmonic_probe.cpp`).
 
 ## Gate (ROADMAP M1)
 

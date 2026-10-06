@@ -156,8 +156,13 @@ confirmation engine with an expected note, never as the sole blind tuner.
   `refined_cents(k)` returns per-note detuning. Measured: **macro-F1
   1.0000** on major/minor/one-wrong-string (40 trials, C3–A4), 29.3 ms
   verification (8 ms blanking + 1024-sample window), true chords 0.94+
-  similarity. Cost: ~2–4 ms per call (two passes) — call per chord event,
-  not per block. Window must not exceed the constructor's `max_window`.
+  similarity. Cost (measured — `libkan_harmonic_probe --bench`, Release,
+  this machine): 10.8 ms per `validate()` for a triad on 1024 samples,
+  34.8 ms for 6 candidates, 280 ms for 6 candidates on 8192 samples
+  (~quadratic in candidate count) — call per chord event, not per block;
+  long-window fits need scheduling thought (note-description-stream.md
+  §2.8; the earlier "~2–4 ms per call" figure had no backing measurement
+  and is superseded). Window must not exceed the constructor's `max_window`.
 - `chord_goertzel.hpp` — marginal Goertzel slot bank (fundamental + first
   3 harmonics per note): verifies correct chords (40/40 at threshold),
   but marginal magnitudes cannot separate semitones within 21 ms windows
@@ -237,7 +242,12 @@ ducker, scheduling) is kanfx's.
 
 `test_signals.hpp` (deterministic synthesis), `chord_suite.hpp`,
 `wav_io.hpp`, `fixture_layout.hpp` + `fixture_gen` (generated WAV fixture
-set with ground-truth onset positions). Apps must not include these.
+set with ground-truth onset positions), `harmonic_probe.cpp` +
+`harmonic_probe_notes.hpp` (evidence probe for candidate-conditioned chord
+validation on real recordings — `--dump` / `--measure` / `--bench`; the
+Phase-1a experiment behind
+[architecture/note-description-stream.md](../architecture/note-description-stream.md)
+§2). Apps must not include these.
 
 ---
 
@@ -455,6 +465,7 @@ differences beyond the recorded baseline indicate tool regressions.
 | `technique-validation.md` | vibrato/bend/articulation/spectral validators |
 | `range-coverage.md` | A0–C8 sweep, physics walls |
 | `performance-analysis.md` | descriptor, real-song runs, corner cases |
+| `../architecture/note-description-stream.md` | per-note description stream: Phase-1a real-piano evidence + design proposal (NoteEvent, candidates, JSONL) |
 
 App-level development context: [apps/kan_demo/DEVELOPMENT.md](../apps/kan_demo/DEVELOPMENT.md)
 (live demo design direction and polish rules) ·
