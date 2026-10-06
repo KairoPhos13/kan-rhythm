@@ -53,6 +53,10 @@ if(KAN_BUILD_TESTS)
     target_link_libraries(libkan_technique_test PRIVATE libkan)
     add_test(NAME libkan_technique_test COMMAND libkan_technique_test)
 
+    add_executable(libkan_tap_test tests/tap_test.cpp)
+    target_link_libraries(libkan_tap_test PRIVATE libkan)
+    add_test(NAME libkan_tap_test COMMAND libkan_tap_test)
+
     if(TARGET libkan_fft)
         add_executable(libkan_chroma_test tests/chroma_test.cpp)
         target_link_libraries(libkan_chroma_test PRIVATE libkan_fft)
