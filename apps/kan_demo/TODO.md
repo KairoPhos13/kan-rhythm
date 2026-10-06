@@ -28,6 +28,7 @@ the detection stack; gate validation stays in `apps/kan_cli`.
       tuner readout and `--expect` targets (`calibration.hpp`)
 - [x] `--vibrato`: live technique readout (rate/depth from the cents
       trajectory) — `technique.hpp` VibratoAnalyzer
+- [x] `--csv <file>`: per-note event log (the descriptor feature stream)
 - [ ] Per-string matrix UI (`Δc1..Δc6` guided strum flow) — API ready in
       `calibration.hpp`, demo shows global only
 - [ ] Live chord display once a two-handed instrument is picked up

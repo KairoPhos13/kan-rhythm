@@ -357,6 +357,9 @@ void print_usage() {
         "                        detuning Δc in cents and applies it\n"
         "  --vibrato             live vibrato readout (rate Hz / depth cents)\n"
         "                        from the cents trajectory — technique check\n"
+        "  --csv <file>          write per-note events (onset ms, note, Hz,\n"
+        "                        cents, vibrato) — the descriptor feature\n"
+        "                        stream for later evaluation\n"
         "  --no-gate             disable the adaptive noise gate\n"
         "  --noise-cal <ms>      room-silence calibration window (default 500)\n"
         "  --selftest            offline pipeline check (no audio device)\n"
@@ -369,6 +372,7 @@ int main(int argc, char** argv) {
     const char* instrument_name = "ocarina";
     const char* expect_note = nullptr;
     const char* engine = "yin";
+    const char* csv_path = nullptr;
     bool calibrate = false;
     bool vibrato_mode = false;
     bool use_gate = true;
@@ -385,6 +389,8 @@ int main(int argc, char** argv) {
             calibrate = true;
         } else if (std::strcmp(argv[i], "--vibrato") == 0) {
             vibrato_mode = true;
+        } else if (std::strcmp(argv[i], "--csv") == 0 && i + 1 < argc) {
+            csv_path = argv[++i];
         } else if (std::strcmp(argv[i], "--no-gate") == 0) {
             use_gate = false;
         } else if (std::strcmp(argv[i], "--noise-cal") == 0 && i + 1 < argc) {
@@ -501,6 +507,18 @@ int main(int argc, char** argv) {
     kan::VibratoAnalyzer vib_ana;
     char vib_str[48] = "";
     int vib_tick = 0;
+    float vib_rate_last = 0.0f, vib_depth_last = 0.0f;
+
+    // CSV event log (--csv): per-note rows = the evaluation feature stream.
+    FILE* csv = nullptr;
+    if (csv_path != nullptr) {
+        csv = std::fopen(csv_path, "w");
+        if (csv == nullptr) {
+            std::fprintf(stderr, "[ERROR] cannot open %s for writing\n", csv_path);
+            return -1;
+        }
+        std::fprintf(csv, "t_ms,note,hz,cents,vib_hz,vib_depth_c\n");
+    }
 
     auto on_pitch = [&](const kan::PitchResult& pr, float ms_after) {
         const float freq = pr.frequency_hz;
@@ -543,6 +561,8 @@ int main(int argc, char** argv) {
             vib_traj.add(ms_after, cents);
             if (++vib_tick % 10 == 0 && vib_traj.size() >= 8) {
                 const auto vm = vib_ana.measure(vib_traj);
+                vib_rate_last = vm.rate_hz;
+                vib_depth_last = vm.depth_cents;
                 if (vm.periodic) {
                     std::snprintf(vib_str, sizeof(vib_str), " | vib %.1f Hz %+.0f c",
                                   double(vm.rate_hz), double(vm.depth_cents));
@@ -550,6 +570,13 @@ int main(int argc, char** argv) {
                     std::snprintf(vib_str, sizeof(vib_str), " | vib --");
                 }
             }
+        }
+
+        if (csv != nullptr) {
+            std::fprintf(csv, "%.1f,%s,%.2f,%.1f,%.2f,%.1f\n",
+                         double(session_seconds() * 1000.0f),
+                         midi_to_name(display_midi).c_str(), double(freq),
+                         double(cents), double(vib_rate_last), double(vib_depth_last));
         }
 
         // Live tuner line (single-line refresh).
@@ -598,6 +625,10 @@ int main(int argc, char** argv) {
     std::printf("onsets: %d, pitch updates: %d, avg |error| vs displayed note: %.1f cents\n",
                 notes_played, pitches_shown,
                 pitches_shown ? abs_cents_sum / pitches_shown : 0.0);
+    if (csv != nullptr) {
+        std::fclose(csv);
+        std::printf("event log written to %s\n", csv_path);
+    }
     if (calibrate && !cal_done) {
         std::printf("calibration: not enough steady readings; hold one note for ~2 s.\n");
     }

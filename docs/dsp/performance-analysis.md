@@ -68,9 +68,14 @@ kan_analyze --synth <ocarina|piano|duet|fx>   # offline scenarios
 ## Using it for levels / learning evaluation
 
 1. Run `kan_analyze` on a reference performance → descriptor (+ `--json`).
+   `apps/kan_analyze/run_reference_set.sh <audio_dir>` runs a whole song
+   folder and collects per-song `.log` + `.json` (profile auto-selected
+   from the filename: `*piano*`, `*ocarina*`, `*xun*`, ...); `--demo`
+   reproduces the four built-in scenarios.
 2. The events are the level seed (onset times, pitches, techniques); the
    song features are the quality bar.
-3. A learner's run produces the same descriptor; compare per-feature
+3. A learner's run produces the same descriptor (`kan_demo --csv` for live
+   sessions, `kan_analyze` for recordings); compare per-feature
    (timing = onset deltas, intonation = cents, technique = vibrato/
    articulation match). The comparison layer lives in `game/` (M2) —
    libkan provides the measurements.
