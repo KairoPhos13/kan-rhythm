@@ -504,9 +504,6 @@ public:
     static constexpr size_t kHistory = 32768;      // power of two; must cover
                                                    // delayed finalize (0.68 s)
     static constexpr size_t kRmsSeriesMax = 512;
-    static constexpr float kRetriggerLatchMs = 150.0f; ///< retrigger latch
-                                                       /// (same bookkeeping as
-                                                       /// kan_analyze's note split)
 
     struct CandidateEntry {
         uint32_t cand_note_id = 0; ///< record the hypothesis belongs to (0 = anonymous)
@@ -665,14 +662,22 @@ private:
     }
 
     /// Opens a note record on the attack and emits its HIT (fixed forever).
-    /// Boundary bookkeeping (docs/dsp/README.md §3 rule 1): a detector onset
-    /// while a note is live within `kRetriggerLatchMs` of its onset is a
-    /// retrigger of that note (decaying notes retrigger the detector), not
-    /// a new attack — it opens no record.
+    /// Spec: every attack opens its own record — the only merge rule is the
+    /// detector's own ~65 ms debounce. Do NOT latch retriggers here: a
+    /// latch swallows real fast notes (16ths at 120 BPM are 125 ms apart),
+    /// and a missed HIT is worse for the game than a spurious one. Decaying
+    /// notes can retrigger the detector on pathological material — that is
+    /// a documented failure signature (docs/dsp/README.md §6.3), not a
+    /// reason to drop real attacks.
     void open_note(uint64_t onset_sample) noexcept {
         const float onset_ms = 1000.0f * float(onset_sample) / sr_;
-        for (auto& n : notes_) {
-            if (n.live && onset_ms - n.onset_ms < kRetriggerLatchMs) return; // latch
+        // Monophonic instrument physics (profile data): one note at a time,
+        // so the previous note ends at this attack (its own end, not the
+        // mix decay). Polyphonic profiles keep the decay-relative end.
+        if (profile_.max_simultaneous_notes <= 1) {
+            for (auto& n : notes_) {
+                if (n.live) close_note(n, onset_ms);
+            }
         }
         NoteSlot* slot = nullptr;
         for (auto& n : notes_) {

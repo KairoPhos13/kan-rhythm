@@ -42,8 +42,7 @@ void add_note(std::vector<float>& sig, float t0, float dur, float freq, float am
               uint32_t seed) {
     const float detune_cents = float(int(seed % 5u) - 2) * 1.5f;
     const float f = freq * std::pow(2.0f, detune_cents / 1200.0f);
-    const float phase0 = float((seed * 37u) % 360u) * float(M_PI) / 180.0f;
-    const float start_ms = float((seed >> 3) % 4u) * 4.0f; // 0..12 ms spread
+    const float start_ms = float(seed % 3u) * 6.0f; // hammer spread 0/6/12 ms
     const float decay0 = 1.05f + 0.22f * float(seed % 3u); // per-note decay rate
     const size_t at = size_t((t0 + start_ms / 1000.0f) * kSr);
     const size_t n = size_t(dur * kSr);
@@ -61,8 +60,14 @@ void add_note(std::vector<float>& sig, float t0, float dur, float freq, float am
             // equal-rate decay keeps HF beating alive and beat crests can
             // retrigger the onset detector — docs/dsp/README.md limitation).
             const float decay = std::exp(-(decay0 + 0.25f * float(h)) * t);
+            // Struck strings excite partials with uncorrelated phases; a
+            // h*phase0 relation phase-locks the partials and produces
+            // beating crests deeper than the attack itself (an artifact no
+            // real instrument produces).
+            const uint32_t ph = seed * 2654435761u + uint32_t(h) * 40503u;
+            const float phase_h = float((ph >> 8) % 6283u) / 1000.0f;
             s += (0.5f / float(h)) * decay
-               * std::sin(2.0f * float(M_PI) * f * float(h) * t + phase0 * float(h));
+               * std::sin(2.0f * float(M_PI) * f * float(h) * t + phase_h);
         }
         sig[at + i] += amp * s;
     }
@@ -188,6 +193,12 @@ void dump(const Harness& h) {
 kan::InstrumentProfile piano_profile() {
     kan::InstrumentProfile p = kan::InstrumentProfile::keyboard();
     p.max_simultaneous_notes = 10; // ten fingers (decision 5)
+    return p;
+}
+
+kan::InstrumentProfile mono_profile() {
+    kan::InstrumentProfile p = kan::InstrumentProfile::wind_bowed();
+    p.max_simultaneous_notes = 1; // one air column / one bow
     return p;
 }
 
@@ -427,6 +438,64 @@ void fixture_6_live_vs_offline() {
     check(offline.jsonl == offline2.jsonl, "two identical runs -> byte-identical stream");
 }
 
+// ---------------------------------------------------------------------------
+void fixture_7_fast_passage() {
+    std::printf("fixture 7: fast passage — every attack opens its own record\n");
+    // 125 ms apart (16ths at 120 BPM). A retrigger latch would swallow the
+    // 2nd/3rd attacks; the spec says every attack gets a HIT.
+    std::vector<float> sig(size_t(1.2f * kSr), 0.0f);
+    add_note(sig, 0.30f, 0.4f, 440.00f, 0.5f, 61u);
+    add_note(sig, 0.425f, 0.4f, 493.88f, 0.5f, 62u);
+    add_note(sig, 0.55f, 0.4f, 554.37f, 0.5f, 63u);
+    add_noise_floor(sig, 0.005f, 666u);
+
+    Harness h;
+    run(sig, piano_profile(), {}, 1, h);
+
+    check(count_kind(h, kan::NoteKind::Hit, 0) == 3,
+          "three attacks 125 ms apart -> three HITs (no retrigger latch)");
+    check(count_kind(h, kan::NoteKind::Close, 0) == 3, "three records closed");
+}
+
+// ---------------------------------------------------------------------------
+void fixture_8_mono_legato_close() {
+    std::printf("fixture 8: monophonic legato — each note ends at its own end\n");
+    // Wind profile (max_simultaneous_notes == 1): one note at a time, so a
+    // note ends at the NEXT attack, not at the mix decay. Without that rule
+    // legato runs merge into one 1.2 s record (wrong durations, vibrato
+    // claims lost).
+    std::vector<float> sig(size_t(1.8f * kSr), 0.0f);
+    add_note(sig, 0.30f, 0.45f, 440.00f, 0.5f, 71u); // A4
+    add_note(sig, 0.70f, 0.45f, 493.88f, 0.5f, 72u); // B4
+    add_note(sig, 1.10f, 0.45f, 523.25f, 0.5f, 73u); // C5
+    add_noise_floor(sig, 0.005f, 777u);
+
+    Harness h;
+    run(sig, piano_profile(), {}, 1, h);
+
+    check(count_kind(h, kan::NoteKind::Hit, 0) == 3, "three attacks -> three HITs");
+    check(count_kind(h, kan::NoteKind::Close, 0) == 3, "three CLOSE facts");
+    // The mono close rule (profile physics) is exercised in the same code
+    // path; here (poly profile) records may share the mix-decay end — the
+    // per-note end assertion lives in the mono-profile run below.
+    Harness mono;
+    run(sig, mono_profile(), {}, 1, mono);
+    const kan::NoteEvent* c1 = find(mono, kan::NoteKind::Close, 1, kan::PitchStage::Provisional);
+    const kan::NoteEvent* h2 = find(mono, kan::NoteKind::Hit, 2, kan::PitchStage::Provisional);
+    check(c1 != nullptr && h2 != nullptr
+              && std::fabs(c1->u.close.end_ms - h2->u.hit.onset_ms) < 30.0f,
+          "mono profile: note 1 ends at the next attack (own end, not mix decay)");
+    const kan::NoteEvent* c2 = find(mono, kan::NoteKind::Close, 2, kan::PitchStage::Provisional);
+    const kan::NoteEvent* h3 = find(mono, kan::NoteKind::Hit, 3, kan::PitchStage::Provisional);
+    check(c2 != nullptr && h3 != nullptr
+              && std::fabs(c2->u.close.end_ms - h3->u.hit.onset_ms) < 30.0f,
+          "mono profile: note 2 ends at the next attack");
+    if (c1 != nullptr) {
+        check(c1->u.close.duration_ms > 300.0f && c1->u.close.duration_ms < 500.0f,
+              "mono profile: note 1 duration is its own (~400 ms), not the run's");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -437,6 +506,8 @@ int main() {
     fixture_4_sustained_under_new_note();
     fixture_5_unexplained_extra();
     fixture_6_live_vs_offline();
+    fixture_7_fast_passage();
+    fixture_8_mono_legato_close();
     std::printf("%s\n", g_pass ? "ALL PASS" : "FAILURES");
     return g_pass ? 0 : 1;
 }
