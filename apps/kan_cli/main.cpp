@@ -42,11 +42,15 @@ int main(int argc, char** argv) {
     // Options: --no-gate (disable the adaptive noise gate),
     //          --noise-cal <ms> (initial room-silence calibration window),
     //          --profile <plucked|wind|keyboard> (instrument profile),
-    //          --detector <yin|bacf> (harmonic-path pitch detector).
+    //          --detector <yin|bacf> (harmonic-path pitch detector),
+    //          --loopback <wav> (inject a WAV file instead of the mic),
+    //          --latency-report (print onset timing summary at exit).
     bool use_gate = true;
     int noise_cal_ms = 500;
     const char* profile_name = nullptr;
     const char* detector_name = "yin";
+    const char* loopback_path = nullptr;
+    bool latency_report = false;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--no-gate") == 0) {
             use_gate = false;
@@ -56,11 +60,16 @@ int main(int argc, char** argv) {
             profile_name = argv[++i];
         } else if (std::strcmp(argv[i], "--detector") == 0 && i + 1 < argc) {
             detector_name = argv[++i];
+        } else if (std::strcmp(argv[i], "--loopback") == 0 && i + 1 < argc) {
+            loopback_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--latency-report") == 0) {
+            latency_report = true;
         } else {
             std::cerr << "[ERROR] Unknown option: " << argv[i]
                       << "\nUsage: kan_cli [--no-gate] [--noise-cal <ms>]"
                          " [--profile <plucked|wind|keyboard>]"
-                         " [--detector <yin|bacf>]\n";
+                         " [--detector <yin|bacf>]"
+                         " [--loopback <file.wav>] [--latency-report]\n";
             return -1;
         }
     }
@@ -90,21 +99,49 @@ int main(int argc, char** argv) {
     std::signal(SIGINT, signal_handler);
     std::signal(SIGTERM, signal_handler);
 
-    ma_device_config config = ma_device_config_init(ma_device_type_capture);
-    config.capture.format   = ma_format_f32;
-    config.capture.channels = 1;
-    config.sampleRate       = SAMPLE_RATE;
-    config.periodSizeInFrames = BLOCK_SIZE;
-    config.performanceProfile = ma_performance_profile_low_latency;
-    config.dataCallback     = audio_capture_callback;
-
-    ma_device device;
-    if (ma_device_init(nullptr, &config, &device) != MA_SUCCESS) {
-        std::cerr << "[ERROR] Could not initialize the microphone/audio interface.\n";
-        return -1;
+    // --- loopback file source (no audio device needed) --------------------
+    std::vector<float> file_samples;
+    size_t file_pos = 0;
+    if (loopback_path != nullptr) {
+        ma_decoder_config dec = ma_decoder_config_init(ma_format_f32, 1, SAMPLE_RATE);
+        ma_decoder decoder;
+        if (ma_decoder_init_file(loopback_path, &dec, &decoder) != MA_SUCCESS) {
+            std::cerr << "[ERROR] Could not open WAV file: " << loopback_path << "\n";
+            return -1;
+        }
+        float chunk[4096];
+        for (;;) {
+            ma_uint64 frames_read = 0;
+            if (ma_decoder_read_pcm_frames(&decoder, chunk, 4096, &frames_read) != MA_SUCCESS
+                || frames_read == 0) {
+                break;
+            }
+            file_samples.insert(file_samples.end(), chunk, chunk + frames_read);
+        }
+        ma_decoder_uninit(&decoder);
+        std::cout << "[loopback] loaded " << file_samples.size() << " samples ("
+                  << std::fixed << std::setprecision(2)
+                  << double(file_samples.size()) / SAMPLE_RATE << " s) from "
+                  << loopback_path << "\n";
     }
 
-    ma_device_start(&device);
+    ma_device device{};
+    const bool use_device = (loopback_path == nullptr);
+    if (use_device) {
+        ma_device_config config = ma_device_config_init(ma_device_type_capture);
+        config.capture.format   = ma_format_f32;
+        config.capture.channels = 1;
+        config.sampleRate       = SAMPLE_RATE;
+        config.periodSizeInFrames = BLOCK_SIZE;
+        config.performanceProfile = ma_performance_profile_low_latency;
+        config.dataCallback     = audio_capture_callback;
+
+        if (ma_device_init(nullptr, &config, &device) != MA_SUCCESS) {
+            std::cerr << "[ERROR] Could not initialize the microphone/audio interface.\n";
+            return -1;
+        }
+        ma_device_start(&device);
+    }
 
     kan::HybridDetector detector(SAMPLE_RATE);
     kan::InstrumentProfile profile = kan::InstrumentProfile::plucked();
@@ -141,9 +178,23 @@ int main(int argc, char** argv) {
     bool waiting_pitch_confirmation = false;
     int blocks_since_onset = 0;
     auto onset_timestamp = std::chrono::high_resolution_clock::now();
+    std::vector<float> onset_times_ms; // --latency-report source timestamps
+    const auto session_start = std::chrono::steady_clock::now();
 
     while (g_running.load()) {
-        if (g_audio_ring.pop(block, BLOCK_SIZE)) {
+        // Block source: live ring buffer or the injected WAV (loopback).
+        bool have_block = false;
+        if (loopback_path != nullptr) {
+            if (file_pos + BLOCK_SIZE <= file_samples.size()) {
+                std::memcpy(block, file_samples.data() + file_pos, BLOCK_SIZE * sizeof(float));
+                file_pos += BLOCK_SIZE;
+                have_block = true;
+            }
+        } else {
+            have_block = g_audio_ring.pop(block, BLOCK_SIZE);
+        }
+
+        if (have_block) {
             // Stage 0 preconditioning (consumer thread, RT-safe primitives):
             // 35 Hz high-pass + adaptive noise gate calibrated to room silence.
             if (use_gate) {
@@ -175,6 +226,16 @@ int main(int argc, char** argv) {
                 onset_timestamp = std::chrono::high_resolution_clock::now();
                 waiting_pitch_confirmation = true;
                 blocks_since_onset = 0;
+                if (latency_report) {
+                    // Source time of the block end (block-quantized detection):
+                    // file position for loopback, session wall time for live.
+                    if (loopback_path != nullptr) {
+                        onset_times_ms.push_back(float(1000.0 * double(file_pos) / SAMPLE_RATE));
+                    } else {
+                        onset_times_ms.push_back(float(std::chrono::duration<double, std::milli>(
+                            std::chrono::steady_clock::now() - session_start).count()));
+                    }
+                }
 #ifdef KAN_CLI_HAVE_BACF
                 if (use_bacf) bacf.reset(); // streak belongs to the new note
 #endif
@@ -217,10 +278,28 @@ int main(int argc, char** argv) {
                 }
             }
         } else {
+            if (loopback_path != nullptr) break; // file fully consumed
             std::this_thread::sleep_for(std::chrono::microseconds(200));
         }
     }
 
-    ma_device_uninit(&device);
+    if (latency_report) {
+        const float block_ms = float(1000.0 * BLOCK_SIZE / SAMPLE_RATE);
+        std::cout << "\n--- latency report ---\n";
+        std::cout << "onsets: " << onset_times_ms.size()
+                  << ", detection is block-quantized ("
+                  << std::fixed << std::setprecision(2) << block_ms
+                  << " ms per " << BLOCK_SIZE << "-sample block)\n";
+        for (size_t i = 0; i < onset_times_ms.size() && i < 64; ++i) {
+            std::cout << "  onset " << i << ": source t = " << std::setprecision(1)
+                      << onset_times_ms[i] << " ms\n";
+        }
+        std::cout << "The hardware->event gate (<= 4.5 ms) needs the loopback-cable\n"
+                  << "procedure (docs/dsp/latency-measurements.md). This report\n"
+                  << "covers the file-injection / block-quantization half; ground-\n"
+                  << "truth onset latency is asserted by libkan_loopback_test.\n";
+    }
+
+    if (use_device) ma_device_uninit(&device);
     return 0;
 }

@@ -49,11 +49,17 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
       `technique.hpp` (plain-data *Spec structs for instrument packs),
       numbers in `docs/dsp/technique-validation.md`, live `--vibrato`
       readout in kan_demo
-- [ ] Non-consuming detection tap API for the kanfx input bus (monitoring FX
-      must never alter what judges analyze)
-- [ ] Automated audio-injection test bench: feed WAV fixtures through the
-      pipeline without a microphone (loopback mode)
-- [ ] Latency measurement harness: loopback cable @ 48 kHz / 64 samples
+- [x] Non-consuming detection tap API for the kanfx input bus (monitoring FX
+      must never alter what judges analyze) — `tap.hpp`
+- [x] Automated audio-injection test bench: feed WAV fixtures through the
+      pipeline without a microphone (loopback mode) — `wav_io.hpp` +
+      deterministic `fixture_gen` + `libkan_loopback_test` (CTest fixture
+      ordering), `kan_cli --loopback <wav>`
+- [x] Latency measurement harness: ground-truth onset latency asserted in
+      `libkan_loopback_test` (+1.33 ms file-based) and reported by
+      `kan_cli --latency-report`; loopback-cable procedure documented in
+      `docs/dsp/latency-measurements.md` (hardware measurement pending
+      cable rig)
 
 ## Milestone 1 release gates (all must pass)
 

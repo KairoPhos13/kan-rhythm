@@ -32,23 +32,29 @@ Per-stage contribution at the gate configuration (64-sample blocks = 1.33 ms):
 
 ## Gate 1 — onset latency (hardware → event) ≤ 4.5 ms @ 48 kHz/64
 
-**[H]** Not yet measured end-to-end (needs the loopback-cable rig below).
+**[M]** offline half (file injection, ground-truth onset positions,
+`libkan_loopback_test` + `kan_cli --loopback --latency-report`): detection
+fires on the block containing the energy rise — **+1.33 ms measured** on the
+onset-grid fixture at 128-sample blocks (block quantization bound: 2.67 ms;
+1.33 ms at the gate's 64-sample blocks).
+**[H]** end-to-end hardware number still needs the loopback-cable rig below.
 **[T]** Budget: capture block 1.33 ms + onset detection ≤ 1 block 1.33 ms +
 ring-buffer handoff < 0.01 ms **[M]** = **~2.7 ms** expected, ~1.8 ms of
-headroom to the gate. Offline fixture runs confirm the detector fires on
-the first or second block after the energy jump **[M]**.
+headroom to the gate.
 
 ### Loopback-cable procedure (for [H] measurement)
 
 1. Cable the interface output (channel 0) physically into its input
    (channel 1) — a real electrical round trip.
-2. `kan_cli --loopback-cable --latency-report` (harness pending, see
-   libkan/TODO.md): the app emits a sharp impulse (1-sample step burst) at
-   a known `t0` (host clock) and timestamps the onset event `t1`.
-3. `latency = t1 − t0 − output_block_latency` where the output block
-   latency (1.33 ms @ 64) is the known playback-side buffering. Repeat
-   ≥ 1000 times; report median and p99. The gate uses the median; p99
-   must stay < 6 ms.
+2. `kan_cli --latency-report` runs the harness against the live capture:
+   the app timestamps each onset it detects on the input stream.
+3. Emit the impulse burst set (or use `kan_cli --loopback` on
+   `libkan/tests/fixtures/onset_grid.wav` played out of the interface) and
+   record `latency = t1 − t0 − output_block_latency`, where t0 is the known
+   emission time (fixture grid: bursts at 0.5 + n·1.0 s), t1 the detected
+   onset source time, and output block latency (1.33 ms @ 64) the known
+   playback buffering. Repeat ≥ 1000 times; report median and p99. The gate
+   uses the median; p99 must stay < 6 ms.
 4. Run the same procedure at 128-sample blocks for the CLI default.
 
 ## Gate 2 — monophonic confirmation latency

@@ -19,10 +19,11 @@ without any graphics engine.
 ## Next
 
 - [ ] `--block 64` option to test the 1.33 ms buffer configuration
-- [ ] `--loopback` mode: inject a WAV file instead of the microphone
+- [x] `--loopback` mode: inject a WAV file instead of the microphone
       (automated testing without hardware)
-- [ ] `--latency-report`: measure and print hardware-to-event onset latency
-      (supports the ≤4.5 ms gate)
+- [x] `--latency-report`: print onset source timestamps + block-quantization
+      summary (ground truth in libkan_loopback_test; hardware half follows
+      the cable procedure in docs/dsp/latency-measurements.md)
 - [ ] `--calibrate`: 2-second reference-note flow printing the instrument's
       Δc global offset in cents
 - [ ] Underrun counter + 60-minute soak mode (stability gate)

@@ -57,6 +57,22 @@ if(KAN_BUILD_TESTS)
     target_link_libraries(libkan_tap_test PRIVATE libkan)
     add_test(NAME libkan_tap_test COMMAND libkan_tap_test)
 
+    # Loopback regression harness: generate the WAV fixtures, then run the
+    # pipeline over them (CTest fixture ordering guarantees the sequence).
+    add_executable(libkan_fixture_gen tests/fixture_gen.cpp)
+    target_link_libraries(libkan_fixture_gen PRIVATE libkan)
+    add_executable(libkan_loopback_test tests/loopback_test.cpp)
+    target_link_libraries(libkan_loopback_test PRIVATE libkan)
+
+    add_test(NAME libkan_fixture_gen
+             COMMAND libkan_fixture_gen ${CMAKE_CURRENT_BINARY_DIR}/fixtures)
+    set_tests_properties(libkan_fixture_gen PROPERTIES
+        FIXTURES_SETUP kan_fixtures)
+    add_test(NAME libkan_loopback_test
+             COMMAND libkan_loopback_test ${CMAKE_CURRENT_BINARY_DIR}/fixtures)
+    set_tests_properties(libkan_loopback_test PROPERTIES
+        FIXTURES_REQUIRED kan_fixtures)
+
     if(TARGET libkan_fft)
         add_executable(libkan_chroma_test tests/chroma_test.cpp)
         target_link_libraries(libkan_chroma_test PRIVATE libkan_fft)
