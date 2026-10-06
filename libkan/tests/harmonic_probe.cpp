@@ -27,6 +27,9 @@
 // validator against hand-written hypotheses and independent spectra.
 #include "libkan/harmonic_chord.hpp"
 #include "libkan/chord_goertzel.hpp"
+#include "libkan/dsp_detector.hpp"
+#include "libkan/instrument_profile.hpp"
+#include "libkan/precondition.hpp"
 
 #include <kiss_fftr.h>
 
@@ -185,6 +188,60 @@ void dump(const std::vector<float>& sig, float sr) {
     }
 }
 
+/// Independent evidence for one candidate: the nearest spectral line to its
+/// f0 within +/-40 cents (position and level vs the band's strongest line).
+void f0_line(const Spectrum& sp, float midi, bool& found, float& cents, float& db);
+
+/// --emit-candidates: chart-stand-in hypothesis generator for validation.
+// Emits "@t_ms midi ..." lines (the kan_demo --candidates format) from
+// long-window f0-line evidence per detected attack, so every attack of a
+// recording can be described by the conditioned path. This is a CALLER-side
+// tool — exactly the epistemic role of the game's chart: hypotheses in,
+// measurements out. Nothing it writes is a verdict; wrong hypotheses show
+// up as low presence / UNEXPLAINED_ENERGY downstream.
+void emit_candidates(const std::vector<float>& sig, float sr, FILE* out) {
+    kan::Preconditioner pre(sr);
+    kan::HybridDetector det(sr);
+    det.set_profile(kan::InstrumentProfile::keyboard());
+    std::vector<float> cond(128);
+    std::vector<float> attack_ms;
+    for (size_t off = 0; off + 128 <= sig.size(); off += 128) {
+        pre.process_block(&sig[off], cond.data(), 128);
+        if (det.process_onset_block(cond.data(), 128)) {
+            attack_ms.push_back(1000.0f * float(off + 128) / sr);
+        }
+    }
+
+    std::fprintf(out, "# auto-generated candidate hypotheses (f0-line evidence at "
+                      "+200 ms; chart stand-in for validation)\n");
+    size_t total_cands = 0;
+    for (float t : attack_ms) {
+        const size_t start = size_t((t + 200.0f) / 1000.0f * sr);
+        if (start + kSpecWin >= sig.size()) continue;
+        Spectrum sp;
+        sp.sr = sr;
+        sp.bin_hz = sr / float(kFft);
+        sp.compute(sig.data(), sig.size(), start);
+        struct Cand { int midi; float db; };
+        std::vector<Cand> cands;
+        for (int m = 24; m <= 96; ++m) {
+            bool found = false;
+            float cents = 0.0f, db = 0.0f;
+            f0_line(sp, float(m), found, cents, db);
+            if (found && db > -25.0f) cands.push_back({m, db});
+        }
+        std::sort(cands.begin(), cands.end(),
+                  [](const Cand& a, const Cand& b) { return a.db > b.db; });
+        if (cands.size() > 8) cands.resize(8);
+        std::fprintf(out, "@%.0f", double(t));
+        for (const auto& c : cands) std::fprintf(out, " %d", c.midi);
+        std::fprintf(out, "\n");
+        total_cands += cands.size();
+    }
+    std::fprintf(stderr, "# %zu attacks, %zu candidate hypotheses written\n",
+                 attack_ms.size(), total_cands);
+}
+
 // ---------------------------------------------------------------------------
 // --measure: HarmonicChordValidator over the annotated candidates.
 struct CandRun {
@@ -224,10 +281,11 @@ void print_run(const char* tag, const CandRun& r, const float* midi, size_t n) {
 /// f0 within +/-40 cents (position and level vs the band's strongest line).
 void f0_line(const Spectrum& sp, float midi, bool& found, float& cents, float& db) {
     const float f0 = midi_to_hz(midi);
-    const size_t k0 = size_t(f0 / sp.bin_hz);
-    const size_t lo = k0 > 4 ? k0 - 4 : 1;
-    const size_t hi = std::min(sp.mag.size() - 2, k0 + 5);
-    size_t best = 0;
+    const size_t lo = std::max<size_t>(1, size_t(f0 * std::pow(2.0f, -40.0f / 1200.0f)
+                                                 / sp.bin_hz));
+    const size_t hi = std::min(sp.mag.size() - 2,
+                               size_t(f0 * std::pow(2.0f, 40.0f / 1200.0f) / sp.bin_hz) + 1);
+    size_t best = lo;
     for (size_t k = lo; k <= hi; ++k) {
         if (sp.mag[k] > sp.mag[best]) best = k;
     }
@@ -439,17 +497,22 @@ void bench(float sr) {
 int main(int argc, char** argv) {
     const char* mode = nullptr;
     const char* wav_path = nullptr;
+    const char* out_path = nullptr;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--help") == 0) {
             std::printf("libkan_harmonic_probe — chord-validation evidence probe\n"
                         "  libkan_harmonic_probe --dump <wav>     spectral inspection\n"
                         "  libkan_harmonic_probe --measure <wav>  candidate measurements\n"
-                        "  libkan_harmonic_probe --bench          validate() cost scaling\n");
+                        "  libkan_harmonic_probe --bench          validate() cost scaling\n"
+                        "  libkan_harmonic_probe --emit-candidates <wav> [out.txt]\n"
+                        "      chart-stand-in hypotheses for kan_demo --candidates\n");
             return 0;
         } else if (mode == nullptr) {
             mode = argv[i];
-        } else {
+        } else if (wav_path == nullptr) {
             wav_path = argv[i];
+        } else {
+            out_path = argv[i];
         }
     }
     if (mode == nullptr) {
@@ -472,6 +535,19 @@ int main(int argc, char** argv) {
     }
     std::printf("# %s | %.1f s | %u Hz | %zu annotated attacks\n", wav_path,
                 double(sig.size()) / double(sr), sr, kAttackCount);
+    if (std::strcmp(mode, "--emit-candidates") == 0) {
+        FILE* out = stdout;
+        if (out_path != nullptr) {
+            out = std::fopen(out_path, "w");
+            if (out == nullptr) {
+                std::fprintf(stderr, "[ERROR] cannot write %s\n", out_path);
+                return -1;
+            }
+        }
+        emit_candidates(sig, float(sr), out);
+        if (out_path != nullptr) std::fclose(out);
+        return 0;
+    }
     if (std::strcmp(mode, "--dump") == 0) {
         dump(sig, float(sr));
         return 0;
