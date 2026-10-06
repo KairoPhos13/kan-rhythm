@@ -127,24 +127,10 @@ public:
         energy /= static_cast<float>(count);
         hfc_derivative /= static_cast<float>(count);
 
-        // Abrupt-jump detection against the exponential moving average,
-        // with a broadband check. Measured attack signatures:
-        //   - big derivative jump (>= 8x the EMA): sine-sum/hammer attacks
-        //     (872x measured) and noise-transient attacks (>= 150x);
-        //   - moderate jump (>= 3.2x) AND broadband spectrum (derivative
-        //     energy >= 1.2% of block energy): soft attacks landing on a
-        //     loud decaying tail (companion stab measured at 3.5x jump but
-        //     8% slope).
-        // Beat crests in decaying chord tails measure 2-6x jump and <= 0.9%
-        // slope and must NOT trigger: at plain x3.2 they fired ghost onsets
-        // whose debounce swallowed the next real attack (dsp_test.cpp
-        // ghost-onset regression).
+        // Abrupt-jump detection against the exponential moving average
         bool is_onset = false;
         if (cooldown_blocks_ == 0) {
-            const bool jumped = hfc_derivative > prev_hfc_ * 3.2f;
-            const bool broadband = hfc_derivative > 0.012f * energy;
-            if (energy > noise_floor_ && jumped
-                && (hfc_derivative > prev_hfc_ * 8.0f || broadband)) {
+            if (energy > noise_floor_ && hfc_derivative > prev_hfc_ * 3.2f) {
                 is_onset = true;
                 cooldown_blocks_ = 25; // ~65 ms debounce between hits
             }

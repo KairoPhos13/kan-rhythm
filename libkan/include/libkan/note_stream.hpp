@@ -504,6 +504,9 @@ public:
     static constexpr size_t kHistory = 32768;      // power of two; must cover
                                                    // delayed finalize (0.68 s)
     static constexpr size_t kRmsSeriesMax = 512;
+    static constexpr float kRetriggerLatchMs = 150.0f; ///< retrigger latch
+                                                       /// (same bookkeeping as
+                                                       /// kan_analyze's note split)
 
     struct CandidateEntry {
         uint32_t cand_note_id = 0; ///< record the hypothesis belongs to (0 = anonymous)
@@ -539,6 +542,11 @@ public:
         }
         return false;
     }
+
+    /// Share the calibrated onset energy floor (mean square) with the
+    /// pipeline's stage 0 — call when the noise gate calibrates. The
+    /// describer's clock always starts at the first block it is fed.
+    void set_noise_floor(float energy) noexcept { detector_.set_noise_floor(energy); }
 
     /// Caller-supplied hypotheses for one attack (fixed-slot copy, no
     /// allocation). Applies to the named note's finalize measurement; call
@@ -657,7 +665,15 @@ private:
     }
 
     /// Opens a note record on the attack and emits its HIT (fixed forever).
+    /// Boundary bookkeeping (docs/dsp/README.md §3 rule 1): a detector onset
+    /// while a note is live within `kRetriggerLatchMs` of its onset is a
+    /// retrigger of that note (decaying notes retrigger the detector), not
+    /// a new attack — it opens no record.
     void open_note(uint64_t onset_sample) noexcept {
+        const float onset_ms = 1000.0f * float(onset_sample) / sr_;
+        for (auto& n : notes_) {
+            if (n.live && onset_ms - n.onset_ms < kRetriggerLatchMs) return; // latch
+        }
         NoteSlot* slot = nullptr;
         for (auto& n : notes_) {
             if (!n.live) { slot = &n; break; }

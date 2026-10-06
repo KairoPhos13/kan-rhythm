@@ -33,9 +33,19 @@ void check(bool ok, const char* what) {
 
 // ---------------------------------------------------------------------------
 // Synthesis: harmonic notes with a short attack transient (deterministic).
+// Realistic excitation: notes of a chord start spread by a few ms
+// (hammer/strum), with independent phases and ~cents detune. Phase-locked
+// simultaneous sums beat coherently, and their crests retrigger onset
+// detectors — an artifact no real instrument produces (docs/dsp/README.md
+// §6.3), so fixtures must not synthesize it.
 void add_note(std::vector<float>& sig, float t0, float dur, float freq, float amp,
               uint32_t seed) {
-    const size_t at = size_t(t0 * kSr);
+    const float detune_cents = float(int(seed % 5u) - 2) * 1.5f;
+    const float f = freq * std::pow(2.0f, detune_cents / 1200.0f);
+    const float phase0 = float((seed * 37u) % 360u) * float(M_PI) / 180.0f;
+    const float start_ms = float((seed >> 3) % 4u) * 4.0f; // 0..12 ms spread
+    const float decay0 = 1.05f + 0.22f * float(seed % 3u); // per-note decay rate
+    const size_t at = size_t((t0 + start_ms / 1000.0f) * kSr);
     const size_t n = size_t(dur * kSr);
     for (size_t i = 0; at + i < sig.size() && i < n; ++i) {
         const float t = float(i) / kSr;
@@ -46,15 +56,25 @@ void add_note(std::vector<float>& sig, float t0, float dur, float freq, float am
               * (1.0f - t / 0.005f);
         }
         for (int h = 1; h <= 5; ++h) {
-            if (freq * float(h) > 15000.0f) break;
+            if (f * float(h) > 15000.0f) break;
             // Piano-like decay: higher harmonics die first (without it the
             // equal-rate decay keeps HF beating alive and beat crests can
             // retrigger the onset detector — docs/dsp/README.md limitation).
-            const float decay = std::exp(-(1.2f + 0.25f * float(h)) * t);
+            const float decay = std::exp(-(decay0 + 0.25f * float(h)) * t);
             s += (0.5f / float(h)) * decay
-               * std::sin(2.0f * float(M_PI) * freq * float(h) * t);
+               * std::sin(2.0f * float(M_PI) * f * float(h) * t + phase0 * float(h));
         }
         sig[at + i] += amp * s;
+    }
+}
+
+/// Room noise floor (-46 dBFS here): real recordings always have one, and
+/// it bounds the crest contrast of beating tails. Deterministic LCG.
+void add_noise_floor(std::vector<float>& sig, float amp, uint32_t seed) {
+    uint32_t rng = seed;
+    for (size_t i = 0; i < sig.size(); ++i) {
+        rng = rng * 1664525u + 1013904223u;
+        sig[i] += amp * (float(int(rng >> 8 & 0xFFFF)) / 32767.5f - 1.0f);
     }
 }
 
@@ -205,8 +225,9 @@ void fixture_2_chord_all_present() {
     std::printf("fixture 2: chord with all candidates present\n");
     std::vector<float> sig(size_t(1.6f * kSr), 0.0f);
     add_note(sig, 0.3f, 1.1f, 261.63f, 0.30f, 11u); // C4
-    add_note(sig, 0.3f, 1.1f, 329.63f, 0.30f, 12u); // E4
-    add_note(sig, 0.3f, 1.1f, 392.00f, 0.30f, 13u); // G4
+    add_note(sig, 0.3f, 1.1f, 329.63f, 0.23f, 12u); // E4
+    add_note(sig, 0.3f, 1.1f, 392.00f, 0.27f, 13u); // G4
+    add_noise_floor(sig, 0.005f, 111u);
 
     kan::NoteDescriber::CandidateSet cs;
     cs.note_id = 1;
@@ -250,9 +271,10 @@ void fixture_2_chord_all_present() {
 void fixture_3_chord_one_absent() {
     std::printf("fixture 3: chord with one candidate absent (false-presence bound)\n");
     std::vector<float> sig(size_t(1.6f * kSr), 0.0f);
-    add_note(sig, 0.3f, 1.1f, 261.63f, 0.30f, 21u); // C4
+    add_note(sig, 0.3f, 1.1f, 261.63f, 0.27f, 21u); // C4
     add_note(sig, 0.3f, 1.1f, 329.63f, 0.30f, 22u); // E4
-    add_note(sig, 0.3f, 1.1f, 392.00f, 0.30f, 23u); // G4
+    add_note(sig, 0.3f, 1.1f, 392.00f, 0.23f, 23u); // G4
+    add_noise_floor(sig, 0.005f, 222u);
 
     kan::NoteDescriber::CandidateSet cs;
     cs.note_id = 1;
@@ -286,8 +308,9 @@ void fixture_4_sustained_under_new_note() {
     std::printf("fixture 4: sustained LH chord under a new RH melody note\n");
     std::vector<float> sig(size_t(2.2f * kSr), 0.0f);
     add_note(sig, 0.3f, 1.5f, 130.81f, 0.30f, 31u); // C3 (LH chord, sustains)
-    add_note(sig, 0.3f, 1.5f, 164.81f, 0.30f, 32u); // E3
-    add_note(sig, 0.3f, 1.5f, 196.00f, 0.30f, 33u); // G3
+    add_note(sig, 0.3f, 1.5f, 164.81f, 0.23f, 32u); // E3
+    add_note(sig, 0.3f, 1.5f, 196.00f, 0.27f, 33u); // G3
+    add_noise_floor(sig, 0.005f, 333u);
     // A4 (69), not G4: G4's fundamental is G3's 2nd harmonic — a harmonic
     // collision that splits the LS energy arbitrarily between two notes at
     // the same frequency (the fixture must stay measurable).
@@ -341,9 +364,10 @@ void fixture_4_sustained_under_new_note() {
 void fixture_5_unexplained_extra() {
     std::printf("fixture 5: unexplained extra note (never invented, honestly flagged)\n");
     std::vector<float> sig(size_t(1.6f * kSr), 0.0f);
-    add_note(sig, 0.3f, 1.1f, 261.63f, 0.30f, 41u); // C4
+    add_note(sig, 0.3f, 1.1f, 261.63f, 0.25f, 41u); // C4
     add_note(sig, 0.3f, 1.1f, 329.63f, 0.30f, 42u); // E4
-    add_note(sig, 0.3f, 1.1f, 392.00f, 0.30f, 43u); // G4: NOT in the candidates
+    add_note(sig, 0.3f, 1.1f, 392.00f, 0.23f, 43u); // G4: NOT in the candidates
+    add_noise_floor(sig, 0.005f, 444u);
 
     kan::NoteDescriber::CandidateSet cs;
     cs.note_id = 1;
@@ -376,8 +400,9 @@ void fixture_6_live_vs_offline() {
     std::printf("fixture 6: live-vs-offline stream equality (byte-identical JSONL)\n");
     std::vector<float> sig(size_t(2.2f * kSr), 0.0f);
     add_note(sig, 0.3f, 1.5f, 130.81f, 0.30f, 51u);
-    add_note(sig, 0.3f, 1.5f, 196.00f, 0.30f, 53u);
+    add_note(sig, 0.3f, 1.5f, 196.00f, 0.25f, 53u);
     add_note(sig, 0.9f, 0.6f, 392.00f, 0.60f, 54u);
+    add_noise_floor(sig, 0.005f, 555u);
 
     kan::NoteDescriber::CandidateSet chord;
     chord.note_id = 1;

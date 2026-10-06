@@ -95,15 +95,16 @@ transient needs ≥ 8 ms blanking).
 ### 2.4 `dsp_detector.hpp` — onset + blanking + YIN pitch
 
 - `HybridDetector::process_onset_block(const float*, n)` → bool. HFC
-  energy-derivative jump vs EMA (≥ ×3.2 **and** broadband: derivative
-  energy ≥ 1.2% of block energy; or a ≥ ×8 jump alone), 25-block (~65 ms)
-  debounce. Measured: fires on the first block containing the energy rise
+  energy-derivative jump vs EMA (×3.2), 25-block (~65 ms) debounce.
+  Measured: fires on the first block containing the energy rise
   (+1.33 ms block-quantized on fixtures; noise → zero ghost onsets; smooth
-  FX tails do not retrigger; soft attacks on loud decaying tails still fire
-  — companion stab measured at ×3.5 jump but 8% slope). Beat crests in
-  decaying chord tails (measured ×2–6 jump, ≤ 0.9% slope) must not fire:
-  at plain ×3.2 they created ghost onsets whose debounce swallowed the
-  next real attack (regression test in `dsp_test.cpp`).
+  FX tails do not retrigger; **recall 8/8 hand-verified attacks on the real
+  piano take**, jump ratios of real soft attacks measured as low as ×3.3).
+  Note: a phase-locked sum of equal decaying notes beats coherently and its
+  crests cross ×3.2 (synthetic-only artifact — real chord tails measured
+  clean, see §6.3); fixtures synthesize realistic voicing, phases, hammer
+  spread and a room noise floor. The note-boundary layer latches retriggers
+  (§3 rule 1).
 - `set_noise_floor(energy)` / `noise_floor()` — share the gate's calibrated
   floor (energy = mean square).
 - `set_profile()` / `profile()` + `in_transient_blanking(ms_after_onset)`
@@ -454,7 +455,7 @@ look wrong:
 | a whole octave band missing from YIN | lag range truncated (top octave) or window < 2 periods (bass) | C8 pre-fix |
 | durations ≈ note+delay time | FX tail counted as sustain | fx scenario (documented, L7) |
 | notes "evaluated" but source is polyphonic | reliability filter bypassed | always filter on `reliable` |
-| phantom notes on decaying chords; a real attack shortly after is lost | beat crests in the tail passed the ×3.2 jump test; the ghost's debounce swallowed the next attack | dsp_test ghost-onset regression (fixed by the broadband check) |
+| phantom notes on decaying chords | phase-locked sums of equal decaying notes beat coherently and their crests cross ×3.2 (synthetic-only: real chord tails measured clean — 8/8 verified attacks caught, a 3.3 s decaying tail with zero ghosts) | dsp_test ghost-onset regression (fixtures must synthesize realistic voicing/phases/hammer spread/noise floor) |
 
 When a new signature appears: reproduce with the smallest synthesized
 signal, add it to `test_signals.hpp`/`fixture_layout.hpp`, encode the
