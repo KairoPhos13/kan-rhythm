@@ -41,7 +41,12 @@ the detection stack; gate validation stays in `apps/kan_cli`.
 - [ ] Live chord display once a two-handed instrument is picked up
       (validator exists in libkan; needs UI + strum-onset handling)
 - [ ] CSV event log (onset time, note, cents) for offline analysis
-- [ ] `--loopback <wav>` file input sharing fixtures with kan_cli (item 8)
+- [x] `--input <wav>` file input (the old `--loopback` wish): the exact
+      live consumer runs offline over recordings — validated on the
+      Hallelujah piano take (245 attacks, 131 candidate facts from 28
+      hand-verified attacks) and a real ocarina take (80/80 mono, 16
+      vibrato claims); worked example in `examples/`
+- [x] `--candidates <f>` (timed hypothesis lists) + `--expect` auto-supply
 - [ ] Soak/CPU readout in the status line (feeds the 60-min stability gate)
 - [ ] Windows/macOS smoke testing (CI is Linux-only today)
 

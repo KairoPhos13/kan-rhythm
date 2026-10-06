@@ -320,25 +320,39 @@ void print_event(const kan::NoteEvent& e, FILE* jsonl) {
     }
 }
 
-/// --candidates file: one line per attack, space-separated midi hypotheses
-/// (include notes still sustaining from earlier attacks). Consumed in
-/// attack order; anonymous hypotheses (the demo has no chart to bind to).
-std::vector<std::vector<float>> load_candidates(const char* path) {
-    std::vector<std::vector<float>> out;
+/// --candidates file: one line per attack. "@<t_ms> midi midi ..." binds
+/// the hypotheses to the attack nearest that time (within 250 ms); a plain
+/// "midi midi ..." line applies to the next attack without a timed line.
+/// Hypotheses may include notes still sustaining from earlier attacks.
+/// Lines starting with '#' are comments.
+struct CandidateLine {
+    float t_ms = -1.0f;          ///< attack time to bind to (< 0 = next attack)
+    std::vector<float> midis;
+};
+
+std::vector<CandidateLine> load_candidates(const char* path) {
+    std::vector<CandidateLine> out;
     FILE* f = std::fopen(path, "r");
     if (f == nullptr) return out;
-    char line[256];
+    char line[512];
     while (std::fgets(line, sizeof(line), f) != nullptr) {
-        std::vector<float> midis;
         const char* p = line;
+        while (*p == ' ' || *p == '\t') ++p;
+        if (*p == '\0' || *p == '\n' || *p == '#') continue;
+        CandidateLine cl;
+        if (*p == '@') {
+            char* end = nullptr;
+            cl.t_ms = std::strtof(p + 1, &end);
+            p = end;
+        }
         for (;;) {
             char* end = nullptr;
             const float v = std::strtof(p, &end);
             if (end == p) break;
-            midis.push_back(v);
+            cl.midis.push_back(v);
             p = end;
         }
-        if (!midis.empty()) out.push_back(std::move(midis));
+        if (!cl.midis.empty()) out.push_back(std::move(cl));
     }
     std::fclose(f);
     return out;
@@ -501,6 +515,74 @@ int run_selftest() {
         pass &= hit && provisional && cand_seen == 4 && absent_low && close_seen;
     }
 
+    // File input path (--input): writing a WAV and decoding it back must
+    // describe byte-identically to feeding the same samples directly — the
+    // file mode runs the exact live consumer (live/offline equivalence).
+    {
+        auto describe_jsonl = [](const std::vector<float>& sig) {
+            kan::NoteDescriber d(float(SAMPLE_RATE), preset("ocarina").profile);
+            kan::NoteEventStream s(1024);
+            d.subscribe(s);
+            std::string out;
+            auto drain = [&]() {
+                kan::NoteEvent batch[32];
+                for (;;) {
+                    const size_t got = s.pop(batch, 32);
+                    if (got == 0) break;
+                    for (size_t k = 0; k < got; ++k) {
+                        char buf[512];
+                        if (kan::note_event_jsonl(batch[k], buf, sizeof(buf)) > 0) {
+                            out.append(buf);
+                        }
+                    }
+                }
+            };
+            for (size_t off = 0; off + BLOCK_SIZE <= sig.size(); off += BLOCK_SIZE) {
+                d.process_block(&sig[off], BLOCK_SIZE);
+                while (d.finalize_due()) {}
+                drain();
+            }
+            d.flush();
+            drain();
+            return out;
+        };
+
+        const char* tmp = "kan_demo_selftest_roundtrip.wav";
+        const auto sig = synth_ocarina_note(523.25f, 0.4f);
+        ma_encoder_config ecfg = ma_encoder_config_init(ma_encoding_format_wav,
+                                                        ma_format_f32, 1, SAMPLE_RATE);
+        ma_encoder enc;
+        bool wrote = ma_encoder_init_file(tmp, &ecfg, &enc) == MA_SUCCESS;
+        if (wrote) {
+            ma_uint64 written = 0;
+            ma_encoder_write_pcm_frames(&enc, sig.data(), sig.size(), &written);
+            ma_encoder_uninit(&enc);
+            wrote = written == sig.size();
+        }
+        std::vector<float> decoded;
+        ma_decoder_config dcfg = ma_decoder_config_init(ma_format_f32, 1, SAMPLE_RATE);
+        ma_decoder dec;
+        if (wrote && ma_decoder_init_file(tmp, &dcfg, &dec) == MA_SUCCESS) {
+            float chunk[4096];
+            for (;;) {
+                ma_uint64 got = 0;
+                if (ma_decoder_read_pcm_frames(&dec, chunk, 4096, &got) != MA_SUCCESS
+                    || got == 0) {
+                    break;
+                }
+                decoded.insert(decoded.end(), chunk, chunk + got);
+            }
+            ma_decoder_uninit(&dec);
+        }
+        std::remove(tmp);
+        const std::string direct = describe_jsonl(sig);
+        const std::string via_file = describe_jsonl(decoded);
+        printf("file round-trip: wrote=%d decoded=%zu/%zu streams equal=%d\n",
+               int(wrote), decoded.size(), sig.size(), int(direct == via_file));
+        pass &= wrote && decoded.size() == sig.size() && !direct.empty()
+                && direct == via_file;
+    }
+
     printf(pass ? "SELFTEST PASS\n" : "SELFTEST FAIL\n");
     return pass ? 0 : 1;
 }
@@ -512,9 +594,14 @@ void print_usage() {
         "Usage: kan_demo [options]\n"
         "  --instrument <name>   ocarina | flute | recorder | guitar | piano\n"
         "                        (default: ocarina)\n"
+        "  --input <wav>         offline validation: run the exact live\n"
+        "                        pipeline over a recording (no audio device) —\n"
+        "                        same events, same schema as a live session\n"
         "  --expect <note>       score-informed mode: confirm the expected\n"
         "                        note (e.g. C5, A4, F#5) with the bounded\n"
-        "                        matcher — the game's confirmation path\n"
+        "                        matcher — the game's confirmation path.\n"
+        "                        Also feeds the note as a CONTENT candidate\n"
+        "                        (presence/cents measured per attack)\n"
         "  --engine <yin|bacf>   free-tuner pitch engine (default yin; bacf =\n"
         "                        Cycfi Q bitstream autocorrelation)\n"
         "  --calibrate           play one long comfortable note after the\n"
@@ -531,8 +618,10 @@ void print_usage() {
         "                        --events — live/offline diffable) and show\n"
         "                        the facts progressively on screen\n"
         "  --candidates <f>      candidate hypotheses per attack (one line per\n"
-        "                        attack, space-separated midis; include notes\n"
-        "                        still sustaining) — conditions the CONTENT\n"
+        "                        attack: '@<t_ms> midi midi ...' binds to the\n"
+        "                        attack at that time, or plain 'midi ...' for\n"
+        "                        the next attack; include notes still\n"
+        "                        sustaining) — conditions the CONTENT\n"
         "                        measurements (presence/cents/amplitude)\n"
         "  --no-gate             disable the adaptive noise gate\n"
         "  --noise-cal <ms>      room-silence calibration window (default 500)\n"
@@ -549,6 +638,7 @@ int main(int argc, char** argv) {
     const char* csv_path = nullptr;
     const char* events_path = nullptr;
     const char* candidates_path = nullptr;
+    const char* input_path = nullptr;
     bool calibrate = false;
     bool vibrato_mode = false;
     bool use_gate = true;
@@ -571,6 +661,8 @@ int main(int argc, char** argv) {
             events_path = argv[++i];
         } else if (std::strcmp(argv[i], "--candidates") == 0 && i + 1 < argc) {
             candidates_path = argv[++i];
+        } else if (std::strcmp(argv[i], "--input") == 0 && i + 1 < argc) {
+            input_path = argv[++i];
         } else if (std::strcmp(argv[i], "--no-gate") == 0) {
             use_gate = false;
         } else if (std::strcmp(argv[i], "--noise-cal") == 0 && i + 1 < argc) {
@@ -630,7 +722,11 @@ int main(int argc, char** argv) {
     } else {
         std::printf("  Mode: free tuner (onset + note + cents)\n");
     }
-    std::printf("  Ctrl+C to exit\n");
+    if (input_path != nullptr) {
+        std::printf("  Input: %s (offline run of the live pipeline)\n", input_path);
+    } else {
+        std::printf("  Ctrl+C to exit\n");
+    }
     std::printf("====================================================\n");
     if (use_gate) {
         std::printf("Keep the room quiet for the first %d ms (noise gate)...\n", noise_cal_ms);
@@ -648,11 +744,13 @@ int main(int argc, char** argv) {
     config.dataCallback = audio_capture_callback;
 
     ma_device device;
-    if (ma_device_init(nullptr, &config, &device) != MA_SUCCESS) {
-        std::fprintf(stderr, "[ERROR] Could not open the audio capture device.\n");
-        return -1;
+    if (input_path == nullptr) {
+        if (ma_device_init(nullptr, &config, &device) != MA_SUCCESS) {
+            std::fprintf(stderr, "[ERROR] Could not open the audio capture device.\n");
+            return -1;
+        }
+        ma_device_start(&device);
     }
-    ma_device_start(&device);
 
     Pipeline pipeline;
     pipeline.setup(inst.profile, expect_note != nullptr, expected_midi, use_bacf_engine);
@@ -670,11 +768,11 @@ int main(int argc, char** argv) {
     kan::DetuneCalibrator calibrator(2.0f);
     kan::TuningCompensation comp;
     bool cal_done = !calibrate;
-    const auto session_start = std::chrono::steady_clock::now();
-    auto session_seconds = [&]() {
-        return float(std::chrono::duration<double>(
-            std::chrono::steady_clock::now() - session_start).count());
-    };
+    // Session clock = audio time, advanced per consumed block in both live
+    // and --input mode: timestamps derive from samples, so a live session
+    // and an offline run of the same audio agree.
+    float session_ms = 0.0f;
+    auto session_seconds = [&]() { return session_ms / 1000.0f; };
 
     // Tuner state: stable display, hysteresis against note flicker.
     float display_midi = -1.0f;
@@ -710,7 +808,7 @@ int main(int argc, char** argv) {
             return -1;
         }
     }
-    std::vector<std::vector<float>> cand_lists;
+    std::vector<CandidateLine> cand_lists;
     if (candidates_path != nullptr) {
         cand_lists = load_candidates(candidates_path);
         if (cand_lists.empty()) {
@@ -718,10 +816,10 @@ int main(int argc, char** argv) {
             return -1;
         }
     }
+    std::vector<bool> cand_used(cand_lists.size(), false);
     kan::NoteDescriber desc(float(SAMPLE_RATE), inst.profile);
     kan::NoteEventStream ev_stream(4096);
     desc.subscribe(ev_stream);
-    size_t cand_idx = 0;
     auto drain_events = [&]() {
         kan::NoteEvent batch[32];
         for (;;) {
@@ -729,16 +827,44 @@ int main(int argc, char** argv) {
             if (got == 0) break;
             for (size_t k = 0; k < got; ++k) {
                 const auto& e = batch[k];
-                if (e.kind == kan::NoteKind::Hit && cand_idx < cand_lists.size()) {
-                    // Hypotheses for this attack (may include notes still
-                    // sustaining from earlier attacks — anonymous here).
+                if (e.kind == kan::NoteKind::Hit) {
+                    // Hypotheses for this attack: the timed line nearest the
+                    // onset, else the next unbound plain line, else (in
+                    // --expect mode) the charted note itself — the game's
+                    // score-informed candidate supply.
+                    const CandidateLine* pick = nullptr;
+                    int best = -1;
+                    float best_dt = 250.0f;
+                    for (size_t c = 0; c < cand_lists.size(); ++c) {
+                        if (cand_used[c] || cand_lists[c].t_ms < 0.0f) continue;
+                        const float dt = std::fabs(cand_lists[c].t_ms - e.t_ms);
+                        if (dt < best_dt) { best_dt = dt; best = int(c); }
+                    }
+                    if (best < 0) {
+                        for (size_t c = 0; c < cand_lists.size(); ++c) {
+                            if (!cand_used[c] && cand_lists[c].t_ms < 0.0f) {
+                                best = int(c);
+                                break;
+                            }
+                        }
+                    }
+                    if (best >= 0) {
+                        cand_used[size_t(best)] = true;
+                        pick = &cand_lists[size_t(best)];
+                    }
                     kan::NoteDescriber::CandidateSet cs;
                     cs.note_id = e.note_id;
-                    const auto& midis = cand_lists[cand_idx++];
-                    cs.count = uint8_t(std::min<size_t>(midis.size(),
-                                                        kan::NoteDescriber::kMaxCandidates));
-                    for (size_t m = 0; m < cs.count; ++m) cs.entries[m] = {0, midis[m]};
-                    desc.set_candidates(cs);
+                    if (pick != nullptr) {
+                        cs.count = uint8_t(std::min<size_t>(pick->midis.size(),
+                                                            kan::NoteDescriber::kMaxCandidates));
+                        for (size_t m = 0; m < cs.count; ++m) {
+                            cs.entries[m] = {0, pick->midis[m]};
+                        }
+                    } else if (expect_note != nullptr) {
+                        cs.count = 1;
+                        cs.entries[0] = {0, expected_midi};
+                    }
+                    if (cs.count > 0) desc.set_candidates(cs);
                 }
                 print_event(e, events);
             }
@@ -814,29 +940,34 @@ int main(int argc, char** argv) {
         std::fflush(stdout);
     };
 
-    std::printf("Ready. Play your instrument!\n");
-    float block[BLOCK_SIZE];
-    while (g_running.load()) {
-        if (!g_audio_ring.pop(block, BLOCK_SIZE)) {
-            std::this_thread::sleep_for(std::chrono::microseconds(200));
-            continue;
-        }
-
+    // Per-block consumer: the SAME code path for the capture ring (live)
+    // and for a decoded recording (--input) — live/offline equivalence. The
+    // description stream sees every block of the session (its clock starts
+    // at session start), so event times are session/file-absolute.
+    auto consume_block = [&](const float* blk) {
         if (use_gate && !gate_calibrated) {
-            calib.insert(calib.end(), block, block + BLOCK_SIZE);
+            float cond[BLOCK_SIZE];
+            pipeline.pre.process_block(blk, cond, BLOCK_SIZE);
+            desc.process_block(cond, BLOCK_SIZE);
+            while (desc.finalize_due()) {}
+            drain_events();
+            session_ms += 1000.0f * float(BLOCK_SIZE) / float(SAMPLE_RATE);
+
+            calib.insert(calib.end(), blk, blk + BLOCK_SIZE);
             if (calib.size() >= calib_target) {
                 pipeline.pre.calibrate(calib.data(), calib.size());
                 const float floor_rms = pipeline.pre.gate().noise_floor_rms();
                 pipeline.onset.set_noise_floor(floor_rms * floor_rms);
+                desc.set_noise_floor(floor_rms * floor_rms);
                 gate_calibrated = true;
                 calib.clear();
                 calib.shrink_to_fit();
                 std::printf("[stage 0] noise gate calibrated: floor RMS = %.5f\n", floor_rms);
             }
-            continue;
+            return;
         }
 
-        auto r = pipeline.process(block);
+        auto r = pipeline.process(blk);
 
         // The description stream consumes the same stage-0 audio: facts as
         // they become available (HIT/provisional inline; long-window final
@@ -852,7 +983,45 @@ int main(int argc, char** argv) {
             std::fflush(stdout);
         }
         if (r.pitch) on_pitch(r.pr, r.ms_after_onset);
+        session_ms += 1000.0f * float(BLOCK_SIZE) / float(SAMPLE_RATE);
+    };
+
+    if (input_path != nullptr) {
+        // Offline validation: the exact live pipeline over a recording.
+        ma_decoder_config dcfg = ma_decoder_config_init(ma_format_f32, 1, SAMPLE_RATE);
+        ma_decoder dec;
+        if (ma_decoder_init_file(input_path, &dcfg, &dec) != MA_SUCCESS) {
+            std::fprintf(stderr, "[ERROR] cannot open %s\n", input_path);
+            return -1;
+        }
+        std::vector<float> file;
+        float chunk[4096];
+        for (;;) {
+            ma_uint64 got = 0;
+            if (ma_decoder_read_pcm_frames(&dec, chunk, 4096, &got) != MA_SUCCESS || got == 0) {
+                break;
+            }
+            file.insert(file.end(), chunk, chunk + got);
+        }
+        ma_decoder_uninit(&dec);
+        std::printf("input: %s (%.1f s) — live pipeline, offline\n",
+                    input_path, double(file.size()) / double(SAMPLE_RATE));
+        for (size_t off = 0; off + BLOCK_SIZE <= file.size(); off += BLOCK_SIZE) {
+            consume_block(&file[off]);
+        }
+    } else {
+        std::printf("Ready. Play your instrument!\n");
+        float block[BLOCK_SIZE];
+        while (g_running.load()) {
+            if (!g_audio_ring.pop(block, BLOCK_SIZE)) {
+                std::this_thread::sleep_for(std::chrono::microseconds(200));
+                continue;
+            }
+            consume_block(block);
+        }
     }
+    desc.flush();
+    drain_events();
 
     desc.flush();
     drain_events();
@@ -875,6 +1044,8 @@ int main(int argc, char** argv) {
                 "not judged. Scoring, backing-track consonance and visual feedback\n"
                 "live in later milestones (see apps/kan_demo/README.md).\n");
 
-    ma_device_uninit(&device);
+    if (input_path == nullptr) {
+        ma_device_uninit(&device);
+    }
     return 0;
 }

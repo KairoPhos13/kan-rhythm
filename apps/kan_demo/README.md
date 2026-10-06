@@ -46,8 +46,9 @@ configure downloads miniaudio + Cycfi Q + KissFFT — MIT/BSD only).
 | `--calibrate` | play one long comfortable note → prints your instrument's global detuning Δc in cents vs equal temperament (A4 = 440 Hz) and **applies** it |
 | `--vibrato` | live technique readout: vibrato rate (Hz) / depth (cents) from the cents trajectory — wide/slow *yuri*-style and classical vibrato both visible |
 | `--csv <file>` | write per-note events (t, note, Hz, cents, vibrato) — the same feature stream the learner is evaluated on |
+| `--input <wav>` | **offline validation**: run the exact live pipeline over a recording (no audio device) — same consumer code, same event schema as a live session |
 | `--events <f.jsonl>` | the per-note description stream (HIT / provisional / CONTENT / final / EXPRESSION / CLOSE facts) — progressive on screen, JSONL on disk; same schema as `kan_analyze --events`, live/offline diffable |
-| `--candidates <f>` | candidate hypotheses per attack (one line per attack, space-separated midis; include notes still sustaining) — conditions the CONTENT measurements (presence / cents / amplitude per candidate) |
+| `--candidates <f>` | candidate hypotheses per attack: `@<onset_ms> midi midi ...` binds to the attack at that time (or plain `midi ...` for the next attack). Include notes still sustaining from earlier attacks. Conditions the CONTENT measurements; absent hypotheses get low presence, never invented facts |
 | `--no-gate` | disable the adaptive noise gate |
 | `--noise-cal <ms>` | room-silence calibration window at startup (default 500) |
 | `--selftest` | offline check on a synthesized note (no audio device needed) |
@@ -71,6 +72,47 @@ configure downloads miniaudio + Cycfi Q + KissFFT — MIT/BSD only).
   `--expect` targets shift by the same Δc (measured: a +12-cent-sharp
   instrument reads +0.0 cents after calibration).
 - Offline regression test (`--selftest`, wired into ctest).
+
+## Validating the backend on recordings (before building the game)
+
+`--input` runs the **exact live pipeline** over an audio file — the same
+consumer code path a live session uses — so the description stream can be
+inspected end to end without an instrument. Two worked examples (audio not
+committed; supply your own recordings under `test_results/audio/`):
+
+```bash
+# Polyphonic piano (the hard case): LH chords under an RH melody. The
+# candidate file supplies chart-like hypotheses for 28 hand-verified
+# attacks; every hypothesis gets a measured presence/cents/amplitude.
+./build/apps/kan_demo/kan_demo \
+    --input test_results/audio/07-hallelujah-piano-tutorial_piano.wav \
+    --instrument piano \
+    --candidates apps/kan_demo/examples/hallelujah-piano-tutorial.candidates \
+    --events test_results/logs/07-kan_demo-hallelujah.jsonl
+
+# Monophonic ocarina (the easy case): every attack classified mono,
+# provisional -> final pitch, vibrato + dynamics facts.
+./build/apps/kan_demo/kan_demo \
+    --input test_results/audio/02-frieren-time-flows_ocarina.wav \
+    --instrument ocarina --events test_results/logs/02-kan_demo-frieren.jsonl
+```
+
+What was measured on those runs (this machine, see the JSONLs):
+
+- **Hallelujah (piano)**: 245 attacks → 72 mono / 173 polyphonic class
+  facts; 131 candidate facts from the 28 annotated attacks (similarity
+  0.93 typical); 52 final pitches and 315 honest `unresolved`; dynamics
+  tiers pp..ff across the session. An absent hypothesis measures presence
+  0.00; a wrong early estimate (G4) is corrected by the conditioned final
+  (C3, presence 1.00).
+- **Frieren (ocarina)**: 80 attacks → 80/80 mono; 78 provisional and 76
+  final pitches; 16 vibrato claims; dynamics tiers spread over the piece.
+
+Reading rule for the JSONL: `PITCH` events carry **one** consistent
+estimate (`hz` derived from `midi`+`cents`) or are `unresolved` with flags
+— treat `unresolved` as "not measured", never as "wrong". `CONTENT`
+candidate facts always carry `similarity` (how much of the window the
+whole hypothesis set explains) next to `presence`.
 
 ## Known caveats (measured, not hidden)
 
