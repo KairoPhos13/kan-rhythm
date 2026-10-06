@@ -4,8 +4,14 @@
 # version of the reference run.
 #
 # Usage:
-#   ./run_reference_set.sh <audio_dir> [out_dir]     analyze songs in a folder
-#   ./run_reference_set.sh --demo [out_dir]          analyze built-in scenarios
+#   ./run_reference_set.sh [audio_dir] [out_dir]   (defaults: test_results/audio,
+#                                                  test_results/logs)
+#   ./run_reference_set.sh --demo [out_dir]        regenerate synth scenarios
+#                                                 (audio + logs)
+#
+# All test material and results live under test_results/ (gitignored):
+#   test_results/audio/  input audio (recordings + synthesized scenarios)
+#   test_results/logs/   one .log + one .json descriptor per source
 #
 # Songs are matched to instrument profiles by filename substring (lowercase):
 #   piano  -> piano profile   (e.g. nier-weight-of-the-world_piano.mp3,
@@ -15,8 +21,8 @@
 #   guitar -> guitar profile
 # anything else -> ocarina (override by renaming the file).
 #
-# Audio: export the recordings yourself (WAV/MP3/FLAC); this script and the
-# analyzer never download anything. For the reference set:
+# This script and the analyzer never download audio — provide recordings
+# yourself (WAV/MP3/FLAC/OGG). For the six reference songs:
 #   1. Nier Automata - Weight of the World (piano)      -> *_piano.*
 #   2. Frieren - Time Flows Ever Onward (ocarina)       -> *_ocarina.*
 #   3. Elegance From Across Time (xun + piano companion)-> *_xun.*  (MIX
@@ -49,41 +55,39 @@ profile_for() {
 }
 
 run_one() {
-    local src="$1" out="$2" profile="$3" tag="$4"
+    local src="$1" out="$2" profile="$3"
     mkdir -p "$out"
     local base
     base="$(basename "$src")"
     base="${base%.*}"
     echo "== $base (profile: $profile)"
-    "$BIN" "$src" --instrument "$profile"        > "$out/$base.log"   2>&1 || true
-    "$BIN" "$src" --instrument "$profile" --json > "$out/$base.json"  2>&1 || true
+    # Single pass: text report to .log, machine events to .json.
+    "$BIN" "$src" --instrument "$profile" \
+        --json-out "$out/$base.json" > "$out/$base.log" 2>&1 || true
     head -5 "$out/$base.log"
     echo "   -> $out/$base.log, $out/$base.json"
 }
 
 if [ "${1:-}" = "--demo" ]; then
-    OUT="${2:-reference_logs}"
-    echo "# demo run (built-in scenarios) -> $OUT/"
+    OUT="${2:-$ROOT/test_results/logs}"
+    AUD="$ROOT/test_results/audio"
+    mkdir -p "$OUT" "$AUD"
+    echo "# demo run (built-in scenarios) -> $AUD/ (audio) + $OUT/ (logs)"
     for s in ocarina piano duet fx; do
         prof=ocarina; [ "$s" = piano ] && prof=piano
-        mkdir -p "$OUT"
         echo "== synth:$s (profile: $prof)"
-        "$BIN" --synth "$s" --instrument "$prof"        > "$OUT/synth-$s.log"  2>&1 || true
-        "$BIN" --synth "$s" --instrument "$prof" --json > "$OUT/synth-$s.json" 2>&1 || true
+        "$BIN" --synth "$s" --instrument "$prof" \
+            --out "$AUD/synth-$s.wav" \
+            --json-out "$OUT/synth-$s.json" > "$OUT/synth-$s.log" 2>&1 || true
         head -5 "$OUT/synth-$s.log"
-        echo "   -> $OUT/synth-$s.log, $OUT/synth-$s.json"
+        echo "   -> $AUD/synth-$s.wav, $OUT/synth-$s.log, $OUT/synth-$s.json"
     done
-    echo "done. Compare these logs with the ones from your recordings."
+    echo "done. test_results/ holds audio + logs; both are gitignored."
     exit 0
 fi
 
-if [ $# -lt 1 ]; then
-    echo "usage: $0 <audio_dir> [out_dir] | $0 --demo [out_dir]" >&2
-    exit 1
-fi
-
-DIR="$1"
-OUT="${2:-reference_logs}"
+DIR="${1:-$ROOT/test_results/audio}"
+OUT="${2:-$ROOT/test_results/logs}"
 shopt -s nullglob
 FILES=("$DIR"/*.wav "$DIR"/*.mp3 "$DIR"/*.flac "$DIR"/*.ogg)
 if [ ${#FILES[@]} -eq 0 ]; then
@@ -91,7 +95,7 @@ if [ ${#FILES[@]} -eq 0 ]; then
     exit 1
 fi
 
-echo "# reference run -> $OUT/"
+echo "# reference run: $DIR -> $OUT/"
 for f in "${FILES[@]}"; do
     profile="$(profile_for "$(basename "$f")")"
     run_one "$f" "$OUT" "$profile"

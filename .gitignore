@@ -1,3 +1,7 @@
 build/
 .cache/
 compile_commands.json
+
+# Test results and analysis artifacts (audio + descriptors) — generated,
+# not committed. Regenerate with apps/kan_analyze/run_reference_set.sh.
+test_results/

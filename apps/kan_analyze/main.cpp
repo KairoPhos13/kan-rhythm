@@ -340,7 +340,7 @@ Report analyze(const std::vector<float>& sig, const char* source,
 }
 
 // ---------------------------------------------------------------------------
-void print_report(const Report& r, bool json) {
+void print_report(const Report& r, bool json, FILE* out) {
     // Song-level features = the learner-evaluation rubric. MIX regions
     // (polyphony/duet overlaps) are unreliable for mono pitch — listed and
     // counted, but excluded from the intonation/vibrato statistics.
@@ -371,15 +371,15 @@ void print_report(const Report& r, bool json) {
     const size_t N = r.notes.size();
 
     if (json) {
-        printf("{\n  \"source\": \"%s\",\n  \"duration_s\": %.2f,\n", r.source.c_str(), double(r.duration_s));
-        printf("  \"notes\": %zu,\n  \"mixed_regions\": %zu,\n  \"tempo_bpm\": %.1f,\n",
+        fprintf(out, "{\n  \"source\": \"%s\",\n  \"duration_s\": %.2f,\n", r.source.c_str(), double(r.duration_s));
+        fprintf(out, "  \"notes\": %zu,\n  \"mixed_regions\": %zu,\n  \"tempo_bpm\": %.1f,\n",
                N, r.mixed_regions, double(bpm));
-        printf("  \"intonation_mean_abs_cents\": %.1f,\n  \"intonation_max_abs_cents\": %.1f,\n",
+        fprintf(out, "  \"intonation_mean_abs_cents\": %.1f,\n  \"intonation_max_abs_cents\": %.1f,\n",
                double(N ? abs_cents / N : 0.0), double(max_cents));
-        printf("  \"events\": [\n");
+        fprintf(out, "  \"events\": [\n");
         for (size_t i = 0; i < N; ++i) {
             const auto& n = r.notes[i];
-            printf("    {\"onset_ms\": %.1f, \"midi\": %d, \"hz\": %.2f, \"cents\": %.1f, "
+            fprintf(out, "    {\"onset_ms\": %.1f, \"midi\": %d, \"hz\": %.2f, \"cents\": %.1f, "
                    "\"dur_ms\": %.1f, \"attack_ms\": %.1f, \"sustain\": %.2f, "
                    "\"vibrato\": %s, \"vib_hz\": %.2f, \"valid_ratio\": %.2f}%s\n",
                    double(n.onset_ms), n.midi, double(n.freq_hz), double(n.cents),
@@ -387,20 +387,20 @@ void print_report(const Report& r, bool json) {
                    n.vibrato ? "true" : "false", double(n.vib_rate_hz),
                    double(n.valid_ratio), i + 1 < N ? "," : "");
         }
-        printf("  ]\n}\n");
+        fprintf(out, "  ]\n}\n");
         return;
     }
 
-    printf("=== kan_analyze performance descriptor ===\n");
-    printf("source: %s | %.1f s | notes %zu, evaluated %d, mixed/polyphonic regions %zu (excluded)\n",
+    fprintf(out, "=== kan_analyze performance descriptor ===\n");
+    fprintf(out, "source: %s | %.1f s | notes %zu, evaluated %d, mixed/polyphonic regions %zu (excluded)\n",
            r.source.c_str(), double(r.duration_s), N, evaluated, r.mixed_regions);
-    printf("tempo (median IOI): %.1f BPM (%.0f ms)\n", double(bpm), double(med_ioi));
-    printf("intonation: mean |err| %.1f c, max %.1f c, in-tune(<25c) %d/%d\n",
+    fprintf(out, "tempo (median IOI): %.1f BPM (%.0f ms)\n", double(bpm), double(med_ioi));
+    fprintf(out, "intonation: mean |err| %.1f c, max %.1f c, in-tune(<25c) %d/%d\n",
            double(evaluated ? abs_cents / evaluated : 0.0), double(max_cents), intune, evaluated);
-    printf("vibrato: %d notes", vib_n);
-    if (vib_n) printf(" (avg %.1f Hz, %.0f c depth)", double(vib_rate / vib_n), double(vib_depth / vib_n));
-    printf(" | staccato: %d | range: %.0f-%.0f Hz\n", staccato, double(f_lo), double(f_hi));
-    printf("\n #    t(ms)  note   Hz      cents  dur   atk   rel   sus  vib(Hz/c)  mix\n");
+    fprintf(out, "vibrato: %d notes", vib_n);
+    if (vib_n) fprintf(out, " (avg %.1f Hz, %.0f c depth)", double(vib_rate / vib_n), double(vib_depth / vib_n));
+    fprintf(out, " | staccato: %d | range: %.0f-%.0f Hz\n", staccato, double(f_lo), double(f_hi));
+    fprintf(out, "\n #    t(ms)  note   Hz      cents  dur   atk   rel   sus  vib(Hz/c)  mix\n");
     for (size_t i = 0; i < N; ++i) {
         const auto& n = r.notes[i];
         char name[16] = "-";
@@ -408,7 +408,7 @@ void print_report(const Report& r, bool json) {
             static const char* NAMES[12] = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
             std::snprintf(name, sizeof(name), "%s%d", NAMES[((n.midi % 12) + 12) % 12], (n.midi / 12) - 1);
         }
-        printf("%2zu %8.0f %-5s %7.1f %+6.1f %5.0f %5.0f %5.0f %5.2f  %s  %s\n",
+        fprintf(out, "%2zu %8.0f %-5s %7.1f %+6.1f %5.0f %5.0f %5.0f %5.2f  %s  %s\n",
                i + 1, double(n.onset_ms), name, double(n.freq_hz), double(n.cents),
                double(n.duration_ms), double(n.attack_ms), double(n.release_ms),
                double(n.sustain_ratio),
@@ -423,17 +423,22 @@ int main(int argc, char** argv) {
     const char* input = nullptr;
     const char* synth = nullptr;
     const char* profile_name = "ocarina";
+    const char* out_wav = nullptr;
+    const char* json_out = nullptr;
     bool json = false;
 
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--synth") == 0 && i + 1 < argc) synth = argv[++i];
         else if (std::strcmp(argv[i], "--instrument") == 0 && i + 1 < argc) profile_name = argv[++i];
         else if (std::strcmp(argv[i], "--json") == 0) json = true;
+        else if (std::strcmp(argv[i], "--json-out") == 0 && i + 1 < argc) json_out = argv[++i];
+        else if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_wav = argv[++i];
         else if (std::strcmp(argv[i], "--help") == 0) {
             std::printf("kan_analyze — song performance descriptor\n"
                         "  kan_analyze <audio.wav|mp3|flac> [--instrument ocarina|flute|"
-                        "recorder|guitar|piano] [--json]\n"
-                        "  kan_analyze --synth <ocarina|piano|duet|fx> [--instrument ...] [--json]\n");
+                        "recorder|guitar|piano] [--json|--json-out f.json]\n"
+                        "  kan_analyze --synth <ocarina|piano|duet|fx> [...] [--out f.wav]\n"
+                        "  --out <f.wav>  also write the source audio (hear the scenario)\n");
             return 0;
         } else input = argv[i];
     }
@@ -476,6 +481,32 @@ int main(int argc, char** argv) {
     }
 
     auto report = analyze(sig, source.c_str(), profile, window_ms);
-    print_report(report, json);
+
+    // Optional: write the source audio (so a synthesized scenario or a
+    // decoded recording can actually be listened to).
+    if (out_wav != nullptr) {
+        ma_encoder_config ecfg = ma_encoder_config_init(ma_encoding_format_wav, ma_format_f32, 1, SR);
+        ma_encoder enc;
+        if (ma_encoder_init_file(out_wav, &ecfg, &enc) != MA_SUCCESS) {
+            std::fprintf(stderr, "[ERROR] cannot write %s\n", out_wav);
+            return -1;
+        }
+        ma_uint64 written = 0;
+        ma_encoder_write_pcm_frames(&enc, sig.data(), sig.size(), &written);
+        ma_encoder_uninit(&enc);
+        std::fprintf(stderr, "audio written: %s (%.1f s)\n", out_wav, double(sig.size()) / SR);
+    }
+
+    if (json_out != nullptr) {
+        FILE* f = std::fopen(json_out, "w");
+        if (f == nullptr) {
+            std::fprintf(stderr, "[ERROR] cannot write %s\n", json_out);
+            return -1;
+        }
+        print_report(report, true, f);
+        std::fclose(f);
+        return 0;
+    }
+    print_report(report, json, stdout);
     return 0;
 }
