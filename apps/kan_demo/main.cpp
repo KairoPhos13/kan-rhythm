@@ -23,6 +23,7 @@
 #include "libkan/precondition.hpp"
 #include "libkan/bounded_pitch.hpp"
 #include "libkan/calibration.hpp"
+#include "libkan/technique.hpp"
 #ifdef KAN_DEMO_HAVE_BACF
 #include "libkan/bacf_detector.hpp"
 #endif
@@ -353,7 +354,9 @@ void print_usage() {
         "                        Cycfi Q bitstream autocorrelation)\n"
         "  --calibrate           play one long comfortable note after the\n"
         "                        noise gate calibrates; prints the global\n"
-        "                        detuning Δc in cents\n"
+        "                        detuning Δc in cents and applies it\n"
+        "  --vibrato             live vibrato readout (rate Hz / depth cents)\n"
+        "                        from the cents trajectory — technique check\n"
         "  --no-gate             disable the adaptive noise gate\n"
         "  --noise-cal <ms>      room-silence calibration window (default 500)\n"
         "  --selftest            offline pipeline check (no audio device)\n"
@@ -367,6 +370,7 @@ int main(int argc, char** argv) {
     const char* expect_note = nullptr;
     const char* engine = "yin";
     bool calibrate = false;
+    bool vibrato_mode = false;
     bool use_gate = true;
     int noise_cal_ms = 500;
 
@@ -379,6 +383,8 @@ int main(int argc, char** argv) {
             engine = argv[++i];
         } else if (std::strcmp(argv[i], "--calibrate") == 0) {
             calibrate = true;
+        } else if (std::strcmp(argv[i], "--vibrato") == 0) {
+            vibrato_mode = true;
         } else if (std::strcmp(argv[i], "--no-gate") == 0) {
             use_gate = false;
         } else if (std::strcmp(argv[i], "--noise-cal") == 0 && i + 1 < argc) {
@@ -490,6 +496,12 @@ int main(int argc, char** argv) {
     int pitches_shown = 0;
     double abs_cents_sum = 0.0;
 
+    // Vibrato technique readout (--vibrato): cents trajectory per note.
+    kan::TrajectoryBuffer vib_traj;
+    kan::VibratoAnalyzer vib_ana;
+    char vib_str[48] = "";
+    int vib_tick = 0;
+
     auto on_pitch = [&](const kan::PitchResult& pr, float ms_after) {
         const float freq = pr.frequency_hz;
         const float exact_midi = 69.0f + 12.0f * std::log2(freq / 440.0f);
@@ -526,13 +538,27 @@ int main(int argc, char** argv) {
         ++pitches_shown;
         abs_cents_sum += std::fabs(cents);
 
+        // Live technique feedback: vibrato rate/depth from the trajectory.
+        if (vibrato_mode) {
+            vib_traj.add(ms_after, cents);
+            if (++vib_tick % 10 == 0 && vib_traj.size() >= 8) {
+                const auto vm = vib_ana.measure(vib_traj);
+                if (vm.periodic) {
+                    std::snprintf(vib_str, sizeof(vib_str), " | vib %.1f Hz %+.0f c",
+                                  double(vm.rate_hz), double(vm.depth_cents));
+                } else {
+                    std::snprintf(vib_str, sizeof(vib_str), " | vib --");
+                }
+            }
+        }
+
         // Live tuner line (single-line refresh).
         char bar[17];
         const int pos = std::clamp(int(std::lround(cents / 10.0f)) + 8, 0, 16);
         for (int i = 0; i < 17; ++i) bar[i] = (i == 8) ? '|' : (i == pos ? '#' : '.');
         bar[16] = '\0';
-        std::printf("\r♪ %-4s %7.2f Hz  %+6.1f cents  %s  (+%.0f ms)   ",
-                    midi_to_name(display_midi).c_str(), freq, cents, bar, ms_after);
+        std::printf("\r♪ %-4s %7.2f Hz  %+6.1f cents  %s  (+%.0f ms)%s   ",
+                    midi_to_name(display_midi).c_str(), freq, cents, bar, ms_after, vib_str);
         std::fflush(stdout);
     };
 
@@ -561,6 +587,7 @@ int main(int argc, char** argv) {
         auto r = pipeline.process(block);
         if (r.onset) {
             ++notes_played;
+            vib_traj.clear(); // trajectory is per-note
             std::printf("\n▶ ONSET%s", expect_note != nullptr ? " (checking note...)" : "");
             std::fflush(stdout);
         }

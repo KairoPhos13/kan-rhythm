@@ -39,7 +39,8 @@ configure downloads miniaudio + Cycfi Q + KissFFT — MIT/BSD only).
 | `--instrument <name>` | `ocarina` (default) · `flute` · `recorder` · `guitar` · `piano` |
 | `--expect <note>` | score-informed mode: confirm the charted note (`C5`, `A4`, `F#5`) with the bounded matcher — the exact confirmation path the game will use |
 | `--engine <yin\|bacf>` | free-tuner pitch engine. **Default `yin`** (robust). `bacf` = Cycfi Q bitstream autocorrelation (see caveat below) |
-| `--calibrate` | play one long comfortable note → prints your instrument's global detuning Δc in cents vs equal temperament (A4 = 440 Hz) |
+| `--calibrate` | play one long comfortable note → prints your instrument's global detuning Δc in cents vs equal temperament (A4 = 440 Hz) and **applies** it |
+| `--vibrato` | live technique readout: vibrato rate (Hz) / depth (cents) from the cents trajectory — wide/slow *yuri*-style and classical vibrato both visible |
 | `--no-gate` | disable the adaptive noise gate |
 | `--noise-cal <ms>` | room-silence calibration window at startup (default 500) |
 | `--selftest` | offline check on a synthesized note (no audio device needed) |

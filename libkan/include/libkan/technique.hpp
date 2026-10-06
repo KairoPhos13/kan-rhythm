@@ -1,0 +1,494 @@
+#pragma once
+// Technique validators (platform-architecture.md §5): turn the detection
+// stream into judgments about HOW a note is played, not just which note it
+// is. Three detection families, mirroring the instrument-pack technique
+// vocabulary:
+//
+//   Pitch gestures  (bend / vibrato / slide)  -> cents-trajectory tracking
+//                                                vs expected curves
+//   Articulation    (staccato / legato /      -> envelope shape + duration
+//                    accent / mute)              vs expected
+//   Extended        (harmonics, flutter-      -> spectral signature
+//                    tongue, pedal...)            templates (slot amplitudes)
+//
+// Data flow (SPECIFICATION.md §2 + platform-architecture.md §5): libkan
+// MEASURES (TrajectoryBuffer from the per-block cents stream,
+// EnvelopeFollower from the RMS stream, slot amplitudes from any window);
+// the instrument pack SUPPLIES expectations (the plain *Spec structs below —
+// same "plain data in, no format coupling" rule as InstrumentProfile); the
+// game JUDGES via check() -> TechniqueResult.
+//
+// Real-time safety: all analyzers run on the consumer thread. Buffers are
+// fixed-capacity (add() drops oldest when full); no allocation, no locks in
+// any measure/check path.
+#include <algorithm>
+#include <cmath>
+#include <cstddef>
+
+namespace kan {
+
+/// Uniform judgment of one technique against its pack spec.
+struct TechniqueResult {
+    bool ok = false;
+    float score = 0.0f;          ///< [0, 1] closeness to the expected shape
+    float error = 0.0f;          ///< primary deviation (cents or ratio)
+};
+
+// ===========================================================================
+// Cents trajectory (pitch gestures)
+// ===========================================================================
+
+/// One pitch observation: deviation from the charted pitch in cents.
+struct TrajectoryPoint {
+    float t_ms = 0.0f;
+    float cents = 0.0f;
+};
+
+/// Fixed-capacity trajectory collector fed from the harmonic path once per
+/// block/note. Oldest samples drop when full (rolling window).
+class TrajectoryBuffer {
+public:
+    static constexpr size_t kMaxPoints = 512; // ~2.7 s at 5 ms hops
+
+    void clear() noexcept { count_ = 0; head_ = 0; }
+
+    /// Append one observation. Allocation-free.
+    void add(float t_ms, float cents) noexcept {
+        buf_[head_] = TrajectoryPoint{t_ms, cents};
+        head_ = (head_ + 1) % kMaxPoints;
+        if (count_ < kMaxPoints) ++count_;
+    }
+
+    size_t size() const noexcept { return count_; }
+    bool empty() const noexcept { return count_ == 0; }
+
+    /// Chronological access: point(i), i in [0, size()).
+    TrajectoryPoint point(size_t i) const noexcept {
+        return buf_[(head_ + kMaxPoints - count_ + i) % kMaxPoints];
+    }
+
+    float duration_ms() const noexcept {
+        return empty() ? 0.0f : point(count_ - 1).t_ms - point(0).t_ms;
+    }
+
+private:
+    TrajectoryPoint buf_[kMaxPoints];
+    size_t head_ = 0;
+    size_t count_ = 0;
+};
+
+// ---------------------------------------------------------------------------
+// Vibrato (incl. Japanese-style wide/slow vibrato: yuri, koto/shamisen
+// oscillation) — and its absence ("straight tone" passages).
+// ---------------------------------------------------------------------------
+
+struct VibratoSpec {
+    float rate_min_hz = 3.0f;        ///< accepted oscillation rate band
+    float rate_max_hz = 8.0f;
+    float min_depth_cents = 20.0f;   ///< 0-to-peak deviation
+    float max_depth_cents = 120.0f;  ///< above this it is a trill/tremolo, not vibrato
+    float min_duration_ms = 150.0f;  ///< oscillation must persist this long
+    float tolerance_cents = 10.0f;   ///< depth slack when scoring
+    bool expect_straight = false;    ///< true = judge a STRAIGHT tone instead
+    float straight_tolerance_cents = 8.0f;
+};
+
+struct VibratoMeasurement {
+    bool periodic = false;      ///< enough full cycles to claim "vibrato"
+    float rate_hz = 0.0f;
+    float depth_cents = 0.0f;   ///< 0-to-peak (sinusoid fit of the detrended curve)
+    float duration_ms = 0.0f;
+    float center_cents = 0.0f;  ///< detrended mean (pitch offset around which it oscillates)
+};
+
+class VibratoAnalyzer {
+public:
+    /// Measure the oscillation of a cents trajectory. Needs >= 3 full cycles
+    /// to set `periodic`; call on the note's sustain region.
+    VibratoMeasurement measure(const TrajectoryBuffer& traj) const noexcept {
+        VibratoMeasurement m;
+        const size_t n = traj.size();
+        if (n < 8) return m;
+        m.duration_ms = traj.duration_ms();
+        if (m.duration_ms <= 1.0f) return m;
+
+        // Detrend: subtract the mean to isolate the oscillation.
+        float mean = 0.0f;
+        for (size_t i = 0; i < n; ++i) mean += traj.point(i).cents;
+        mean /= float(n);
+        m.center_cents = mean;
+
+        // Zero crossings of the detrended curve -> rate (sinusoid: 2
+        // crossings per period). The number of half-periods between the
+        // first and last crossing is crossings-1; using crossings/2 instead
+        // biases the estimate high whenever the trajectory starts or ends
+        // near a crossing.
+        size_t crossings = 0;
+        float first_cross_t = 0.0f, last_cross_t = 0.0f;
+        float prev = traj.point(0).cents - mean;
+        for (size_t i = 1; i < n; ++i) {
+            const float cur = traj.point(i).cents - mean;
+            if ((prev <= 0.0f && cur > 0.0f) || (prev >= 0.0f && cur < 0.0f)) {
+                if (crossings == 0) first_cross_t = traj.point(i - 1).t_ms;
+                last_cross_t = traj.point(i).t_ms;
+                ++crossings;
+            }
+            prev = cur;
+        }
+        const float cycles = (crossings >= 2) ? float(crossings - 1) / 2.0f : 0.0f;
+        const float span = last_cross_t - first_cross_t;
+        if (span > 1.0f && cycles >= 1.5f) {
+            m.rate_hz = cycles * 1000.0f / span;
+        }
+
+        // Depth: 0-to-peak of the detrended curve (sinusoid: ~2x RMS).
+        double acc = 0.0;
+        for (size_t i = 0; i < n; ++i) {
+            const float d = traj.point(i).cents - mean;
+            acc += double(d) * double(d);
+        }
+        const float rms = float(std::sqrt(acc / double(n)));
+        m.depth_cents = rms * 1.41421356f;
+
+        // Periodic only with enough cycles AND clear oscillation depth.
+        m.periodic = cycles >= 3.0f && m.depth_cents >= 5.0f && m.rate_hz > 0.0f;
+        return m;
+    }
+
+    /// Judge a measurement against a pack spec (straight-tone aware).
+    TechniqueResult check(const VibratoMeasurement& m, const VibratoSpec& spec) const noexcept {
+        TechniqueResult r;
+        if (spec.expect_straight) {
+            // Straight tone: no periodic oscillation, or a very shallow one.
+            const bool straight = !m.periodic || m.depth_cents <= spec.straight_tolerance_cents;
+            r.ok = straight;
+            r.score = straight ? 1.0f : std::max(0.0f, 1.0f - m.depth_cents / 100.0f);
+            r.error = m.depth_cents;
+            return r;
+        }
+        if (!m.periodic) return r;
+
+        const bool rate_ok = m.rate_hz >= spec.rate_min_hz && m.rate_hz <= spec.rate_max_hz;
+        const bool depth_ok = m.depth_cents >= spec.min_depth_cents
+                           && m.depth_cents <= spec.max_depth_cents;
+        const bool dur_ok = m.duration_ms >= spec.min_duration_ms;
+        r.ok = rate_ok && depth_ok && dur_ok;
+
+        // Score: normalized position inside the accepted bands (1 = centered).
+        const float rate_mid = 0.5f * (spec.rate_min_hz + spec.rate_max_hz);
+        const float rate_half = 0.5f * (spec.rate_max_hz - spec.rate_min_hz);
+        const float rate_score = 1.0f - std::min(1.0f, std::fabs(m.rate_hz - rate_mid) / (rate_half + 1e-6f));
+        const float depth_excess = std::max(0.0f, spec.min_depth_cents - m.depth_cents);
+        const float depth_score = std::max(0.0f, 1.0f - (depth_excess + std::max(0.0f, m.depth_cents - spec.max_depth_cents)) / (spec.tolerance_cents + spec.min_depth_cents));
+        r.score = 0.5f * rate_score + 0.5f * depth_score;
+        r.error = depth_excess;
+        return r;
+    }
+};
+
+// ---------------------------------------------------------------------------
+// Bend / slide (glissando): monotonic cents curves start -> target.
+// ---------------------------------------------------------------------------
+
+enum class CurveShape {
+    Linear,   ///< constant slope (slide/glissando)
+    EaseOut,  ///< fast start, settling into the target (string bend)
+};
+
+struct BendSpec {
+    float start_cents = 0.0f;
+    float end_cents = 200.0f;
+    float duration_ms = 250.0f;
+    CurveShape shape = CurveShape::Linear;
+    float endpoint_tolerance_cents = 30.0f;
+    float duration_tolerance_ms = 120.0f;
+    float fit_tolerance_cents = 25.0f; ///< allowed deviation from the shape
+    bool require_monotonic = true;
+};
+
+struct BendMeasurement {
+    bool monotonic = false;
+    float start_cents = 0.0f;
+    float end_cents = 0.0f;
+    float duration_ms = 0.0f;
+    float fit_error_cents = 0.0f; ///< RMS deviation from the measured linear ramp
+};
+
+class BendAnalyzer {
+public:
+    BendMeasurement measure(const TrajectoryBuffer& traj) const noexcept {
+        BendMeasurement m;
+        const size_t n = traj.size();
+        if (n < 4) return m;
+        const TrajectoryPoint a = traj.point(0);
+        const TrajectoryPoint b = traj.point(n - 1);
+        m.start_cents = a.cents;
+        m.end_cents = b.cents;
+        m.duration_ms = b.t_ms - a.t_ms;
+        if (m.duration_ms <= 1.0f) return m;
+
+        // Monotonicity with a small noise band (2 cents).
+        m.monotonic = true;
+        const float span = b.cents - a.cents;
+        for (size_t i = 1; i < n; ++i) {
+            const float d = traj.point(i).cents - traj.point(i - 1).cents;
+            if (span >= 0.0f && d < -2.0f) { m.monotonic = false; break; }
+            if (span < 0.0f && d > 2.0f) { m.monotonic = false; break; }
+        }
+
+        // RMS deviation from the measured linear ramp (shape-neutral: the
+        // spec's shape is scored in check()).
+        double acc = 0.0;
+        for (size_t i = 0; i < n; ++i) {
+            const float x = (traj.point(i).t_ms - a.t_ms) / m.duration_ms;
+            const float expected = a.cents + span * x;
+            const double d = double(traj.point(i).cents) - double(expected);
+            acc += d * d;
+        }
+        m.fit_error_cents = float(std::sqrt(acc / double(n)));
+        return m;
+    }
+
+    /// Judge a measurement against a pack spec. `traj` is re-scanned for the
+    /// configured shape score (pass the same buffer used for measure()).
+    TechniqueResult check(const BendMeasurement& m, const BendSpec& spec,
+                          const TrajectoryBuffer& traj = TrajectoryBuffer()) const noexcept {
+        TechniqueResult r;
+        const bool start_ok = std::fabs(m.start_cents - spec.start_cents)
+                              <= spec.endpoint_tolerance_cents;
+        const bool end_ok = std::fabs(m.end_cents - spec.end_cents)
+                            <= spec.endpoint_tolerance_cents;
+        const bool dur_ok = std::fabs(m.duration_ms - spec.duration_ms)
+                            <= spec.duration_tolerance_ms;
+        const bool mono_ok = !spec.require_monotonic || m.monotonic;
+        r.ok = start_ok && end_ok && dur_ok && mono_ok;
+
+        // Shape fit against the expected curve (not just the linear ramp).
+        if (!traj.empty()) {
+            const TrajectoryPoint a = traj.point(0);
+            const float span = spec.end_cents - spec.start_cents;
+            const float dur = std::max(1.0f, m.duration_ms);
+            double acc = 0.0;
+            for (size_t i = 0; i < traj.size(); ++i) {
+                float x = (traj.point(i).t_ms - a.t_ms) / dur;
+                x = std::clamp(x, 0.0f, 1.0f);
+                float shape = x;
+                if (spec.shape == CurveShape::EaseOut) shape = 1.0f - (1.0f - x) * (1.0f - x);
+                const float expected = spec.start_cents + span * shape;
+                const double d = double(traj.point(i).cents) - double(expected);
+                acc += d * d;
+            }
+            const float fit = float(std::sqrt(acc / double(traj.size())));
+            r.error = fit;
+            r.ok = r.ok && fit <= spec.fit_tolerance_cents;
+            r.score = std::max(0.0f, 1.0f - fit / (spec.fit_tolerance_cents + 1e-6f));
+        } else {
+            r.score = (r.ok ? 1.0f : 0.0f);
+            r.error = m.fit_error_cents;
+        }
+        return r;
+    }
+};
+
+// ---------------------------------------------------------------------------
+// Articulation: staccato / legato / accent / mute via envelope shape.
+// ---------------------------------------------------------------------------
+
+enum class Articulation {
+    Staccato,  ///< short, quick release
+    Legato,    ///< long sustain, smooth
+    Accent,    ///< loud onset peak vs sustain
+    Mute,      ///< fast decay, little sustain
+};
+
+struct EnvelopeSpec {
+    Articulation articulation = Articulation::Legato;
+    float min_duration_ms = 100.0f;
+    float max_duration_ms = 400.0f;
+    float max_attack_ms = 30.0f;
+    float max_release_ms = 40.0f;
+    float min_sustain_ratio = 0.5f; ///< fraction of the note within 6 dB of peak
+    float min_accent_peak = 0.3f;   ///< absolute peak for accent/mute levels
+    float mute_decay_ms = 120.0f;   ///< peak -> -20 dB for Mute
+};
+
+struct EnvelopeMeasurement {
+    float duration_ms = 0.0f;   ///< above -40 dBFS-equivalent threshold
+    float attack_ms = 0.0f;     ///< 10% -> 90% of peak
+    float release_ms = 0.0f;    ///< 90% -> 10% of peak
+    float sustain_ratio = 0.0f; ///< fraction of the note within 6 dB of peak
+    float peak = 0.0f;
+    float decay_to_20db_ms = 0.0f; ///< peak -> -20 dB (mute signature)
+};
+
+class EnvelopeAnalyzer {
+public:
+    /// Measure the shape of an RMS envelope series (monotonic time, any hop).
+    EnvelopeMeasurement measure(const float* rms, size_t n, float hop_ms) const noexcept {
+        EnvelopeMeasurement m;
+        if (n < 4 || hop_ms <= 0.0f) return m;
+
+        size_t peak_i = 0;
+        for (size_t i = 0; i < n; ++i) if (rms[i] > m.peak) { m.peak = rms[i]; peak_i = i; }
+        if (m.peak <= 0.0f) return m;
+
+        // Duration above -40 dB of peak (noise-bounded activity).
+        const float floor_amp = m.peak * 0.01f;
+        size_t first = 0, last = n - 1;
+        while (first < n && rms[first] < floor_amp) ++first;
+        while (last > first && rms[last] < floor_amp) --last;
+        m.duration_ms = float(last - first) * hop_ms;
+
+        // Attack: first crossing of 10% to 90% of peak.
+        const float lo = m.peak * 0.1f, hi = m.peak * 0.9f;
+        size_t a10 = first;
+        while (a10 < peak_i && rms[a10] < lo) ++a10;
+        size_t a90 = a10;
+        while (a90 < peak_i && rms[a90] < hi) ++a90;
+        m.attack_ms = float(a90 - a10) * hop_ms;
+
+        // Release: 90% -> 10% after the peak.
+        size_t r90 = peak_i;
+        while (r90 + 1 < n && rms[r90] > hi) ++r90;
+        size_t r10 = r90;
+        while (r10 + 1 < n && rms[r10] > lo) ++r10;
+        m.release_ms = float(r10 - r90) * hop_ms;
+
+        // Sustain ratio: fraction of active samples within 6 dB of peak.
+        const float sustain_floor = m.peak * 0.5f;
+        size_t sustained = 0;
+        for (size_t i = first; i <= last; ++i) if (rms[i] >= sustain_floor) ++sustained;
+        m.sustain_ratio = float(sustained) / float(last - first + 1);
+
+        // Mute signature: peak -> -20 dB decay time.
+        const float d20 = m.peak * 0.1f;
+        size_t d = peak_i;
+        while (d + 1 < n && rms[d] > d20) ++d;
+        m.decay_to_20db_ms = float(d - peak_i) * hop_ms;
+        return m;
+    }
+
+    /// Judge a measurement against a pack spec.
+    TechniqueResult check(const EnvelopeMeasurement& m, const EnvelopeSpec& spec) const noexcept {
+        TechniqueResult r;
+        r.error = 0.0f;
+        switch (spec.articulation) {
+        case Articulation::Staccato: {
+            const bool dur_ok = m.duration_ms >= spec.min_duration_ms
+                             && m.duration_ms <= spec.max_duration_ms;
+            const bool rel_ok = m.release_ms <= spec.max_release_ms;
+            const bool sus_ok = m.sustain_ratio < spec.min_sustain_ratio;
+            r.ok = dur_ok && rel_ok && sus_ok;
+            r.score = (float(dur_ok) + float(rel_ok) + float(sus_ok)) / 3.0f;
+            r.error = std::max(0.0f, m.duration_ms - spec.max_duration_ms);
+            break;
+        }
+        case Articulation::Legato: {
+            const bool dur_ok = m.duration_ms >= spec.min_duration_ms;
+            const bool sus_ok = m.sustain_ratio >= spec.min_sustain_ratio;
+            r.ok = dur_ok && sus_ok;
+            r.score = 0.5f * float(dur_ok) + 0.5f * std::min(1.0f, m.sustain_ratio / std::max(0.01f, spec.min_sustain_ratio));
+            r.error = std::max(0.0f, spec.min_sustain_ratio - m.sustain_ratio);
+            break;
+        }
+        case Articulation::Accent: {
+            // Loud attack peak that clearly exceeds the sustain level.
+            const bool peak_ok = m.peak >= spec.min_accent_peak;
+            const bool att_ok = m.attack_ms <= spec.max_attack_ms;
+            r.ok = peak_ok && att_ok;
+            r.score = 0.5f * float(peak_ok) + 0.5f * float(att_ok);
+            r.error = std::max(0.0f, spec.max_attack_ms - m.attack_ms);
+            break;
+        }
+        case Articulation::Mute: {
+            const bool peak_ok = m.peak >= spec.min_accent_peak;
+            const bool dec_ok = m.decay_to_20db_ms <= spec.mute_decay_ms;
+            const bool sus_ok = m.sustain_ratio < spec.min_sustain_ratio;
+            r.ok = peak_ok && dec_ok && sus_ok;
+            r.score = (float(peak_ok) + float(dec_ok) + float(sus_ok)) / 3.0f;
+            r.error = m.decay_to_20db_ms;
+            break;
+        }
+        }
+        return r;
+    }
+};
+
+// ---------------------------------------------------------------------------
+// Extended techniques: spectral signature templates (platform-architecture
+// §5 item 5 "sound-trick validation templates"). Slot amplitudes vs a pack
+// template: e.g. string harmonic (weak fundamental, strong octave),
+// flutter-tongue (broadband slot spread), pedal resonance.
+// ---------------------------------------------------------------------------
+
+struct SpectralSignature {
+    static constexpr size_t kMaxSlots = 8;
+    float slot_hz[kMaxSlots] = {0};
+    float weight[kMaxSlots] = {0}; ///< expected relative amplitude per slot
+    size_t n_slots = 0;
+    float threshold = 0.80f;       ///< cosine similarity for "technique present"
+};
+
+struct SpectralMeasurement {
+    float similarity = 0.0f;
+    float slot_amp[SpectralSignature::kMaxSlots] = {0};
+};
+
+class SpectralSignatureValidator {
+public:
+    /// Set the pack template. Setup path.
+    void set_signature(const SpectralSignature& sig) noexcept { sig_ = sig; }
+
+    /// Measure slot amplitudes (single-frequency DFT magnitude, same
+    /// primitive as the Goertzel bank) and score cosine similarity against
+    /// the template. Allocation-free.
+    SpectralMeasurement measure(const float* samples, size_t count,
+                                float sample_rate) const noexcept {
+        SpectralMeasurement m;
+        if (count < 64 || sig_.n_slots == 0) return m;
+
+        double norm_sig = 0.0, norm_obs = 0.0, dot = 0.0;
+        for (size_t s = 0; s < sig_.n_slots && s < SpectralSignature::kMaxSlots; ++s) {
+            const float amp = dft_magnitude(samples, count, sig_.slot_hz[s], sample_rate);
+            m.slot_amp[s] = amp;
+            const double w = double(sig_.weight[s]);
+            dot += w * double(amp);
+            norm_sig += w * w;
+            norm_obs += double(amp) * double(amp);
+        }
+        if (norm_sig > 1e-18 && norm_obs > 1e-18) {
+            m.similarity = float(dot / (std::sqrt(norm_sig) * std::sqrt(norm_obs)));
+        }
+        return m;
+    }
+
+    /// Judge a measurement against the template threshold.
+    TechniqueResult check(const SpectralMeasurement& m) const noexcept {
+        TechniqueResult r;
+        r.ok = m.similarity >= sig_.threshold;
+        r.score = m.similarity;
+        r.error = std::max(0.0f, sig_.threshold - m.similarity);
+        return r;
+    }
+
+private:
+    static float dft_magnitude(const float* x, size_t count, float freq,
+                               float sample_rate) noexcept {
+        const double w = 2.0 * M_PI * double(freq) / double(sample_rate);
+        const double cr = std::cos(w), ci = -std::sin(w);
+        double re = 1.0, im = 0.0, xr = 0.0, xi = 0.0;
+        for (size_t i = 0; i < count; ++i) {
+            const double s = x[i];
+            xr += s * re;
+            xi += s * im;
+            const double nre = re * cr - im * ci;
+            im = re * ci + im * cr;
+            re = nre;
+        }
+        return float(2.0 * std::sqrt(xr * xr + xi * xi) / double(count));
+    }
+
+    SpectralSignature sig_{};
+};
+
+} // namespace kan

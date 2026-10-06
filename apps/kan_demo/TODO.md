@@ -26,6 +26,8 @@ the detection stack; gate validation stays in `apps/kan_cli`.
       demo defaults to YIN. Feeds the bacf-vs-yin.md A/B work.
 - [x] Wire item-5 detuning compensation: `--calibrate` now applies Δc to the
       tuner readout and `--expect` targets (`calibration.hpp`)
+- [x] `--vibrato`: live technique readout (rate/depth from the cents
+      trajectory) — `technique.hpp` VibratoAnalyzer
 - [ ] Per-string matrix UI (`Δc1..Δc6` guided strum flow) — API ready in
       `calibration.hpp`, demo shows global only
 - [ ] Live chord display once a two-handed instrument is picked up
