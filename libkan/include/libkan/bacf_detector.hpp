@@ -19,6 +19,7 @@
 #include <q/support/frequency.hpp>
 #include <q/support/literals.hpp>
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <memory>
@@ -58,6 +59,14 @@ public:
     void clear_expected_note() {
         expected_hz_ = 0.0f;
         rebuild(kDefaultMinHz, kDefaultMaxHz);
+    }
+
+    /// Blind mode with an instrument-bounded range (e.g. ocarina
+    /// 480–1450 Hz). Pass the InstrumentProfile's min/max frequencies.
+    /// Rebuilds the internal detector; setup path only.
+    void set_range(float min_hz, float max_hz) {
+        expected_hz_ = 0.0f;
+        rebuild(std::max(20.0f, min_hz), std::max(min_hz * 1.01f, max_hz));
     }
 
     bool has_expected_note() const noexcept { return expected_hz_ > 0.0f; }
