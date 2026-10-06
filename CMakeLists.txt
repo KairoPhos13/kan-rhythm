@@ -57,6 +57,31 @@ if(KAN_ENABLE_BACF)
     endforeach()
 endif()
 
+# KissFFT (BSD-3): real FFT for the 12-bin chroma projection used by the
+# score-informed chord validator (libkan_fft). Static, float, no tools/tests.
+option(KAN_ENABLE_FFT "Fetch KissFFT (BSD-3) for chroma chord validation" ON)
+if(KAN_ENABLE_FFT)
+    set(KISSFFT_DATATYPE float CACHE STRING "" FORCE)
+    set(KISSFFT_STATIC ON CACHE BOOL "" FORCE)
+    set(KISSFFT_TOOLS OFF CACHE BOOL "" FORCE)
+    set(KISSFFT_TEST OFF CACHE BOOL "" FORCE)
+    set(KISSFFT_PKGCONFIG OFF CACHE BOOL "" FORCE)
+    FetchContent_Declare(
+        kissfft
+        GIT_REPOSITORY https://github.com/mborgerding/kissfft.git
+        GIT_TAG        131.2.0
+        GIT_SHALLOW    TRUE
+    )
+    FetchContent_MakeAvailable(kissfft)
+    if(TARGET kissfft)
+        get_target_property(_kan_fft_inc kissfft INTERFACE_INCLUDE_DIRECTORIES)
+        if(_kan_fft_inc)
+            set_target_properties(kissfft PROPERTIES
+                INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_kan_fft_inc}")
+        endif()
+    endif()
+endif()
+
 # Components (each top-level folder is designed to be splittable into its own repo)
 add_subdirectory(libkan)
 add_subdirectory(apps)

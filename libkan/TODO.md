@@ -20,12 +20,19 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
       — `bacf_detector.hpp`, `bounded_pitch.hpp` (fast confirmation stage),
       A/B results in `docs/dsp/bacf-vs-yin.md`, `--detector` in kan_cli
 
+- [x] Integrate **KissFFT** or **PFFFT** (BSD-3) — `libkan_fft` target,
+      chroma backend in `chroma_fft.hpp`
+- [x] Score-informed chord validation: Goertzel bank / 12-bin chroma
+      projection over expected fundamentals + first 3 harmonics, cosine
+      similarity vs chart template (threshold ≈ 0.80) —
+      `chord_goertzel.hpp`, `chroma_fft.hpp`, gate carried by
+      `harmonic_chord.hpp` (joint harmonic LS, F1 = 1.0000), results +
+      spec-deviation proposal in `docs/dsp/chord-validation.md`
+
 ## In progress / next (Milestone 1)
 
-- [ ] Integrate **KissFFT** or **PFFFT** (BSD-3)
-- [ ] Score-informed chord validation: Goertzel bank / 12-bin chroma
-      projection over expected fundamentals + first 3 harmonics, cosine
-      similarity vs chart template (threshold ≈ 0.80)
+## In progress / next (Milestone 1)
+
 - [ ] Global detuning calibrator: measure Δc (cents) from a 2 s reference note,
       expose API to shift detector target frequencies
 - [ ] Integrate **Signalsmith Stretch** (MIT) for real-time backing-track
@@ -48,6 +55,8 @@ Milestone 1 component. Gates: [docs/ROADMAP.md](../docs/ROADMAP.md) · Spec: [do
 - [ ] Onset latency (hardware → event) ≤ 4.5 ms
 - [ ] Mono confirmation < 22 ms for notes > 82 Hz; < 12 ms for notes > 261 Hz
 - [ ] Chord verification < 32 ms with F1 > 94% (major vs minor vs wrong-string)
+      — ✅ measured 29.3 ms / F1 1.0000 (`docs/dsp/chord-validation.md`);
+      remaining: track here once the judge integrates it in-game
 - [ ] DSP thread CPU < 3% of one core
 - [ ] Zero buffer underruns over 60 min continuous run
 

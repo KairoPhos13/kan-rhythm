@@ -20,6 +20,14 @@ if(TARGET libq)
     endif()
 endif()
 
+# Score-informed chord validation backends:
+# - chord_goertzel.hpp / harmonic_chord.hpp: dependency-free (core libkan)
+# - chroma_fft.hpp: KissFFT (BSD-3) 12-bin chroma, via the libkan_fft target
+if(TARGET kissfft)
+    add_library(libkan_fft INTERFACE)
+    target_link_libraries(libkan_fft INTERFACE libkan kissfft::kissfft)
+endif()
+
 if(KAN_BUILD_TESTS)
     add_executable(libkan_dsp_test tests/dsp_test.cpp)
     target_link_libraries(libkan_dsp_test PRIVATE libkan)
@@ -32,6 +40,16 @@ if(KAN_BUILD_TESTS)
     add_executable(libkan_blanking_test tests/blanking_test.cpp)
     target_link_libraries(libkan_blanking_test PRIVATE libkan)
     add_test(NAME libkan_blanking_test COMMAND libkan_blanking_test)
+
+    add_executable(libkan_chord_test tests/chord_test.cpp)
+    target_link_libraries(libkan_chord_test PRIVATE libkan)
+    add_test(NAME libkan_chord_test COMMAND libkan_chord_test)
+
+    if(TARGET libkan_fft)
+        add_executable(libkan_chroma_test tests/chroma_test.cpp)
+        target_link_libraries(libkan_chroma_test PRIVATE libkan_fft)
+        add_test(NAME libkan_chroma_test COMMAND libkan_chroma_test)
+    endif()
 
     if(TARGET libkan_bacf)
             add_executable(libkan_bacf_test tests/bacf_test.cpp)

@@ -109,8 +109,13 @@ t_confirm ≥ blanking + tau(f_expected − 2 st) + pairs + block_quantization
 
 ## Gate 3 — chord verification < 32 ms, F1 > 94 %
 
-Tracked by `libkan/tests/chord_test.cpp` once the KissFFT chroma stage
-lands (libkan/TODO.md item 4). **[pending]**
+**[M]** Pass (offline, synthesized strummed triads — `libkan/tests/chord_test.cpp`):
+- Verification completes at **29.3 ms** (8 ms blanking + 21.3 ms window) < 32 ms ✓
+- **Macro F1 = 1.0000** (major/minor/one-wrong-string argmax, 40 trials,
+  C3..A4) > 0.94 ✓
+- Gate carrier: `HarmonicChordValidator` (joint harmonic LS). Design,
+  backends comparison, spec-deviation proposal and low-register limits:
+  [chord-validation.md](chord-validation.md).
 
 ## Gate 4 — DSP thread CPU < 3 % of one core
 
