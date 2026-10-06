@@ -444,3 +444,7 @@ differences beyond the recorded baseline indicate tool regressions.
 | `technique-validation.md` | vibrato/bend/articulation/spectral validators |
 | `range-coverage.md` | A0–C8 sweep, physics walls |
 | `performance-analysis.md` | descriptor, real-song runs, corner cases |
+
+App-level development context: [apps/kan_demo/DEVELOPMENT.md](../apps/kan_demo/DEVELOPMENT.md)
+(live demo design direction and polish rules) ·
+[apps/kan_analyze/README.md](../apps/kan_analyze/README.md) (descriptor tool).

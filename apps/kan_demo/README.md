@@ -5,6 +5,10 @@ play. `kan_demo` runs the full Milestone-1 detection pipeline of **libkan**
 and shows what the engine hears: rhythmic attacks (onsets), the note, and
 how many cents you are off — all live in the terminal.
 
+> **Contributing to this app?** Read [DEVELOPMENT.md](DEVELOPMENT.md) first —
+> design direction, known corners, and the rules that keep polish
+> consistent with the project's goals.
+
 ```
 ====================================================
   kan! demo — live instrument check (libkan v0.1)
