@@ -52,6 +52,19 @@ struct InstrumentProfile {
     /// technique validators and slow-attack judgment).
     float attack_ramp_ms = 2.0f;
 
+    /// Maximum number of simultaneously sounding notes the instrument can
+    /// produce (player physics, never inferred from audio): wind/bowed 1,
+    /// plucked 6 (strings), keyboard 10 (fingers). Caps the
+    /// candidate-conditioned per-note description
+    /// (docs/architecture/note-description-stream.md §6/§7).
+    int max_simultaneous_notes = 6;
+
+    /// Blind mono/polyphonic classification threshold: a second spectral
+    /// series must carry at least this fraction of the best series' energy
+    /// to count as a sounding note (per-instrument pack data;
+    /// note-description-stream.md §2.7/§6).
+    float mono_poly_threshold = 0.25f;
+
     // ---- Presets -----------------------------------------------------------
 
     /// Plucked strings (guitar, bass, harp): fast attack, 8 ms blanking.
@@ -64,6 +77,7 @@ struct InstrumentProfile {
         p.blanking_ms = 8.0f;
         p.judgment_offset_ms = 0.0f;
         p.attack_ramp_ms = 2.0f;
+        p.max_simultaneous_notes = 6; // six strings
         return p;
     }
 
@@ -78,6 +92,7 @@ struct InstrumentProfile {
         p.blanking_ms = 15.0f;
         p.judgment_offset_ms = -20.0f; // judge the air/bow ramp start
         p.attack_ramp_ms = 30.0f;
+        p.max_simultaneous_notes = 1; // one air column / one bow
         return p;
     }
 
@@ -92,6 +107,7 @@ struct InstrumentProfile {
         p.blanking_ms = 6.0f;
         p.judgment_offset_ms = 0.0f;
         p.attack_ramp_ms = 4.0f;
+        p.max_simultaneous_notes = 10; // ten fingers
         return p;
     }
 

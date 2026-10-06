@@ -16,9 +16,27 @@ struct PitchResult {
     float cents_offset = 0.0f; ///< Deviation in cents relative to equal temperament (A4 = 440 Hz)
 };
 
+/// Converts a frequency to the nearest equal-tempered note number (A4 = 69)
+/// and the deviation in cents relative to that note. POD variant of
+/// quantize_to_note() for allocation-free paths.
+inline void quantize_midi(float freq, float& out_midi, float& out_cents) noexcept {
+    const float midi_exact = 69.0f + 12.0f * std::log2(freq / 440.0f);
+    const float midi_rounded = static_cast<float>(std::round(midi_exact));
+    out_midi = midi_rounded;
+    out_cents = (midi_exact - midi_rounded) * 100.0f;
+}
+
+/// Allocation-free pitch estimate (POD) for the analysis hot path and the
+/// per-note description stream (note_stream.hpp).
+struct PitchEstimate {
+    bool valid = false;
+    float frequency_hz = 0.0f;
+    float midi = 0.0f;         ///< nearest equal-tempered note number
+    float cents_offset = 0.0f; ///< deviation from that note (wraps at ±50)
+};
 /// Converts a frequency to the nearest equal-tempered note name and the
 /// deviation in cents relative to that note (A4 = 440 Hz reference).
-/// Shared by all libkan pitch detectors.
+/// Shared by all libkan pitch detectors (allocates the note name).
 inline void quantize_to_note(float freq, std::string& out_name, float& out_cents) noexcept {
     static const char* NAMES[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"};
     float midi_exact = 69.0f + 12.0f * std::log2(freq / 440.0f);
@@ -109,10 +127,24 @@ public:
         energy /= static_cast<float>(count);
         hfc_derivative /= static_cast<float>(count);
 
-        // Abrupt-jump detection against the exponential moving average
+        // Abrupt-jump detection against the exponential moving average,
+        // with a broadband check. Measured attack signatures:
+        //   - big derivative jump (>= 8x the EMA): sine-sum/hammer attacks
+        //     (872x measured) and noise-transient attacks (>= 150x);
+        //   - moderate jump (>= 3.2x) AND broadband spectrum (derivative
+        //     energy >= 1.2% of block energy): soft attacks landing on a
+        //     loud decaying tail (companion stab measured at 3.5x jump but
+        //     8% slope).
+        // Beat crests in decaying chord tails measure 2-6x jump and <= 0.9%
+        // slope and must NOT trigger: at plain x3.2 they fired ghost onsets
+        // whose debounce swallowed the next real attack (dsp_test.cpp
+        // ghost-onset regression).
         bool is_onset = false;
         if (cooldown_blocks_ == 0) {
-            if (energy > noise_floor_ && hfc_derivative > prev_hfc_ * 3.2f) {
+            const bool jumped = hfc_derivative > prev_hfc_ * 3.2f;
+            const bool broadband = hfc_derivative > 0.012f * energy;
+            if (energy > noise_floor_ && jumped
+                && (hfc_derivative > prev_hfc_ * 8.0f || broadband)) {
                 is_onset = true;
                 cooldown_blocks_ = 25; // ~65 ms debounce between hits
             }
@@ -128,15 +160,19 @@ public:
     /// HARMONIC PATH (~20 ms): lightweight YIN algorithm with parabolic
     /// interpolation for sub-sample accuracy (cents precision).
     /// `window` should hold steady-state audio; attack transients degrade accuracy.
-    PitchResult detect_pitch(const std::vector<float>& window) const noexcept {
-        PitchResult res;
-        const size_t W = window.size() / 2;
+    /// Allocation-free variant: `scratch` must hold at least `count / 2`
+    /// floats (caller-owned). Numeric result identical to detect_pitch().
+    PitchEstimate detect_pitch_into(const float* window, size_t count,
+                                    float* scratch, size_t scratch_count) const noexcept {
+        PitchEstimate est;
+        if (count < 4 || scratch_count < count / 2) return est;
+        const size_t W = count / 2;
 
         // Minimum energy check to skip silence
         float rms = 0.0f;
-        for (float s : window) rms += s * s;
-        rms = std::sqrt(rms / window.size());
-        if (rms < 0.008f) return res;
+        for (size_t i = 0; i < count; ++i) rms += window[i] * window[i];
+        rms = std::sqrt(rms / static_cast<float>(count));
+        if (rms < 0.008f) return est;
 
         // Search range bounded by the instrument profile (defaults 60-1200 Hz);
         // when the score provides an expected note (stage 3), the search is
@@ -148,8 +184,10 @@ public:
         const float f_max = has_expected_note() ? bound_max_hz_ : profile_.max_freq_hz;
         const size_t tau_min = std::max<size_t>(1, static_cast<size_t>(sample_rate_ / f_max));
         const size_t tau_max = std::min(W, static_cast<size_t>(sample_rate_ / f_min) + 2);
+        if (tau_max > scratch_count || tau_max < 2) return est;
 
-        std::vector<float> cmndf(tau_max, 1.0f);
+        float* cmndf = scratch;
+        cmndf[0] = 1.0f;
         float running_sum = 0.0f;
 
         for (size_t tau = 1; tau < tau_max; ++tau) {
@@ -172,7 +210,7 @@ public:
             }
         }
 
-        if (best_tau == 0) return res;
+        if (best_tau == 0) return est;
 
         // Parabolic interpolation for sub-sample precision (cents accuracy)
         float s0 = cmndf[best_tau - 1];
@@ -180,8 +218,24 @@ public:
         float s2 = cmndf[best_tau + 1];
         float refined_tau = static_cast<float>(best_tau) + (s2 - s0) / (2.0f * (2.0f * s1 - s2 - s0));
 
+        est.valid = true;
+        est.frequency_hz = sample_rate_ / refined_tau;
+        quantize_midi(est.frequency_hz, est.midi, est.cents_offset);
+        return est;
+    }
+
+    /// Convenience wrapper (allocates a CMNDF scratch buffer and the note
+    /// name — consumer thread only; use detect_pitch_into() on
+    /// allocation-free paths).
+    PitchResult detect_pitch(const std::vector<float>& window) const noexcept {
+        PitchResult res;
+        if (window.size() < 4) return res;
+        std::vector<float> scratch(window.size() / 2, 1.0f);
+        const PitchEstimate est = detect_pitch_into(window.data(), window.size(),
+                                                    scratch.data(), scratch.size());
+        if (!est.valid) return res;
         res.valid = true;
-        res.frequency_hz = sample_rate_ / refined_tau;
+        res.frequency_hz = est.frequency_hz;
         quantize_to_note(res.frequency_hz, res.note_name, res.cents_offset);
         return res;
     }

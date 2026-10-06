@@ -8,7 +8,7 @@ connects libkan to `game/` and for anyone polishing the DSP further.
 
 Status: Milestone 1 complete. All numbers quoted below are **measured
 offline** by the ctest suite on this machine (reproduce: `cmake -B build &&
-cmake --build build -j && ctest --test-dir build`; 17 tests). Per-topic
+cmake --build build -j && ctest --test-dir build`; 18 tests). Per-topic
 deep dives live alongside this file:
 [bacf-vs-yin.md](bacf-vs-yin.md) · [latency-measurements.md](latency-measurements.md) ·
 [chord-validation.md](chord-validation.md) · [calibration.md](calibration.md) ·
@@ -95,10 +95,15 @@ transient needs ≥ 8 ms blanking).
 ### 2.4 `dsp_detector.hpp` — onset + blanking + YIN pitch
 
 - `HybridDetector::process_onset_block(const float*, n)` → bool. HFC
-  energy-derivative jump vs EMA (×3.2), 25-block (~65 ms) debounce.
-  Measured: fires on the first block containing the energy rise
-  (+1.33 ms block-quantized on fixtures; noise → zero ghost onsets;
-  smooth FX tails do not retrigger).
+  energy-derivative jump vs EMA (≥ ×3.2 **and** broadband: derivative
+  energy ≥ 1.2% of block energy; or a ≥ ×8 jump alone), 25-block (~65 ms)
+  debounce. Measured: fires on the first block containing the energy rise
+  (+1.33 ms block-quantized on fixtures; noise → zero ghost onsets; smooth
+  FX tails do not retrigger; soft attacks on loud decaying tails still fire
+  — companion stab measured at ×3.5 jump but 8% slope). Beat crests in
+  decaying chord tails (measured ×2–6 jump, ≤ 0.9% slope) must not fire:
+  at plain ×3.2 they created ghost onsets whose debounce swallowed the
+  next real attack (regression test in `dsp_test.cpp`).
 - `set_noise_floor(energy)` / `noise_floor()` — share the gate's calibrated
   floor (energy = mean square).
 - `set_profile()` / `profile()` + `in_transient_blanking(ms_after_onset)`
@@ -368,7 +373,7 @@ Three layers, all present and runnable today:
 ### 6.1 Ground-truth oracles (the ctest suite)
 
 Every detector change must ship a test with **known input → expected
-output**. The suite (17 tests) and its oracles:
+output**. The suite (18 tests) and its oracles:
 
 | test | oracle (known truth) | asserts |
 |---|---|---|
@@ -387,6 +392,7 @@ output**. The suite (17 tests) and its oracles:
 | `libkan_loopback_test` | WAV fixtures with **known onset sample positions** (fixture_layout.hpp) | zero ghost onsets on noise, no pitch on percussion, notes within 6 ms/6 Hz, chord template pass, **onset latency ≤ 1 block** |
 | `kan_demo_selftest` / `kan_analyze_selftest` | synthesized ocarina note | full app pipelines |
 | `kan_analyze_hop_test` | synthesized **hopping note** (one attack, two competing sources swapping dominance) | each row = one estimate (name/Hz/cents verify each other), MIX/HOP rows print `-` / `null` pitch cells |
+| `libkan_note_stream_test` | six synthesized fixtures (mono corrected-later, chord all-present, chord one-absent, sustained LH under RH, unexplained extra, live-vs-offline) | per-note facts: HIT fixed, provisional → final one estimate, presence/cents/amplitude per candidate with similarity, `UNEXPLAINED_ENERGY` flagged, byte-identical JSONL |
 
 The fixture set (`libkan_fixture_gen`, deterministic synthesis — byte
 identical across runs) is the ground-truth corpus: sine sweep, detuned
@@ -428,6 +434,7 @@ look wrong:
 | a whole octave band missing from YIN | lag range truncated (top octave) or window < 2 periods (bass) | C8 pre-fix |
 | durations ≈ note+delay time | FX tail counted as sustain | fx scenario (documented, L7) |
 | notes "evaluated" but source is polyphonic | reliability filter bypassed | always filter on `reliable` |
+| phantom notes on decaying chords; a real attack shortly after is lost | beat crests in the tail passed the ×3.2 jump test; the ghost's debounce swallowed the next attack | dsp_test ghost-onset regression (fixed by the broadband check) |
 
 When a new signature appears: reproduce with the smallest synthesized
 signal, add it to `test_signals.hpp`/`fixture_layout.hpp`, encode the

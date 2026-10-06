@@ -351,16 +351,22 @@ Schema rules (the honesty rules of Phase 0, generalized):
 
 ### 5.3 Live/offline equivalence
 
-`describe()` is a **pure function of (audio blocks, candidate sequence)**:
-time fields derive from sample positions, not wall clocks; all estimation
-is deterministic (fixed scratch, fixed refinement rounds). Therefore:
+`describe()` is a **pure function of (sample stream, block size, candidate
+sequence)**: time fields derive from sample positions, not wall clocks; all
+estimation is deterministic (fixed scratch, fixed refinement rounds). The
+production block size (64/128 samples) is part of the input contract —
+onset detection quantizes to blocks. Therefore:
 
-> Feeding a WAV offline and feeding the same samples as a live block stream
-> (any block size) must produce **byte-identical JSONL**.
+> Feeding a WAV offline and feeding the same samples live, at the same block
+> size, must produce **byte-identical JSONL** — regardless of when
+> candidates are injected (any time before the note finalizes) and of how
+> often the consumer drains the stream.
 
-Enforced by a Phase 2 test (`live-vs-offline stream equality on the same
-file`) — this is what makes `kan_demo --events`, the JSONL log and
-`kan_analyze` interchangeable for regression diffing.
+Enforced by the Phase 2 test `libkan_note_stream_test` fixture 6
+(live-vs-offline equality + determinism) — this is what makes
+`kan_demo --events`, the JSONL log and `kan_analyze` interchangeable for
+regression diffing. `finalize_due()` must be called at least every ~256 ms
+of audio (the retained history is 0.68 s).
 
 ## 6. Changes the experiment forces (decided here, implemented in Phase 2)
 
@@ -421,6 +427,13 @@ and the dynamics tiers' mapping to rewards (Phase 3 delivers measurements
 only).
 
 ## 8. Phase 2 implementation plan (decisions resolved, §7)
+
+Status: **libkan core + fixtures shipped** (`libkan_note_stream_test`, six
+fixtures green); app wiring next. Measured fact latencies on the fixtures
+(keyboard profile): HIT = onset block (≤ 2.7 ms quantized), provisional
+pitch ≈ +59 ms after the onset (6 ms blanking + 43 ms window + 10 ms
+grid), final facts at the evidence-window end ≈ +177 ms (or at the note's
+close for short notes), EXPRESSION/CLOSE at the decay-relative end.
 
 - `libkan/include/libkan/instrument_profile.hpp`: add
   `max_simultaneous_notes` (wind 1 / guitar 6 / piano 10) and the

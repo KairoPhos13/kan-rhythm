@@ -48,11 +48,13 @@ namespace kan {
 /// Joint harmonic least-squares chord validator (explained-energy metric).
 class HarmonicChordValidator {
 public:
-    static constexpr size_t kMaxNotes = 6;    ///< expected chord tones
+    static constexpr size_t kMaxNotes = 10;   ///< expected chord tones (hard cap;
+                                             ///< per-instrument caps come from
+                                             ///< InstrumentProfile::max_simultaneous_notes)
     static constexpr size_t kHarmonics = 6;   ///< fundamental + first five
     static constexpr size_t kSearchHarmonics = 3; ///< used by the frequency search
-    static constexpr size_t kAtomsPerNote = kHarmonics * 2;        // cos+sin
-    static constexpr size_t kMaxAtoms = kMaxNotes * kAtomsPerNote; // 72
+    static constexpr size_t kAtomsPerNote = kHarmonics * 2;         // cos+sin
+    static constexpr size_t kMaxAtoms = kMaxNotes * kAtomsPerNote; // 120
 
     /// `max_window` bounds the analysis length; scratch is sized once here.
     explicit HarmonicChordValidator(float sample_rate = 48000.0f, size_t max_window = 1536)
@@ -97,6 +99,13 @@ public:
     /// in cents (diagnostics / judgment feedback).
     float refined_cents(size_t k) const noexcept {
         return (k < kMaxNotes) ? refined_cents_[k] : 0.0f;
+    }
+
+    /// Fitted component RMS of expected note `k` from the last validate()
+    /// call (absolute amplitude of the note inside the window — the
+    /// per-candidate "amplitude" measurement of the description stream).
+    float note_rms(size_t k) const noexcept {
+        return (k < kMaxNotes) ? note_rms_[k] : 0.0f;
     }
 
     /// Recommended analysis window (samples): ~21 ms at 48 kHz keeps
@@ -165,6 +174,7 @@ public:
         float min_presence = 1.0f;
         for (size_t k = 0; k < note_count_ && k < kMaxNotes; ++k) {
             res.note_presence[k] = (total_energy > 1e-18) ? float(note_energy[k] / total_energy) : 0.0f;
+            note_rms_[k] = float(std::sqrt(note_energy[k] / double(count)));
             min_presence = std::min(min_presence, res.note_presence[k]);
         }
 
@@ -372,6 +382,7 @@ private:
 
     float expected_midi_[kMaxNotes] = {0};
     float refined_cents_[kMaxNotes] = {0};
+    float note_rms_[kMaxNotes] = {0};
 
     std::vector<float> atoms_;       ///< kMaxAtoms * max_window_ (joint basis)
     std::vector<float> gram_;        ///< kMaxAtoms^2

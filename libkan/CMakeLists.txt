@@ -55,6 +55,10 @@ if(KAN_BUILD_TESTS)
     target_link_libraries(libkan_chord_test PRIVATE libkan)
     add_test(NAME libkan_chord_test COMMAND libkan_chord_test)
 
+    add_executable(libkan_note_stream_test tests/note_stream_test.cpp)
+    target_link_libraries(libkan_note_stream_test PRIVATE libkan)
+    add_test(NAME libkan_note_stream_test COMMAND libkan_note_stream_test)
+
     add_executable(libkan_calibration_test tests/calibration_test.cpp)
     target_link_libraries(libkan_calibration_test PRIVATE libkan)
     add_test(NAME libkan_calibration_test COMMAND libkan_calibration_test)

@@ -62,6 +62,60 @@ int main() {
     bool pass = ok_push && ok_pop && data_ok && onset_seen && final_pitch.valid
                 && final_pitch.note_name == "A4"
                 && fabsf(final_pitch.frequency_hz - 442.54f) < 3.0f;
+
+    // 3. Ghost-onset regression: a decaying 3-note chord whose partials beat
+    //    (C3's 3rd harmonic vs G3's 2nd, detuned by 0.4 Hz) must produce
+    //    exactly ONE onset at its attack — tail fluctuations must not
+    //    retrigger — and a melody attack 500 ms later must still be seen
+    //    (a ghost onset's debounce would swallow it). Harmonics decay at
+    //    piano-like rates (higher harmonics die first); with a constant
+    //    relative decay the HF beating can exceed the x3.2 jump test and
+    //    retrigger — that extreme case is documented as a limitation in
+    //    docs/dsp/README.md, not asserted here.
+    {
+        kan::HybridDetector det2(SR);
+        int onsets = 0;
+        float onset_t[8] = {0};
+        const int total = int(1.6f * SR / 128.0f);
+        for (int b = 0; b < total; ++b) {
+            float block[128];
+            for (int i = 0; i < 128; ++i) {
+                const int n = b * 128 + i;
+                const float t = n / SR;
+                float s = 0.0f;
+                if (t >= 0.3f) {
+                    const float tc = t - 0.3f;
+                    const float chord[3] = {130.81f, 164.81f, 196.00f};
+                    for (float f : chord) {
+                        for (int h = 1; h <= 5; ++h) {
+                            s += 0.30f * (0.5f / h) * expf(-(1.2f + 0.25f * h) * tc)
+                               * sinf(2.0f * float(M_PI) * f * h * tc);
+                        }
+                    }
+                }
+                if (t >= 0.8f && t < 1.4f) {
+                    const float tm = t - 0.8f;
+                    for (int h = 1; h <= 5; ++h) {
+                        s += 0.60f * (0.5f / h) * expf(-(1.0f + 0.25f * h) * tm)
+                           * sinf(2.0f * float(M_PI) * 440.0f * h * tm);
+                    }
+                }
+                block[i] = s;
+            }
+            if (det2.process_onset_block(block, 128) && onsets < 8) {
+                onset_t[onsets++] = b * 128.0f / SR * 1000.0f;
+            }
+        }
+        printf("beating-tail onsets: %d (t = %.1f", onsets, onset_t[0]);
+        for (int k = 1; k < onsets; ++k) printf(", %.1f", onset_t[k]);
+        printf(" ms)\n");
+        const bool ghost_ok = onsets == 2
+            && fabsf(onset_t[0] - 300.0f) < 10.0f   // chord attack
+            && fabsf(onset_t[1] - 800.0f) < 10.0f;  // melody attack (not swallowed)
+        printf(ghost_ok ? "ghost-onset regression ok\n" : "ghost-onset regression FAIL\n");
+        pass = pass && ghost_ok;
+    }
+
     printf(pass ? "TEST PASS\n" : "TEST FAIL\n");
     return pass ? 0 : 1;
 }
