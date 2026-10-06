@@ -381,11 +381,13 @@ void print_report(const Report& r, bool json, FILE* out) {
             const auto& n = r.notes[i];
             fprintf(out, "    {\"onset_ms\": %.1f, \"midi\": %d, \"hz\": %.2f, \"cents\": %.1f, "
                    "\"dur_ms\": %.1f, \"attack_ms\": %.1f, \"sustain\": %.2f, "
-                   "\"vibrato\": %s, \"vib_hz\": %.2f, \"valid_ratio\": %.2f}%s\n",
+                   "\"vibrato\": %s, \"vib_hz\": %.2f, \"valid_ratio\": %.2f, "
+                   "\"reliable\": %s}%s\n",
                    double(n.onset_ms), n.midi, double(n.freq_hz), double(n.cents),
                    double(n.duration_ms), double(n.attack_ms), double(n.sustain_ratio),
                    n.vibrato ? "true" : "false", double(n.vib_rate_hz),
-                   double(n.valid_ratio), i + 1 < N ? "," : "");
+                   double(n.valid_ratio),
+                   n.reliable ? "true" : "false", i + 1 < N ? "," : "");
         }
         fprintf(out, "  ]\n}\n");
         return;
@@ -505,8 +507,7 @@ int main(int argc, char** argv) {
         }
         print_report(report, true, f);
         std::fclose(f);
-        return 0;
     }
-    print_report(report, json, stdout);
+    print_report(report, json, stdout); // text report always (also with --json-out)
     return 0;
 }
