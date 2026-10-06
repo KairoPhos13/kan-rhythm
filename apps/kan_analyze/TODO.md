@@ -15,6 +15,11 @@ material and learner-evaluation rubric. See `docs/dsp/performance-analysis.md`.
 - [x] `--json` machine-readable output (level seeding)
 - [x] Corner-case scenarios validated: mono wind, polyphonic piano, duet
       with companion, FX tails (zero ghost onsets)
+- [x] **One consistent estimate per row**: note/Hz/cents come from a single
+      (midi, cents) estimate (Hz derived, never mixed with a last reading);
+      MIX/HOP rows print `-` / `null` instead of contradicting numbers.
+      Covered by `--selftest` / ctest `kan_analyze_hop_test` on a
+      synthesized hopping note (scenario `--synth hop`)
 
 ## Next
 

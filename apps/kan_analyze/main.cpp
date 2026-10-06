@@ -21,6 +21,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cstdlib>
 #include <cstring>
 #include <string>
 #include <vector>
@@ -32,12 +33,19 @@ constexpr size_t B = 128;
 
 // ---------------------------------------------------------------------------
 // Note record = one detected note event = one judgment-relevant feature set.
+//
+// Pitch columns (midi / freq_hz / cents) are ONE consistent estimate: the
+// fixed per-note reference is the nearest equal-tempered note of the first
+// reading, `cents` is the mean deviation from that reference over the note,
+// and `freq_hz` is DERIVED from (midi, cents) — never measured separately.
+// A row therefore cannot print a note name, an Hz value and a cents value
+// that disagree with each other.
 struct NoteRec {
     float onset_ms = 0.0f;
     float end_ms = 0.0f;
-    float freq_hz = 0.0f;
-    float cents = 0.0f;        ///< vs equal temperament of the nearest note
-    int midi = 0;
+    float freq_hz = 0.0f;      ///< derived: midi + cents (0 = no estimate)
+    float cents = 0.0f;        ///< mean deviation vs the fixed per-note reference
+    int midi = 0;              ///< fixed per-note reference (first reading)
     float duration_ms = 0.0f;
     float attack_ms = 0.0f;    ///< 10-90% of peak (envelope)
     float release_ms = 0.0f;
@@ -133,6 +141,30 @@ std::vector<float> make_scenario(const char* name) {
             add_note(s, 0.85f + float(n) * 0.7f, 261.63f, 0.45f, 0.30f, 8, 0, 0, 41u);
             add_note(s, 0.85f + float(n) * 0.7f, 329.63f, 0.45f, 0.30f, 8, 0, 0, 42u);
         }
+    } else if (std::strcmp(name, "hop") == 0) {
+        // Hopping-tracker fixture: one attack carrying two competing sources
+        // whose dominance swaps every 120 ms. Total energy stays constant
+        // (cos^2 + sin^2 = 1) and the swap is continuous, so the onset
+        // detector sees ONE attack while the blind pitch tracker hops
+        // between the two fundamentals — the measured HOP failure mode on
+        // companion-instrument material.
+        s.assign(size_t(3.0f * SR), 0.0f);
+        add_note(s, 0.3f, 659.26f, 0.4f, 0.5f, 1, 0, 0, 1u); // clean mono note
+        const float f_lo = 523.25f, f_hi = 783.99f;
+        const size_t at = size_t(0.9f * SR), n_hop = size_t(1.2f * SR);
+        for (size_t i = 0; at + i < s.size() && i < n_hop; ++i) {
+            const float t = float(i) / SR;
+            const float ph = std::fmod(t, 0.24f); // 100 ms hold + 20 ms swap
+            float theta;
+            if (ph < 0.10f) theta = 0.0f;
+            else if (ph < 0.12f) theta = float(M_PI) * 0.5f * (ph - 0.10f) / 0.02f;
+            else if (ph < 0.22f) theta = float(M_PI) * 0.5f;
+            else theta = float(M_PI) * 0.5f * (1.0f - (ph - 0.22f) / 0.02f);
+            const float env = t < 0.008f ? t / 0.008f : 1.0f;
+            s[at + i] += 0.5f * env
+                * (std::cos(theta) * std::sin(2.0f * float(M_PI) * f_lo * t)
+                 + std::sin(theta) * std::sin(2.0f * float(M_PI) * f_hi * t));
+        }
     } else if (std::strcmp(name, "fx") == 0) {
         // Delay/reverb tail + noise floor: ghost-onset territory.
         s.assign(size_t(10.0f * SR), 0.0f);
@@ -158,6 +190,13 @@ std::vector<float> make_scenario(const char* name) {
 }
 
 // ---------------------------------------------------------------------------
+// The only way this file derives Hz: from an (midi, cents) estimate. Keeps
+// the note name, Hz and cents columns mutually consistent by construction.
+double estimate_hz(int midi, float cents) {
+    return 440.0 * std::pow(2.0, (double(midi) - 69.0) / 12.0 + double(cents) / 1200.0);
+}
+
+// ---------------------------------------------------------------------------
 // Analysis pass: stage 0 -> onset -> blanking -> blind pitch -> note records.
 Report analyze(const std::vector<float>& sig, const char* source,
                const kan::InstrumentProfile& profile, float window_ms) {
@@ -169,7 +208,6 @@ Report analyze(const std::vector<float>& sig, const char* source,
     kan::HybridDetector det{float(SR)};
     det.set_profile(profile);
     const size_t win = size_t(window_ms / 1000.0f * SR);
-    std::vector<float> rolling(win, 0.0f);
 
     kan::VibratoAnalyzer vib;
 
@@ -186,9 +224,9 @@ Report analyze(const std::vector<float>& sig, const char* source,
         const float rms = float(std::sqrt(acc / double(B)));
         const float t_ms = 1000.0f * float(off + B) / SR;
 
-        std::move(rolling.begin() + B, rolling.end(), rolling.begin());
-        std::copy(cond, cond + B, rolling.end() - B);
-
+        // Pass 1 = note-boundary bookkeeping only (open on attack, close on
+        // silence or next attack). Pitch is estimated in pass 2 below, from
+        // one series per note -> one estimate per note.
         if (det.process_onset_block(cond, B)) {
             if (in_note && (t_ms - cur.onset_ms) > 150.0f) {
                 // Close previous note on a new attack.
@@ -205,15 +243,6 @@ Report analyze(const std::vector<float>& sig, const char* source,
 
         ms_since_onset += 1000.0f * float(B) / SR;
         if (rms < 0.01f) silent_ms += 1000.0f * float(B) / SR;
-
-        if (!det.in_transient_blanking(ms_since_onset)) {
-            auto p = det.detect_pitch(rolling);
-            if (p.valid) {
-                cur.freq_hz = p.frequency_hz;
-                cur.cents = p.cents_offset;
-                cur.midi = int(std::lround(69.0f + 12.0f * std::log2(p.frequency_hz / 440.0f)));
-            }
-        }
 
         // Note ends after sustained silence (no new onset).
         if (silent_ms > 120.0f) {
@@ -313,8 +342,15 @@ Report analyze(const std::vector<float>& sig, const char* source,
                     prev_dev = dev;
                     tt.add(s.t[k], dev);
                 }
-                n.cents = dev_sum / float(s.freqs.size());
+                // ONE consistent estimate for the whole row: the fixed
+                // per-note reference (first reading's nearest note) + the
+                // mean deviation from it. Hz is derived from that pair, so
+                // note name, Hz and cents always describe the same reading
+                // of the note (they can no longer mix first/last/hopped
+                // estimators).
                 n.midi = int(ref_midi);
+                n.cents = dev_sum / float(s.freqs.size());
+                n.freq_hz = float(estimate_hz(n.midi, n.cents));
                 // A tracker hopping between sources (companion instrument,
                 // chord partials) is unreliable pitch, even when every block
                 // "valid": flag it and exclude it from the statistics.
@@ -337,6 +373,34 @@ Report analyze(const std::vector<float>& sig, const char* source,
         }
     }
     return rep;
+}
+
+// ---------------------------------------------------------------------------
+// Pitch columns are printed only for rows that carry one honest estimate:
+// an unreliable row (MIX/HOP) or a row without any pitch reading shows "-"
+// (JSON: null) — never numbers derived from an estimator the tool distrusts.
+bool pitch_estimated(const NoteRec& n) { return n.freq_hz > 0.0f && n.reliable; }
+
+// One per-note table row, padded exactly like the header below.
+void format_row(const NoteRec& n, size_t idx, char* buf, size_t cap) {
+    static const char* NAMES[12] = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
+    char raw[16], name[24], hz_cell[16], cents_cell[16];
+    if (pitch_estimated(n)) {
+        std::snprintf(raw, sizeof(raw), "%s%d", NAMES[((n.midi % 12) + 12) % 12], (n.midi / 12) - 1);
+        std::snprintf(hz_cell, sizeof(hz_cell), "%7.1f", double(n.freq_hz));
+        std::snprintf(cents_cell, sizeof(cents_cell), "%+6.1f", double(n.cents));
+    } else {
+        std::snprintf(raw, sizeof(raw), "%s", "-");
+        std::snprintf(hz_cell, sizeof(hz_cell), "%7s", "-");
+        std::snprintf(cents_cell, sizeof(cents_cell), "%6s", "-");
+    }
+    std::snprintf(name, sizeof(name), "%-5s", raw);
+    std::snprintf(buf, cap, "%2zu %8.0f %s %s %s %5.0f %5.0f %5.0f %5.2f  %s  %s",
+           idx + 1, double(n.onset_ms), name, hz_cell, cents_cell,
+           double(n.duration_ms), double(n.attack_ms), double(n.release_ms),
+           double(n.sustain_ratio),
+           n.vibrato ? "vib" : "  -",
+           !n.reliable ? (n.valid_ratio < 0.5f ? "MIX" : "HOP") : " -");
 }
 
 // ---------------------------------------------------------------------------
@@ -375,15 +439,28 @@ void print_report(const Report& r, bool json, FILE* out) {
         fprintf(out, "  \"notes\": %zu,\n  \"mixed_regions\": %zu,\n  \"tempo_bpm\": %.1f,\n",
                N, r.mixed_regions, double(bpm));
         fprintf(out, "  \"intonation_mean_abs_cents\": %.1f,\n  \"intonation_max_abs_cents\": %.1f,\n",
-               double(N ? abs_cents / N : 0.0), double(max_cents));
+               double(evaluated ? abs_cents / evaluated : 0.0), double(max_cents));
         fprintf(out, "  \"events\": [\n");
         for (size_t i = 0; i < N; ++i) {
             const auto& n = r.notes[i];
-            fprintf(out, "    {\"onset_ms\": %.1f, \"midi\": %d, \"hz\": %.2f, \"cents\": %.1f, "
+            // Same honesty rule as the table: midi/hz/cents come from one
+            // estimate; when the row is flagged unreliable (MIX/HOP) or has
+            // no pitch reading, they are null instead of disagreeing numbers.
+            char midi_cell[16], hz_cell[16], cents_cell[16];
+            if (pitch_estimated(n)) {
+                std::snprintf(midi_cell, sizeof(midi_cell), "%d", n.midi);
+                std::snprintf(hz_cell, sizeof(hz_cell), "%.2f", double(n.freq_hz));
+                std::snprintf(cents_cell, sizeof(cents_cell), "%.1f", double(n.cents));
+            } else {
+                std::snprintf(midi_cell, sizeof(midi_cell), "%s", "null");
+                std::snprintf(hz_cell, sizeof(hz_cell), "%s", "null");
+                std::snprintf(cents_cell, sizeof(cents_cell), "%s", "null");
+            }
+            fprintf(out, "    {\"onset_ms\": %.1f, \"midi\": %s, \"hz\": %s, \"cents\": %s, "
                    "\"dur_ms\": %.1f, \"attack_ms\": %.1f, \"sustain\": %.2f, "
                    "\"vibrato\": %s, \"vib_hz\": %.2f, \"valid_ratio\": %.2f, "
                    "\"reliable\": %s}%s\n",
-                   double(n.onset_ms), n.midi, double(n.freq_hz), double(n.cents),
+                   double(n.onset_ms), midi_cell, hz_cell, cents_cell,
                    double(n.duration_ms), double(n.attack_ms), double(n.sustain_ratio),
                    n.vibrato ? "true" : "false", double(n.vib_rate_hz),
                    double(n.valid_ratio),
@@ -404,19 +481,160 @@ void print_report(const Report& r, bool json, FILE* out) {
     fprintf(out, " | staccato: %d | range: %.0f-%.0f Hz\n", staccato, double(f_lo), double(f_hi));
     fprintf(out, "\n #    t(ms)  note   Hz      cents  dur   atk   rel   sus  vib(Hz/c)  mix\n");
     for (size_t i = 0; i < N; ++i) {
-        const auto& n = r.notes[i];
-        char name[16] = "-";
-        if (n.freq_hz > 0.0f) {
-            static const char* NAMES[12] = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
-            std::snprintf(name, sizeof(name), "%s%d", NAMES[((n.midi % 12) + 12) % 12], (n.midi / 12) - 1);
-        }
-        fprintf(out, "%2zu %8.0f %-5s %7.1f %+6.1f %5.0f %5.0f %5.0f %5.2f  %s  %s\n",
-               i + 1, double(n.onset_ms), name, double(n.freq_hz), double(n.cents),
-               double(n.duration_ms), double(n.attack_ms), double(n.release_ms),
-               double(n.sustain_ratio),
-               n.vibrato ? "vib" : "  -",
-               !n.reliable ? (n.valid_ratio < 0.5f ? "MIX" : "HOP") : " -");
+        char row[256];
+        format_row(r.notes[i], i, row, sizeof(row));
+        fprintf(out, "%s\n", row);
     }
+}
+
+// ---------------------------------------------------------------------------
+// --selftest: the report must never lie. On synthesized fixtures with known
+// content (including the "hop" fixture: one attack, two competing sources),
+// it checks that (a) each row's note/Hz/cents cells come from ONE estimate —
+// the three cells verify each other numerically — and (b) rows the tool
+// flags MIX/HOP (or that carry no pitch at all) show "-" / null in those
+// cells instead of contradicting numbers.
+int midi_from_name(const char* token) {
+    static const char* NAMES[12] = {"C","C#","D","D#","E","F","F#","G","G#","A","A#","B"};
+    const int len = token[1] == '#' ? 2 : 1;
+    int semi = -1;
+    for (int i = 0; i < 12; ++i) {
+        if (std::strncmp(token, NAMES[i], size_t(len)) == 0 && NAMES[i][len] == '\0') {
+            semi = i;
+            break;
+        }
+    }
+    if (semi < 0) return -1000;
+    return (std::atoi(token + len) + 1) * 12 + semi;
+}
+
+size_t count_substring(const std::string& hay, const char* needle) {
+    size_t n = 0;
+    for (size_t p = hay.find(needle); p != std::string::npos; p = hay.find(needle, p + 1)) ++n;
+    return n;
+}
+
+int run_selftest() {
+    struct Case {
+        const char* scenario;
+        bool keyboard;           ///< profile: keyboard() vs wind_bowed()
+        bool need_hop_row;       ///< >= 1 row labeled HOP with "-" pitch cells
+        bool need_shown_row;     ///< >= 1 row with a full consistent estimate
+        bool need_suppressed;    ///< >= 1 row with "-" pitch cells
+    };
+    const Case cases[] = {
+        {"ocarina", false, false, true,  false},
+        {"hop",     false, true,  true,  true},
+        {"piano",   true,  false, true,  true},
+    };
+
+    std::printf("kan_analyze selftest: one-estimate report + MIX/HOP suppression\n");
+    int failures = 0, rows_checked = 0;
+    for (const auto& c : cases) {
+        kan::InstrumentProfile profile = c.keyboard ? kan::InstrumentProfile::keyboard()
+                                                    : kan::InstrumentProfile::wind_bowed();
+        const float window_ms = (c.keyboard ? 4096.0f : 2048.0f) / float(SR) * 1000.0f;
+        const std::string source = std::string("synth:") + c.scenario;
+        Report rep = analyze(make_scenario(c.scenario), source.c_str(), profile, window_ms);
+
+        int shown = 0, hop_rows = 0, suppressed = 0;
+        for (size_t i = 0; i < rep.notes.size(); ++i) {
+            const NoteRec& n = rep.notes[i];
+            char row[256];
+            format_row(n, i, row, sizeof(row));
+            ++rows_checked;
+
+            char tok_name[24], tok_hz[24], tok_c[24], tok_vib[24], tok_mix[24];
+            double t = 0, dur = 0, atk = 0, rel = 0, sus = 0;
+            const int got = std::sscanf(row, "%*u %lf %23s %23s %23s %lf %lf %lf %lf %23s %23s",
+                                        &t, tok_name, tok_hz, tok_c, &dur, &atk, &rel, &sus,
+                                        tok_vib, tok_mix);
+            if (got != 10) {
+                std::fprintf(stderr, "[FAIL] %s row %zu unparsable: '%s'\n",
+                             c.scenario, i + 1, row);
+                ++failures;
+                continue;
+            }
+
+            // The mix label must match the flags behind it.
+            const char* want_mix = !n.reliable
+                ? (n.valid_ratio < 0.5f ? "MIX" : "HOP") : "-";
+            if (std::strcmp(tok_mix, want_mix) != 0) {
+                std::fprintf(stderr, "[FAIL] %s row %zu mix label '%s' != '%s'\n",
+                             c.scenario, i + 1, tok_mix, want_mix);
+                ++failures;
+            }
+
+            if (pitch_estimated(n)) {
+                ++shown;
+                // The three pitch cells must verify each other: the Hz cell
+                // equals the frequency implied by the note-name cell and the
+                // cents cell (one estimate, three columns).
+                const int midi = midi_from_name(tok_name);
+                const double cents = std::atof(tok_c);
+                const double hz = std::atof(tok_hz);
+                const double want_hz = 440.0 * std::pow(2.0, (midi - 69) / 12.0 + cents / 1200.0);
+                if (midi != n.midi || std::fabs(cents - double(n.cents)) > 0.06
+                    || std::fabs(hz - double(n.freq_hz)) > 0.06
+                    || std::fabs(hz - want_hz) > 0.11) {
+                    std::fprintf(stderr, "[FAIL] %s row %zu columns disagree: '%s'\n",
+                                 c.scenario, i + 1, row);
+                    ++failures;
+                }
+            } else {
+                ++suppressed;
+                if (std::strcmp(tok_name, "-") != 0 || std::strcmp(tok_hz, "-") != 0
+                    || std::strcmp(tok_c, "-") != 0) {
+                    std::fprintf(stderr, "[FAIL] %s row %zu (%s) must print '-' pitch cells: '%s'\n",
+                                 c.scenario, i + 1, want_mix, row);
+                    ++failures;
+                }
+                if (std::strcmp(tok_mix, "HOP") == 0) ++hop_rows;
+            }
+        }
+
+        // The JSON events obey the same rule: one null triple per suppressed
+        // row, one numeric triple per estimated row.
+        FILE* f = std::tmpfile();
+        if (f != nullptr) {
+            print_report(rep, true, f);
+            std::rewind(f);
+            std::string js;
+            char buf[4096];
+            for (size_t got = 0; (got = std::fread(buf, 1, sizeof(buf), f)) > 0; ) js.append(buf, got);
+            std::fclose(f);
+            const size_t nulls = count_substring(js, "\"hz\": null");
+            const size_t totals = count_substring(js, "\"hz\": ");
+            if (nulls != size_t(suppressed) || totals != rep.notes.size()) {
+                std::fprintf(stderr, "[FAIL] %s JSON: %zu null / %zu total pitch fields, "
+                             "rows say %d suppressed / %zu total\n",
+                             c.scenario, nulls, totals, suppressed, rep.notes.size());
+                ++failures;
+            }
+        }
+
+        std::printf("  synth:%-7s rows %zu | estimated %d | suppressed %d (HOP %d)\n",
+                    c.scenario, rep.notes.size(), shown, suppressed, hop_rows);
+        if (c.need_hop_row && hop_rows == 0) {
+            std::fprintf(stderr, "[FAIL] %s: expected a hopping row (HOP, '-' pitch cells)\n",
+                         c.scenario);
+            ++failures;
+        }
+        if (c.need_shown_row && shown == 0) {
+            std::fprintf(stderr, "[FAIL] %s: expected a fully estimated row\n", c.scenario);
+            ++failures;
+        }
+        if (c.need_suppressed && suppressed == 0) {
+            std::fprintf(stderr, "[FAIL] %s: expected a suppressed row\n", c.scenario);
+            ++failures;
+        }
+    }
+    if (failures != 0) {
+        std::fprintf(stderr, "selftest: %d FAILURE(S)\n", failures);
+        return -1;
+    }
+    std::printf("selftest: ok (%d rows checked)\n", rows_checked);
+    return 0;
 }
 
 } // namespace
@@ -439,9 +657,12 @@ int main(int argc, char** argv) {
             std::printf("kan_analyze — song performance descriptor\n"
                         "  kan_analyze <audio.wav|mp3|flac> [--instrument ocarina|flute|"
                         "recorder|guitar|piano] [--json|--json-out f.json]\n"
-                        "  kan_analyze --synth <ocarina|piano|duet|fx> [...] [--out f.wav]\n"
+                        "  kan_analyze --synth <ocarina|piano|duet|fx|hop> [...] [--out f.wav]\n"
+                        "  kan_analyze --selftest   offline report-consistency check\n"
                         "  --out <f.wav>  also write the source audio (hear the scenario)\n");
             return 0;
+        } else if (std::strcmp(argv[i], "--selftest") == 0) {
+            return run_selftest();
         } else input = argv[i];
     }
     if (!input && !synth) {

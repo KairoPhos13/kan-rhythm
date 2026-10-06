@@ -8,7 +8,7 @@ connects libkan to `game/` and for anyone polishing the DSP further.
 
 Status: Milestone 1 complete. All numbers quoted below are **measured
 offline** by the ctest suite on this machine (reproduce: `cmake -B build &&
-cmake --build build -j && ctest --test-dir build`; 16 tests). Per-topic
+cmake --build build -j && ctest --test-dir build`; 17 tests). Per-topic
 deep dives live alongside this file:
 [bacf-vs-yin.md](bacf-vs-yin.md) · [latency-measurements.md](latency-measurements.md) ·
 [chord-validation.md](chord-validation.md) · [calibration.md](calibration.md) ·
@@ -307,11 +307,16 @@ schema (`--json` / `--json-out`):
                 "valid_ratio", "reliable" } ] }
 ```
 
-Semantics: `cents` = mean deviation vs equal temperament over the note
-(fixed per-note reference — no wrap); `reliable == false` marks events the
-tool refuses to evaluate (`MIX`: pitch validity < 0.5 = polyphonic/
-overlapped; `HOP`: tracker hopping between sources) — **filter on
-`reliable` before trusting any event**. Level seed = `events`;
+Semantics: each event's `midi` / `hz` / `cents` are **one consistent
+estimate** — `midi` is the fixed per-note reference (nearest
+equal-tempered note of the first reading), `cents` is the mean deviation
+from that reference over the note (no ±50 wrap), and `hz` is derived from
+the (midi, cents) pair; the three fields always describe the same reading
+of the note. When the tool refuses to evaluate an event (`MIX`: pitch validity <
+0.5 = polyphonic/overlapped; `HOP`: tracker hopping between sources) or
+has no pitch reading at all, `midi`/`hz`/`cents` are **null** and the text
+table prints `-` — **filter on `reliable` before trusting any event**.
+Level seed = `events`;
 quality bar = the summary fields. Reference-vs-learner comparison =
 per-feature diff of two descriptors (timing = onset deltas, intonation =
 cents, technique = vibrato/envelope match) — the comparison layer is
@@ -353,7 +358,7 @@ Three layers, all present and runnable today:
 ### 6.1 Ground-truth oracles (the ctest suite)
 
 Every detector change must ship a test with **known input → expected
-output**. The suite (16 tests) and its oracles:
+output**. The suite (17 tests) and its oracles:
 
 | test | oracle (known truth) | asserts |
 |---|---|---|
@@ -371,6 +376,7 @@ output**. The suite (16 tests) and its oracles:
 | `libkan_stretch_test` | known shifts/stretch | 452.9 Hz target, pitch preserved under stretch |
 | `libkan_loopback_test` | WAV fixtures with **known onset sample positions** (fixture_layout.hpp) | zero ghost onsets on noise, no pitch on percussion, notes within 6 ms/6 Hz, chord template pass, **onset latency ≤ 1 block** |
 | `kan_demo_selftest` / `kan_analyze_selftest` | synthesized ocarina note | full app pipelines |
+| `kan_analyze_hop_test` | synthesized **hopping note** (one attack, two competing sources swapping dominance) | each row = one estimate (name/Hz/cents verify each other), MIX/HOP rows print `-` / `null` pitch cells |
 
 The fixture set (`libkan_fixture_gen`, deterministic synthesis — byte
 identical across runs) is the ground-truth corpus: sine sweep, detuned
@@ -391,6 +397,11 @@ Encode any new bug as one of these, not as a spot-value:
   leakage; latch-first-onset rule).
 - Descriptor events with `reliable == false` never contribute to summary
   statistics.
+- One event's note name, Hz and cents are one estimate: Hz must equal
+  440·2^((midi−69)/12 + cents/1200) implied by the other two columns, and
+  events without a trusted estimate (MIX/HOP or no reading) print no pitch
+  numbers at all (`-` in the table, `null` in JSON) —
+  `kan_analyze --selftest` checks this on a synthesized hopping note.
 
 ### 6.3 Failure signatures (what "lying" looks like)
 

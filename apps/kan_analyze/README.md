@@ -7,16 +7,21 @@ on — a reference descriptor is both the **level seed** and the **rubric**.
 
 ```bash
 kan_analyze my_recording.mp3 --instrument ocarina [--json]
-kan_analyze --synth <ocarina|piano|duet|fx>   # built-in offline scenarios
+kan_analyze --synth <ocarina|piano|duet|fx|hop>   # built-in offline scenarios
 ```
 
 - Sources: WAV/MP3/FLAC (miniaudio decoder) or synthesized scenarios.
 - Instruments: `ocarina` (default), `flute`, `recorder`, `guitar`, `piano`.
 - Output: text report or `--json` (machine-readable events + features).
+- One estimate per event: `midi`/`hz`/`cents` describe the same reading of
+  the note (Hz derived from the note + cents pair). Rows the tool cannot
+  estimate honestly print `-` (text) / `null` (JSON) in those columns.
 - Reliability flags: `MIX` (low pitch validity = polyphonic/overlapped) and
   `HOP` (tracker hopping between sources) are listed but **excluded** from
   statistics — blind mono analysis cannot separate polyphony; chords and
   companions belong to the score-informed path (`HarmonicChordValidator`).
 
 Findings, measured outputs and corner cases: `docs/dsp/performance-analysis.md`.
-Offline self-test: `ctest -R kan_analyze_selftest`.
+Offline self-tests: `ctest -R kan_analyze` (`kan_analyze_selftest` pipeline
+run + `kan_analyze_hop_test`, `kan_analyze --selftest`: report-consistency
+checks on the synthesized hopping-note fixture).

@@ -20,7 +20,8 @@ rubric:
 
 ```bash
 kan_analyze my_recording.mp3 --instrument ocarina [--json]
-kan_analyze --synth <ocarina|piano|duet|fx>   # offline scenarios
+kan_analyze --synth <ocarina|piano|duet|fx|hop>   # offline scenarios
+kan_analyze --selftest    # report-consistency check (hopping-note fixture)
 ```
 
 ## Measured outputs (this machine)
@@ -31,6 +32,7 @@ kan_analyze --synth <ocarina|piano|duet|fx>   # offline scenarios
 | piano (melody + block chords + pedal) | 2/16 | 0.6 / 0.6 | — | polyphony honestly excluded |
 | duet (wind melody + piano companion stabs) | 1/24 | 2.1 / 2.1 | — | competing fundamentals excluded |
 | fx (delay 230/460 ms + noise floor) | 10/10 | 0.1 / 0.3 | — | **zero ghost onsets** from tails |
+| hop (one attack, two sources swapping dominance every 120 ms) | 1/2 | 0.6 / 0.6 | — | hopping row flagged `HOP`, pitch columns `-` |
 
 ## Corner cases found (and what the tool does about them)
 
@@ -39,10 +41,12 @@ kan_analyze --synth <ocarina|piano|duet|fx>   # offline scenarios
    locks onto one partial (often an octave grab) or hops. The descriptor
    flags these notes `MIX`/`HOP` and **excludes them from statistics**
    rather than reporting garbage (before the fix the piano scenario claimed
-   "intonation 1461 c, vibrato 66 Hz" — tracker noise, not music).
-   Resolution for level material: chords are handled by the **score-informed**
-   path (chart template + `HarmonicChordValidator`, F1 1.0) — blind
-   polyphonic transcription is explicitly out of scope (SPEC §2: no blind AMT).
+   "intonation 1461 c, vibrato 66 Hz" — tracker noise, not music). The
+   pitch columns of such rows print `-` (`null` in `--json`): a number the
+   tool distrusts is never shown. Resolution for level material: chords are
+   handled by the **score-informed** path (chart template +
+   `HarmonicChordValidator`, F1 1.0) — blind polyphonic transcription is
+   explicitly out of scope (SPEC §2: no blind AMT).
 2. **Companion instruments (duet) steal the tracker.** A piano stab during a
    wind sustain flips the pitch estimate; hopping detection (`HOP`) catches
    it. For evaluation against a reference, the score-informed matcher's
@@ -64,6 +68,17 @@ kan_analyze --synth <ocarina|piano|duet|fx>   # offline scenarios
 6. **Short notes under-count vibrato cycles.** libkan's `periodic` needs
    ≥3 oscillation cycles (rate physics); the descriptor accepts clear
    2+-cycle oscillations at app level while keeping libkan strict.
+7. **One row = one estimate (fixed).** The per-note table used to mix three
+   estimators — note name from the first pitch reading, Hz from the last,
+   cents averaged over hops — producing rows that contradicted themselves
+   (real example from a piano recording: `G4 65.3 -2598.3 HOP` — a G4 name
+   with C2-ish Hz and a nonsense cents mean). Now `midi`/`cents` are the
+   fixed per-note reference and its mean deviation, `hz` is derived from
+   that pair, and MIX/HOP rows print `-` / `null` in all three columns.
+   `kan_analyze --selftest` (ctest `kan_analyze_hop_test`) verifies the
+   invariant on a synthesized hopping note — one attack carrying two
+   competing sources that swap dominance every 120 ms (constant energy, so
+   one onset; the tracker hops, so the row must be suppressed).
 
 ## Using it for levels / learning evaluation
 

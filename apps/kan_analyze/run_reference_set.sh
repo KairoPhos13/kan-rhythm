@@ -73,7 +73,7 @@ if [ "${1:-}" = "--demo" ]; then
     AUD="$ROOT/test_results/audio"
     mkdir -p "$OUT" "$AUD"
     echo "# demo run (built-in scenarios) -> $AUD/ (audio) + $OUT/ (logs)"
-    for s in ocarina piano duet fx; do
+    for s in ocarina piano duet fx hop; do
         prof=ocarina; [ "$s" = piano ] && prof=piano
         echo "== synth:$s (profile: $prof)"
         "$BIN" --synth "$s" --instrument "$prof" \
