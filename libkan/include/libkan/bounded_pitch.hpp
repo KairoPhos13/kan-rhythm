@@ -90,7 +90,10 @@ public:
 
     /// Match a window of CLEAN audio (post-blanking). `count` must be at
     /// least window_samples(). Returns a valid PitchResult on confirmation.
-    /// Allocation-free.
+    /// The analysis loop performs no allocation (nsdf_ scratch is
+    /// preallocated by set_expected_note); note that PitchResult carries a
+    /// std::string note_name, so returning a result performs one small
+    /// heap allocation — run on the consumer thread, not the audio thread.
     PitchResult match(const float* samples, size_t count) const noexcept {
         PitchResult out;
         if (!has_expected_note() || count < window_samples() || nsdf_.empty()) {

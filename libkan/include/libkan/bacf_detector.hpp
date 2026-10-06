@@ -87,7 +87,9 @@ public:
 
     /// Feed one block of preconditioned audio (consumer thread). Returns a
     /// valid PitchResult the moment the pitch is confirmed; invalid results
-    /// otherwise. Steady-state processing does not allocate.
+    /// otherwise. The per-sample loop performs no allocation; returning a
+    /// PitchResult allocates its std::string note_name once (consumer
+    /// thread only, never the audio callback).
     PitchResult process_block(const float* samples, size_t count) noexcept {
         PitchResult out;
 
