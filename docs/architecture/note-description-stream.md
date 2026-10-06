@@ -1,8 +1,8 @@
 # Per-note description stream ("register by note") — evidence & design
 
-Status: **Phase 1 proposal, pending review.** The measurement evidence below
-is real (Phase 1a, this machine); the API shapes are proposals for the
-review before Phase 2 implementation. Authoritative DSP contracts live in
+Status: **Phase 1 evidence + design.** Decisions resolved 2026-10-06 (§7);
+Phase 2 implementation follows this document (§8). The measurement evidence
+below is real (Phase 1a, this machine). Authoritative DSP contracts live in
 [docs/dsp/README.md](../dsp/README.md); this document designs the layer that
 turns those measurements into **per-note facts**.
 
@@ -11,6 +11,14 @@ pairing, no judgment windows, no correct/wrong verdicts, no practice/timed
 modes — those belong to `game/`. Candidate pitches are an optional *input*
 that conditions a measurement; every output is a measurement (presence 0..1,
 cents, amplitude), never a verdict.
+
+**Fairness is the design constraint behind the honesty rules.** The game
+will reward the attack instantly and evaluate intonation / digitation later
+from these facts (game-side decision). If a fact is wrong, a player receives
+a wrong penalty, the game feels unfair, and the player quits instead of
+looping the song again. So "one estimate per fact", "no numbers the tool
+distrusts" and "`unresolved` instead of a guess" are not documentation
+hygiene — they are the dopamine-loop protection.
 
 ## 1. What the stream is
 
@@ -184,8 +192,8 @@ Synthetic chords at the expected pitches, mean of 200 calls, Release build
 | 6 | 34.8 ms | 280 ms |
 
 Cost grows ~quadratic in candidate count (Gram build is
-O(atoms²·window)) and ~linearly in window length. Extrapolated 8
-candidates: ~58 ms / ~460 ms. **This contradicts the "~2–4 ms per call"
+O(atoms²·window)) and ~linearly in window length. Extrapolated to the
+per-instrument maxima: 10 candidates (piano) ≈ 90 ms / 730 ms. **This contradicts the "~2–4 ms per call"
 CPU claim in docs/dsp/README.md §2.7, which had no backing measurement** —
 that table is updated to the measured numbers in this change. The 29.3 ms
 *verification latency* gate (chord-validation.md) is unaffected: it counts
@@ -263,7 +271,9 @@ attacks** (LH chord under a new RH melody note).
 ```cpp
 struct NoteCandidateSet {
     uint32_t note_id;          // attack whose record receives the facts
-    uint8_t count;             // <= kMaxCandidates (8)
+    uint8_t count;             // <= kMaxCandidates (10 = hard cap; the
+                               // per-instrument limit comes from the
+                               // InstrumentProfile: wind 1, guitar 6, piano 10)
     struct Entry {
         uint32_t cand_note_id; // 0 = anonymous hypothesis, else the earlier
                                // note record this hypothesis belongs to
@@ -285,10 +295,12 @@ public:
   sets are copied into fixed slots. In the canonical pipeline the caller
   runs on the same consumer thread as `process_block`, so
   `set_candidates` is a plain copy — no lock, no cross-thread protocol.
-- **Attribution.** Candidate facts are emitted under the *attack's*
-  `note_id` and reference the candidate's own `cand_note_id`. The stream
-  does not mirror facts into older records (no double events); consumers
-  that want "is the LH chord still sounding" query the referenced facts.
+- **Attribution — nothing to decide.** Every candidate fact is one event
+  carrying **both** ids: `note_id` = the attack whose window produced the
+  measurement, `cand_note_id` = the note record the candidate belongs to
+  (0 = anonymous hypothesis). No duplication, and consumers can group
+  either way: "what did this attack hear" (by `note_id`) or "what happened
+  to this held chord note" (by `cand_note_id`).
 - **Candidates are inputs, not truth.** A candidate absent from the audio
   gets a low presence — the stream reports that measurement. A note nobody
   hypothesized shows up as `UNEXPLAINED_ENERGY`, never as a guess.
@@ -356,53 +368,67 @@ file`) — this is what makes `kan_demo --events`, the JSONL log and
    ≥ 170 ms (8192 samples) whenever the estimate is below ~C3 or the
    lowest candidate is; short windows are provisional-only (§2.4). Flags:
    `kFlagLowRegister`.
-2. **`kMaxNotes` stays 6** on the conditioned fit; a 7th+ candidate is
-   described by validating the 6 loudest and flagging
-   `UNEXPLAINED_ENERGY` (§2.5, §2.8: 8 candidates cost ~58 ms at 21 ms
-   windows / ~460 ms at 170 ms). Raising the cap is only reasonable after
-   an optimization pass (candidate leads: analytic Gram entries for
-   uniform weights, fewer refinement rounds when the input is chart-bounded,
-   final fits off the block loop).
-3. **`unresolved` fallback is the default for blind polyphony**:
+2. **The candidate cap is per instrument (hard cap 10).** Wind
+   instruments model 1 note (mono physics), guitar 6 (strings), piano 10
+   (fingers) — `InstrumentProfile` / instrument-pack field
+   `max_simultaneous_notes`; `HarmonicChordValidator`'s compile-time cap
+   rises 6 → 10 (`kMaxAtoms` 120) and the profile value is enforced on
+   `set_expected_chord`. Cost grows ~quadratic in candidate count
+   (§2.8: measured 34.8 ms for 6 candidates at 21 ms, 280 ms at 170 ms;
+   extrapolated 10 candidates ≈ 90 ms / 730 ms) — so (3) below is not
+   optional. When more candidates than the instrument's cap are supplied,
+   the loudest N are described and the fact is flagged
+   `UNEXPLAINED_ENERGY` (§2.5).
+3. **Final fits are scheduled work, never inline.** `NoteDescriber` splits
+   the pipeline: `process_block` (HIT + provisional + classification,
+   bounded, inline with the audio service loop) and `finalize_due()` (at
+   most one long-window candidate fit per call, movable to a worker
+   thread by the app). libkan owns no threads; it only bounds the work
+   per call. The game rewards on HIT and evaluates intonation later —
+   a final fact arriving 100–500 ms after the attack is by design.
+4. **`unresolved` fallback is the default for blind polyphony**:
    `CONTENT: polyphonic, N unresolved` (N = blind f0-line count) plus
    timing/dynamics, plus `Final` with `kFlagDominant` only when one
-   candidate dominates at the stated window (§2.6).
-4. **Presence ships with similarity** (§2.3); `HarmonicChordValidator`'s
-   template-level `valid` verdict (fair-share presence floor) is *not*
-   carried into the stream — it fails on real uneven piano chords and is a
-   judgment-shaped concept.
-5. **Mono/poly class** comes from the blind capture classifier (threshold
-   ~0.94, profile-tunable), not from MIX/HOP (§2.7).
-6. **CLOSE is decay-relative** (L7) — pedal tails must not inflate
+   candidate dominates at the stated window (§2.6). "Unresolved" must
+   never become a penalty: the game treats it as *not measured*, not as
+   *wrong* (fairness rule, §1).
+5. **Presence ships with similarity** (§2.3) — the pair
+   (`presence` share, `similarity` of the set); the game derives any
+   combined score. `HarmonicChordValidator`'s template-level `valid`
+   verdict (fair-share presence floor) is *not* carried into the stream —
+   it fails on real uneven piano chords and is a judgment-shaped concept.
+6. **Mono/poly class** comes from the blind capture classifier, not from
+   MIX/HOP (§2.7). The threshold is instrument-pack data (measured ~0.94
+   on piano; wind attacks are mono by physics and bypass the classifier).
+7. **CLOSE is decay-relative** (L7) — pedal tails must not inflate
    durations (§2.6).
 
-## 7. Open decisions for review (stopping here)
+## 7. Decisions (resolved 2026-10-06)
 
-1. **Candidate attribution**: facts under the attack's note with
-   `cand_note_id` references (proposed) vs mirroring into the referenced
-   records — display convenience vs event uniqueness.
-2. **Final-pitch latency budget**: HIT ~0 ms, provisional ~25 ms; final
-   100–500 ms with long windows. Acceptable for game feel? (The game can
-   reward on HIT + provisional and refine after.)
-3. **Long-window final fits on the consumer thread** (280 ms CPU at
-   6×8192): worker thread vs window cap vs optimize-first. This decides
-   the Phase 2 schedule.
-4. **Presence semantics downstream**: emit (share, similarity) pair and let
-   `game/` derive, or also emit the derived absolute presence?
-5. **Mono/poly threshold as instrument-pack data** (profile field) vs a
-   fixed constant — measured 0.94 on piano; wind/ocarina material may
-   differ.
-6. **JSONL field names / `v` versioning** and whether `kan_analyze`'s
-   descriptor (`--json`) keeps its summary schema with the event stream as
-   its source (proposed: yes — summary = derived statistics, stream = facts).
-7. **Reconcile the chord-validation CPU claim** (now updated in
-   docs/dsp/README.md §2.7 to the measured numbers) with any earlier
-   measurement scope, if one exists outside this repo's records.
+| # | question | resolution |
+|---|---|---|
+| 1 | where candidate facts are written | nothing to decide: one event carries both ids (`note_id` + `cand_note_id`); consumers group as they wish |
+| 2 | final-pitch latency vs game feel | attack-first: HIT is the instant reward; provisional is display-only and **never penalty-grade**; scoring-grade facts are final facts only (game-side evaluation comes later) |
+| 3 | heavy final fits on the consumer thread | scheduled work: `finalize_due()` runs at most one long-window fit per call; apps may move it to a worker thread; no threads inside libkan |
+| 4 | presence semantics downstream | ship the pair (`presence`, `similarity`); the game derives any combined score; no pre-mixed number |
+| 5 | `kMaxNotes` | per instrument via `InstrumentProfile::max_simultaneous_notes` (wind 1, guitar 6, piano 10); libkan hard cap 10 |
+| 6 | mono/poly threshold | per instrument pack (piano starts at the measured 0.94; wind bypasses the classifier — mono by physics) |
 
-## 8. Phase 2 implementation plan (after approval)
+Kept deliberately on the **game** side (not decided here): how HIT /
+provisional / final facts feed reward and penalties, what `unresolved`
+means for scoring (the stream only guarantees it is never a wrong number),
+and the dynamics tiers' mapping to rewards (Phase 3 delivers measurements
+only).
 
+## 8. Phase 2 implementation plan (decisions resolved, §7)
+
+- `libkan/include/libkan/instrument_profile.hpp`: add
+  `max_simultaneous_notes` (wind 1 / guitar 6 / piano 10) and the
+  mono/poly classification threshold as plain profile data (the
+  instrument-pack schema mirrors these fields).
 - `libkan/include/libkan/note_stream.hpp` (`NoteEvent`, `NoteEventStream`,
-  `NoteDescriber`) + offline ctests on synthesized fixtures:
+  `NoteDescriber` with the `process_block` / `finalize_due()` split) +
+  offline ctests on synthesized fixtures:
   mono note with an early wrong-semitone estimate corrected later; chord
   with all candidates present; chord with one candidate absent; sustained
   LH chord under a new RH note; unexplained extra note; live-vs-offline
