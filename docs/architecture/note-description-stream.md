@@ -469,6 +469,18 @@ is met on CPU. Wind/monophonic instruments are trivial (1 candidate); the
 heavy case is piano, and cadence/candidate caps degrade quality gracefully
 before they ever drop facts.
 
+**Measured (2026-10-07, delivered):** the budget is met without the worker
+pool — the pool and the analytic Gram were dropped as unnecessary
+complexity once the numbers came in. Path: dynamic pruning + 1 IRLS pass +
+2 refine rounds + 2048 windows + adaptive cadence (87 -> 37 ms/fit), AVX2
+weighted dots in the normal equations (-> ~30), and the decisive one — the
+residual loops restructured atom-major/time-inner (the time-inner form
+strided 8 KB per atom; -> **10.8 ms/fit**, bit-identical numerics). Heaviest
+take (Hallelujah, 254 s): the conditioned measurement path costs **44 s CPU
+= 0.17x real time on ONE thread**; the complete live pipeline (tuner path
+included) runs at 0.54x real time single-threaded. NEON remains a
+portability follow-up for ARM (scalar fallback ships today).
+
 - `libkan/include/libkan/instrument_profile.hpp`: add
   `max_simultaneous_notes` (wind 1 / guitar 6 / piano 10) and the
   mono/poly classification threshold as plain profile data (the

@@ -40,10 +40,74 @@
 #include <cmath>
 #include <cstddef>
 #include <vector>
+#if defined(__AVX2__)
+#include <immintrin.h>
+#endif
 
 #include "chord_goertzel.hpp" // midi_to_hz via GoertzelChordValidator, ChordResult
 
 namespace kan {
+
+namespace gram_detail {
+
+/// Weighted dot products for the normal equations — the hot loop of the
+/// conditioned fit (O(atoms²·window)). AVX2 processes 8 floats per
+/// instruction with 2 independent accumulators (deterministic order);
+/// the scalar path is the reference fallback for other ISAs (NEON is the
+/// same pattern; the budget is already met on x86).
+inline double wdot(const float* a, const float* w, const float* b, size_t n) noexcept {
+#if defined(__AVX2__)
+    __m256 acc0 = _mm256_setzero_ps();
+    __m256 acc1 = _mm256_setzero_ps();
+    size_t i = 0;
+    for (; i + 16 <= n; i += 16) {
+        const __m256 a0 = _mm256_loadu_ps(a + i);
+        const __m256 w0 = _mm256_loadu_ps(w + i);
+        const __m256 b0 = _mm256_loadu_ps(b + i);
+        const __m256 a1 = _mm256_loadu_ps(a + i + 8);
+        const __m256 w1 = _mm256_loadu_ps(w + i + 8);
+        const __m256 b1 = _mm256_loadu_ps(b + i + 8);
+        acc0 = _mm256_add_ps(acc0, _mm256_mul_ps(_mm256_mul_ps(a0, w0), b0));
+        acc1 = _mm256_add_ps(acc1, _mm256_mul_ps(_mm256_mul_ps(a1, w1), b1));
+    }
+    alignas(32) float lane[8];
+    _mm256_store_ps(lane, acc0);
+    double acc = 0.0;
+    for (int k = 0; k < 8; ++k) acc += double(lane[k]);
+    _mm256_store_ps(lane, acc1);
+    for (int k = 0; k < 8; ++k) acc += double(lane[k]);
+    for (; i < n; ++i) acc += double(a[i]) * double(w[i]) * double(b[i]);
+    return acc;
+#else
+    double acc = 0.0;
+    for (size_t i = 0; i < n; ++i) acc += double(a[i]) * double(w[i]) * double(b[i]);
+    return acc;
+#endif
+}
+
+/// Unweighted dot (right-hand side with the pre-weighted x).
+inline double dot(const float* a, const float* b, size_t n) noexcept {
+#if defined(__AVX2__)
+    __m256 acc = _mm256_setzero_ps();
+    size_t i = 0;
+    for (; i + 8 <= n; i += 8) {
+        acc = _mm256_add_ps(acc, _mm256_mul_ps(_mm256_loadu_ps(a + i),
+                                               _mm256_loadu_ps(b + i)));
+    }
+    alignas(32) float lane[8];
+    _mm256_store_ps(lane, acc);
+    double s = 0.0;
+    for (int k = 0; k < 8; ++k) s += double(lane[k]);
+    for (; i < n; ++i) s += double(a[i]) * double(b[i]);
+    return s;
+#else
+    double s = 0.0;
+    for (size_t i = 0; i < n; ++i) s += double(a[i]) * double(b[i]);
+    return s;
+#endif
+}
+
+} // namespace gram_detail
 
 /// Joint harmonic least-squares chord validator (explained-energy metric).
 class HarmonicChordValidator {
@@ -66,6 +130,8 @@ public:
         weights_.assign(max_window_, 1.0f);
         residual_.assign(max_window_, 0.0f);
         abs_scratch_.assign(max_window_, 0.0f);
+        fit_scratch_.assign(max_window_, 0.0);
+        own_scratch_.assign(max_window_, 0.0);
     }
 
     /// Set the chord the chart expects (MIDI note numbers, A4 = 69). Setup
@@ -224,16 +290,30 @@ private:
                 // residual_[t] = x(t) - fit(t) + comp_k(t)
                 const float* base = &atoms_[k * kAtomsPerNote * max_window_];
                 const float* c = &sol_[k * kAtomsPerNote];
+                // Atom-major, time-inner: contiguous access (the time-inner
+                // form above strides 8 KB per atom and thrashes the cache).
+                // Per-time accumulation order stays atom-ascending ->
+                // bit-identical results, deterministic.
                 for (size_t t = 0; t < count; ++t) {
-                    double fit = 0.0;
-                    for (size_t a = 0; a < n_atoms_; ++a) {
-                        fit += double(sol_[a]) * double(atoms_[a * max_window_ + t]);
+                    fit_scratch_[t] = 0.0;
+                    own_scratch_[t] = 0.0;
+                }
+                for (size_t a = 0; a < n_atoms_; ++a) {
+                    const float* at = &atoms_[a * max_window_];
+                    const double sa = sol_[a];
+                    for (size_t t = 0; t < count; ++t) {
+                        fit_scratch_[t] += sa * double(at[t]);
                     }
-                    double own = 0.0;
-                    for (size_t a = 0; a < kAtomsPerNote; ++a) {
-                        own += double(c[a]) * double(base[a * max_window_ + t]);
+                }
+                for (size_t a = 0; a < kAtomsPerNote; ++a) {
+                    const float* at = &base[a * max_window_];
+                    const double sa = double(c[a]);
+                    for (size_t t = 0; t < count; ++t) {
+                        own_scratch_[t] += sa * double(at[t]);
                     }
-                    residual_[t] = float(double(x[t]) - fit + own);
+                }
+                for (size_t t = 0; t < count; ++t) {
+                    residual_[t] = float(double(x[t]) - fit_scratch_[t] + own_scratch_[t]);
                 }
                 refined_cents_[k] = search_note_cents(k, count);
             }
@@ -282,13 +362,16 @@ private:
     /// the fit itself is still transient-polluted).
     void update_weights(const float* x, size_t count) noexcept {
         const size_t half = count / 2;
-        // Residual over the full window.
+        // Residual over the full window (atom-major, time-inner; see
+        // joint_refine_fit for the cache rationale and order preservation).
+        for (size_t t = 0; t < count; ++t) fit_scratch_[t] = 0.0;
+        for (size_t a = 0; a < n_atoms_; ++a) {
+            const float* at = &atoms_[a * max_window_];
+            const double sa = sol_[a];
+            for (size_t t = 0; t < count; ++t) fit_scratch_[t] += sa * double(at[t]);
+        }
         for (size_t t = 0; t < count; ++t) {
-            double fit = 0.0;
-            for (size_t a = 0; a < n_atoms_; ++a) {
-                fit += double(sol_[a]) * double(atoms_[a * max_window_ + t]);
-            }
-            residual_[t] = float(std::fabs(double(x[t]) - fit));
+            residual_[t] = float(std::fabs(double(x[t]) - fit_scratch_[t]));
         }
         // Median of the second half via nth_element on scratch.
         const size_t m = count - half;
@@ -324,19 +407,13 @@ private:
 
     /// G = A^T W A, b = A^T W x over the joint basis (atoms_, n_atoms_).
     void build_normal_equations(const float* x, size_t count) noexcept {
+        // Hot loop of the conditioned fit — vectorized (gram_detail::wdot).
         for (size_t i = 0; i < n_atoms_; ++i) {
             const float* ai = &atoms_[i * max_window_];
-            double bx = 0.0;
-            for (size_t t = 0; t < count; ++t) {
-                bx += double(weights_[t]) * double(ai[t]) * double(x[t]);
-            }
-            rhs_[i] = float(bx);
+            rhs_[i] = float(gram_detail::wdot(ai, weights_.data(), x, count));
             for (size_t j = i; j < n_atoms_; ++j) {
                 const float* aj = &atoms_[j * max_window_];
-                double g = 0.0;
-                for (size_t t = 0; t < count; ++t) {
-                    g += double(weights_[t]) * double(ai[t]) * double(aj[t]);
-                }
+                const double g = gram_detail::wdot(ai, weights_.data(), aj, count);
                 gram_[i * kMaxAtoms + j] = float(g);
                 gram_[j * kMaxAtoms + i] = float(g);
             }
@@ -404,6 +481,8 @@ private:
     std::vector<float> weights_;     ///< max_window_
     std::vector<float> residual_;    ///< max_window_
     std::vector<float> abs_scratch_; ///< max_window_ (median selection)
+    std::vector<double> fit_scratch_; ///< max_window_ (atom-major residual)
+    std::vector<double> own_scratch_; ///< max_window_ (atom-major own part)
 };
 
 } // namespace kan
