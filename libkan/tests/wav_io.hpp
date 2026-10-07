@@ -90,7 +90,7 @@ inline bool read_wav(const std::string& path, std::vector<float>& samples,
         return false;
     }
     size_t pos = 12;
-    uint16_t channels = 0, bits = 0;
+    uint16_t channels = 0, bits = 0, fmt_tag = 0;
     uint32_t rate = 0;
     bool have_fmt = false, have_data = false;
     const unsigned char* data_ptr = nullptr;
@@ -99,7 +99,7 @@ inline bool read_wav(const std::string& path, std::vector<float>& samples,
         const unsigned char* hdr = b.data() + pos;
         const uint32_t chunk = wav_detail::get_u32(hdr + 4);
         if (std::memcmp(hdr, "fmt ", 4) == 0 && chunk >= 16 && pos + 8 + 16 <= b.size()) {
-            if (wav_detail::get_u16(hdr + 8) != 1) return false; // PCM only
+            fmt_tag = wav_detail::get_u16(hdr + 8);
             channels = wav_detail::get_u16(hdr + 10);
             rate = wav_detail::get_u32(hdr + 12);
             bits = wav_detail::get_u16(hdr + 22);
@@ -111,17 +111,25 @@ inline bool read_wav(const std::string& path, std::vector<float>& samples,
         }
         pos += 8 + chunk + (chunk & 1u); // chunks are word-aligned
     }
-    if (!have_fmt || !have_data || bits != 16 || channels < 1) return false;
+    // 16-bit PCM or 32-bit IEEE float, mono/stereo (downmixed).
+    const bool fmt_ok = (fmt_tag == 1 && bits == 16) || (fmt_tag == 3 && bits == 32);
+    if (!have_fmt || !have_data || !fmt_ok || channels < 1) return false;
 
     sample_rate = rate;
-    const size_t frames = data_bytes / (2 * channels);
+    const size_t bytes_per = size_t(bits / 8);
+    const size_t frames = data_bytes / (bytes_per * channels);
     samples.resize(frames);
     for (size_t i = 0; i < frames; ++i) {
         float acc = 0.0f;
         for (uint16_t c = 0; c < channels; ++c) {
-            const unsigned char* p = data_ptr + (i * channels + c) * 2;
-            const int16_t q = int16_t(wav_detail::get_u16(p));
-            acc += float(q) / 32768.0f;
+            const unsigned char* p = data_ptr + (i * channels + c) * bytes_per;
+            if (bits == 16) {
+                acc += float(int16_t(wav_detail::get_u16(p))) / 32768.0f;
+            } else {
+                float v = 0.0f;
+                std::memcpy(&v, p, sizeof(v));
+                acc += v;
+            }
         }
         samples[i] = acc / float(channels);
     }

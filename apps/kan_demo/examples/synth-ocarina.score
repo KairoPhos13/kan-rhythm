@@ -1,0 +1,24 @@
+# synth-ocarina ground truth (kan_analyze --synth ocarina):
+# 4 reps x C5 D5 E5 F5 G5, t0 = 0.5 + (rep*5+i)*0.65 s,
+# dur 0.6 s legato (even reps) / 0.22 s staccato (odd reps), vibrato on legato.
+# onset_ms dur_ms midi
+500 600 72
+1150 600 74
+1800 600 76
+2450 600 77
+3100 600 79
+3750 220 72
+4400 220 74
+5050 220 76
+5700 220 77
+6350 220 79
+7000 600 72
+7650 600 74
+8300 600 76
+8950 600 77
+9600 600 79
+10250 220 72
+10900 220 74
+11550 220 76
+12200 220 77
+12850 220 79
