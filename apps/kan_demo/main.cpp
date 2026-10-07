@@ -269,17 +269,21 @@ void print_event(const kan::NoteEvent& e, FILE* jsonl) {
     }
     switch (e.kind) {
     case kan::NoteKind::Hit:
-        std::printf("\n▶ #%u ONSET\n", e.note_id);
+        std::printf("\n[%9.1f] ▶ #%u ONSET (strike %u%s)\n", double(e.t_ms),
+                    e.note_id, e.u.hit.strike_group,
+                    (e.flags & kan::kFlagTransition) ? ", legato transition" : "");
         return;
     case kan::NoteKind::Pitch: {
         const char* label = (e.stage == kan::PitchStage::Provisional)
             ? "provisional" : "final      ";
         if (e.stage == kan::PitchStage::Unresolved || e.u.pitch.hz <= 0.0f) {
-            std::printf("  #%u pitch %s: unresolved%s%s\n", e.note_id, label,
+            std::printf("[%9.1f]   #%u pitch %s: unresolved%s%s\n", double(e.t_ms),
+                        e.note_id, label,
                         (e.flags & kan::kFlagHop) ? " [HOP]" : "",
                         (e.flags & kan::kFlagMixed) ? " [MIX]" : "");
         } else {
-            std::printf("  #%u pitch %s: %-4s %+6.1f c  %7.2f Hz%s\n", e.note_id, label,
+            std::printf("[%9.1f]   #%u pitch %s: %-4s %+6.1f c  %7.2f Hz%s\n",
+                        double(e.t_ms), e.note_id, label,
                         midi_to_name(e.u.pitch.midi).c_str(), double(e.u.pitch.cents),
                         double(e.u.pitch.hz),
                         (e.flags & kan::kFlagDominant) ? " [dominant]" : "");
@@ -289,13 +293,14 @@ void print_event(const kan::NoteEvent& e, FILE* jsonl) {
     case kan::NoteKind::Content:
         if (e.klass != kan::ContentClass::Unknown) {
             if (e.klass == kan::ContentClass::Polyphonic) {
-                std::printf("  #%u content: polyphonic, %.0f unresolved\n",
-                            e.note_id, double(e.u.content.n_unresolved));
+                std::printf("[%9.1f]   #%u content: polyphonic, %.0f unresolved\n",
+                            double(e.t_ms), e.note_id, double(e.u.content.n_unresolved));
             } else {
-                std::printf("  #%u content: mono\n", e.note_id);
+                std::printf("[%9.1f]   #%u content: mono\n", double(e.t_ms), e.note_id);
             }
         } else {
-            std::printf("     cand %-4s presence %.2f %+6.1f c amp %.3f (sim %.2f)%s\n",
+            std::printf("[%9.1f]      cand %-4s presence %.2f %+6.1f c amp %.3f (sim %.2f)%s\n",
+                        double(e.t_ms),
                         midi_to_name(e.u.candidate.midi).c_str(),
                         double(e.u.candidate.presence), double(e.u.candidate.cents),
                         double(e.u.candidate.amplitude), double(e.u.candidate.similarity),
@@ -303,8 +308,8 @@ void print_event(const kan::NoteEvent& e, FILE* jsonl) {
         }
         return;
     case kan::NoteKind::Expression:
-        std::printf("  #%u expression: level %.1f dB (%s), attack %.0f ms, release %.0f ms, "
-                    "sustain %.2f", e.note_id, double(e.u.expression.dynamics_db),
+        std::printf("[%9.1f]   #%u expression: level %.1f dB (%s), attack %.0f ms, "
+                    "release %.0f ms, sustain %.2f", double(e.t_ms), e.note_id, double(e.u.expression.dynamics_db),
                     kan::dynamics_tier_name(
                         kan::DynamicsTier(int(e.u.expression.dynamics_tier))),
                     double(e.u.expression.attack_ms), double(e.u.expression.release_ms),
@@ -316,7 +321,8 @@ void print_event(const kan::NoteEvent& e, FILE* jsonl) {
         std::printf("\n");
         return;
     case kan::NoteKind::Close:
-        std::printf("  #%u close: %.0f ms\n", e.note_id, double(e.u.close.duration_ms));
+        std::printf("[%9.1f]   #%u close: %.0f ms (own end)\n", double(e.t_ms),
+                    e.note_id, double(e.u.close.duration_ms));
         return;
     }
 }
@@ -830,6 +836,17 @@ int main(int argc, char** argv) {
 
     // The display is rendered FROM the event stream (the same facts the
     // JSONL log carries) — one schema for display, log and offline tools.
+    // The validation artifact: one line per struck note at the end of the
+    // log (its whole life in one place).
+    struct NoteSummary {
+        uint32_t id = 0;
+        float onset = 0.0f, end = 0.0f, dur = 0.0f;
+        float presence = 0.0f, sim = 0.0f, cents = 0.0f;
+        bool has_cand = false;  // blind records carry no candidate facts
+        int midi = -1;          // -1 = unresolved
+        const char* tier = "warming-up";
+    };
+    std::vector<NoteSummary> score;
     struct StreamStats {
         int attacks = 0, mono = 0, poly = 0;
         int provisional = 0, provisional_unres = 0;
@@ -886,6 +903,16 @@ int main(int argc, char** argv) {
             for (size_t k = 0; k < got; ++k) {
                 const auto& e = batch[k];
                 // Measured session summary (the data behind the claims).
+                NoteSummary* ns = nullptr;
+                for (auto& row : score) {
+                    if (row.id == e.note_id) { ns = &row; break; }
+                }
+                if (ns == nullptr && e.kind == kan::NoteKind::Hit) {
+                    score.push_back(NoteSummary{});
+                    ns = &score.back();
+                    ns->id = e.note_id;
+                    ns->onset = e.u.hit.onset_ms;
+                }
                 switch (e.kind) {
                 case kan::NoteKind::Hit:
                     ++stats.attacks;
@@ -896,6 +923,10 @@ int main(int argc, char** argv) {
                         else ++stats.provisional_unres;
                     } else if (e.stage == kan::PitchStage::Final && e.u.pitch.hz > 0.0f) {
                         ++stats.finals;
+                        if (ns != nullptr) {
+                            ns->midi = int(e.u.pitch.midi);
+                            ns->cents = e.u.pitch.cents;
+                        }
                     } else {
                         ++stats.final_unres;
                     }
@@ -908,6 +939,12 @@ int main(int argc, char** argv) {
                         if (e.u.candidate.presence > 0.3f) ++stats.cand_strong;
                         else if (e.u.candidate.presence > 0.1f) ++stats.cand_mid;
                         else ++stats.cand_weak;
+                        if (ns != nullptr && (e.u.candidate.presence > ns->presence
+                                              || !ns->has_cand)) {
+                            ns->presence = e.u.candidate.presence;
+                            ns->sim = e.u.candidate.similarity;
+                            ns->has_cand = true;
+                        }
                     }
                     break;
                 case kan::NoteKind::Expression: {
@@ -915,10 +952,17 @@ int main(int argc, char** argv) {
                     if (e.u.expression.vib_rate_hz > 0.0f) ++stats.vib_claims;
                     const int tier = int(e.u.expression.dynamics_tier);
                     if (tier >= 0 && tier < 7) ++stats.dyn[tier];
+                    if (ns != nullptr) {
+                        ns->tier = kan::dynamics_tier_name(kan::DynamicsTier(tier));
+                    }
                     break;
                 }
                 case kan::NoteKind::Close:
                     ++stats.closes;
+                    if (ns != nullptr) {
+                        ns->end = e.u.close.end_ms;
+                        ns->dur = e.u.close.duration_ms;
+                    }
                     break;
                 }
 
@@ -1114,6 +1158,24 @@ int main(int argc, char** argv) {
                 stats.exprs, stats.vib_claims, stats.dyn[0], stats.dyn[1], stats.dyn[2],
                 stats.dyn[3], stats.dyn[4], stats.dyn[5], stats.dyn[6]);
     std::printf("closed: %d notes | stream drops: %u\n", stats.closes, ev_stream.dropped());
+    std::printf("\n--- measured score (per struck note: the validation artifact) ---\n");
+    std::printf("  onset_ms  dur_ms  note  cents  presence  sim   tier\n");
+    for (const auto& r : score) {
+        char pitch[24], ev[24];
+        if (r.midi >= 0) {
+            std::snprintf(pitch, sizeof(pitch), "%-4s %+5.1f",
+                          midi_to_name(float(r.midi)).c_str(), double(r.cents));
+        } else {
+            std::snprintf(pitch, sizeof(pitch), "%-4s %5s", "-", "unres");
+        }
+        if (r.has_cand) {
+            std::snprintf(ev, sizeof(ev), "%7.2f %6.2f", double(r.presence), double(r.sim));
+        } else {
+            std::snprintf(ev, sizeof(ev), "%7s %6s", "-", "-");
+        }
+        std::printf("  %8.1f %7.0f  %s  %s   %s\n", double(r.onset),
+                    double(r.dur), pitch, ev, r.tier);
+    }
     std::printf("(facts are measurements: 'unresolved' = not measured, never 'wrong')\n");
     std::printf("\n--- tuner session summary ---\n");
     std::printf("onsets: %d, pitch updates: %d, avg |error| vs displayed note: %.1f cents\n",
