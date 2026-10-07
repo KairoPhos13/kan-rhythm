@@ -256,7 +256,7 @@ struct ScoreNote {
     float onset_ms = 0.0f, dur_ms = 0.0f;
     int midi = 0;
     int attack = -1;                 ///< attack-group index (<= 50 ms spread)
-    float presence = 0.0f, cents = 0.0f, amp_peak = 0.0f;
+    float presence = 0.0f, cents = 0.0f, amp_peak = 0.0f, similarity = 0.0f;
     float measured_onset_ms = 0.0f, measured_end_ms = 0.0f;
     float onset_err_ms = 1e9f;
 };
@@ -319,6 +319,11 @@ void verify_score(const std::vector<float>& sig, float sr,
     }
 
     kan::HarmonicChordValidator validator(sr, 8192);
+    // Verification band: real takes carry instrument/mic detune (measured
+    // ~15-30 c flat on this one) plus vibrato sweeps; the default +/-30 c
+    // refinement is narrower than the material and would report "not
+    // found" for notes that sound fine. Permissive band = +/-60 c.
+    validator.set_search_range_cents(60.0f);
     float onset_err_sum = 0.0f, onset_err_max = 0.0f;
     int onset_matched = 0;
     for (int a = 0; a < n_attacks; ++a) {
@@ -360,6 +365,7 @@ void verify_score(const std::vector<float>& sig, float sr,
         const size_t start = size_t((attack_ms + 8.0f) / 1000.0f * sr);
         const size_t end_limit = size_t((attack_ms + max_dur + 400.0f) / 1000.0f * sr);
         float cents_sum[8] = {0}, cents_w[8] = {0};
+        float sim_sum[8] = {0}, sim_w[8] = {0};
         // 4096-sample windows (85 ms): 21 ms cannot separate neighboring
         // semitones and leaked energy inflates measured durations.
         for (size_t w = start; w + 4096 <= sig.size() && w <= end_limit; w += size_t(0.050f * sr)) {
@@ -370,6 +376,8 @@ void verify_score(const std::vector<float>& sig, float sr,
                 if (amp > notes[idxs[k]].amp_peak * 0.10f) { // -20 dB end rule
                     cents_sum[k] += validator.refined_cents(k) * amp;
                     cents_w[k] += amp;
+                    sim_sum[k] += r.similarity * amp;
+                    sim_w[k] += amp;
                     notes[idxs[k]].measured_end_ms =
                         1000.0f * float(w + 4096) / sr; // extended while audible
                 }
@@ -384,13 +392,15 @@ void verify_score(const std::vector<float>& sig, float sr,
         for (size_t k = 0; k < n_cand; ++k) {
             notes[idxs[k]].cents = (cents_w[k] > 0.0f)
                 ? cents_sum[k] / cents_w[k] : 0.0f; // amplitude-weighted center
+            notes[idxs[k]].similarity = (sim_w[k] > 0.0f)
+                ? sim_sum[k] / sim_w[k] : 0.0f;    // fit quality while audible
         }
     }
 
     // Report: one line per written note (its own lifetime), then the summary.
     std::fprintf(out, "# measured score: %zu written notes in %d attacks, "
                       "%zu attacks detected\n", notes.size(), n_attacks, detected_ms.size());
-    std::fprintf(out, "# onset_ms dur_ms midi | presence cents amp meas_dur onset_err\n");
+    std::fprintf(out, "# onset_ms dur_ms midi | sim cents amp meas_dur onset_err\n");
     float cents_err_sum = 0.0f, cents_err_max = 0.0f, dur_err_sum = 0.0f, dur_err_max = 0.0f;
     int cents_n = 0, dur_n = 0, found = 0;
     for (const auto& n : notes) {
@@ -398,12 +408,13 @@ void verify_score(const std::vector<float>& sig, float sr,
             ? n.measured_end_ms - n.measured_onset_ms : 0.0f;
         std::fprintf(out, "%8.0f %6.0f %4d | %7.2f %+7.1f %7.4f %8.0f %9.0f\n",
                      double(n.onset_ms), double(n.dur_ms), n.midi,
-                     double(n.presence), double(n.cents), double(n.amp_peak),
+                     double(n.similarity), double(n.cents), double(n.amp_peak),
                      double(meas_dur), double(n.onset_err_ms));
         if (n.onset_ms > 1000.0f * float(sig.size()) / sr) {
             continue; // written note lies beyond the audio
         }
-        if (n.presence >= 0.15f) {
+        const bool found_note = (n.similarity >= 0.70f);
+        if (found_note) {
             ++found;
             // Cents = deviation of the measured center from the written
             // pitch (the written pitch is the hypothesis itself).
@@ -425,7 +436,8 @@ void verify_score(const std::vector<float>& sig, float sr,
     for (const auto& n : notes) {
         if (n.onset_ms <= 1000.0f * float(sig.size()) / sr) ++in_audio;
     }
-    std::fprintf(out, "# notes found (presence >= 0.15): %d/%zu in audio (%zu written)\n",
+    std::fprintf(out, "# notes found (written pitch explains window, sim >= 0.70): "
+                      "%d/%zu in audio (%zu written)\n",
                  found, in_audio, notes.size());
     std::fprintf(out, "# onset error: %d/%d attacks matched, mean %.0f ms, max %.0f ms\n",
                  onset_matched, n_attacks,
