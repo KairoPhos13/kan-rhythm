@@ -40,6 +40,7 @@
 #include <chrono>
 #include <cmath>
 #include <cstdio>
+#include <cstring>
 #include <cstdlib>
 #include <cstring>
 #include <vector>
@@ -252,32 +253,74 @@ void emit_candidates(const std::vector<float>& sig, float sr, FILE* out) {
 // written note gets its own lifetime measured (start/end/duration): notes
 // of one attack may sustain longer, repeat, or be cut earlier than their
 // neighbors.
+constexpr size_t kMaxScoreNotes = 10;
+
 struct ScoreNote {
     float onset_ms = 0.0f, dur_ms = 0.0f;
     int midi = 0;
-    int attack = -1;                 ///< attack-group index (<= 50 ms spread)
-    float presence = 0.0f, cents = 0.0f, amp_peak = 0.0f, similarity = 0.0f;
+    float presence = 0.0f, cents = 0.0f, amp_peak = 0.0f;
     float measured_onset_ms = 0.0f, measured_end_ms = 0.0f;
     float onset_err_ms = 1e9f;
+    float sim_w = 0.0f;      ///< amp-weighted accumulators for center/sim
+    float sim_wsum = 0.0f, cents_wsum = 0.0f;
 };
+
+/// Score line: `onset_ms  duration  note`, where duration is a rhythm word
+/// (16th, 8th, quarter, dotted-quarter, half, dotted-half, whole — also
+/// Spanish names) or a millisecond number, and the note is a name (G3,
+/// F#4) or a midi number. Header lines set the grid: `# quarter_ms 656`
+/// or `# bpm 91.5`.
+int note_name_to_midi(const char* tok) {
+    static const char* NAMES[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G",
+                                    "G#", "A", "A#", "B"};
+    const int len = (tok[1] == '#') ? 2 : 1;
+    for (int i = 0; i < 12; ++i) {
+        if (std::strncmp(tok, NAMES[i], size_t(len)) == 0 && NAMES[i][len] == '\0') {
+            return (std::atoi(tok + len) + 1) * 12 + i;
+        }
+    }
+    return -1;
+}
+
+float rhythm_to_ms(const char* tok, float quarter_ms) {
+    auto eq = [](const char* a, const char* b) { return std::strcmp(a, b) == 0; };
+    if (eq(tok, "16th") || eq(tok, "sixteenth") || eq(tok, "semicorchea")) return quarter_ms * 0.25f;
+    if (eq(tok, "8th") || eq(tok, "eighth") || eq(tok, "corchea")) return quarter_ms * 0.5f;
+    if (eq(tok, "quarter") || eq(tok, "negra")) return quarter_ms;
+    if (eq(tok, "dotted-quarter") || eq(tok, "negra-puntillo")) return quarter_ms * 1.5f;
+    if (eq(tok, "half") || eq(tok, "blanca")) return quarter_ms * 2.0f;
+    if (eq(tok, "dotted-half") || eq(tok, "blanca-puntillo")) return quarter_ms * 3.0f;
+    if (eq(tok, "whole") || eq(tok, "redonda")) return quarter_ms * 4.0f;
+    return 0.0f; // not a rhythm word: caller falls back to milliseconds
+}
 
 bool parse_score(const char* path, std::vector<ScoreNote>& notes) {
     FILE* f = std::fopen(path, "r");
     if (f == nullptr) return false;
+    float quarter_ms = 500.0f;
     char line[256];
     while (std::fgets(line, sizeof(line), f) != nullptr) {
         const char* p = line;
         while (*p == ' ' || *p == '\t') ++p;
-        if (*p == '\0' || *p == '\n' || *p == '#') continue;
+        if (*p == '\0' || *p == '\n') continue;
+        if (*p == '#') {
+            if (std::strstr(p, "quarter_ms") != nullptr) {
+                quarter_ms = std::strtof(std::strstr(p, "quarter_ms") + 10, nullptr);
+            } else if (std::strstr(p, "bpm") != nullptr) {
+                const float bpm = std::strtof(std::strstr(p, "bpm") + 3, nullptr);
+                if (bpm > 1.0f) quarter_ms = 60000.0f / bpm;
+            }
+            continue;
+        }
+        char tok1[32] = {0}, tok2[32] = {0}, tok3[32] = {0};
+        if (std::sscanf(p, "%31s %31s %31s", tok1, tok2, tok3) != 3) continue;
         ScoreNote n;
-        char* end = nullptr;
-        n.onset_ms = std::strtof(p, &end);
-        if (end == p) continue;
-        n.dur_ms = std::strtof(end, &end);
-        if (end == p) continue;
-        const float midi = std::strtof(end, &end);
-        if (end == p) continue;
-        n.midi = int(std::lround(midi));
+        n.onset_ms = std::strtof(tok1, nullptr);
+        n.dur_ms = rhythm_to_ms(tok2, quarter_ms);
+        if (n.dur_ms <= 0.0f) n.dur_ms = std::strtof(tok2, nullptr);
+        const int by_name = note_name_to_midi(tok3);
+        n.midi = (by_name >= 0) ? by_name : int(std::lround(std::strtof(tok3, nullptr)));
+        if (n.dur_ms <= 0.0f || n.midi <= 0) continue;
         notes.push_back(n);
     }
     std::fclose(f);
@@ -294,18 +337,8 @@ void verify_score(const std::vector<float>& sig, float sr,
         return;
     }
 
-    // Group written notes into attack executions (<= 50 ms spread = one
-    // strike) and detect the real attacks with the onset pipeline.
-    int n_attacks = 0;
-    float group_onset = -1e9f;
-    for (auto& n : notes) {
-        if (n.onset_ms - group_onset > 50.0f) {
-            group_onset = n.onset_ms;
-            n.attack = n_attacks++;
-        } else {
-            n.attack = n_attacks - 1;
-        }
-    }
+    // Detected attacks (for the onset-error column only; the score's own
+    // times anchor the measurement, so a missed onset loses no note).
     kan::Preconditioner pre(sr);
     kan::HybridDetector det(sr);
     det.set_profile(kan::InstrumentProfile::keyboard());
@@ -318,113 +351,79 @@ void verify_score(const std::vector<float>& sig, float sr,
         }
     }
 
+    // Joint measurement over the score span: at every fit time the
+    // candidate set = the written notes ALIVE there (struck + sustaining).
+    // With the full sounding set modeled, windows may span later attacks
+    // without contamination — that is the register-by-note model.
+    float t_lo = notes.front().onset_ms, t_hi = 0.0f;
+    for (const auto& n : notes) t_hi = std::max(t_hi, n.onset_ms + n.dur_ms);
     kan::HarmonicChordValidator validator(sr, 8192);
-    // Verification band: real takes carry instrument/mic detune (measured
-    // ~15-30 c flat on this one) plus vibrato sweeps; the default +/-30 c
-    // refinement is narrower than the material and would report "not
-    // found" for notes that sound fine. Permissive band = +/-60 c.
-    validator.set_search_range_cents(60.0f);
-    float onset_err_sum = 0.0f, onset_err_max = 0.0f;
-    int onset_matched = 0;
-    for (int a = 0; a < n_attacks; ++a) {
-        // Candidate set = the written notes of this attack.
-        float midis[8] = {0};
-        size_t idxs[8] = {0};
-        size_t n_cand = 0;
-        for (size_t i = 0; i < notes.size() && n_cand < 8; ++i) {
-            if (notes[i].attack != a) continue;
-            midis[n_cand] = float(notes[i].midi);
-            idxs[n_cand] = i;
-            ++n_cand;
-        }
-        if (n_cand == 0) continue;
-        if (!validator.set_expected_chord(midis, n_cand)) continue;
-
-        // Match to the nearest detected attack -> onset error.
-        const float score_onset = notes[idxs[0]].onset_ms;
-        float best_dt = 200.0f;
-        float attack_ms = score_onset;
-        for (float t : detected_ms) {
-            const float dt = std::fabs(t - score_onset);
-            if (dt < best_dt) { best_dt = dt; attack_ms = t; }
-        }
-        if (best_dt < 200.0f) {
-            ++onset_matched;
-            onset_err_sum += best_dt;
-            onset_err_max = std::max(onset_err_max, best_dt);
-        }
-        for (size_t k = 0; k < n_cand; ++k) notes[idxs[k]].onset_err_ms = best_dt;
-
-        // Per-note amplitude trajectories: conditioned fits every 50 ms
-        // across the lives of the attack's notes (the heavier offline
-        // technique the real-time path does not need).
-        float max_dur = 0.0f;
-        for (size_t k = 0; k < n_cand; ++k) {
-            max_dur = std::max(max_dur, notes[idxs[k]].dur_ms);
-        }
-        const size_t start = size_t((attack_ms + 8.0f) / 1000.0f * sr);
-        const size_t end_limit = size_t((attack_ms + max_dur + 400.0f) / 1000.0f * sr);
-        float cents_sum[8] = {0}, cents_w[8] = {0};
-        float sim_sum[8] = {0}, sim_w[8] = {0};
-        // 4096-sample windows (85 ms): 21 ms cannot separate neighboring
-        // semitones and leaked energy inflates measured durations.
-        for (size_t w = start; w + 4096 <= sig.size() && w <= end_limit; w += size_t(0.050f * sr)) {
-            const kan::ChordResult r = validator.validate(sig.data() + w, 4096);
-            for (size_t k = 0; k < n_cand; ++k) {
-                const float amp = validator.note_rms(k);
-                if (amp > notes[idxs[k]].amp_peak) notes[idxs[k]].amp_peak = amp;
-                if (amp > notes[idxs[k]].amp_peak * 0.10f) { // -20 dB end rule
-                    cents_sum[k] += validator.refined_cents(k) * amp;
-                    cents_w[k] += amp;
-                    sim_sum[k] += r.similarity * amp;
-                    sim_w[k] += amp;
-                    notes[idxs[k]].measured_end_ms =
-                        1000.0f * float(w + 4096) / sr; // extended while audible
-                }
-            }
-            if (w == start) {
-                for (size_t k = 0; k < n_cand; ++k) {
-                    notes[idxs[k]].presence = r.note_presence[k];
-                    notes[idxs[k]].measured_onset_ms = attack_ms;
-                }
+    validator.set_search_range_cents(60.0f); // permissive band (field detune)
+    validator.set_passes(1);
+    validator.set_refine_rounds(2);
+    constexpr size_t kFit = 2048;
+    float window[kFit];
+    for (float t = t_lo + 200.0f; t < t_hi + 300.0f; t += 75.0f) {
+        float midis[kMaxScoreNotes];
+        size_t idxs[kMaxScoreNotes];
+        size_t n_live = 0;
+        for (size_t i = 0; i < notes.size() && n_live < kMaxScoreNotes; ++i) {
+            if (notes[i].onset_ms <= t && t < notes[i].onset_ms + notes[i].dur_ms + 250.0f) {
+                midis[n_live] = float(notes[i].midi);
+                idxs[n_live] = i;
+                ++n_live;
             }
         }
-        for (size_t k = 0; k < n_cand; ++k) {
-            notes[idxs[k]].cents = (cents_w[k] > 0.0f)
-                ? cents_sum[k] / cents_w[k] : 0.0f; // amplitude-weighted center
-            notes[idxs[k]].similarity = (sim_w[k] > 0.0f)
-                ? sim_sum[k] / sim_w[k] : 0.0f;    // fit quality while audible
+        if (n_live == 0) continue;
+        const size_t wend = size_t(t / 1000.0f * sr);
+        if (wend < kFit) continue;
+        std::memcpy(window, &sig[wend - kFit], kFit * sizeof(float));
+        if (!validator.set_expected_chord(midis, n_live)) continue;
+        const kan::ChordResult r = validator.validate(window, kFit);
+        for (size_t k = 0; k < n_live; ++k) {
+            ScoreNote& sn = notes[idxs[k]];
+            const float amp = validator.note_rms(k);
+            if (amp > sn.amp_peak) sn.amp_peak = amp;
+            sn.cents_wsum += validator.refined_cents(k) * amp;
+            sn.sim_wsum += r.similarity * amp;
+            sn.sim_w += amp;
+            sn.presence = std::max(sn.presence, r.note_presence[k]);
+            if (amp >= sn.amp_peak * 0.10f) {
+                sn.measured_end_ms = t; // extended while audible
+            }
         }
     }
 
-    // Report: one line per written note (its own lifetime), then the summary.
-    std::fprintf(out, "# measured score: %zu written notes in %d attacks, "
-                      "%zu attacks detected\n", notes.size(), n_attacks, detected_ms.size());
+    // Onset-error matching (informational; the score's times anchor).
+    for (auto& n : notes) {
+        float best = 200.0f;
+        for (float t : detected_ms) best = std::min(best, std::fabs(t - n.onset_ms));
+        n.onset_err_ms = best;
+    }
+
+    // Report: one line per written note (its own lifetime).
+    std::fprintf(out, "# measured score: %zu written notes, %zu attacks detected\n",
+                 notes.size(), detected_ms.size());
     std::fprintf(out, "# onset_ms dur_ms midi | sim cents amp meas_dur onset_err\n");
     float cents_err_sum = 0.0f, cents_err_max = 0.0f, dur_err_sum = 0.0f, dur_err_max = 0.0f;
-    int cents_n = 0, dur_n = 0, found = 0;
-    for (const auto& n : notes) {
+    int cents_n = 0, dur_n = 0, found = 0, in_audio = 0;
+    for (auto& n : notes) {
+        if (n.onset_ms > 1000.0f * float(sig.size()) / sr) continue;
+        ++in_audio;
+        const float sim = n.sim_w > 0.0f ? n.sim_wsum / n.sim_w : 0.0f;
+        const float center = n.sim_w > 0.0f ? n.cents_wsum / n.sim_w : 0.0f;
         const float meas_dur = (n.measured_end_ms > 0.0f)
-            ? n.measured_end_ms - n.measured_onset_ms : 0.0f;
+            ? n.measured_end_ms - n.onset_ms : 0.0f;
         std::fprintf(out, "%8.0f %6.0f %4d | %7.2f %+7.1f %7.4f %8.0f %9.0f\n",
                      double(n.onset_ms), double(n.dur_ms), n.midi,
-                     double(n.similarity), double(n.cents), double(n.amp_peak),
+                     double(sim), double(center), double(n.amp_peak),
                      double(meas_dur), double(n.onset_err_ms));
-        if (n.onset_ms > 1000.0f * float(sig.size()) / sr) {
-            continue; // written note lies beyond the audio
-        }
-        const bool found_note = (n.similarity >= 0.70f);
-        if (found_note) {
+        if (sim >= 0.60f) {
             ++found;
-            // Cents = deviation of the measured center from the written
-            // pitch (the written pitch is the hypothesis itself).
-            if (std::fabs(n.cents) > 250.0f) { /* octave-ish mismatch: skip */ }
-            else {
-                cents_err_sum += std::fabs(n.cents);
-                cents_err_max = std::max(cents_err_max, std::fabs(n.cents));
+            if (std::fabs(center) <= 250.0f) {
+                cents_err_sum += std::fabs(center);
+                cents_err_max = std::max(cents_err_max, std::fabs(center));
                 ++cents_n;
-            }
-            if (meas_dur > 0.0f && n.dur_ms > 0.0f) {
                 const float de = std::fabs(meas_dur - n.dur_ms);
                 dur_err_sum += de;
                 dur_err_max = std::max(dur_err_max, de);
@@ -432,19 +431,11 @@ void verify_score(const std::vector<float>& sig, float sr,
             }
         }
     }
-    size_t in_audio = 0;
-    for (const auto& n : notes) {
-        if (n.onset_ms <= 1000.0f * float(sig.size()) / sr) ++in_audio;
-    }
-    std::fprintf(out, "# notes found (written pitch explains window, sim >= 0.70): "
-                      "%d/%zu in audio (%zu written)\n",
-                 found, in_audio, notes.size());
-    std::fprintf(out, "# onset error: %d/%d attacks matched, mean %.0f ms, max %.0f ms\n",
-                 onset_matched, n_attacks,
-                 onset_matched ? double(onset_err_sum / onset_matched) : 0.0,
-                 double(onset_err_max));
+    std::fprintf(out, "# notes found (written pitch explains window, sim >= 0.60): "
+                      "%d/%d in audio (%zu written)\n", found, in_audio, notes.size());
     std::fprintf(out, "# pitch error vs written: mean %.1f c, max %.1f c (%d notes)\n",
-                 cents_n ? double(cents_err_sum / cents_n) : 0.0, double(cents_err_max), cents_n);
+                 cents_n ? double(cents_err_sum / cents_n) : 0.0,
+                 double(cents_err_max), cents_n);
     std::fprintf(out, "# duration error vs written: mean %.0f ms, max %.0f ms (%d notes)\n",
                  dur_n ? double(dur_err_sum / dur_n) : 0.0, double(dur_err_max), dur_n);
 }

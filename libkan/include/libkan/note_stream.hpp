@@ -80,6 +80,9 @@ enum NoteFlags : uint32_t {
     kFlagSearchSaturated = 1u << 6,   ///< refined cents hit the search bound: no evidence
     kFlagTransition = 1u << 7,        ///< record opened by a legato pitch change,
                                       /// not by a strike
+    kFlagRestrike = 1u << 8,          ///< the same pitch was struck AGAIN (level
+                                      /// jump vs the sounding record) — not a
+                                      /// mere extension of the previous strike
 };
 
 /// Fixed-size, trivially copyable per-note fact.
@@ -238,14 +241,15 @@ inline NoteEvent make_close(uint32_t note_id, float t_ms, float end_ms,
 /// Writes one JSON line (including the trailing newline). Returns the number
 /// of bytes written, or 0 if `cap` is too small. No allocation.
 inline size_t note_event_jsonl(const NoteEvent& e, char* buf, size_t cap) noexcept {
-    static const char* kFlagNames[8] = {"MIX", "HOP", "POLYPHONIC", "DOMINANT",
+    static const char* kFlagNames[9] = {"MIX", "HOP", "POLYPHONIC", "DOMINANT",
                                         "UNEXPLAINED_ENERGY", "LOW_REGISTER",
-                                        "SEARCH_SATURATED", "TRANSITION"};
+                                        "SEARCH_SATURATED", "TRANSITION",
+                                        "RESTRIKE"};
     char flags[160];
     size_t fp = 0;
     flags[fp++] = '[';
     bool first = true;
-    for (int i = 0; i < 8; ++i) {
+    for (int i = 0; i < 9; ++i) {
         if ((e.flags & (1u << i)) == 0) continue;
         if (!first) flags[fp++] = ',';
         first = false;
@@ -541,6 +545,14 @@ public:
     static constexpr float kSustainHopMs = 250.0f; ///< conditioned sustain fits
     static constexpr float kTransitionHoldMs = 250.0f; ///< sustained shift = legato
     static constexpr float kTransitionStepCents = 70.0f;
+    static constexpr float kRestrikeRatio = 1.5f;  ///< level-jump test: the new
+                            /// strike's energy vs the held note's CURRENT level
+    static constexpr float kRestrikeFloor = 0.5f; ///< strike-like test: the new
+                            /// strike's energy vs the previous strike's energy.
+                            /// A repeated pitch is a RE-STRIKE if EITHER test
+                            /// passes (an equal-dynamic repeat restarts at the
+                            /// old strike's level but barely lifts the hold);
+                            /// below both it is an EXTENSION of the held note
     static constexpr float kTransitionResetCents = 35.0f;
 
     struct CandidateEntry {
@@ -688,6 +700,7 @@ private:
         bool live = false, provisional_sent = false;
         uint64_t onset_sample = 0, close_sample = 0;
         float onset_ms = 0.0f, strength = 0.0f;
+        float last_rms = 0.0f;    ///< most recent mix level of the record
         int candidate_index = -1;      ///< index in its group's list (-1 = blind)
         float hypothesis_midi = 0.0f;
         // per-note amplitude trajectory (conditioned joint fits)
@@ -724,6 +737,20 @@ private:
         bool have_cands = false, sustain_due = false;
         size_t live_records = 0;
         uint64_t window_start = 0;
+        uint64_t strike_sample = 0;     ///< this execution's strike anchor
+        float strike_ms = 0.0f;
+        uint64_t boundary = UINT64_MAX; ///< next strike: no measurement
+                                        /// window may cross it
+        uint8_t repeat_pending[kMaxCandidates] = {0}; ///< struck candidate
+                                        /// repeats a live record's pitch:
+                                        /// re-strike vs extension, decided
+                                        /// at the probe by level comparison
+        uint32_t repeat_owner[kMaxCandidates] = {0};
+        uint8_t deferred_repeat = 0;    ///< mono path: the strike repeats a
+                                        /// live record's pitch; decided at
+                                        /// the first measurement slot
+        float pre_rms = 0.0f;           ///< the hold's level at the strike
+        uint32_t held_owner = 0;        ///< the record being held
         uint64_t sustain_end = 0;   ///< end of the next sustain window
         size_t next_sustain_ms = 0;
         size_t n_cand = 0;
@@ -770,11 +797,37 @@ private:
     void open_strike(uint64_t onset_sample) noexcept {
         const float onset_ms = 1000.0f * float(onset_sample) / sr_;
 
+        // Window discipline: this strike ends the measurement epoch of
+        // every earlier group (no window may contain the new attack).
+        for (auto& c : groups_) {
+            if (c.live && c.boundary > onset_sample) c.boundary = onset_sample;
+        }
         // Monophonic instrument physics (profile data): one note at a time,
-        // so open records end at this strike (their own end).
+        // so a live record's fate is decided by this strike — and the
+        // decision is the energy-level comparison between the strikes:
+        //   - level jump >= kRestrikeRatio x the record's own strike energy
+        //     -> the pitch was STRUCK AGAIN: the old note ends here, a new
+        //        record opens (flagged RESTRIKE);
+        //   - below that -> the held note is EXTENDED (a retrigger-like
+        //        event on a sustain): no new record, the old one continues.
+        bool restrike = false;
+        bool defer_repeat = false;
+        float held_rms = 0.0f;
+        uint32_t held_id = 0;
         if (profile_.max_simultaneous_notes <= 1) {
+            Record* live = nullptr;
             for (auto& n : records_) {
-                if (n.live) close_record(n, onset_ms);
+                if (n.live) { live = &n; break; }
+            }
+            if (live != nullptr) {
+                // A repeated pitch while a note holds: re-strike or
+                // extension? The level evidence needs ~40 ms to settle (a
+                // re-strike jumps the level up; a continuation decays on),
+                // so the decision is deferred to the first measurement
+                // slot. The HIT timestamp stays the strike time either way.
+                defer_repeat = true;
+                held_rms = live->last_rms;
+                held_id = live->id;
             }
         }
 
@@ -794,25 +847,53 @@ private:
         *g = Group{};
         g->id = next_note_id_;
         g->live = true;
+        g->strike_sample = onset_sample;
         g->window_start = onset_sample + uint64_t(profile_.blanking_ms / 1000.0f * sr_);
         if (have_next_cands_) {
             install_candidates(*g, next_cands_);
             have_next_cands_ = false;
         }
 
+        // Repeated pitches: a struck candidate whose pitch already sounds
+        // (a live record claims it) is an EXTENSION or a RE-STRIKE — decided
+        // at the probe fit by comparing energy levels (the record's recent
+        // fitted level vs the level after this strike). Until then it is
+        // held by the existing record (deferred, not a new one).
+        for (size_t k = 0; k < g->n_cand; ++k) {
+            if (!g->struck[k]) continue;
+            for (auto& n : records_) {
+                if (!n.live || n.candidate_index < 0) continue;
+                if (std::fabs(n.hypothesis_midi - g->midis[k]) < 0.5f) {
+                    g->repeat_pending[k] = 1;
+                    g->repeat_owner[k] = n.id;
+                    g->owners[k] = n.id; // facts route there meanwhile
+                    break;
+                }
+            }
+        }
+
         // Records: one per struck candidate (or one blind record).
         size_t n_struck = 0;
         if (g->have_cands) {
             for (size_t k = 0; k < g->n_cand; ++k) {
-                if (g->struck[k]) ++n_struck;
+                if (g->struck[k] && !g->repeat_pending[k]) ++n_struck;
             }
         }
         const size_t n_rec = (n_struck > 0 && n_struck <= kMaxCandidates) ? n_struck : 1;
+        if (defer_repeat) {
+            g->deferred_repeat = 1;
+            g->pre_rms = held_rms;
+            g->held_owner = held_id;
+            g->strike_sample = onset_sample;
+            g->strike_ms = onset_ms;
+            return; // resolved at the first measurement slot
+        }
+
         // Records are created bound to their struck candidates (in order),
         // so the HIT can carry the record's identity from the start.
         size_t k = 0;
         for (size_t r = 0; r < n_rec; ++r) {
-            while (k < g->n_cand && !g->struck[k]) ++k;
+            while (k < g->n_cand && (!g->struck[k] || g->repeat_pending[k])) ++k;
             Record* rec = alloc_record();
             if (rec == nullptr) return;
             *rec = Record{};
@@ -833,7 +914,7 @@ private:
             last_note_id_ = rec->id;
             emit(note_event::make_hit(rec->id, g->id, onset_ms, onset_ms,
                                       block_strength_, rec->hypothesis_midi,
-                                      kFlagNone));
+                                      restrike ? kFlagRestrike : kFlagNone));
         }
     }
 
@@ -878,6 +959,7 @@ private:
         for (auto& n : records_) {
             if (!n.live) continue;
             if (rms > n.peak_rms) n.peak_rms = rms;
+            n.last_rms = rms;
             if (n.rms_count < kRmsSeriesMax) n.rms_series[n.rms_count++] = rms;
         }
 
@@ -920,6 +1002,43 @@ private:
                                     : (age < 5000.0f) ? size_t(kSustainHopMs * 2)
                                                      : size_t(kSustainHopMs * 4);
             }
+        }
+
+        // Re-strike vs extension resolution (mono repeated pitch): the
+        // level after the strike vs the hold's level at the strike. A jump
+        // = the pitch was struck again (old note ends at the strike, a new
+        // record opens); no jump = the held note was merely extended (no
+        // new record — the hold continues).
+        for (auto& g : groups_) {
+            if (!g.live || !g.deferred_repeat) continue;
+            const float since = t_ms - g.strike_ms;
+            if (since < profile_.blanking_ms
+                + 1000.0f * float(kProvisionalWindow) / sr_) continue;
+            g.deferred_repeat = 0;
+            Record* old = find_record(g.held_owner);
+            const float now = (old != nullptr && old->live) ? old->last_rms : 0.0f;
+            const bool restrike = old == nullptr || !old->live
+                || now >= g.pre_rms * kRestrikeRatio;
+            if (!restrike) {
+                g.live = false; // extension: the hold continues, no record
+                continue;
+            }
+            if (old != nullptr && old->live) close_record(*old, g.strike_ms);
+            Record* rec = alloc_record();
+            if (rec == nullptr) { g.live = false; continue; }
+            *rec = Record{};
+            rec->id = next_note_id_++;
+            rec->strike_group = g.id;
+            rec->live = true;
+            rec->onset_sample = g.strike_sample;
+            rec->onset_ms = g.strike_ms;
+            rec->strength = block_strength_;
+            rec->last_rms = block_strength_;
+            g.leader = rec->id;
+            ++g.live_records;
+            last_note_id_ = rec->id;
+            emit(note_event::make_hit(rec->id, g.id, g.strike_ms, g.strike_ms,
+                                      block_strength_, 0.0f, kFlagRestrike));
         }
 
         // Blind decay-relative end (records without fitted trajectories).
@@ -1009,9 +1128,17 @@ private:
     /// complete — a call-time-truncated window would make the stream
     /// depend on WHEN the scheduler ran (breaking live/offline equality).
     bool group_window(Group& g, size_t len, float* out, float& t_ms) noexcept {
-        const uint64_t end = g.window_start + len;
-        if (end > sample_pos_) return false; // not ready yet
-        if (!copy_history_range(g.window_start, len, out)) return false;
+        // Window discipline: no measurement window crosses a strike
+        // boundary — evidence after the next attack belongs to that
+        // attack's group (which measures the sustaining notes too, when the
+        // chart lists them). The boundary is strike-determined (audio), so
+        // the clipped window stays deterministic.
+        uint64_t end = g.window_start + len;
+        if (end > g.boundary) end = g.boundary;
+        if (end <= g.window_start + 256) return false; // nothing measurable
+        if (end > sample_pos_) return false;           // not ready yet
+        const size_t n = size_t(end - g.window_start);
+        if (!copy_history_range(g.window_start, n, out)) return false;
         t_ms = 1000.0f * float(end) / sr_;
         return true;
     }
@@ -1051,6 +1178,44 @@ private:
         validator_.set_passes(3); // attack window: full robust passes
         const ChordResult r = validator_.validate(window, kProvisionalWindow);
         g.similarity = r.similarity;
+
+        // Re-strike vs extension (energy-level comparison, per repeated
+        // pitch): the level right after this strike vs the sounding record's
+        // recent level. A jump opens a new record (re-strike); a smooth
+        // continuation keeps the facts in the existing register.
+        for (size_t k = 0; k < g.n_cand; ++k) {
+            if (!g.repeat_pending[k]) continue;
+            g.repeat_pending[k] = 0;
+            Record* old = find_record(g.repeat_owner[k]);
+            const float amp_now = validator_.note_rms(k);
+            if (old == nullptr || !old->live) {
+                old = nullptr; // the old record is gone: this is a new note
+            }
+            const float old_level = (old != nullptr)
+                ? ((old->traj_n > 0) ? old->traj[old->traj_n - 1].amp : old->peak_amp)
+                : 0.0f;
+            const bool restrike = (old == nullptr)
+                || (amp_now >= old_level * kRestrikeRatio)
+                || (amp_now >= old->peak_amp * kRestrikeFloor);
+            if (!restrike) continue; // extension: facts stay in the old register
+            Record* rec = alloc_record();
+            if (rec == nullptr) continue;
+            *rec = Record{};
+            rec->id = next_note_id_++;
+            rec->strike_group = g.id;
+            rec->live = true;
+            rec->onset_sample = g.strike_sample;
+            rec->onset_ms = 1000.0f * float(g.strike_sample) / sr_;
+            rec->strength = block_strength_;
+            rec->candidate_index = int(k);
+            rec->hypothesis_midi = g.midis[k];
+            rec->best_presence = r.note_presence[k];
+            g.owners[k] = rec->id;
+            ++g.live_records;
+            last_note_id_ = rec->id;
+            emit(note_event::make_hit(rec->id, g.id, rec->onset_ms, rec->onset_ms,
+                                      block_strength_, g.midis[k], kFlagRestrike));
+        }
         for (size_t k = 0; k < g.n_cand; ++k) {
             Record* rec = find_record(g.owners[k]);
             if (rec != nullptr) {
@@ -1124,16 +1289,21 @@ private:
         if (n_live == 0) return false; // nothing left to measure
         const size_t win_len = 2048u; // sustain: 43 ms separates neighbours
                                       // at mid/bass register at half cost
-        if (g.sustain_end < g.window_start + win_len) return false;
-        const uint64_t wstart = g.sustain_end - win_len;
+        uint64_t wend = g.sustain_end;
+        if (wend > g.boundary) wend = g.boundary; // never cross a strike
+        if (wend < g.window_start + 256) return false;
+        uint64_t wstart = (wend > win_len) ? wend - win_len : g.window_start;
+        if (wstart < g.window_start) wstart = g.window_start;
+        const size_t n_win = size_t(wend - wstart);
+        if (n_win < 256) return false;
         float window[kSustainWindow];
-        if (!copy_history_range(wstart, win_len, window)) return false;
-        const float t_ms = 1000.0f * float(g.sustain_end) / sr_;
+        if (!copy_history_range(wstart, n_win, window)) return false;
+        const float t_ms = 1000.0f * float(wend) / sr_;
         if (!validator_.set_expected_chord(set, n_live)) return true;
         validator_.set_search_range_cents(profile_.intonation_band_cents);
         validator_.set_passes(1);        // clean windows: one robust pass
         validator_.set_refine_rounds(2); // cents still searched, 2/3 cost
-        const ChordResult r = validator_.validate(window, win_len);
+        const ChordResult r = validator_.validate(window, n_win);
         g.similarity = r.similarity;
         for (size_t idx = 0; idx < n_live; ++idx) {
             Record* rec = find_record(g.owners[map[idx]]);

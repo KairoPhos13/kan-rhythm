@@ -285,7 +285,9 @@ void print_event(const kan::NoteEvent& e, FILE* jsonl) {
             std::snprintf(name, sizeof(name), "%s", "?");
         }
         std::printf("     #%-3u %-4s %s\n", e.note_id, name,
-                    (e.flags & kan::kFlagTransition) ? "legato transition" : "struck");
+                    (e.flags & kan::kFlagTransition) ? "legato transition"
+                    : (e.flags & kan::kFlagRestrike) ? "re-struck (level jump)"
+                                                     : "struck");
         return;
     }
     case kan::NoteKind::Pitch: {

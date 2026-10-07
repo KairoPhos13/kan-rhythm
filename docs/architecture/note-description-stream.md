@@ -439,6 +439,8 @@ of audio (the retained history is 0.68 s).
 | 7 | record model (review refinement) | a record is a **struck note**: an attack execution strikes N notes → N records (`strike_group` ties them), each with its own lifetime (start/end/duration). Wind/bowed profiles (`accepts_legato_boundaries`) also open records on sustained pitch changes (`TRANSITION` flag). Candidate facts live under the record the candidate belongs to, so a note sustaining under later attacks accumulates facts in its own register. |
 | 8 | intonation acceptance | `InstrumentProfile::intonation_band_cents` (pack data): the game judges the residual inside the band, calibration-aware — never raw A440 (field takes measured up to −53 c detune) |
 | 9 | vibrato pitch semantics | the final pitch is the **amplitude-weighted center** of the note's trajectory (the center of a vibrato, never its initial value) |
+| 10 | repeated pitch: extension or re-strike? | decided by **energy levels**: a level jump after the strike (>= 1.5x the hold's current level) = RE-STRIKE (`RESTRIKE` flag, new record, old note ends at the strike); no jump = EXTENSION — no new record, the hold continues. Decided at the first measurement slot (~40 ms; the evidence needs it); the HIT keeps its strike timestamp. Chord/candidate path decides per note at the probe fit. |
+| 11 | window discipline | no measurement window crosses a strike boundary (evidence after a strike belongs to that strike's group); windows may span later attacks only when the candidate set models every sounding note (the joint/verify-score model) |
 
 Kept deliberately on the **game** side (not decided here): how HIT /
 provisional / final facts feed reward and penalties, what `unresolved`
@@ -459,6 +461,17 @@ probe fit ≈ +27 ms (per-record provisional + first candidate facts), final
 pitch + CLOSE at the note's own −20 dB end. Cost note: conditioned fits are
 ~quadratic in candidate count (docs/dsp/README §2.7) — the offline
 validation pack runs songs in parallel (`JOBS=6`).
+
+Score input for `--verify-score` accepts the user's notation directly: one
+line per written note — `onset_ms  duration  note` — where duration is a
+rhythm word (`16th`, `8th`, `quarter`, `dotted-quarter`, `half`,
+`dotted-half`, `whole`, Spanish names included) or a millisecond number,
+and the note is a name (`G3`, `F#4`) or a midi number; header lines set the
+grid (`# quarter_ms 656` or `# bpm 91.5`). Measurement uses the joint
+model: at each fit time the candidates are the written notes alive there
+(struck + sustaining) — measured result on the Hallelujah opening
+(user-provided ground truth): **11/11 notes found, similarity 0.87–0.97,
+duration error mean 200 ms, notes without detector attacks still measured**.
 
 **Resource budget (hardware constraint, decided with review): the tool must
 run on ordinary machines — the DSP analysis fits in ≤ 2 worker threads and

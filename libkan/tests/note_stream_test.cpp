@@ -658,6 +658,53 @@ void fixture_10_vibrato_center() {
     check(count_transitions(h) == 0, "vibrato does NOT open transition records");
 }
 
+// ---------------------------------------------------------------------------
+void fixture_11_restrike_vs_extension() {
+    std::printf("fixture 11: repeated pitch — re-strike vs extension (levels)\n");
+
+    // A: the same pitch STRUCK again, louder -> two records, re-strike flag.
+    {
+        std::vector<float> sig(size_t(1.8f * kSr), 0.0f);
+        add_note(sig, 0.30f, 0.5f, 440.00f, 0.5f, 81u);
+        add_note(sig, 0.80f, 0.5f, 440.00f, 0.9f, 82u); // same pitch, level jump
+        add_noise_floor(sig, 0.005f, 811u);
+        Harness h;
+        run(sig, mono_profile(), {}, 1, h);
+        check(count_kind(h, kan::NoteKind::Hit) == 2, "A: re-strike -> two records");
+        bool flagged = false;
+        for (const auto& e : h.events) {
+            if (e.kind == kan::NoteKind::Hit && (e.flags & kan::kFlagRestrike) != 0) {
+                flagged = true;
+            }
+        }
+        check(flagged, "A: second record flagged RESTRIKE (level jump)");
+    }
+
+    // B: the same pitch HELD through an attack-shaped burst (no level jump)
+    // -> the strike is an extension: no second record.
+    {
+        std::vector<float> sig(size_t(1.8f * kSr), 0.0f);
+        add_note(sig, 0.30f, 1.1f, 440.00f, 0.5f, 91u); // one held note
+        // attack-shaped burst at +500 ms: broadband transient WITHOUT a
+        // sustained level jump (the "detector fired but the note is held"
+        // case — e.g. a charted repeat the player extended).
+        const size_t at = size_t(0.80f * kSr);
+        for (size_t i = 0; i < size_t(0.005f * kSr) && at + i < sig.size(); ++i) {
+            const uint32_t hh = uint32_t(i) * 2654435761u + 5u;
+            sig[at + i] += 0.22f * (float(int((hh ^ (hh >> 13)) % 2000)) / 1000.0f - 1.0f)
+                        * (1.0f - float(i) / (0.005f * kSr));
+        }
+        add_noise_floor(sig, 0.005f, 911u);
+        Harness h;
+        run(sig, mono_profile(), {}, 1, h);
+        check(count_kind(h, kan::NoteKind::Hit) == 1,
+              "B: extension (no level jump) -> still ONE record");
+        const kan::NoteEvent* c = find_close(h, 1);
+        check(c != nullptr && c->u.close.duration_ms > 900.0f,
+              "B: the record covers the whole hold (own lifetime)");
+    }
+}
+
 } // namespace
 
 int main() {
@@ -672,6 +719,7 @@ int main() {
     fixture_8_mono_legato_strikes();
     fixture_9_legato_transitions();
     fixture_10_vibrato_center();
+    fixture_11_restrike_vs_extension();
     std::printf("%s\n", g_pass ? "ALL PASS" : "FAILURES");
     return g_pass ? 0 : 1;
 }
