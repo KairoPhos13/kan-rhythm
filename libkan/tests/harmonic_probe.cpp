@@ -26,6 +26,7 @@
 // Reports only — no verdicts: every number here is a measurement of the
 // validator against hand-written hypotheses and independent spectra.
 #include "libkan/harmonic_chord.hpp"
+#include "libkan/score_verify.hpp"
 #include "libkan/chord_goertzel.hpp"
 #include "libkan/dsp_detector.hpp"
 #include "libkan/instrument_profile.hpp"
@@ -253,18 +254,16 @@ void emit_candidates(const std::vector<float>& sig, float sr, FILE* out) {
 // written note gets its own lifetime measured (start/end/duration): notes
 // of one attack may sustain longer, repeat, or be cut earlier than their
 // neighbors.
-#include "score_verify.hpp"
-
 // Printing wrapper: measure with the shared core, then report.
 void verify_score(const std::vector<float>& sig, float sr,
                   const char* score_path, FILE* out) {
-    std::vector<score_verify::ScoreNote> notes;
-    if (!score_verify::parse_score(score_path, notes)) {
+    std::vector<kan::score_verify::ScoreNote> notes;
+    if (!kan::score_verify::parse_score(score_path, notes)) {
         std::fprintf(stderr, "[ERROR] cannot read score %s\n", score_path);
         return;
     }
     std::vector<float> extras;
-    score_verify::measure_score(sig, sr, notes, &extras);
+    kan::score_verify::measure_score(sig, sr, notes, &extras);
 
     std::fprintf(out, "# measured score: %zu written notes, %zu extra strikes\n",
                  notes.size(), extras.size());

@@ -14,6 +14,7 @@
 #include <cstring>
 #include <vector>
 
+namespace kan {
 namespace score_verify {
 
 constexpr size_t kMaxScoreNotes = 10;
@@ -120,13 +121,14 @@ bool parse_score(const char* path, std::vector<ScoreNote>& notes) {
 /// (played but not written — energy the score cannot account for).
 void measure_score(const std::vector<float>& sig, float sr,
                    std::vector<ScoreNote>& notes,
-                   std::vector<float>* extra_strikes = nullptr) {
+                   std::vector<float>* extra_strikes = nullptr,
+                   float fit_step_ms = 75.0f) {
 
     // Detected attacks (for the onset-error column only; the score's own
     // times anchor the measurement, so a missed onset loses no note).
-    kan::Preconditioner pre(sr);
-    kan::HybridDetector det(sr);
-    det.set_profile(kan::InstrumentProfile::keyboard());
+    ::kan::Preconditioner pre(sr);
+    ::kan::HybridDetector det(sr);
+    det.set_profile(::kan::InstrumentProfile::keyboard());
     std::vector<float> cond(128);
     std::vector<float> detected_ms;
     for (size_t off = 0; off + 128 <= sig.size(); off += 128) {
@@ -142,13 +144,13 @@ void measure_score(const std::vector<float>& sig, float sr,
     // without contamination — that is the register-by-note model.
     float t_lo = notes.front().onset_ms, t_hi = 0.0f;
     for (const auto& n : notes) t_hi = std::max(t_hi, n.onset_ms + n.dur_ms);
-    kan::HarmonicChordValidator validator(sr, 8192);
+    ::kan::HarmonicChordValidator validator(sr, 8192);
     validator.set_search_range_cents(60.0f); // permissive band (field detune)
     validator.set_passes(1);
     validator.set_refine_rounds(2);
     constexpr size_t kFit = 2048;
     float window[kFit];
-    for (float t = t_lo + 200.0f; t < t_hi + 300.0f; t += 75.0f) {
+    for (float t = t_lo + 200.0f; t < t_hi + 300.0f; t += fit_step_ms) {
         float midis[kMaxScoreNotes];
         size_t idxs[kMaxScoreNotes];
         size_t n_live = 0;
@@ -164,7 +166,7 @@ void measure_score(const std::vector<float>& sig, float sr,
         if (wend < kFit || wend > sig.size()) continue;  // window must fit
         std::memcpy(window, &sig[wend - kFit], kFit * sizeof(float));
         if (!validator.set_expected_chord(midis, n_live)) continue;
-        const kan::ChordResult r = validator.validate(window, kFit);
+        const ::kan::ChordResult r = validator.validate(window, kFit);
         for (size_t k = 0; k < n_live; ++k) {
             ScoreNote& sn = notes[idxs[k]];
             const float amp = validator.note_rms(k);
@@ -201,3 +203,4 @@ void measure_score(const std::vector<float>& sig, float sr,
 }
 
 } // namespace score_verify
+} // namespace kan

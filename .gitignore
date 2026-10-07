@@ -5,3 +5,8 @@ compile_commands.json
 # Test results and analysis artifacts (audio + descriptors) — generated,
 # not committed. Regenerate with apps/kan_analyze/run_reference_set.sh.
 test_results/
+
+# Dataset benchmarking: datasets are never committed (license + size).
+tools/dataset_bench/data/
+tools/dataset_bench/*_out/
+dataset_bench_selftest_out/

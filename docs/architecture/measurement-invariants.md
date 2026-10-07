@@ -209,6 +209,26 @@ require the over-proposal machinery we deliberately do not want.
   strikes the score cannot account for; the sim drop is visible in the
   report for anyone who looks.
 
+### T3 — Accelerators (GPU) stay out of the validated core (decided)
+
+Large-scale evaluation (e.g. MAESTRO, ~200 h) tempts GPU acceleration: the
+workload is millions of small independent fits. We keep the analysis core
+CPU-only anyway, because **the benchmark must validate exactly the code the
+game runs** — measuring a GPU numerical path while shipping a CPU one would
+validate the wrong product — and GPU floating point is not byte-stable
+across drivers (it would violate I9).
+
+- **Scaling levers that do not break the balance:** offline `--jobs` (the
+  ≤2 analysis threads of I11 bound the *live* path, not offline packs;
+  user decision: 4–6 threads OK offline), coarser `--fit-step` for triage
+  runs, and deterministic `--limit`/`--offset` paging over the dataset.
+  Measured: full MAESTRO ≈ 34 CPU-h ≈ 3 h wall at 12 jobs.
+- **Closing option (future):** a GPU *batch* backend may be added to the
+  offline benchmark only, as an optional accelerator behind an equivalence
+  test against CPU on a reference subset (|Δcents| ≤ 1 c, |Δsim| ≤ 0.01),
+  and only CPU runs may source published measurements until equivalence is
+  demonstrated and recorded here.
+
 ---
 
 ## 3. Judging contract (for the game; recommendations, not libkan code)

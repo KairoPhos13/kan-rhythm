@@ -10,7 +10,7 @@
 // Every mistake must leave a measurable signature — that is what makes the
 // tool usable for judging: silence where there should be a note, or energy
 // where the score has none.
-#include "score_verify.hpp"
+#include "libkan/score_verify.hpp"
 
 #include <cmath>
 #include <cstdint>
@@ -63,19 +63,19 @@ void add_noise_floor(std::vector<float>& sig, float amp, uint32_t seed) {
 }
 
 /// The written score: A3 quarter, C4 quarter, G3 half (quarter = 500 ms).
-std::vector<score_verify::ScoreNote> make_score() {
-    std::vector<score_verify::ScoreNote> notes(3);
+std::vector<kan::score_verify::ScoreNote> make_score() {
+    std::vector<kan::score_verify::ScoreNote> notes(3);
     notes[0].onset_ms = 0.0f;    notes[0].dur_ms = 500.0f;  notes[0].midi = 57;
     notes[1].onset_ms = 500.0f;  notes[1].dur_ms = 500.0f;  notes[1].midi = 60;
     notes[2].onset_ms = 1000.0f; notes[2].dur_ms = 1000.0f; notes[2].midi = 55;
     return notes;
 }
 
-float sim_of(const score_verify::ScoreNote& n) {
+float sim_of(const kan::score_verify::ScoreNote& n) {
     return n.sim_w > 0.0f ? n.sim_wsum / n.sim_w : 0.0f;
 }
 
-void dump(const std::vector<score_verify::ScoreNote>& notes) {
+void dump(const std::vector<kan::score_verify::ScoreNote>& notes) {
     for (const auto& n : notes) {
         const float meas = (n.measured_end_ms > 0.0f) ? n.measured_end_ms - n.onset_ms : 0.0f;
         std::printf("    [row] onset %.0f midi %d | sim %.2f cents %+.0f amp %.4f "
@@ -102,7 +102,7 @@ int main() {
         add_noise_floor(sig, 0.005f, 99u);
         auto notes = make_score();
         std::vector<float> extras;
-        score_verify::measure_score(sig, kSr, notes, &extras);
+        kan::score_verify::measure_score(sig, kSr, notes, &extras);
         dump(notes);
         bool all_found = true;
         for (const auto& n : notes) {
@@ -123,7 +123,7 @@ int main() {
         add_note(sig, 1000.0f, 1000.0f, 55, 0.5f, 3u);
         add_noise_floor(sig, 0.005f, 99u);
         auto notes = make_score();
-        score_verify::measure_score(sig, kSr, notes);
+        kan::score_verify::measure_score(sig, kSr, notes);
         dump(notes);
         // The measured signature of a wrong pitch is the CENTS, not the sim:
         // the fit bends toward the sounding note (here -56 c) but cannot
@@ -145,7 +145,7 @@ int main() {
         add_note(sig, 500.0f, 500.0f, 60, 0.5f, 2u);
         add_noise_floor(sig, 0.005f, 99u);
         auto notes = make_score();
-        score_verify::measure_score(sig, kSr, notes);
+        kan::score_verify::measure_score(sig, kSr, notes);
         dump(notes);
         // The signature of a skipped note is the SIM (the window is not
         // explained), not the amplitude: the fit can still lease amplitude
@@ -166,7 +166,7 @@ int main() {
         add_noise_floor(sig, 0.005f, 99u);
         auto notes = make_score();
         std::vector<float> extras;
-        score_verify::measure_score(sig, kSr, notes, &extras);
+        kan::score_verify::measure_score(sig, kSr, notes, &extras);
         dump(notes);
         bool extra_seen = false;
         for (float t : extras) {
@@ -184,7 +184,7 @@ int main() {
         add_note(sig, 1000.0f, 1000.0f, 55, 0.5f, 3u);
         add_noise_floor(sig, 0.005f, 99u);
         auto notes = make_score();
-        score_verify::measure_score(sig, kSr, notes);
+        kan::score_verify::measure_score(sig, kSr, notes);
         dump(notes);
         const float t_peak = notes[1].peak_ms - notes[1].onset_ms;
         check(t_peak > 100.0f,
@@ -200,7 +200,7 @@ int main() {
         add_note(sig, 1000.0f, 1400.0f, 55, 0.5f, 3u); // TOO LONG (1000 ms written)
         add_noise_floor(sig, 0.005f, 99u);
         auto notes = make_score();
-        score_verify::measure_score(sig, kSr, notes);
+        kan::score_verify::measure_score(sig, kSr, notes);
         dump(notes);
         const float meas = notes[2].measured_end_ms - notes[2].onset_ms;
         // The over-run must exceed the documented release bias (~+200 ms)
