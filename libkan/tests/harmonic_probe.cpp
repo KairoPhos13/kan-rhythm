@@ -274,6 +274,7 @@ int note_name_to_midi(const char* tok) {
     static const char* NAMES[12] = {"C", "C#", "D", "D#", "E", "F", "F#", "G",
                                     "G#", "A", "A#", "B"};
     const int len = (tok[1] == '#') ? 2 : 1;
+    if (tok[len] < '0' || tok[len] > '9') return -1; // octave required
     for (int i = 0; i < 12; ++i) {
         if (std::strncmp(tok, NAMES[i], size_t(len)) == 0 && NAMES[i][len] == '\0') {
             return (std::atoi(tok + len) + 1) * 12 + i;
