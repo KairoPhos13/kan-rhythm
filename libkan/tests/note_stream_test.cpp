@@ -339,6 +339,12 @@ void fixture_2_chord_all_present() {
     }
     check(cls != nullptr && cls->klass == kan::ContentClass::Polyphonic,
           "CONTENT class says polyphonic");
+    if (cls == nullptr || cls->klass != kan::ContentClass::Polyphonic) {
+        for (const auto& e : h.events) {
+            char buf[512];
+            if (kan::note_event_jsonl(e, buf, sizeof(buf)) > 0) std::fputs(buf, stdout);
+        }
+    }
 
     bool all_present = true, cents_ok = true, amp_ok = true;
     float sim = 0.0f;

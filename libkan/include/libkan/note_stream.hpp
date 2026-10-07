@@ -45,6 +45,7 @@
 // Determinism: the stream is a pure function of (sample stream at a given
 // block size, candidate sequence). All times derive from sample positions.
 #include <atomic>
+#include <chrono>
 #include <cmath>
 #include <cstddef>
 #include <cstdint>
@@ -631,7 +632,12 @@ public:
             }
         }
         if (g == nullptr) return false;
-        return (stage == 1) ? probe_fit(*g) : sustain_fit(*g);
+        const auto t0 = std::chrono::steady_clock::now();
+        const bool ok = (stage == 1) ? probe_fit(*g) : sustain_fit(*g);
+        ++fit_count_;
+        fit_micros_ += std::chrono::duration<double, std::micro>(
+            std::chrono::steady_clock::now() - t0).count();
+        return ok;
     }
 
     /// End of stream: close every open record. Deterministic.
@@ -644,6 +650,15 @@ public:
 
     /// Id of the most recently opened record (0 = none yet).
     uint32_t last_note_id() const noexcept { return last_note_id_; }
+
+    /// Measurement budget counters (diagnostics / load shedding).
+    size_t fit_count() const noexcept { return fit_count_; }
+    double fit_micros() const noexcept { return fit_micros_; }
+    size_t live_groups() const noexcept {
+        size_t n = 0;
+        for (const auto& g : groups_) if (g.live) ++n;
+        return n;
+    }
 
 private:
     struct TrajPoint { float t_ms = 0.0f; float amp = 0.0f; float cents = 0.0f; };
@@ -659,9 +674,15 @@ private:
         TrajPoint traj[kTrajMax];
         size_t traj_n = 0;
         float peak_amp = 0.0f;
-        float best_sim = 0.0f;       ///< best fit quality over the trajectory
-        float best_presence = 0.0f;  ///< strongest measured presence share
+        float sim_wsum = 0.0f, sim_ww = 0.0f; ///< fit quality, amp-weighted mean
+        float best_presence = 0.0f;           ///< strongest measured presence share
         size_t quiet_fits = 0;
+
+        /// Fit quality of the claim: weighted by the note's own amplitude,
+        /// the same weighting as the pitch center.
+        float sim_mean() const noexcept {
+            return sim_ww > 0.0f ? sim_wsum / sim_ww : 0.0f;
+        }
         float last_audible_ms = -1.0f;
         // mix readings (blind finals, vibrato, transitions) — leader only
         float ref_midi = 0.0f;
@@ -689,6 +710,8 @@ private:
         float midis[kMaxCandidates] = {0};
         uint32_t owners[kMaxCandidates] = {0};
         uint8_t struck[kMaxCandidates] = {0};
+        uint8_t pruned[kMaxCandidates] = {0};  ///< dropped from later fits (silent)
+        uint8_t quiet_hits[kMaxCandidates] = {0};
         float similarity = 0.0f;
     };
 
@@ -870,7 +893,17 @@ private:
                 // by when the scheduler runs the fit — determinism.
                 g.sustain_due = true;
                 g.sustain_end = sample_pos_;
-                g.next_sustain_ms += size_t(kSustainHopMs);
+                // Adaptive cadence: fine through the attack and early life,
+                // stretched once the note is established (end detection
+                // precision degrades gracefully, facts never drop).
+                const float age = since;
+                // Cadence: fine through the attack and early life (the
+                // center of the note), stretched for established notes and
+                // long pedal tails — end detection precision degrades
+                // gracefully; facts never drop.
+                g.next_sustain_ms += (age < 2000.0f) ? size_t(kSustainHopMs)
+                                    : (age < 5000.0f) ? size_t(kSustainHopMs * 2)
+                                                     : size_t(kSustainHopMs * 4);
             }
         }
 
@@ -983,12 +1016,15 @@ private:
         for (size_t k = 0; k < g.n_cand; ++k) set[k] = g.midis[k];
         if (!validator_.set_expected_chord(set, g.n_cand)) return true;
         validator_.set_search_range_cents(profile_.intonation_band_cents);
+        validator_.set_passes(3); // attack window: full robust passes
         const ChordResult r = validator_.validate(window, kProvisionalWindow);
         g.similarity = r.similarity;
         for (size_t k = 0; k < g.n_cand; ++k) {
             Record* rec = find_record(g.owners[k]);
             if (rec != nullptr) {
-                rec->best_sim = std::max(rec->best_sim, r.similarity);
+                const float w = validator_.note_rms(k);
+                rec->sim_wsum += r.similarity * w;
+                rec->sim_ww += w;
                 rec->best_presence = std::max(rec->best_presence, r.note_presence[k]);
             }
         }
@@ -1029,40 +1065,60 @@ private:
         return true;
     }
 
-    /// Sustain fit (85 ms SLIDING window, 250 ms cadence): per-candidate
-    /// amplitude trajectory -> per-note lifetimes + pitch centers. One fit
-    /// measures every candidate at once (the joint model). The window ends
-    /// at the cadence point fixed on the bucket grid — never at call time.
+    /// Sustain fit (SLIDING window, 250 ms cadence): per-candidate amplitude
+    /// trajectory -> per-note lifetimes + pitch centers. One fit measures
+    /// every live candidate at once (the joint model). The window ends at
+    /// the cadence point fixed on the bucket grid — never at call time.
+    /// Performance (the resource budget of the design doc): candidates that
+    /// have gone silent are pruned from later fits (cost falls
+    /// quadratically with candidate count), clean sustain windows run one
+    /// IRLS pass instead of three, and the window shrinks to 2048 once
+    /// few candidates remain.
     bool sustain_fit(Group& g) noexcept {
         g.sustain_due = false;
-        float window[kSustainWindow];
-        if (g.sustain_end < g.window_start + kSustainWindow) return false;
-        const uint64_t wstart = g.sustain_end - kSustainWindow;
-        if (!copy_history_range(wstart, kSustainWindow, window)) return false;
-        const float t_ms = 1000.0f * float(g.sustain_end) / sr_;
+        // Live candidates only: a fit over dead hypotheses is pure cost.
+        size_t map[kMaxCandidates] = {0};
         float set[kMaxCandidates] = {0};
-        for (size_t k = 0; k < g.n_cand; ++k) set[k] = g.midis[k];
-        if (!validator_.set_expected_chord(set, g.n_cand)) return true;
-        validator_.set_search_range_cents(profile_.intonation_band_cents);
-        const ChordResult r = validator_.validate(window, kSustainWindow);
-        g.similarity = r.similarity;
+        size_t n_live = 0;
         for (size_t k = 0; k < g.n_cand; ++k) {
-            Record* rec = find_record(g.owners[k]);
+            if (g.pruned[k]) continue;
+            map[n_live] = k;
+            set[n_live] = g.midis[k];
+            ++n_live;
+        }
+        if (n_live == 0) return false; // nothing left to measure
+        const size_t win_len = 2048u; // sustain: 43 ms separates neighbours
+                                      // at mid/bass register at half cost
+        if (g.sustain_end < g.window_start + win_len) return false;
+        const uint64_t wstart = g.sustain_end - win_len;
+        float window[kSustainWindow];
+        if (!copy_history_range(wstart, win_len, window)) return false;
+        const float t_ms = 1000.0f * float(g.sustain_end) / sr_;
+        if (!validator_.set_expected_chord(set, n_live)) return true;
+        validator_.set_search_range_cents(profile_.intonation_band_cents);
+        validator_.set_passes(1);        // clean windows: one robust pass
+        validator_.set_refine_rounds(2); // cents still searched, 2/3 cost
+        const ChordResult r = validator_.validate(window, win_len);
+        g.similarity = r.similarity;
+        for (size_t idx = 0; idx < n_live; ++idx) {
+            Record* rec = find_record(g.owners[map[idx]]);
             if (rec != nullptr) {
-                rec->best_sim = std::max(rec->best_sim, r.similarity);
-                rec->best_presence = std::max(rec->best_presence, r.note_presence[k]);
+                const float w = validator_.note_rms(idx);
+                rec->sim_wsum += r.similarity * w;
+                rec->sim_ww += w;
+                rec->best_presence = std::max(rec->best_presence, r.note_presence[idx]);
             }
         }
 
-        // Class fact from the first fit that has a real window (the blind
-        // classifier's evidence window is as long as we can make it).
+        // Class fact at the first fit where the classifier's evidence
+        // window (as long as we can make it) actually exists — the cadence
+        // is bucket-fixed, so which fit emits it is deterministic.
         if (!g.class_done) {
-            g.class_done = true;
             float cbuf[kFinalWindow];
-            size_t clen = kFinalWindow;
             float ct = 0.0f;
-            if (clen >= 256 && group_window(g, clen, cbuf, ct)) {
-                const BlindContent bc = classify_content(cbuf, clen, sr_, profile_);
+            if (group_window(g, kFinalWindow, cbuf, ct)) {
+                g.class_done = true;
+                const BlindContent bc = classify_content(cbuf, kFinalWindow, sr_, profile_);
                 const uint32_t pf = (bc.klass == ContentClass::Polyphonic)
                     ? kFlagPolyphonic : kFlagNone;
                 emit(note_event::make_content_class(g.leader, ct, bc.klass,
@@ -1070,11 +1126,20 @@ private:
             }
         }
 
-        for (size_t k = 0; k < g.n_cand; ++k) {
+        for (size_t idx = 0; idx < n_live; ++idx) {
+            const size_t k = map[idx];
             Record* rec = find_record(g.owners[k]);
             if (rec == nullptr || !rec->live) continue;
-            const float amp = validator_.note_rms(k);
-            const float refined = validator_.refined_cents(k);
+            const float amp = validator_.note_rms(idx);
+            const float refined = validator_.refined_cents(idx);
+            // Pruning: a candidate below 5% of its own peak for two
+            // consecutive fits leaves the joint set (cost drops
+            // quadratically with the candidate count).
+            if (rec->peak_amp > 0.0f && amp < rec->peak_amp * 0.05f) {
+                if (++g.quiet_hits[k] >= 2) g.pruned[k] = 1;
+            } else {
+                g.quiet_hits[k] = 0;
+            }
             if (rec->traj_n < kTrajMax) {
                 rec->traj[rec->traj_n++] = {t_ms, amp, refined};
             }
@@ -1118,6 +1183,7 @@ private:
         // single-hypothesis group (its own register), discriminating inside
         // multi-note sets. Similarity gates the rest.
         const bool heard = n.best_presence >= 0.05f;
+        const float fit_quality = n.sim_mean();
         if (n.candidate_index >= 0) {
             float wsum = 0.0f, csum = 0.0f;
             for (size_t i = 0; i < n.traj_n; ++i) {
@@ -1130,11 +1196,11 @@ private:
             // heard (presence) and the set explains the window (similarity).
             // Anything less is an honest "unresolved" — never an invented
             // pitch (the fairness rule).
-            if (wsum > 0.0f && n.best_sim >= 0.80f && heard) {
+            if (wsum > 0.0f && fit_quality >= 0.80f && heard) {
                 have_final = true;
                 final_midi = n.hypothesis_midi;
                 final_cents = csum / wsum;
-                if (n.best_sim < 0.80f) f |= kFlagUnexplainedEnergy;
+                if (fit_quality < 0.80f) f |= kFlagUnexplainedEnergy;
             } else {
                 f |= kFlagUnexplainedEnergy;
             }
@@ -1194,7 +1260,7 @@ private:
             const float mean_amp = used > 0 ? asum / float(used) : n.peak_amp;
             emit(note_event::make_content_candidate(
                 n.id, n.strike_group, end_ms, uint8_t(n.candidate_index),
-                n.hypothesis_midi, n.best_presence, center, mean_amp, n.best_sim,
+                n.hypothesis_midi, n.best_presence, center, mean_amp, fit_quality,
                 kFlagNone));
         }
 
@@ -1277,6 +1343,8 @@ private:
     size_t hist_fill_ = 0;
     uint64_t sample_pos_ = 0;
 
+    size_t fit_count_ = 0;
+    double fit_micros_ = 0.0;
     size_t bucket_samples_ = 480;
     double bucket_acc_ = 0.0;
     size_t bucket_n_ = 0;

@@ -95,6 +95,17 @@ public:
     /// Minimum window RMS to attempt validation.
     void set_min_rms(float r) noexcept { min_rms_ = r; }
 
+    /// IRLS robust-pass count (default 3). Transient-heavy windows (the
+    /// attack) need all passes; clean sustain windows converge in one —
+    /// 3x cheaper, same refinement rounds (cents stay searched).
+    void set_passes(int n) noexcept { passes_ = (n < 1) ? 1 : (n > 3 ? 3 : n); }
+
+    /// Fit+search round count (default 3: fit, search, fit, search, fit).
+    /// 2 rounds still search the frequencies (cents stay real) at 2/3 cost.
+    void set_refine_rounds(int n) noexcept {
+        refine_rounds_ = (n < 2) ? 2 : (n > 3 ? 3 : n);
+    }
+
     /// Refined detuning of expected note `k` from the last validate() call,
     /// in cents (diagnostics / judgment feedback).
     float refined_cents(size_t k) const noexcept {
@@ -137,9 +148,9 @@ public:
         for (size_t t = 0; t < count; ++t) {
             weights_[t] = (t >= count / 2) ? 1.0f : 0.0f;
         }
-        for (int pass = 0; pass < 3; ++pass) {
+        for (int pass = 0; pass < passes_; ++pass) {
             if (!joint_refine_fit(samples, count)) return res;
-            if (pass < 2) update_weights(samples, count);
+            if (pass < passes_ - 1) update_weights(samples, count);
         }
 
         // Metrics from the final joint weighted fit.
@@ -194,7 +205,7 @@ private:
         n_atoms_ = note_count_ * kAtomsPerNote;
         for (size_t k = 0; k < note_count_; ++k) refined_cents_[k] = 0.0f;
 
-        for (int round = 0; round < 3; ++round) {
+        for (int round = 0; round < refine_rounds_; ++round) {
             for (size_t k = 0; k < note_count_; ++k) {
                 const float f = GoertzelChordValidator::midi_to_hz(
                     expected_midi_[k] + refined_cents_[k] / 100.0f);
@@ -206,7 +217,7 @@ private:
                                 n_atoms_, lambda)) {
                 return false;
             }
-            if (round == 2) break;
+            if (round == refine_rounds_ - 1) break;
 
             // One-vs-rest frequency search per note.
             for (size_t k = 0; k < note_count_; ++k) {
@@ -376,6 +387,8 @@ private:
     float presence_floor_ = 0.2f;
     float min_rms_ = 0.008f;
     float search_cents_ = 30.0f;
+    int passes_ = 3;
+    int refine_rounds_ = 3;
 
     size_t note_count_ = 0;
     size_t n_atoms_ = 0;

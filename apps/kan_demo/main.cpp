@@ -1158,6 +1158,8 @@ int main(int argc, char** argv) {
                 stats.exprs, stats.vib_claims, stats.dyn[0], stats.dyn[1], stats.dyn[2],
                 stats.dyn[3], stats.dyn[4], stats.dyn[5], stats.dyn[6]);
     std::printf("closed: %d notes | stream drops: %u\n", stats.closes, ev_stream.dropped());
+    std::printf("measurement budget: %zu fits, %.1f ms CPU total\n",
+                desc.fit_count(), desc.fit_micros() / 1000.0);
     std::printf("\n--- measured score (per struck note: the validation artifact) ---\n");
     std::printf("  onset_ms  dur_ms  note  cents  presence  sim   tier\n");
     for (const auto& r : score) {
