@@ -449,8 +449,25 @@ fact latencies (keyboard profile): HIT = onset block (≤ 2.7 ms quantized),
 probe fit ≈ +27 ms (per-record provisional + first candidate facts), final
 pitch + CLOSE at the note's own −20 dB end. Cost note: conditioned fits are
 ~quadratic in candidate count (docs/dsp/README §2.7) — the offline
-validation pack runs songs in parallel (`JOBS=6`); per-strike-group fit
-parallelism is the RT-path follow-up.
+validation pack runs songs in parallel (`JOBS=6`).
+
+**Resource budget (hardware constraint, decided with review): the tool must
+run on ordinary machines — the DSP analysis fits in ≤ 2 worker threads and
+the TOTAL stays ≤ 4 cores** (game + audio keep the rest). The optimization
+order that gets there, all determinism-preserving:
+1. dynamic candidate pruning (candidates that fall <0.05 of their peak leave
+   the fit; cost falls quadratically with candidate count) — 2-4x;
+2. SIMD (AVX2/NEON) for the Gram/YIN/Goertzel loops — 2-4x;
+3. analytic Gram for the sinusoidal atoms (Dirichlet-kernel products,
+   O(atoms²) instead of O(atoms²·window)) — 10-100x on the dominant term;
+4. a worker pool for per-strike-group fits, capped at `min(3, cores - 2)`
+   with adaptive fit cadence (the 250 ms hop stretches under load) as load
+   shedding — events stay ordered via a commit sequence.
+GPU acceleration is deliberately OUT: it breaks the byte-identical
+live/offline guarantee (device-dependent reductions) and the budget above
+is met on CPU. Wind/monophonic instruments are trivial (1 candidate); the
+heavy case is piano, and cadence/candidate caps degrade quality gracefully
+before they ever drop facts.
 
 - `libkan/include/libkan/instrument_profile.hpp`: add
   `max_simultaneous_notes` (wind 1 / guitar 6 / piano 10) and the
