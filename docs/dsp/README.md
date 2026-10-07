@@ -502,3 +502,8 @@ differences beyond the recorded baseline indicate tool regressions.
 App-level development context: [apps/kan_demo/DEVELOPMENT.md](../apps/kan_demo/DEVELOPMENT.md)
 (live demo design direction and polish rules) ·
 [apps/kan_analyze/README.md](../apps/kan_analyze/README.md) (descriptor tool).
+
+See also: [`../architecture/measurement-invariants.md`](../architecture/measurement-invariants.md)
+— the measured invariants and accepted tradeoffs (onset threshold, judging
+gates, duration bias, resource budget) that any DSP change must respect or
+deliberately re-negotiate via its change checklist.

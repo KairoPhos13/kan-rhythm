@@ -428,6 +428,12 @@ of audio (the retained history is 0.68 s).
 
 ## 7. Decisions (resolved 2026-10-06)
 
+> **Load-bearing balance:** the measured invariants and accepted tradeoffs
+> this design depends on (detector threshold, cents-vs-sim judging, duration
+> bias, accepted gaps T1/T2, and the change checklist) live in
+> [`measurement-invariants.md`](measurement-invariants.md). Future features
+> must not break that balance except as an analyzed decision recorded there.
+
 | # | question | resolution |
 |---|---|---|
 | 1 | where candidate facts are written | nothing to decide: one event carries both ids (`note_id` + `cand_note_id`); consumers group as they wish |
