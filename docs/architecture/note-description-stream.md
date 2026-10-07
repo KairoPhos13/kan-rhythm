@@ -244,8 +244,10 @@ struct NoteEvent {
 
 Semantics per kind:
 
-- **Hit** — `onset_ms` (block-quantized) + `strength` (attack energy).
-  Emitted from the onset path; **never revised or superseded**.
+- **Hit** — `onset_ms` (block-quantized) + `strength` (attack energy) +
+  the record's hypothesis identity (`midi`, 0/null = blind) + its
+  `strike_group` (records struck together share it). Emitted when the
+  record opens (strike, or legato `TRANSITION`); **never revised**.
 - **Pitch** — `Provisional`: earliest post-blanking estimate (short window;
   may carry `MIX`/`HOP`). `Final`: one consistent estimate (midi + cents,
   Hz derived from the pair) from the longest available evidence (§2.4), or
@@ -330,14 +332,21 @@ One JSON object per line, one per event, deterministic key order so live
 and offline logs diff cleanly:
 
 ```json
-{"v":1,"note":17,"kind":"HIT","t_ms":3320.0,"onset_ms":3320.0,"strength":0.42,"flags":[]}
-{"v":1,"note":17,"kind":"CONTENT","t_ms":3341.0,"class":"polyphonic","n_unresolved":3,"flags":["POLYPHONIC"]}
-{"v":1,"note":17,"kind":"CONTENT","t_ms":3341.0,"cand":12,"cand_note":9,"midi":67,"presence":0.61,"cents":-5.0,"amp":0.11,"similarity":0.96,"flags":[]}
-{"v":1,"note":17,"kind":"PITCH","t_ms":3341.0,"stage":"provisional","midi":67,"cents":-4.2,"hz":392.1,"flags":["MIX"]}
-{"v":1,"note":17,"kind":"EXPRESSION","t_ms":3661.0,"dyn_db":-12.4,"attack_ms":37,"release_ms":205,"sustain":0.58,"vib_hz":5.1,"vib_depth_c":33.0,"flags":[]}
-{"v":1,"note":17,"kind":"PITCH","t_ms":3661.0,"stage":"final","midi":67,"cents":-4.0,"hz":391.9,"flags":[]}
-{"v":1,"note":17,"kind":"CLOSE","t_ms":3661.0,"end_ms":3661.0,"dur_ms":341.0,"flags":[]}
+{"v":2,"note":17,"kind":"HIT","t_ms":3320.0,"onset_ms":3320.0,"strength":0.42,"midi":67,"strike":17,"flags":[]}
+{"v":2,"note":17,"kind":"CONTENT","t_ms":3341.0,"class":"polyphonic","n_unresolved":3,"dominant_share":0.45,"flags":["POLYPHONIC"]}
+{"v":2,"note":17,"kind":"CONTENT","t_ms":3341.0,"cand":0,"midi":67,"presence":0.61,"cents":-5.0,"amp":0.11,"similarity":0.96,"strike":17,"flags":[]}
+{"v":2,"note":17,"kind":"PITCH","t_ms":3341.0,"stage":"provisional","midi":67,"cents":-4.2,"hz":392.1,"flags":[]}
+{"v":2,"note":17,"kind":"EXPRESSION","t_ms":3661.0,"dyn_db":-12.4,"dyn_tier":"mf","attack_ms":37,"release_ms":205,"sustain":0.58,"vib_hz":5.1,"vib_depth_c":33.0,"flags":[]}
+{"v":2,"note":17,"kind":"PITCH","t_ms":3661.0,"stage":"final","midi":67,"cents":-4.0,"hz":391.9,"flags":[]}
+{"v":2,"note":17,"kind":"CLOSE","t_ms":3661.0,"end_ms":3661.0,"dur_ms":341.0,"peak_rms":0.12,"flags":[]}
 ```
+
+Reading the human transcript (kan_demo / the `.log`): one strike header
+(`▶ strike N — record per struck note:`) followed by one named line per
+record (`#id note struck|legato transition`), timestamped fact lines per
+record, and a final **measured score** table — one line per struck note
+(onset, its OWN duration, final pitch or honest `unresolved`, evidence,
+tier). That table is the artifact to validate a song against.
 
 Schema rules (the honesty rules of Phase 0, generalized):
 

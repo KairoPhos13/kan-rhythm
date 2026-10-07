@@ -93,7 +93,7 @@ struct NoteEvent {
     uint8_t candidate_index = 0;
 
     union Payload {
-        struct { float onset_ms; float strength; uint32_t strike_group; } hit;
+        struct { float onset_ms; float strength; float midi; uint32_t strike_group; } hit;
         struct { float midi; float cents; float hz; } pitch;
         struct { float midi; float presence; float cents; float amplitude;
                  float similarity; uint32_t strike_group; } candidate;
@@ -113,7 +113,8 @@ namespace note_event {
 /// HIT — fixed at the moment the record opens (strike or transition);
 /// never revised. `strike_group` ties records struck by the same attack.
 inline NoteEvent make_hit(uint32_t note_id, uint32_t strike_group, float t_ms,
-                          float onset_ms, float strength, uint32_t flags) noexcept {
+                          float onset_ms, float strength, float hypothesis_midi,
+                          uint32_t flags) noexcept {
     NoteEvent e{};
     e.note_id = note_id;
     e.t_ms = t_ms;
@@ -121,6 +122,7 @@ inline NoteEvent make_hit(uint32_t note_id, uint32_t strike_group, float t_ms,
     e.kind = NoteKind::Hit;
     e.u.hit.onset_ms = onset_ms;
     e.u.hit.strength = strength;
+    e.u.hit.midi = hypothesis_midi; ///< the record's identity (0 = blind)
     e.u.hit.strike_group = strike_group;
     return e;
 }
@@ -263,11 +265,20 @@ inline size_t note_event_jsonl(const NoteEvent& e, char* buf, size_t cap) noexce
                   double(e.t_ms));
 
     char body[384];
+    char hit_midi[16];
+    if (e.u.hit.midi > 0.0f) {
+        std::snprintf(hit_midi, sizeof(hit_midi), "%.0f", double(e.u.hit.midi));
+    } else {
+        std::snprintf(hit_midi, sizeof(hit_midi), "%s", "null");
+    }
+    const char* midi_cell = hit_midi;
     switch (e.kind) {
     case NoteKind::Hit:
         std::snprintf(body, sizeof(body),
-                      ",\"onset_ms\":%.2f,\"strength\":%.4f,\"strike\":%u",
+                      ",\"onset_ms\":%.2f,\"strength\":%.4f,\"midi\":%s,"
+                      "\"strike\":%u",
                       double(e.u.hit.onset_ms), double(e.u.hit.strength),
+                      e.u.hit.midi > 0.0f ? midi_cell : "null",
                       e.u.hit.strike_group);
         break;
     case NoteKind::Pitch:
@@ -797,7 +808,11 @@ private:
             }
         }
         const size_t n_rec = (n_struck > 0 && n_struck <= kMaxCandidates) ? n_struck : 1;
+        // Records are created bound to their struck candidates (in order),
+        // so the HIT can carry the record's identity from the start.
+        size_t k = 0;
         for (size_t r = 0; r < n_rec; ++r) {
+            while (k < g->n_cand && !g->struck[k]) ++k;
             Record* rec = alloc_record();
             if (rec == nullptr) return;
             *rec = Record{};
@@ -807,27 +822,18 @@ private:
             rec->onset_sample = onset_sample;
             rec->onset_ms = onset_ms;
             rec->strength = block_strength_;
+            if (n_struck > 0 && k < g->n_cand) {
+                rec->candidate_index = int(k);
+                rec->hypothesis_midi = g->midis[k];
+                g->owners[k] = rec->id;
+                ++k;
+            }
             if (g->leader == 0) g->leader = rec->id;
             ++g->live_records;
             last_note_id_ = rec->id;
             emit(note_event::make_hit(rec->id, g->id, onset_ms, onset_ms,
-                                      block_strength_, kFlagNone));
-        }
-        // Bind struck candidates to their records (in order).
-        if (n_struck > 0) {
-            size_t r = 0;
-            for (size_t k = 0; k < g->n_cand && r < n_rec; ++k) {
-                if (!g->struck[k]) continue;
-                for (auto& n : records_) {
-                    if (n.live && n.strike_group == g->id && n.candidate_index < 0) {
-                        n.candidate_index = int(k);
-                        n.hypothesis_midi = g->midis[k];
-                        g->owners[k] = n.id;
-                        break;
-                    }
-                }
-                ++r;
-            }
+                                      block_strength_, rec->hypothesis_midi,
+                                      kFlagNone));
         }
     }
 
@@ -858,7 +864,7 @@ private:
         last_note_id_ = rec->id;
         (void)midi;
         emit(note_event::make_hit(rec->id, g->id, t_ms, t_ms, block_strength_,
-                                  kFlagTransition));
+                                  midi, kFlagTransition));
     }
 
     // ---- per-bucket bookkeeping (10 ms grid, block-size independent) ------
@@ -1078,10 +1084,13 @@ private:
             }
             if (rec != nullptr && rec->live && !rec->provisional_sent) {
                 rec->provisional_sent = true;
-                if ((f & kFlagSearchSaturated) != 0 || r.similarity < 0.40f) {
+                // Display-only, but still honest: a candidate barely heard
+                // (presence < 0.05 in a multi-note set) gets no pitch claim.
+                const bool heard = (g.n_cand <= 1) || (r.note_presence[k] >= 0.05f);
+                if ((f & kFlagSearchSaturated) != 0 || r.similarity < 0.40f || !heard) {
                     emit(note_event::make_pitch_unresolved(rec->id, t_ms,
                                                            PitchStage::Provisional,
-                                                           f));
+                                                           f | (heard ? kFlagNone : kFlagMixed)));
                 } else {
                     emit(note_event::make_pitch(rec->id, t_ms, PitchStage::Provisional,
                                                 g.midis[k], refined, f));

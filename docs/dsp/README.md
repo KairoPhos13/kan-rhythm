@@ -162,13 +162,13 @@ confirmation engine with an expected note, never as the sole blind tuner.
   `refined_cents(k)` returns per-note detuning. Measured: **macro-F1
   1.0000** on major/minor/one-wrong-string (40 trials, C3–A4), 29.3 ms
   verification (8 ms blanking + 1024-sample window), true chords 0.94+
-  similarity. Cost (measured — `libkan_harmonic_probe --bench`, Release,
-  this machine): 10.8 ms per `validate()` for a triad on 1024 samples,
-  34.8 ms for 6 candidates, 280 ms for 6 candidates on 8192 samples
-  (~quadratic in candidate count) — call per chord event, not per block;
-  long-window fits need scheduling thought (note-description-stream.md
-  §2.8; the earlier "~2–4 ms per call" figure had no backing measurement
-  and is superseded). Window must not exceed the constructor's `max_window`.
+  similarity. Cost (measured, Release, this machine): the conditioned fit
+  runs **~11 ms** for 6 candidates on 2048 samples (AVX2 normal equations +
+  atom-major residual loops — the old scalar/strided form measured 37 ms;
+  ~quadratic in candidate count, ~linear in window). Call per chord event /
+  scheduled measurement, never per block; the note stream schedules them
+  (`note-description-stream.md` §8 records the resource budget). Window
+  must not exceed the constructor's `max_window`.
 - `chord_goertzel.hpp` — marginal Goertzel slot bank (fundamental + first
   3 harmonics per note): verifies correct chords (40/40 at threshold),
   but marginal magnitudes cannot separate semitones within 21 ms windows
@@ -270,10 +270,14 @@ numbers the tool distrusts. `NoteEventStream` is lock-free SPSC with a
 visible drop counter; `NoteDescriber` splits the work into an
 allocation-free `process_block` fast path and scheduled `finalize_due()`
 long-window fits (an app may run the latter on a worker thread). Includes
-the JSONL schema-v1 writer and the blind `classify_content()` (Goertzel
-series counting). Design, measured evidence and the fairness rule:
-[note-description-stream.md](../architecture/note-description-stream.md);
-tests: `libkan/tests/note_stream_test.cpp` (six fixtures).
+the JSONL schema-v2 writer and the blind `classify_content()` (Goertzel
+series counting). Records are per STRUCK NOTE (an attack striking N notes
+opens N records with their own lifetimes); HIT carries the record's
+hypothesis identity and strike group; wind/bowed profiles also open records
+on sustained pitch changes (`TRANSITION`). Design, measured evidence and
+the fairness rule: [note-description-stream.md](../architecture/
+note-description-stream.md); tests: `libkan/tests/note_stream_test.cpp`
+(ten fixtures).
 
 ---
 

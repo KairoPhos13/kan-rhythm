@@ -268,11 +268,26 @@ void print_event(const kan::NoteEvent& e, FILE* jsonl) {
         if (kan::note_event_jsonl(e, buf, sizeof(buf)) > 0) std::fputs(buf, jsonl);
     }
     switch (e.kind) {
-    case kan::NoteKind::Hit:
-        std::printf("\n[%9.1f] ▶ #%u ONSET (strike %u%s)\n", double(e.t_ms),
-                    e.note_id, e.u.hit.strike_group,
-                    (e.flags & kan::kFlagTransition) ? ", legato transition" : "");
+    case kan::NoteKind::Hit: {
+        // Records struck together share one visual strike header — the
+        // model is "one record per struck note", and the log now reads so.
+        static uint32_t s_last_strike = 0;
+        if (e.u.hit.strike_group != s_last_strike) {
+            s_last_strike = e.u.hit.strike_group;
+            std::printf("\n[%9.1f] ▶ strike %u — record per struck note:\n",
+                        double(e.t_ms), e.u.hit.strike_group);
+        }
+        char name[8];
+        if (e.u.hit.midi > 0.0f) {
+            std::snprintf(name, sizeof(name), "%s",
+                          midi_to_name(e.u.hit.midi).c_str());
+        } else {
+            std::snprintf(name, sizeof(name), "%s", "?");
+        }
+        std::printf("     #%-3u %-4s %s\n", e.note_id, name,
+                    (e.flags & kan::kFlagTransition) ? "legato transition" : "struck");
         return;
+    }
     case kan::NoteKind::Pitch: {
         const char* label = (e.stage == kan::PitchStage::Provisional)
             ? "provisional" : "final      ";
@@ -299,8 +314,8 @@ void print_event(const kan::NoteEvent& e, FILE* jsonl) {
                 std::printf("[%9.1f]   #%u content: mono\n", double(e.t_ms), e.note_id);
             }
         } else {
-            std::printf("[%9.1f]      cand %-4s presence %.2f %+6.1f c amp %.3f (sim %.2f)%s\n",
-                        double(e.t_ms),
+            std::printf("[%9.1f]   #%u cand %-4s presence %.2f %+6.1f c amp %.3f (sim %.2f)%s\n",
+                        double(e.t_ms), e.note_id,
                         midi_to_name(e.u.candidate.midi).c_str(),
                         double(e.u.candidate.presence), double(e.u.candidate.cents),
                         double(e.u.candidate.amplitude), double(e.u.candidate.similarity),
