@@ -282,6 +282,20 @@ int note_name_to_midi(const char* tok) {
     return -1;
 }
 
+float beats_to_ms(const char* tok, float quarter_ms) {
+    // "1/2", "3/4" -> fractions of a beat; "1", "4" -> whole beats.
+    const char* slash = std::strchr(tok, '/');
+    double beats = 0.0;
+    if (slash != nullptr) {
+        const double num = std::atof(tok);
+        const double den = std::atof(slash + 1);
+        if (den > 0.0) beats = num / den;
+    } else {
+        beats = std::atof(tok);
+    }
+    return (beats > 0.0) ? float(beats) * quarter_ms : 0.0f;
+}
+
 float rhythm_to_ms(const char* tok, float quarter_ms) {
     auto eq = [](const char* a, const char* b) { return std::strcmp(a, b) == 0; };
     if (eq(tok, "16th") || eq(tok, "sixteenth") || eq(tok, "semicorchea")) return quarter_ms * 0.25f;
@@ -298,6 +312,7 @@ bool parse_score(const char* path, std::vector<ScoreNote>& notes) {
     FILE* f = std::fopen(path, "r");
     if (f == nullptr) return false;
     float quarter_ms = 500.0f;
+    bool tempo_known = false;
     char line[256];
     while (std::fgets(line, sizeof(line), f) != nullptr) {
         const char* p = line;
@@ -306,9 +321,10 @@ bool parse_score(const char* path, std::vector<ScoreNote>& notes) {
         if (*p == '#') {
             if (std::strstr(p, "quarter_ms") != nullptr) {
                 quarter_ms = std::strtof(std::strstr(p, "quarter_ms") + 10, nullptr);
+                tempo_known = true;
             } else if (std::strstr(p, "bpm") != nullptr) {
                 const float bpm = std::strtof(std::strstr(p, "bpm") + 3, nullptr);
-                if (bpm > 1.0f) quarter_ms = 60000.0f / bpm;
+                if (bpm > 1.0f) { quarter_ms = 60000.0f / bpm; tempo_known = true; }
             }
             continue;
         }
@@ -317,7 +333,8 @@ bool parse_score(const char* path, std::vector<ScoreNote>& notes) {
         ScoreNote n;
         n.onset_ms = std::strtof(tok1, nullptr);
         n.dur_ms = rhythm_to_ms(tok2, quarter_ms);
-        if (n.dur_ms <= 0.0f) n.dur_ms = std::strtof(tok2, nullptr);
+        if (n.dur_ms <= 0.0f) n.dur_ms = beats_to_ms(tok2, quarter_ms);
+        if (n.dur_ms <= 0.0f && !tempo_known) n.dur_ms = std::strtof(tok2, nullptr);
         const int by_name = note_name_to_midi(tok3);
         n.midi = (by_name >= 0) ? by_name : int(std::lround(std::strtof(tok3, nullptr)));
         if (n.dur_ms <= 0.0f || n.midi <= 0) continue;
