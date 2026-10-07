@@ -629,14 +629,23 @@ public:
                 if (g == nullptr || c.id < g->id) { g = &c; stage = 1; }
             } else if (c.have_cands && c.live_records > 0 && c.sustain_due) {
                 if (g == nullptr || c.id < g->id) { g = &c; stage = 2; }
+            } else if (!c.have_cands && !c.class_done) {
+                // Blind attacks still get their CONTENT class fact (the
+                // mono/polyphonic statement is per attack, not per
+                // candidate set).
+                if (g == nullptr || c.id < g->id) { g = &c; stage = 3; }
             }
         }
         if (g == nullptr) return false;
         const auto t0 = std::chrono::steady_clock::now();
-        const bool ok = (stage == 1) ? probe_fit(*g) : sustain_fit(*g);
-        ++fit_count_;
-        fit_micros_ += std::chrono::duration<double, std::micro>(
-            std::chrono::steady_clock::now() - t0).count();
+        const bool ok = (stage == 1) ? probe_fit(*g)
+                      : (stage == 2) ? sustain_fit(*g)
+                                     : class_fit(*g);
+        if (ok) { // budget counts real measurements, not readiness retries
+            ++fit_count_;
+            fit_micros_ += std::chrono::duration<double, std::micro>(
+                std::chrono::steady_clock::now() - t0).count();
+        }
         return ok;
     }
 
@@ -998,6 +1007,23 @@ private:
         if (end > sample_pos_) return false; // not ready yet
         if (!copy_history_range(g.window_start, len, out)) return false;
         t_ms = 1000.0f * float(end) / sr_;
+        return true;
+    }
+
+    /// CONTENT class for a blind group (no candidates): the mono/polyphonic
+    /// statement is an attack fact. Window ready check keeps it
+    /// deterministic (emitted at the first scheduled call where the
+    /// classifier's evidence window exists).
+    bool class_fit(Group& g) noexcept {
+        float cbuf[kFinalWindow];
+        float ct = 0.0f;
+        if (!group_window(g, kFinalWindow, cbuf, ct)) return false;
+        g.class_done = true;
+        const BlindContent bc = classify_content(cbuf, kFinalWindow, sr_, profile_);
+        const uint32_t pf = (bc.klass == ContentClass::Polyphonic)
+            ? kFlagPolyphonic : kFlagNone;
+        emit(note_event::make_content_class(g.leader, ct, bc.klass,
+                                            bc.n_series, bc.capture, pf));
         return true;
     }
 
