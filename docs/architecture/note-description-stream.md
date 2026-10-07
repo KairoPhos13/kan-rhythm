@@ -427,6 +427,9 @@ of audio (the retained history is 0.68 s).
 | 4 | presence semantics downstream | ship the pair (`presence`, `similarity`); the game derives any combined score; no pre-mixed number |
 | 5 | `kMaxNotes` | per instrument via `InstrumentProfile::max_simultaneous_notes` (wind 1, guitar 6, piano 10); libkan hard cap 10 |
 | 6 | mono/poly threshold | per instrument pack (piano starts at the measured 0.94; wind bypasses the classifier — mono by physics) |
+| 7 | record model (review refinement) | a record is a **struck note**: an attack execution strikes N notes → N records (`strike_group` ties them), each with its own lifetime (start/end/duration). Wind/bowed profiles (`accepts_legato_boundaries`) also open records on sustained pitch changes (`TRANSITION` flag). Candidate facts live under the record the candidate belongs to, so a note sustaining under later attacks accumulates facts in its own register. |
+| 8 | intonation acceptance | `InstrumentProfile::intonation_band_cents` (pack data): the game judges the residual inside the band, calibration-aware — never raw A440 (field takes measured up to −53 c detune) |
+| 9 | vibrato pitch semantics | the final pitch is the **amplitude-weighted center** of the note's trajectory (the center of a vibrato, never its initial value) |
 
 Kept deliberately on the **game** side (not decided here): how HIT /
 provisional / final facts feed reward and penalties, what `unresolved`
@@ -436,7 +439,18 @@ only).
 
 ## 8. Phase 2 implementation plan (decisions resolved, §7)
 
-Status: **Phase 2 shipped** — libkan core + six fixtures (`libkan_note_stream_test`), `kan_analyze --events` (offline JSONL) and `kan_demo --events/--candidates` (progressive display, live JSONL). Measured fact latencies on the fixtures (keyboard profile): HIT = onset block (≤ 2.7 ms quantized), provisional pitch ≈ +59 ms after the onset (6 ms blanking + 43 ms window + 10 ms grid), final facts at the evidence-window end ≈ +177 ms (or at the note's close for short notes), EXPRESSION/CLOSE at the decay-relative end. **Phase 3 shipped** — dynamics tiers (pp..ff, session-relative + optional soft/loud calibration) as the EXPRESSION fact's `dyn_tier`, tested on a soft-vs-loud synthesized passage (`libkan_technique_test`).
+Status: **shipped, with the record model of §7.7** — `libkan/include/libkan/note_stream.hpp`
+(per-struck-note records, own lifetimes from sliding joint-fit trajectories,
+vibrato-center finals, legato `TRANSITION` records, `InstrumentProfile`-driven
+behavior) + ten fixtures (`libkan_note_stream_test`); `kan_analyze --events`;
+`kan_demo --events/--candidates` (`~midi` = sustaining, armed before the
+strike). JSONL schema **v2** (`strike` groups, `TRANSITION` flag). Measured
+fact latencies (keyboard profile): HIT = onset block (≤ 2.7 ms quantized),
+probe fit ≈ +27 ms (per-record provisional + first candidate facts), final
+pitch + CLOSE at the note's own −20 dB end. Cost note: conditioned fits are
+~quadratic in candidate count (docs/dsp/README §2.7) — the offline
+validation pack runs songs in parallel (`JOBS=6`); per-strike-group fit
+parallelism is the RT-path follow-up.
 
 - `libkan/include/libkan/instrument_profile.hpp`: add
   `max_simultaneous_notes` (wind 1 / guitar 6 / piano 10) and the

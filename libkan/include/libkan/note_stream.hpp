@@ -2,41 +2,51 @@
 // Per-note description stream ("register by note") — libkan describes what
 // was played; it never judges (docs/architecture/note-description-stream.md).
 //
-// Each attack opens a note record and facts are added as soon as they become
-// available, one fixed-size POD event at a time:
-//   HIT        onset time + strength. Fixed at the onset, never revised.
-//   PITCH      one provisional estimate, then one final estimate (or
-//              "unresolved"). One consistent estimate per event: midi +
-//              cents, with Hz derived from that pair — never numbers from
-//              different estimators.
+// RECORD MODEL (refined by review): a record is a STRUCK NOTE — an attack
+// execution times the notes it strikes. One attack with three notes struck
+// opens three records, each with its own lifetime (a note may sustain
+// longer than its neighbors, repeat, or be cut earlier). Instruments whose
+// notes start WITHOUT strikes (wind/bowed slurs, transition notes) also
+// open records on sustained pitch changes (profile data decides — libkan
+// contains no instrument names). Facts:
+//   HIT        when a record opens: onset/transition time + strength, plus
+//              its strike_group (records struck together share it). Fixed
+//              at the moment it happens, never revised.
+//   PITCH      provisional estimate first, then one final estimate (or
+//              "unresolved"). The final is the AMPLITUDE-WEIGHTED CENTER
+//              of the note's trajectory — the center of a vibrato, not its
+//              initial value. One consistent estimate per event (midi +
+//              cents; Hz derived from the pair).
 //   CONTENT    mono vs polyphonic attack (blind, candidate-free); when the
 //              caller supplies candidate pitches, one fact per candidate:
-//              presence, cents, amplitude (+ the explained-energy of the
-//              whole set). Candidate facts carry both note ids: the attack
-//              that produced the window and the record the candidate
-//              belongs to.
-//   EXPRESSION envelope (attack/release/sustain), vibrato, dynamics level.
-//   CLOSE      note end (decay-relative) + summary.
+//              presence, cents, amplitude, with the explained energy of
+//              the set. Candidate facts live under the record the
+//              candidate belongs to — a note sustaining under later
+//              attacks accumulates facts in its own register.
+//   EXPRESSION dynamics tier + level, envelope, vibrato (claimed only from
+//              stable trajectories).
+//   CLOSE      the note's OWN end (per-note amplitude trajectory, -20 dB
+//              rule) + summary.
 //
-// Honesty rules (the fairness rule of the design doc): the stream never
-// emits a number the tool distrusts. Flags describe audio-true states only
+// Honesty rules (the fairness rule): the stream never emits a number the
+// tool distrusts. Flags describe audio-true states only
 // (MIX/HOP/POLYPHONIC/DOMINANT/UNEXPLAINED_ENERGY/LOW_REGISTER/
-// SEARCH_SATURATED) — never correct/wrong. Unmeasurable means `unresolved`,
-// which downstream must treat as "not measured", never as "wrong".
+// SEARCH_SATURATED/TRANSITION). Unmeasurable means `unresolved` — "not
+// measured", never "wrong".
 //
-// Threading/RT: the audio callback is untouched (it keeps pushing samples
-// into the existing ring). `process_block` is the analysis fast path and is
-// allocation-free; `finalize_due()` performs at most one pending long-window
-// fit per call (the expensive part) so an app may run it on a worker thread.
+// Threading/RT: the audio callback is untouched. `process_block` is the
+// analysis fast path (allocation-free); `finalize_due()` performs at most
+// one scheduled measurement per call (probe fit, long-window fit, or
+// sustain fit — the expensive part; a worker thread may own the loop).
 // All scratch is allocated in constructors. The event stream is lock-free
-// SPSC per consumer.
+// SPSC per consumer. Everything instrument-specific is `InstrumentProfile`
+// pack data: add a flute or a melodica by adding a profile, never code.
 //
 // Determinism: the stream is a pure function of (sample stream at a given
-// block size, candidate sequence). All times derive from sample positions;
-// no wall clocks, no scheduling state. Same input -> byte-identical JSONL
-// (the live/offline equivalence property).
+// block size, candidate sequence). All times derive from sample positions.
 #include <atomic>
 #include <cmath>
+#include <cstddef>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
@@ -67,12 +77,13 @@ enum NoteFlags : uint32_t {
     kFlagUnexplainedEnergy = 1u << 4, ///< candidate set does not explain the energy
     kFlagLowRegister = 1u << 5,       ///< estimate below C3 on sub-ideal window length
     kFlagSearchSaturated = 1u << 6,   ///< refined cents hit the search bound: no evidence
+    kFlagTransition = 1u << 7,        ///< record opened by a legato pitch change,
+                                      /// not by a strike
 };
 
-/// Fixed-size, trivially copyable per-note fact. One kind of payload is
-/// active per event (see factories in note_event).
+/// Fixed-size, trivially copyable per-note fact.
 struct NoteEvent {
-    uint32_t note_id = 0;         ///< record this fact belongs to (monotonic)
+    uint32_t note_id = 0;         ///< record this fact describes (monotonic)
     uint32_t flags = 0;           ///< NoteFlags
     float t_ms = 0.0f;            ///< stream time of the fact (evidence window end)
     NoteKind kind = NoteKind::Hit;
@@ -81,10 +92,10 @@ struct NoteEvent {
     uint8_t candidate_index = 0;
 
     union Payload {
-        struct { float onset_ms; float strength; } hit;
+        struct { float onset_ms; float strength; uint32_t strike_group; } hit;
         struct { float midi; float cents; float hz; } pitch;
         struct { float midi; float presence; float cents; float amplitude;
-                 float similarity; uint32_t cand_note_id; } candidate;
+                 float similarity; uint32_t strike_group; } candidate;
         struct { float n_unresolved; float dominant_share; } content;
         struct { float dynamics_db; float dynamics_tier; float attack_ms;
                  float release_ms; float sustain_ratio; float vib_rate_hz;
@@ -98,15 +109,18 @@ static_assert(std::is_trivially_copyable<NoteEvent>::value,
 
 namespace note_event {
 
-/// HIT — fixed at the moment of the onset; never revised or superseded.
-inline NoteEvent make_hit(uint32_t note_id, float t_ms, float onset_ms,
-                          float strength) noexcept {
+/// HIT — fixed at the moment the record opens (strike or transition);
+/// never revised. `strike_group` ties records struck by the same attack.
+inline NoteEvent make_hit(uint32_t note_id, uint32_t strike_group, float t_ms,
+                          float onset_ms, float strength, uint32_t flags) noexcept {
     NoteEvent e{};
     e.note_id = note_id;
     e.t_ms = t_ms;
+    e.flags = flags;
     e.kind = NoteKind::Hit;
     e.u.hit.onset_ms = onset_ms;
     e.u.hit.strength = strength;
+    e.u.hit.strike_group = strike_group;
     return e;
 }
 
@@ -140,7 +154,8 @@ inline NoteEvent make_pitch_unresolved(uint32_t note_id, float t_ms,
     return e;
 }
 
-/// CONTENT class — blind mono-vs-polyphonic statement of the attack.
+/// CONTENT class — blind mono-vs-polyphonic statement of an attack
+/// (`note_id` = the strike group's leader record).
 inline NoteEvent make_content_class(uint32_t note_id, float t_ms, ContentClass klass,
                                     float n_unresolved, float dominant_share,
                                     uint32_t flags) noexcept {
@@ -156,8 +171,11 @@ inline NoteEvent make_content_class(uint32_t note_id, float t_ms, ContentClass k
 }
 
 /// CONTENT candidate — one measurement of one caller-supplied hypothesis.
-inline NoteEvent make_content_candidate(uint32_t note_id, float t_ms,
-                                        uint8_t candidate_index, uint32_t cand_note_id,
+/// `note_id` = the record the candidate belongs to (a sustaining note
+/// accumulates facts in its own register); `strike_group` = the attack
+/// whose window produced the measurement.
+inline NoteEvent make_content_candidate(uint32_t note_id, uint32_t strike_group,
+                                        float t_ms, uint8_t candidate_index,
                                         float midi, float presence, float cents,
                                         float amplitude, float similarity,
                                         uint32_t flags) noexcept {
@@ -172,12 +190,11 @@ inline NoteEvent make_content_candidate(uint32_t note_id, float t_ms,
     e.u.candidate.cents = cents;
     e.u.candidate.amplitude = amplitude;
     e.u.candidate.similarity = similarity;
-    e.u.candidate.cand_note_id = cand_note_id;
+    e.u.candidate.strike_group = strike_group;
     return e;
 }
 
-/// EXPRESSION — how the note was played (measurements only). `dynamics_tier`
-/// is a DynamicsTier (technique.hpp) carried as float for POD uniformity.
+/// EXPRESSION — how the note was played (measurements only).
 inline NoteEvent make_expression(uint32_t note_id, float t_ms, float dynamics_db,
                                  float dynamics_tier, float attack_ms, float release_ms,
                                  float sustain_ratio, float vib_rate_hz,
@@ -196,7 +213,7 @@ inline NoteEvent make_expression(uint32_t note_id, float t_ms, float dynamics_db
     return e;
 }
 
-/// CLOSE — the note is over (decay-relative end); never revises earlier facts.
+/// CLOSE — the note's own end; never revises earlier facts.
 inline NoteEvent make_close(uint32_t note_id, float t_ms, float end_ms,
                             float duration_ms, float peak_rms) noexcept {
     NoteEvent e{};
@@ -212,20 +229,20 @@ inline NoteEvent make_close(uint32_t note_id, float t_ms, float end_ms,
 } // namespace note_event
 
 // ---------------------------------------------------------------------------
-// JSONL serialization (schema v1, docs/architecture/note-description-stream.md
-// §5.2). Deterministic key order so live and offline logs diff cleanly.
+// JSONL serialization (schema v2). Deterministic key order so live and
+// offline logs diff cleanly.
 
 /// Writes one JSON line (including the trailing newline). Returns the number
 /// of bytes written, or 0 if `cap` is too small. No allocation.
 inline size_t note_event_jsonl(const NoteEvent& e, char* buf, size_t cap) noexcept {
-    static const char* kFlagNames[7] = {"MIX", "HOP", "POLYPHONIC", "DOMINANT",
+    static const char* kFlagNames[8] = {"MIX", "HOP", "POLYPHONIC", "DOMINANT",
                                         "UNEXPLAINED_ENERGY", "LOW_REGISTER",
-                                        "SEARCH_SATURATED"};
-    char flags[128];
+                                        "SEARCH_SATURATED", "TRANSITION"};
+    char flags[160];
     size_t fp = 0;
     flags[fp++] = '[';
     bool first = true;
-    for (int i = 0; i < 7; ++i) {
+    for (int i = 0; i < 8; ++i) {
         if ((e.flags & (1u << i)) == 0) continue;
         if (!first) flags[fp++] = ',';
         first = false;
@@ -236,7 +253,7 @@ inline size_t note_event_jsonl(const NoteEvent& e, char* buf, size_t cap) noexce
     flags[fp] = '\0';
 
     char head[192];
-    std::snprintf(head, sizeof(head), "{\"v\":1,\"note\":%u,\"kind\":\"%s\",\"t_ms\":%.2f",
+    std::snprintf(head, sizeof(head), "{\"v\":2,\"note\":%u,\"kind\":\"%s\",\"t_ms\":%.2f",
                   e.note_id,
                   e.kind == NoteKind::Hit ? "HIT"
                       : e.kind == NoteKind::Pitch ? "PITCH"
@@ -247,8 +264,10 @@ inline size_t note_event_jsonl(const NoteEvent& e, char* buf, size_t cap) noexce
     char body[384];
     switch (e.kind) {
     case NoteKind::Hit:
-        std::snprintf(body, sizeof(body), ",\"onset_ms\":%.2f,\"strength\":%.4f",
-                      double(e.u.hit.onset_ms), double(e.u.hit.strength));
+        std::snprintf(body, sizeof(body),
+                      ",\"onset_ms\":%.2f,\"strength\":%.4f,\"strike\":%u",
+                      double(e.u.hit.onset_ms), double(e.u.hit.strength),
+                      e.u.hit.strike_group);
         break;
     case NoteKind::Pitch:
         if (e.stage == PitchStage::Unresolved || e.u.pitch.hz <= 0.0f) {
@@ -271,12 +290,12 @@ inline size_t note_event_jsonl(const NoteEvent& e, char* buf, size_t cap) noexce
                           double(e.u.content.dominant_share));
         } else {
             std::snprintf(body, sizeof(body),
-                          ",\"cand\":%u,\"cand_note\":%u,\"midi\":%.0f,\"presence\":%.3f,"
-                          "\"cents\":%.2f,\"amp\":%.5f,\"similarity\":%.3f",
-                          e.candidate_index, e.u.candidate.cand_note_id,
-                          double(e.u.candidate.midi), double(e.u.candidate.presence),
-                          double(e.u.candidate.cents), double(e.u.candidate.amplitude),
-                          double(e.u.candidate.similarity));
+                          ",\"cand\":%u,\"midi\":%.0f,\"presence\":%.3f,"
+                          "\"cents\":%.2f,\"amp\":%.5f,\"similarity\":%.3f,\"strike\":%u",
+                          e.candidate_index, double(e.u.candidate.midi),
+                          double(e.u.candidate.presence), double(e.u.candidate.cents),
+                          double(e.u.candidate.amplitude), double(e.u.candidate.similarity),
+                          e.u.candidate.strike_group);
         }
         break;
     case NoteKind::Expression:
@@ -359,9 +378,10 @@ inline double series_energy(const float* x, size_t n, float sr, float f0,
 /// rejecting grid points that are harmonics of an already-accepted series
 /// (their energy is the accepted note's) and points without their own f0
 /// line. A second series only counts when it carries `profile.
-/// mono_poly_threshold` of the best series' energy. Wind/bowed profiles
-/// (max_simultaneous_notes == 1) skip the search entirely — one note at a
-/// time is instrument physics, not an audio guess. Allocation-free.
+/// mono_poly_threshold` of the best series' energy. The class fact is
+/// always AUDIO-DERIVED: a "mono" instrument profile caps the candidate
+/// set, but never claims mono over polyphonic audio (a companion in the
+/// recording must show up as polyphonic). Allocation-free.
 inline BlindContent classify_content(const float* window, size_t count,
                                      float sample_rate,
                                      const InstrumentProfile& profile) noexcept {
@@ -389,10 +409,7 @@ inline BlindContent classify_content(const float* window, size_t count,
                                 &best_f0_mag);
 
     // Accept further series: descending energy, non-harmonic-derivative of
-    // the accepted ones, with their own fundamental line. The class fact is
-    // always AUDIO-DERIVED (a "mono" instrument profile caps the candidate
-    // set, but never claims mono over polyphonic audio — a companion
-    // instrument in the recording must show up as polyphonic).
+    // the accepted ones, with their own fundamental line.
     float accepted[8] = {best_midi};
     size_t n_acc = 1;
     double acc_energy = best_e;
@@ -437,7 +454,7 @@ inline BlindContent classify_content(const float* window, size_t count,
 
 class NoteEventStream {
 public:
-    /// Allocates the buffer here (setup path). Capacity is rounded up to a
+    /// Allocates the buffer here (setup path). Capacity rounds up to a
     /// power of two.
     explicit NoteEventStream(size_t capacity = 1024) {
         size_t cap = 1;
@@ -487,33 +504,47 @@ private:
 };
 
 // ---------------------------------------------------------------------------
-// The describer: per-note state machine + scheduled measurement.
+// The describer: per-struck-note records with their own lifetimes.
+//
+// One attack execution (a "strike group") opens one record per STRUCK note;
+// candidates that were already sounding keep their own earlier records and
+// accumulate facts there. Per-note ends come from the amplitude trajectory
+// of conditioned joint fits (-20 dB rule); the final pitch is the
+// amplitude-weighted CENTER of that trajectory (the center of a vibrato,
+// not its initial value). Instrument behavior is profile data only.
 
 class NoteDescriber {
 public:
     static constexpr size_t kMaxCandidates = 10;   // hard cap (profile caps below)
-    static constexpr size_t kMaxOpenNotes = 32;
+    static constexpr size_t kMaxRecords = 64;
+    static constexpr size_t kMaxGroups = 16;
     static constexpr size_t kMaxSubscribers = 4;
     static constexpr size_t kProvisionalWindow = 2048;
     static constexpr size_t kFinalWindow = 8192;   // 170 ms at 48 kHz
     static constexpr size_t kReadingWindow = 2048;
-    static constexpr size_t kHistory = 32768;      // power of two; must cover
-                                                   // delayed finalize (0.68 s)
+    static constexpr size_t kSustainWindow = 4096; // 85 ms: separates neighbors
+    static constexpr size_t kHistory = 32768;      // power of two (0.68 s)
     static constexpr size_t kRmsSeriesMax = 512;
+    static constexpr size_t kTrajMax = 96;
+    static constexpr float kSustainHopMs = 250.0f; ///< conditioned sustain fits
+    static constexpr float kTransitionHoldMs = 250.0f; ///< sustained shift = legato
+    static constexpr float kTransitionStepCents = 70.0f;
+    static constexpr float kTransitionResetCents = 35.0f;
 
     struct CandidateEntry {
-        uint32_t cand_note_id = 0; ///< record the hypothesis belongs to (0 = anonymous)
-        float midi = 0.0f;         ///< hypothesis, equal-tempered
+        uint32_t cand_note_id = 0; ///< 0 = anonymous (record assigned at the attack)
+        float midi = 0.0f;
+        uint8_t struck = 0;        ///< 1 = struck at this attack (own record + lifetime)
     };
 
     struct CandidateSet {
-        uint32_t note_id = 0;
+        uint32_t note_id = 0;      ///< attack/group leader record (0 = next attack)
         uint8_t count = 0;
-        CandidateEntry entries[kMaxCandidates] = {};
+        CandidateEntry entries[kMaxCandidates];
     };
 
-    /// Setup path: allocates all scratch once. `profile` supplies the
-    /// instrument caps (max_simultaneous_notes, mono_poly_threshold).
+    /// Setup path: allocates all scratch once. Instrument behaviour comes
+    /// from `profile` (pack data) — never from instrument names.
     NoteDescriber(float sample_rate, const InstrumentProfile& profile)
         : sr_(sample_rate), profile_(profile), detector_(sample_rate),
           validator_(sample_rate, kFinalWindow) {
@@ -536,26 +567,24 @@ public:
         return false;
     }
 
-    /// Share the calibrated onset energy floor (mean square) with the
-    /// pipeline's stage 0 — call when the noise gate calibrates. The
-    /// describer's clock always starts at the first block it is fed.
+    /// Share the calibrated onset energy floor with the pipeline's stage 0.
     void set_noise_floor(float energy) noexcept { detector_.set_noise_floor(energy); }
 
     /// Caller-supplied hypotheses for one attack (fixed-slot copy, no
-    /// allocation). Applies to the named note's finalize measurement; call
-    /// any time after the HIT and before that note finalizes. `note_id == 0`
-    /// prepares the set for the next note to open.
+    /// allocation). Applies to the named attack's group (note_id = the
+    /// group's leader record, or 0 = the next attack). Call any time after
+    /// the HIT and before that group's probe fit.
     bool set_candidates(const CandidateSet& set) noexcept {
         if (set.count > kMaxCandidates) return false;
         if (set.note_id == 0) {
+            if (have_next_cands_) return false; // previous set not consumed yet
             next_cands_ = set;
             have_next_cands_ = true;
             return true;
         }
-        for (auto& n : notes_) {
-            if (n.live && n.id == set.note_id && !n.finalized) {
-                n.cands = set;
-                n.have_cands = true;
+        for (auto& g : groups_) {
+            if (g.live && g.leader == set.note_id && !g.probe_done) {
+                install_candidates(g, set);
                 return true;
             }
         }
@@ -564,13 +593,14 @@ public:
 
     /// ANALYSIS FAST PATH (consumer thread, allocation-free): one block of
     /// stage-0-conditioned audio in, zero or more events out (HIT, PITCH
-    /// provisional). Final measurements come from finalize_due().
+    /// provisional for blind records). Measurements come from
+    /// finalize_due().
     void process_block(const float* samples, size_t n) noexcept {
         double acc = 0.0;
         for (size_t i = 0; i < n; ++i) acc += double(samples[i]) * double(samples[i]);
         block_strength_ = n > 0 ? float(std::sqrt(acc / double(n))) : 0.0f;
         if (detector_.process_onset_block(samples, n)) {
-            open_note(sample_pos_ + n); // block-quantized, like kan_analyze
+            open_strike(sample_pos_ + n); // block-quantized
         }
         const size_t mask = history_.size() - 1;
         for (size_t off = 0; off < n; ++off) {
@@ -586,68 +616,80 @@ public:
         }
     }
 
-    /// SCHEDULED WORK: performs at most one pending finalize (long-window
-    /// measurement) per call, in note order. Returns true when one was
-    /// performed — call repeatedly (a worker thread may own this loop).
-    /// `process_block` never blocks on it.
+    /// SCHEDULED WORK: at most one measurement per call (probe fit, sustain
+    /// fit) — the expensive part; an app may own this loop on a worker
+    /// thread. Returns true when one measurement was performed.
     bool finalize_due() noexcept {
-        NoteSlot* pick = nullptr;
-        for (auto& n : notes_) {
-            if (!n.live || n.finalized || !n.final_due) continue;
-            if (pick == nullptr || n.id < pick->id) pick = &n;
+        Group* g = nullptr;
+        int stage = 0; // 1 = probe fit, 2 = sustain fit
+        for (auto& c : groups_) {
+            if (!c.live) continue;
+            if (c.have_cands && !c.probe_done) {
+                if (g == nullptr || c.id < g->id) { g = &c; stage = 1; }
+            } else if (c.have_cands && c.live_records > 0 && c.sustain_due) {
+                if (g == nullptr || c.id < g->id) { g = &c; stage = 2; }
+            }
         }
-        if (pick == nullptr) return false;
-        finalize_note(*pick);
-        return true;
+        if (g == nullptr) return false;
+        return (stage == 1) ? probe_fit(*g) : sustain_fit(*g);
     }
 
-    /// End of stream: close every open note (finalizes + CLOSE facts).
-    /// Deterministic; may perform all pending work.
+    /// End of stream: close every open record. Deterministic.
     void flush() noexcept {
         while (finalize_due()) {}
-        for (auto& n : notes_) {
-            if (n.live) close_note(n, last_bucket_ms_);
+        for (auto& n : records_) {
+            if (n.live) close_record(n, last_bucket_ms_);
         }
     }
 
-    /// Id of the most recently opened note (0 = none yet).
+    /// Id of the most recently opened record (0 = none yet).
     uint32_t last_note_id() const noexcept { return last_note_id_; }
 
 private:
-    struct NoteSlot {
-        uint32_t id = 0;
-        bool live = false;
-        bool provisional_sent = false;
-        bool finalized = false;
-        bool final_due = false;
-        bool have_cands = false;
-        uint64_t onset_sample = 0;
-        uint64_t close_sample = 0;
-        float onset_ms = 0.0f;
-        float peak_rms = 0.0f;
-        float quiet_ms = 0.0f;
-        float last_bucket_ms = 0.0f;
-        // blind reading bookkeeping (stable estimate = mean deviation from a
-        // fixed per-note reference; never wraps).
+    struct TrajPoint { float t_ms = 0.0f; float amp = 0.0f; float cents = 0.0f; };
+
+    struct Record {
+        uint32_t id = 0, strike_group = 0;
+        bool live = false, provisional_sent = false;
+        uint64_t onset_sample = 0, close_sample = 0;
+        float onset_ms = 0.0f, strength = 0.0f;
+        int candidate_index = -1;      ///< index in its group's list (-1 = blind)
+        float hypothesis_midi = 0.0f;
+        // per-note amplitude trajectory (conditioned joint fits)
+        TrajPoint traj[kTrajMax];
+        size_t traj_n = 0;
+        float peak_amp = 0.0f;
+        float best_sim = 0.0f;       ///< best fit quality over the trajectory
+        float best_presence = 0.0f;  ///< strongest measured presence share
+        size_t quiet_fits = 0;
+        float last_audible_ms = -1.0f;
+        // mix readings (blind finals, vibrato, transitions) — leader only
         float ref_midi = 0.0f;
         bool have_ref = false;
-        float dev_sum = 0.0f;
-        float prev_dev = 0.0f;
-        float max_dev = 0.0f;
-        size_t readings = 0;
-        size_t valid_readings = 0;
-        size_t hops = 0;
+        float dev_sum = 0.0f, prev_dev = 0.0f, max_dev = 0.0f;
+        size_t readings = 0, valid_readings = 0, hops = 0;
         size_t next_reading_ms = 50;
-        // long-window blind estimate at finalize time
-        bool final_est_valid = false;
-        float final_midi = 0.0f;
-        float final_cents = 0.0f;
-        int dyn_tier = int(DynamicsTier::WarmingUp);
-        TrajectoryBuffer traj;
-        // envelope series (10 ms hop, fixed capacity)
+        float shift_start_ms = -1.0f;
+        TrajectoryBuffer vib;
+        // blind envelope (records without fits)
         float rms_series[kRmsSeriesMax] = {0};
         size_t rms_count = 0;
-        CandidateSet cands = {};
+        float peak_rms = 0.0f, quiet_ms = 0.0f;
+    };
+
+    struct Group {
+        uint32_t id = 0, leader = 0;
+        bool live = false, probe_done = false, class_done = false;
+        bool have_cands = false, sustain_due = false;
+        size_t live_records = 0;
+        uint64_t window_start = 0;
+        uint64_t sustain_end = 0;   ///< end of the next sustain window
+        size_t next_sustain_ms = 0;
+        size_t n_cand = 0;
+        float midis[kMaxCandidates] = {0};
+        uint32_t owners[kMaxCandidates] = {0};
+        uint8_t struck[kMaxCandidates] = {0};
+        float similarity = 0.0f;
     };
 
     // ---- emission ---------------------------------------------------------
@@ -657,50 +699,134 @@ private:
         }
     }
 
-    /// Opens a note record on the attack and emits its HIT (fixed forever).
-    /// Spec: every attack opens its own record — the only merge rule is the
-    /// detector's own ~65 ms debounce. Do NOT latch retriggers here: a
-    /// latch swallows real fast notes (16ths at 120 BPM are 125 ms apart),
-    /// and a missed HIT is worse for the game than a spurious one. Decaying
-    /// notes can retrigger the detector on pathological material — that is
-    /// a documented failure signature (docs/dsp/README.md §6.3), not a
-    /// reason to drop real attacks.
-    void open_note(uint64_t onset_sample) noexcept {
+    Record* alloc_record() noexcept {
+        for (auto& n : records_) {
+            if (!n.live) return &n;
+        }
+        // Table full: close the oldest record to make room.
+        Record* oldest = nullptr;
+        for (auto& n : records_) {
+            if (n.live && (oldest == nullptr || n.id < oldest->id)) oldest = &n;
+        }
+        if (oldest != nullptr) close_record(*oldest, last_bucket_ms_);
+        return oldest;
+    }
+
+    void install_candidates(Group& g, const CandidateSet& set) noexcept {
+        g.n_cand = std::min<size_t>(set.count, kMaxCandidates);
+        for (size_t k = 0; k < g.n_cand; ++k) {
+            g.midis[k] = set.entries[k].midi;
+            g.struck[k] = set.entries[k].struck;
+            g.owners[k] = set.entries[k].cand_note_id;
+        }
+        g.have_cands = true;
+    }
+
+    /// A strike (or the opening of the very first record): one record per
+    /// struck candidate, or one blind record when no candidates.
+    void open_strike(uint64_t onset_sample) noexcept {
         const float onset_ms = 1000.0f * float(onset_sample) / sr_;
+
         // Monophonic instrument physics (profile data): one note at a time,
-        // so the previous note ends at this attack (its own end, not the
-        // mix decay). Polyphonic profiles keep the decay-relative end.
+        // so open records end at this strike (their own end).
         if (profile_.max_simultaneous_notes <= 1) {
-            for (auto& n : notes_) {
-                if (n.live) close_note(n, onset_ms);
+            for (auto& n : records_) {
+                if (n.live) close_record(n, onset_ms);
             }
         }
-        NoteSlot* slot = nullptr;
-        for (auto& n : notes_) {
-            if (!n.live) { slot = &n; break; }
+
+        Group* g = nullptr;
+        for (auto& c : groups_) {
+            if (!c.live) { g = &c; break; }
         }
-        if (slot == nullptr) {
-            // Table full: close the oldest open note to make room.
-            for (auto& n : notes_) {
-                if (n.live && (slot == nullptr || n.id < slot->id)) slot = &n;
+        if (g == nullptr) {
+            for (auto& c : groups_) {
+                if (g == nullptr || c.id < g->id) g = &c;
             }
-            if (slot != nullptr) {
-                close_note(*slot, 1000.0f * float(onset_sample) / sr_);
+            for (auto& n : records_) {
+                if (n.live && n.strike_group == g->id) close_record(n, onset_ms);
             }
         }
-        if (slot == nullptr) return;
-        *slot = NoteSlot{};
-        slot->id = next_note_id_++;
-        slot->live = true;
-        slot->onset_sample = onset_sample;
-        slot->onset_ms = 1000.0f * float(onset_sample) / sr_;
-        last_note_id_ = slot->id;
+        if (g == nullptr) return;
+        *g = Group{};
+        g->id = next_note_id_;
+        g->live = true;
+        g->window_start = onset_sample + uint64_t(profile_.blanking_ms / 1000.0f * sr_);
         if (have_next_cands_) {
-            slot->cands = next_cands_;
-            slot->have_cands = true;
+            install_candidates(*g, next_cands_);
             have_next_cands_ = false;
         }
-        emit(note_event::make_hit(slot->id, slot->onset_ms, slot->onset_ms, block_strength_));
+
+        // Records: one per struck candidate (or one blind record).
+        size_t n_struck = 0;
+        if (g->have_cands) {
+            for (size_t k = 0; k < g->n_cand; ++k) {
+                if (g->struck[k]) ++n_struck;
+            }
+        }
+        const size_t n_rec = (n_struck > 0 && n_struck <= kMaxCandidates) ? n_struck : 1;
+        for (size_t r = 0; r < n_rec; ++r) {
+            Record* rec = alloc_record();
+            if (rec == nullptr) return;
+            *rec = Record{};
+            rec->id = next_note_id_++;
+            rec->strike_group = g->id;
+            rec->live = true;
+            rec->onset_sample = onset_sample;
+            rec->onset_ms = onset_ms;
+            rec->strength = block_strength_;
+            if (g->leader == 0) g->leader = rec->id;
+            ++g->live_records;
+            last_note_id_ = rec->id;
+            emit(note_event::make_hit(rec->id, g->id, onset_ms, onset_ms,
+                                      block_strength_, kFlagNone));
+        }
+        // Bind struck candidates to their records (in order).
+        if (n_struck > 0) {
+            size_t r = 0;
+            for (size_t k = 0; k < g->n_cand && r < n_rec; ++k) {
+                if (!g->struck[k]) continue;
+                for (auto& n : records_) {
+                    if (n.live && n.strike_group == g->id && n.candidate_index < 0) {
+                        n.candidate_index = int(k);
+                        n.hypothesis_midi = g->midis[k];
+                        g->owners[k] = n.id;
+                        break;
+                    }
+                }
+                ++r;
+            }
+        }
+    }
+
+    /// A record opened by a sustained pitch change (legato / transition
+    /// note) — profile data decides; no strike happened.
+    void open_transition(uint64_t at_sample, float midi) noexcept {
+        const float t_ms = 1000.0f * float(at_sample) / sr_;
+        Group* g = nullptr;
+        for (auto& c : groups_) {
+            if (!c.live) { g = &c; break; }
+        }
+        if (g == nullptr) return;
+        *g = Group{};
+        g->id = next_note_id_;
+        g->live = true;
+        g->leader = next_note_id_;
+        g->window_start = at_sample + uint64_t(profile_.blanking_ms / 1000.0f * sr_);
+        Record* rec = alloc_record();
+        if (rec == nullptr) return;
+        *rec = Record{};
+        rec->id = next_note_id_++;
+        rec->strike_group = g->id;
+        rec->live = true;
+        rec->onset_sample = at_sample;
+        rec->onset_ms = t_ms;
+        rec->strength = block_strength_;
+        ++g->live_records;
+        last_note_id_ = rec->id;
+        (void)midi;
+        emit(note_event::make_hit(rec->id, g->id, t_ms, t_ms, block_strength_,
+                                  kFlagTransition));
     }
 
     // ---- per-bucket bookkeeping (10 ms grid, block-size independent) ------
@@ -711,48 +837,62 @@ private:
         bucket_acc_ = 0.0;
         bucket_n_ = 0;
 
-        for (auto& n : notes_) {
+        for (auto& n : records_) {
             if (!n.live) continue;
             if (rms > n.peak_rms) n.peak_rms = rms;
             if (n.rms_count < kRmsSeriesMax) n.rms_series[n.rms_count++] = rms;
-            n.last_bucket_ms = t_ms;
+        }
 
-            // Blind readings every 50 ms after blanking (stability, hops,
-            // vibrato trajectory) — cheap, deterministic on the bucket grid.
-            const float since = t_ms - n.onset_ms;
-            if (since >= profile_.blanking_ms && since + 0.5f >= float(n.next_reading_ms)) {
-                take_reading(n, t_ms);
-                n.next_reading_ms += 50;
+        // Mix readings per live group leader: stability, vibrato trajectory,
+        // legato transitions (all bookkeeping on the bucket grid).
+        for (auto& g : groups_) {
+            if (!g.live || g.leader == 0) continue;
+            Record* lead = find_record(g.leader);
+            if (lead == nullptr || !lead->live) continue;
+            const float since = t_ms - lead->onset_ms;
+            if (since >= profile_.blanking_ms && since + 0.5f >= float(lead->next_reading_ms)) {
+                take_reading(*lead, t_ms);
+                lead->next_reading_ms += 50;
+                if (profile_.accepts_legato_boundaries && profile_.max_simultaneous_notes <= 1
+                    && g.live_records == 1 && !g.have_cands) {
+                    check_transition(*lead, g, t_ms);
+                }
             }
-
-            // Provisional fact as soon as its window is complete.
-            if (!n.provisional_sent && since >= profile_.blanking_ms
+            // Blind provisional: first clean window of a no-candidate group.
+            if (!g.have_cands && !lead->provisional_sent && since >= profile_.blanking_ms
                 + 1000.0f * float(kProvisionalWindow) / sr_) {
-                emit_provisional(n, t_ms);
+                emit_blind_provisional(*lead, t_ms);
             }
-
-            // Decay-relative end: 20 dB below the note's own peak, sustained.
-            const bool quiet = rms <= 0.1f * n.peak_rms;
-            n.quiet_ms = quiet ? n.quiet_ms + 1000.0f * float(bucket_samples_) / sr_ : 0.0f;
-            if (n.quiet_ms >= 80.0f) {
-                close_note(n, t_ms - n.quiet_ms);
+            // Sustain fits become due on their own cadence.
+            if (g.have_cands && g.probe_done && g.live_records > 0
+                && since + 0.5f >= float(g.next_sustain_ms)) {
+                // The window END is fixed by the cadence (bucket grid), not
+                // by when the scheduler runs the fit — determinism.
+                g.sustain_due = true;
+                g.sustain_end = sample_pos_;
+                g.next_sustain_ms += size_t(kSustainHopMs);
             }
         }
 
-        // Final measurements become due with the long window (or at close).
-        for (auto& n : notes_) {
-            if (n.live && !n.finalized && !n.final_due) {
-                const float since = t_ms - n.onset_ms;
-                if (since >= profile_.blanking_ms
-                    + 1000.0f * float(kFinalWindow) / sr_) {
-                    n.final_due = true;
-                }
+        // Blind decay-relative end (records without fitted trajectories).
+        for (auto& n : records_) {
+            if (!n.live || n.candidate_index >= 0) continue;
+            const bool quiet = rms <= 0.1f * n.peak_rms;
+            n.quiet_ms = quiet ? n.quiet_ms + 1000.0f * float(bucket_samples_) / sr_ : 0.0f;
+            if (n.quiet_ms >= 80.0f && profile_.max_simultaneous_notes > 1) {
+                close_record(n, t_ms - n.quiet_ms);
             }
         }
     }
 
-    // ---- measurement steps ----------------------------------------------
-    void take_reading(NoteSlot& n, float t_ms) noexcept {
+    Record* find_record(uint32_t id) noexcept {
+        for (auto& n : records_) {
+            if (n.id == id) return &n;
+        }
+        return nullptr;
+    }
+
+    void take_reading(Record& n, float t_ms) noexcept {
         float window[kReadingWindow];
         if (!copy_history_tail(window, kReadingWindow)) return;
         const PitchEstimate est =
@@ -766,14 +906,37 @@ private:
             n.ref_midi = est.midi;
         }
         const float rel = 100.0f * (est.midi - n.ref_midi) + est.cents_offset;
-        if (n.readings > 1 && std::fabs(rel - n.prev_dev) > 200.0f) ++n.hops;
         n.prev_dev = rel;
+        // While a legato shift is pending (or after it began), the readings
+        // belong to the NEXT note — they must not pollute this record's
+        // center or stability verdict.
+        if (n.shift_start_ms >= 0.0f && t_ms >= n.shift_start_ms) return;
+        if (n.readings > 1 && std::fabs(rel - n.prev_dev) > 200.0f) ++n.hops;
         n.dev_sum += rel;
         n.max_dev = std::max(n.max_dev, std::fabs(rel));
-        n.traj.add(t_ms, rel);
+        n.vib.add(t_ms, rel);
     }
 
-    void emit_provisional(NoteSlot& n, float t_ms) noexcept {
+    /// Legato transition: a SUSTAINED pitch shift (not a vibrato swing —
+    /// vibrato returns, a step does not). Opens a new record at the shift.
+    void check_transition(Record& n, Group& g, float t_ms) noexcept {
+        const float rel = n.prev_dev;
+        if (std::fabs(rel) > kTransitionStepCents) {
+            if (n.shift_start_ms < 0.0f) n.shift_start_ms = t_ms;
+        } else if (std::fabs(rel) < kTransitionResetCents) {
+            n.shift_start_ms = -1.0f;
+        }
+        if (n.shift_start_ms >= 0.0f
+            && t_ms - n.shift_start_ms >= kTransitionHoldMs) {
+            const uint64_t at = uint64_t(double(n.shift_start_ms) * double(sr_) / 1000.0);
+            // Close the old record at the shift, open the transition record.
+            close_record(n, n.shift_start_ms);
+            g.live = false; // the old group ends with its record
+            open_transition(at, n.ref_midi + n.prev_dev / 100.0f);
+        }
+    }
+
+    void emit_blind_provisional(Record& n, float t_ms) noexcept {
         n.provisional_sent = true;
         float window[kProvisionalWindow];
         if (!copy_history_tail(window, kProvisionalWindow)) {
@@ -785,7 +948,6 @@ private:
             detector_.detect_pitch_into(window, kProvisionalWindow,
                                         pitch_scratch_.data(), pitch_scratch_.size());
         if (!est.valid) {
-            // Display-only fact: no estimate yet, honestly labeled.
             emit(note_event::make_pitch_unresolved(n.id, t_ms, PitchStage::Provisional,
                                                    kFlagMixed));
             return;
@@ -794,161 +956,286 @@ private:
                                     est.midi, est.cents_offset, kFlagNone));
     }
 
-    void finalize_note(NoteSlot& n) noexcept {
-        n.finalized = true;
-        n.final_due = false;
-        // Dynamics tier from the attack peak (Phase 3). Observed here, in
-        // strict note order, so the session-relative mapping is a pure
-        // function of the note sequence (live/offline equivalence).
-        n.dyn_tier = int(dynamics_.observe(n.peak_rms));
-
-        // The finalize window is fixed by the note's own timeline (first
-        // kFinalWindow clean samples after blanking, truncated at the note's
-        // end) — never by when finalize_due() happened to run. The event
-        // time is that evidence window's end.
-        const uint64_t start = n.onset_sample + uint64_t(profile_.blanking_ms / 1000.0f * sr_);
-        const uint64_t end_limit = n.close_sample > 0 ? n.close_sample : sample_pos_;
-        uint64_t end = start + kFinalWindow;
-        if (end > end_limit) end = end_limit;
-        const size_t len = end > start ? size_t(end - start) : 0;
-        const float t_ms = 1000.0f * float(end) / sr_;
-
-        float window[kFinalWindow];
-        const bool have_window = len >= 256 && copy_history_range(start, len, window);
-
-        // Blind classification (candidate-free) — the CONTENT class fact.
-        BlindContent blind;
-        if (have_window) {
-            blind = classify_content(window, len, sr_, profile_);
-        }
-        const uint32_t poly_flag =
-            (blind.klass == ContentClass::Polyphonic) ? kFlagPolyphonic : kFlagNone;
-        emit(note_event::make_content_class(
-            n.id, t_ms, blind.klass, blind.n_series, blind.capture, poly_flag));
-
-        // Conditioned measurement (caller-supplied candidates).
-        bool have_final_estimate = false;
-        float final_midi = 0.0f, final_cents = 0.0f;
-        uint32_t final_flags = poly_flag;
-        const size_t cap = size_t(profile_.max_simultaneous_notes);
-        if (n.have_cands && n.cands.count > 0 && have_window && cap > 0) {
-            const size_t n_cand = std::min<size_t>(n.cands.count, std::min(cap, kMaxCandidates));
-            float midis[kMaxCandidates] = {0};
-            for (size_t k = 0; k < n_cand; ++k) midis[k] = n.cands.entries[k].midi;
-            if (validator_.set_expected_chord(midis, n_cand)) {
-                const ChordResult r = validator_.validate(window, len);
-                const uint32_t sim_flag =
-                    (r.similarity < 0.80f) ? kFlagUnexplainedEnergy : kFlagNone;
-                size_t best_k = 0, second_k = 0;
-                for (size_t k = 1; k < n_cand; ++k) {
-                    if (r.note_presence[k] > r.note_presence[best_k]) {
-                        second_k = best_k;
-                        best_k = k;
-                    } else if (k != best_k && r.note_presence[k] > r.note_presence[second_k]) {
-                        second_k = k;
-                    }
-                }
-                for (size_t k = 0; k < n_cand; ++k) {
-                    uint32_t f = kFlagNone | sim_flag;
-                    const float refined = validator_.refined_cents(k);
-                    if (std::fabs(refined) >= 29.0f) f |= kFlagSearchSaturated;
-                    emit(note_event::make_content_candidate(
-                        n.id, t_ms, uint8_t(k), n.cands.entries[k].cand_note_id,
-                        midis[k], r.note_presence[k], refined, validator_.note_rms(k),
-                        r.similarity, f));
-                }
-                if (r.similarity >= 0.80f) {
-                    have_final_estimate = true;
-                    final_midi = midis[best_k];
-                    final_cents = validator_.refined_cents(best_k);
-                    const bool dominant = n_cand == 1
-                        || r.note_presence[best_k] >= 3.0f * r.note_presence[second_k];
-                    if (dominant) final_flags |= kFlagDominant;
-                    else if (blind.klass == ContentClass::Polyphonic) {
-                        // Chord with no clear leader: honest "unresolved".
-                        have_final_estimate = false;
-                    }
-                } else {
-                    final_flags |= kFlagUnexplainedEnergy;
-                }
-            }
-        }
-
-        if (!have_final_estimate) {
-            // Blind fallback: one consistent estimate only when the material
-            // is monophonic and the tracker was stable; otherwise the honest
-            // "unresolved" (never a number the tool distrusts).
-            if (!n.have_cands && blind.klass == ContentClass::Mono && have_window) {
-                const PitchEstimate est = detector_.detect_pitch_into(
-                    window, len, pitch_scratch_.data(), pitch_scratch_.size());
-                const bool stable = n.readings > 1
-                    && float(n.hops) / float(n.readings - 1) <= 0.2f && n.max_dev <= 200.0f;
-                if (est.valid && stable) {
-                    have_final_estimate = true;
-                    final_midi = est.midi;
-                    final_cents = est.cents_offset;
-                } else if (stable && n.have_ref && n.valid_readings >= 3) {
-                    // One consistent estimate from the stable readings: the
-                    // fixed per-note reference + mean deviation (the Phase-0
-                    // estimator). Used when the long window itself is
-                    // pitch-ambiguous (e.g. an early estimate that later
-                    // corrected — the window spans both).
-                    have_final_estimate = true;
-                    final_midi = n.ref_midi;
-                    final_cents = n.dev_sum / float(n.valid_readings);
-                }
-            }
-            if (!have_final_estimate) {
-                uint32_t f = final_flags;
-                if (n.readings >= 2 && float(n.valid_readings) / float(n.readings) < 0.5f) {
-                    f |= kFlagMixed;
-                }
-                if (n.readings > 1
-                    && float(n.hops) / float(n.readings - 1) > 0.2f) {
-                    f |= kFlagHop;
-                }
-                emit(note_event::make_pitch_unresolved(n.id, t_ms, PitchStage::Unresolved, f));
-                return;
-            }
-        }
-
-        if (final_midi < 48.0f && len < kFinalWindow) final_flags |= kFlagLowRegister;
-        emit(note_event::make_pitch(n.id, t_ms, PitchStage::Final,
-                                    final_midi, final_cents, final_flags));
+    // ---- conditioned fits (scheduled work) --------------------------------
+    /// Exact measurement window [group start, +len): the window must be
+    /// complete — a call-time-truncated window would make the stream
+    /// depend on WHEN the scheduler ran (breaking live/offline equality).
+    bool group_window(Group& g, size_t len, float* out, float& t_ms) noexcept {
+        const uint64_t end = g.window_start + len;
+        if (end > sample_pos_) return false; // not ready yet
+        if (!copy_history_range(g.window_start, len, out)) return false;
+        t_ms = 1000.0f * float(end) / sr_;
+        return true;
     }
 
-    void close_note(NoteSlot& n, float end_ms) noexcept {
+    /// Probe fit (first clean window, 1024 samples): per-record provisional
+    /// pitch + first per-candidate CONTENT facts. Runs once per attack,
+    /// when its window exists. Returns false while the window is not ready
+    /// (the measurement stays pending and is retried).
+    bool probe_fit(Group& g) noexcept {
+        float window[kProvisionalWindow];
+        float t_ms = 0.0f;
+        if (!group_window(g, kProvisionalWindow, window, t_ms)) {
+            return false; // window not ready yet — stay pending
+        }
+        g.probe_done = true;
+        float set[kMaxCandidates] = {0};
+        for (size_t k = 0; k < g.n_cand; ++k) set[k] = g.midis[k];
+        if (!validator_.set_expected_chord(set, g.n_cand)) return true;
+        validator_.set_search_range_cents(profile_.intonation_band_cents);
+        const ChordResult r = validator_.validate(window, kProvisionalWindow);
+        g.similarity = r.similarity;
+        for (size_t k = 0; k < g.n_cand; ++k) {
+            Record* rec = find_record(g.owners[k]);
+            if (rec != nullptr) {
+                rec->best_sim = std::max(rec->best_sim, r.similarity);
+                rec->best_presence = std::max(rec->best_presence, r.note_presence[k]);
+            }
+        }
+        const uint32_t sim_flag =
+            (r.similarity < 0.80f) ? kFlagUnexplainedEnergy : kFlagNone;
+        for (size_t k = 0; k < g.n_cand; ++k) {
+            Record* rec = find_record(g.owners[k]);
+            const float refined = validator_.refined_cents(k);
+            uint32_t f = sim_flag;
+            if (std::fabs(refined) >= 59.0f) f |= kFlagSearchSaturated;
+            emit(note_event::make_content_candidate(
+                rec != nullptr ? rec->id : g.leader, g.id, t_ms, uint8_t(k),
+                g.midis[k], r.note_presence[k], refined, validator_.note_rms(k),
+                r.similarity, f));
+            if (rec != nullptr && rec->live) {
+                // Seed the per-note trajectory: short notes may close
+                // before any sustain fit and still deserve a final.
+                if (rec->traj_n < kTrajMax) {
+                    rec->traj[rec->traj_n++] = {t_ms, validator_.note_rms(k), refined};
+                }
+                if (validator_.note_rms(k) > rec->peak_amp) {
+                    rec->peak_amp = validator_.note_rms(k);
+                }
+                if (rec->last_audible_ms < 0.0f) rec->last_audible_ms = t_ms;
+            }
+            if (rec != nullptr && rec->live && !rec->provisional_sent) {
+                rec->provisional_sent = true;
+                if ((f & kFlagSearchSaturated) != 0 || r.similarity < 0.40f) {
+                    emit(note_event::make_pitch_unresolved(rec->id, t_ms,
+                                                           PitchStage::Provisional,
+                                                           f));
+                } else {
+                    emit(note_event::make_pitch(rec->id, t_ms, PitchStage::Provisional,
+                                                g.midis[k], refined, f));
+                }
+            }
+        }
+        return true;
+    }
+
+    /// Sustain fit (85 ms SLIDING window, 250 ms cadence): per-candidate
+    /// amplitude trajectory -> per-note lifetimes + pitch centers. One fit
+    /// measures every candidate at once (the joint model). The window ends
+    /// at the cadence point fixed on the bucket grid — never at call time.
+    bool sustain_fit(Group& g) noexcept {
+        g.sustain_due = false;
+        float window[kSustainWindow];
+        if (g.sustain_end < g.window_start + kSustainWindow) return false;
+        const uint64_t wstart = g.sustain_end - kSustainWindow;
+        if (!copy_history_range(wstart, kSustainWindow, window)) return false;
+        const float t_ms = 1000.0f * float(g.sustain_end) / sr_;
+        float set[kMaxCandidates] = {0};
+        for (size_t k = 0; k < g.n_cand; ++k) set[k] = g.midis[k];
+        if (!validator_.set_expected_chord(set, g.n_cand)) return true;
+        validator_.set_search_range_cents(profile_.intonation_band_cents);
+        const ChordResult r = validator_.validate(window, kSustainWindow);
+        g.similarity = r.similarity;
+        for (size_t k = 0; k < g.n_cand; ++k) {
+            Record* rec = find_record(g.owners[k]);
+            if (rec != nullptr) {
+                rec->best_sim = std::max(rec->best_sim, r.similarity);
+                rec->best_presence = std::max(rec->best_presence, r.note_presence[k]);
+            }
+        }
+
+        // Class fact from the first fit that has a real window (the blind
+        // classifier's evidence window is as long as we can make it).
+        if (!g.class_done) {
+            g.class_done = true;
+            float cbuf[kFinalWindow];
+            size_t clen = kFinalWindow;
+            float ct = 0.0f;
+            if (clen >= 256 && group_window(g, clen, cbuf, ct)) {
+                const BlindContent bc = classify_content(cbuf, clen, sr_, profile_);
+                const uint32_t pf = (bc.klass == ContentClass::Polyphonic)
+                    ? kFlagPolyphonic : kFlagNone;
+                emit(note_event::make_content_class(g.leader, ct, bc.klass,
+                                                    bc.n_series, bc.capture, pf));
+            }
+        }
+
+        for (size_t k = 0; k < g.n_cand; ++k) {
+            Record* rec = find_record(g.owners[k]);
+            if (rec == nullptr || !rec->live) continue;
+            const float amp = validator_.note_rms(k);
+            const float refined = validator_.refined_cents(k);
+            if (rec->traj_n < kTrajMax) {
+                rec->traj[rec->traj_n++] = {t_ms, amp, refined};
+            }
+            if (amp > rec->peak_amp) rec->peak_amp = amp;
+            if (amp >= rec->peak_amp * 0.10f) {
+                rec->quiet_fits = 0;
+                rec->last_audible_ms = t_ms;
+            } else if (++rec->quiet_fits >= 2) {
+                // -20 dB sustained: the note's own end (an absent hypothesis
+                // ends at its first fit time — it never sounded).
+                const float end = rec->last_audible_ms >= 0.0f
+                    ? rec->last_audible_ms
+                    : (rec->traj_n > 0 ? rec->traj[0].t_ms : t_ms);
+                close_record(*rec, end);
+            }
+        }
+        return true;
+    }
+
+    // ---- record close: final facts from the note's own trajectory ---------
+    void close_record(Record& n, float end_ms) noexcept {
         if (!n.live) return;
         n.live = false;
         n.close_sample = uint64_t(double(end_ms) * double(sr_) / 1000.0);
-        if (!n.finalized) {
-            n.final_due = true;
-            finalize_note(n);
+        for (auto& g : groups_) {
+            if (g.id == n.strike_group && g.live && g.live_records > 0) {
+                --g.live_records;
+                if (g.live_records == 0) g.live = false;
+            }
         }
 
-        // EXPRESSION: envelope + vibrato (measurements only; dynamics tiers
-        // are Phase 3 — the raw level in dBFS is reported now). Vibrato is
-        // only claimed from a stable pitch trajectory: an unstable one
-        // (hops / >200 c swings) would produce spurious rate/depth numbers,
-        // and the stream never emits numbers it distrusts.
-        const float hop_ms = 1000.0f * float(bucket_samples_) / sr_;
-        EnvelopeAnalyzer env;
-        const EnvelopeMeasurement m =
-            n.rms_count >= 4 ? env.measure(n.rms_series, n.rms_count, hop_ms)
-                             : EnvelopeMeasurement{};
+        // PITCH final: the amplitude-weighted CENTER of the trajectory
+        // (vibrato center, not initial value); blind records use the center
+        // of their readings. Unstable / unexplained -> honest "unresolved".
+        const bool stable = n.readings > 1
+            && float(n.hops) / float(n.readings - 1) <= 0.2f && n.max_dev <= 200.0f;
+        bool have_final = false;
+        float final_midi = 0.0f, final_cents = 0.0f;
+        uint32_t f = kFlagNone;
+        // Presence is the share of the fitted set: trivially 1.0 for a
+        // single-hypothesis group (its own register), discriminating inside
+        // multi-note sets. Similarity gates the rest.
+        const bool heard = n.best_presence >= 0.05f;
+        if (n.candidate_index >= 0) {
+            float wsum = 0.0f, csum = 0.0f;
+            for (size_t i = 0; i < n.traj_n; ++i) {
+                if (n.peak_amp > 0.0f && n.traj[i].amp >= n.peak_amp * 0.10f) {
+                    csum += n.traj[i].cents * n.traj[i].amp;
+                    wsum += n.traj[i].amp;
+                }
+            }
+            // A final pitch is emitted only when the record was actually
+            // heard (presence) and the set explains the window (similarity).
+            // Anything less is an honest "unresolved" — never an invented
+            // pitch (the fairness rule).
+            if (wsum > 0.0f && n.best_sim >= 0.80f && heard) {
+                have_final = true;
+                final_midi = n.hypothesis_midi;
+                final_cents = csum / wsum;
+                if (n.best_sim < 0.80f) f |= kFlagUnexplainedEnergy;
+            } else {
+                f |= kFlagUnexplainedEnergy;
+            }
+        } else if (n.have_ref && n.valid_readings >= 3 && stable) {
+            have_final = true;
+            final_midi = n.ref_midi;
+            final_cents = n.dev_sum / float(n.valid_readings); // vibrato center
+        } else if (n.have_ref && n.valid_readings >= 1 && n.readings == 1) {
+            have_final = true;
+            final_midi = n.ref_midi;
+            final_cents = n.dev_sum;
+        }
+        if (have_final) {
+            // Canonical form: cents within +/-50 (nearest note carries the
+            // name); the pair and the derived Hz never disagree.
+            const int shift = int(std::lround(final_cents / 100.0f));
+            final_midi += float(shift);
+            final_cents -= 100.0f * float(shift);
+        }
+        if (!have_final) {
+            if (n.readings >= 2 && float(n.valid_readings) / float(n.readings) < 0.5f) {
+                f |= kFlagMixed;
+            }
+            if (n.readings > 1 && float(n.hops) / float(n.readings - 1) > 0.2f) {
+                f |= kFlagHop;
+            }
+            if (n.candidate_index < 0 && n.max_dev <= 200.0f && n.valid_readings >= 3) {
+                // wide vibrato makes readings swing; a stable swing is
+                // still a measurable note — use its center.
+                have_final = true;
+                final_midi = n.ref_midi;
+                final_cents = n.dev_sum / float(n.valid_readings);
+                f &= ~uint32_t(kFlagHop | kFlagMixed);
+            }
+        }
+        if (have_final) {
+            if (final_midi < 48.0f && n.traj_n == 0) f |= kFlagLowRegister;
+            emit(note_event::make_pitch(n.id, end_ms, PitchStage::Final,
+                                        final_midi, final_cents, f));
+        } else {
+            emit(note_event::make_pitch_unresolved(n.id, end_ms, PitchStage::Unresolved, f));
+        }
+
+        // Final CONTENT fact from the trajectory (per-note center values).
+        if (n.candidate_index >= 0 && n.traj_n > 0) {
+            float wsum = 0.0f, csum = 0.0f, asum = 0.0f;
+            size_t used = 0;
+            for (size_t i = 0; i < n.traj_n; ++i) {
+                if (n.peak_amp > 0.0f && n.traj[i].amp >= n.peak_amp * 0.10f) {
+                    csum += n.traj[i].cents * n.traj[i].amp;
+                    asum += n.traj[i].amp;
+                    wsum += n.traj[i].amp;
+                    ++used;
+                }
+            }
+            const float center = wsum > 0.0f ? csum / wsum : 0.0f;
+            const float mean_amp = used > 0 ? asum / float(used) : n.peak_amp;
+            emit(note_event::make_content_candidate(
+                n.id, n.strike_group, end_ms, uint8_t(n.candidate_index),
+                n.hypothesis_midi, n.best_presence, center, mean_amp, n.best_sim,
+                kFlagNone));
+        }
+
+        // EXPRESSION: envelope from the trajectory (or the mix series),
+        // dynamics tier from the attack peak, vibrato from stable readings.
+        float attack_ms = 0.0f, release_ms = 0.0f, sustain = 0.0f;
+        if (n.traj_n >= 3) {
+            size_t peak_i = 0;
+            for (size_t i = 1; i < n.traj_n; ++i) {
+                if (n.traj[i].amp > n.traj[peak_i].amp) peak_i = i;
+            }
+            attack_ms = std::max(0.0f, n.traj[peak_i].t_ms - n.onset_ms);
+            release_ms = std::max(0.0f, end_ms - n.traj[peak_i].t_ms);
+            size_t above = 0;
+            for (size_t i = 0; i < n.traj_n; ++i) {
+                if (n.traj[i].amp >= n.traj[peak_i].amp * 0.5f) ++above;
+            }
+            sustain = n.traj_n > 0 ? float(above) / float(n.traj_n) : 0.0f;
+        } else if (n.rms_count >= 4) {
+            EnvelopeAnalyzer env;
+            const EnvelopeMeasurement m =
+                env.measure(n.rms_series, n.rms_count,
+                            1000.0f * float(bucket_samples_) / sr_);
+            attack_ms = m.attack_ms;
+            release_ms = m.release_ms;
+            sustain = m.sustain_ratio;
+        }
+        const float peak = n.peak_amp > 0.0f ? n.peak_amp : n.peak_rms;
+        const float dyn_db = (peak > 0.0f) ? 20.0f * std::log10(peak) : -120.0f;
+        const DynamicsTier tier = dynamics_.observe(peak);
         const bool stable_pitch = n.readings > 1
             && float(n.hops) / float(n.readings - 1) <= 0.2f && n.max_dev <= 200.0f;
         VibratoMeasurement v;
-        if (stable_pitch) {
+        if (stable_pitch && n.candidate_index < 0) {
             VibratoAnalyzer vib;
-            v = vib.measure(n.traj);
+            v = vib.measure(n.vib);
         }
-        const float dyn_db = (m.peak > 0.0f) ? 20.0f * std::log10(m.peak) : -120.0f;
-        emit(note_event::make_expression(n.id, end_ms, dyn_db, float(n.dyn_tier),
-                                         m.attack_ms, m.release_ms,
-                                         m.sustain_ratio, v.rate_hz, v.depth_cents));
-        emit(note_event::make_close(n.id, end_ms, end_ms,
-                                    end_ms - n.onset_ms, m.peak));
+        emit(note_event::make_expression(n.id, end_ms, dyn_db, float(int(tier)),
+                                         attack_ms, release_ms, sustain,
+                                         v.rate_hz, v.depth_cents));
+        emit(note_event::make_close(n.id, end_ms, end_ms, end_ms - n.onset_ms, peak));
     }
 
     // ---- history access ---------------------------------------------------
@@ -976,7 +1263,8 @@ private:
     HarmonicChordValidator validator_;
     DynamicsClassifier dynamics_;
 
-    NoteSlot notes_[kMaxOpenNotes];
+    Record records_[kMaxRecords];
+    Group groups_[kMaxGroups];
     NoteEventStream* subscribers_[kMaxSubscribers] = {nullptr, nullptr, nullptr, nullptr};
     CandidateSet next_cands_ = {};
     bool have_next_cands_ = false;

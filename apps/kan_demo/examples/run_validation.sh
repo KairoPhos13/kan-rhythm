@@ -10,8 +10,12 @@
 # candidate hypotheses (libkan_harmonic_probe --emit-candidates) so every
 # chord attack is described per candidate; monophonic takes need none.
 #
+# Songs run in PARALLEL (default 6 jobs — the per-song analysis is
+# single-threaded; override with JOBS=4 ./run_validation.sh).
+#
 # Usage: ./run_validation.sh
 set -euo pipefail
+JOBS="${JOBS:-6}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"

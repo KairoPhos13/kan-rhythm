@@ -347,10 +347,13 @@ std::vector<CandidateLine> load_candidates(const char* path) {
             p = end;
         }
         for (;;) {
+            while (*p == ' ' || *p == '\t') ++p;
+            const bool sustaining = (*p == '~');
+            if (sustaining) ++p;
             char* end = nullptr;
             const float v = std::strtof(p, &end);
             if (end == p) break;
-            cl.midis.push_back(v);
+            cl.midis.push_back(sustaining ? -v : v); // sign marks sustaining
             p = end;
         }
         if (!cl.midis.empty()) out.push_back(std::move(cl));
@@ -475,14 +478,14 @@ int run_selftest() {
         kan::NoteDescriber::CandidateSet cs; // hypotheses for the next attack
         cs.note_id = 0;
         cs.count = 4;
-        cs.entries[0] = {0, 60.0f};
-        cs.entries[1] = {0, 64.0f};
-        cs.entries[2] = {0, 67.0f};
-        cs.entries[3] = {0, 69.0f}; // A4: absent — must not be invented
+        cs.entries[0] = {0, 60.0f, 1}; // struck here (own record each)
+        cs.entries[1] = {0, 64.0f, 1};
+        cs.entries[2] = {0, 67.0f, 1};
+        cs.entries[3] = {0, 69.0f, 1}; // A4: absent — must not be invented
         desc.set_candidates(cs);
 
-        bool hit = false, provisional = false, close_seen = false, absent_low = false;
-        int cand_seen = 0;
+        bool provisional = false, absent_low = false;
+        int hits = 0, closes = 0, cand_seen = 0;
         auto drain = [&]() {
             kan::NoteEvent batch[32];
             for (;;) {
@@ -490,15 +493,16 @@ int run_selftest() {
                 if (got == 0) break;
                 for (size_t k = 0; k < got; ++k) {
                     const auto& e = batch[k];
-                    if (e.kind == kan::NoteKind::Hit) hit = true;
+                    if (e.kind == kan::NoteKind::Hit) ++hits;
                     if (e.kind == kan::NoteKind::Pitch
                         && e.stage == kan::PitchStage::Provisional) provisional = true;
-                    if (e.kind == kan::NoteKind::Close) close_seen = true;
+                    if (e.kind == kan::NoteKind::Close) ++closes;
                     if (e.kind == kan::NoteKind::Content
                         && e.klass == kan::ContentClass::Unknown) {
                         ++cand_seen;
-                        if (e.u.candidate.midi == 69.0f
-                            && e.u.candidate.presence <= 0.05f) absent_low = true;
+                        // absence evidence: the FINAL fact (trajectory)
+                        if (e.u.candidate.midi == 69.0f && e.t_ms > 0.5f
+                            && e.u.candidate.presence <= 0.10f) absent_low = true;
                     }
                 }
             }
@@ -510,10 +514,12 @@ int run_selftest() {
         }
         desc.flush();
         drain();
-        printf("note stream:  hit=%d provisional=%d candidate facts=%d "
-               "absent<=0.05=%d close=%d\n",
-               int(hit), int(provisional), cand_seen, int(absent_low), int(close_seen));
-        pass &= hit && provisional && cand_seen == 4 && absent_low && close_seen;
+        printf("note stream:  hits=%d provisional=%d candidate facts=%d "
+               "absent-final<=0.10=%d closes=%d\n",
+               hits, int(provisional), cand_seen, int(absent_low), closes);
+        // New record model: 4 struck hypotheses -> 4 records (one per note),
+        // each with its own facts and its own close.
+        pass &= hits == 4 && provisional && cand_seen >= 4 && absent_low && closes == 4;
     }
 
     // File input path (--input): writing a WAV and decoding it back must
@@ -833,6 +839,45 @@ int main(int argc, char** argv) {
         int dyn[7] = {0, 0, 0, 0, 0, 0, 0}; // warming-up, pp, p, mp, mf, f, ff
     } stats;
 
+    // Candidate sets must be PENDING before the strike: records open at the
+    // strike (one per struck note), so hypotheses cannot arrive after it.
+    // Timed lines arm shortly before their attack (like the game's chart);
+    // untimed lines arm after the previous attack (they target "the next
+    // strike"); --expect mode falls back to the charted note itself.
+    size_t attacks_seen = 0;
+    auto build_set = [&](const CandidateLine& line) {
+        kan::NoteDescriber::CandidateSet cs;
+        cs.note_id = 0;
+        cs.count = uint8_t(std::min<size_t>(line.midis.size(),
+                                            kan::NoteDescriber::kMaxCandidates));
+        for (size_t m = 0; m < cs.count; ++m) {
+            // '~midi' = sustaining from an earlier attack (its own record);
+            // plain midi = struck at the upcoming attack.
+            const bool struck = line.midis[m] > 0.0f;
+            cs.entries[m] = {0, std::fabs(line.midis[m]),
+                             struck ? uint8_t(1) : uint8_t(0)};
+        }
+        return cs;
+    };
+    auto arm_next_attack = [&](kan::NoteDescriber& d, bool has_expect, float exp_midi) {
+        for (size_t c = 0; c < cand_lists.size(); ++c) {
+            if (cand_used[c]) continue;
+            if (cand_lists[c].t_ms >= 0.0f) continue; // timed lines arm on time
+            const auto cs = build_set(cand_lists[c]);
+            if (d.set_candidates(cs)) {
+                cand_used[c] = true;
+                return;
+            }
+        }
+        if (has_expect) {
+            kan::NoteDescriber::CandidateSet cs;
+            cs.note_id = 0;
+            cs.count = 1;
+            cs.entries[0] = {0, exp_midi, 1};
+            d.set_candidates(cs);
+        }
+    };
+    (void)attacks_seen;
     auto drain_events = [&]() {
         kan::NoteEvent batch[32];
         for (;;) {
@@ -878,43 +923,8 @@ int main(int argc, char** argv) {
                 }
 
                 if (e.kind == kan::NoteKind::Hit) {
-                    // Hypotheses for this attack: the timed line nearest the
-                    // onset, else the next unbound plain line, else (in
-                    // --expect mode) the charted note itself — the game's
-                    // score-informed candidate supply.
-                    const CandidateLine* pick = nullptr;
-                    int best = -1;
-                    float best_dt = 250.0f;
-                    for (size_t c = 0; c < cand_lists.size(); ++c) {
-                        if (cand_used[c] || cand_lists[c].t_ms < 0.0f) continue;
-                        const float dt = std::fabs(cand_lists[c].t_ms - e.t_ms);
-                        if (dt < best_dt) { best_dt = dt; best = int(c); }
-                    }
-                    if (best < 0) {
-                        for (size_t c = 0; c < cand_lists.size(); ++c) {
-                            if (!cand_used[c] && cand_lists[c].t_ms < 0.0f) {
-                                best = int(c);
-                                break;
-                            }
-                        }
-                    }
-                    if (best >= 0) {
-                        cand_used[size_t(best)] = true;
-                        pick = &cand_lists[size_t(best)];
-                    }
-                    kan::NoteDescriber::CandidateSet cs;
-                    cs.note_id = e.note_id;
-                    if (pick != nullptr) {
-                        cs.count = uint8_t(std::min<size_t>(pick->midis.size(),
-                                                            kan::NoteDescriber::kMaxCandidates));
-                        for (size_t m = 0; m < cs.count; ++m) {
-                            cs.entries[m] = {0, pick->midis[m]};
-                        }
-                    } else if (expect_note != nullptr) {
-                        cs.count = 1;
-                        cs.entries[0] = {0, expected_midi};
-                    }
-                    if (cs.count > 0) desc.set_candidates(cs);
+                    ++attacks_seen;
+                    arm_next_attack(desc, expect_note != nullptr, expected_midi);
                 }
                 print_event(e, events);
             }
@@ -998,6 +1008,16 @@ int main(int argc, char** argv) {
     // description stream sees every block of the session (its clock starts
     // at session start), so event times are session/file-absolute.
     auto consume_block = [&](const float* blk) {
+        // Arm timed candidate lines shortly before their attack (the
+        // strike opens records, so hypotheses must already be pending).
+        for (size_t c = 0; c < cand_lists.size(); ++c) {
+            if (cand_used[c] || cand_lists[c].t_ms < 0.0f) continue;
+            if (session_ms < cand_lists[c].t_ms
+                && session_ms + 250.0f >= cand_lists[c].t_ms) {
+                const auto cs = build_set(cand_lists[c]);
+                if (desc.set_candidates(cs)) cand_used[c] = true;
+            }
+        }
         if (use_gate && !gate_calibrated) {
             float cond[BLOCK_SIZE];
             pipeline.pre.process_block(blk, cond, BLOCK_SIZE);
@@ -1080,7 +1100,7 @@ int main(int argc, char** argv) {
     // Measured session summary — the data behind the claims, straight from
     // the same events the display and the JSONL log carry.
     std::printf("\n\n--- note description stream ---\n");
-    std::printf("attacks: %d | content: mono %d, polyphonic %d\n",
+    std::printf("records: %d | content: mono %d, polyphonic %d\n",
                 stats.attacks, stats.mono, stats.poly);
     std::printf("pitch:   provisional %d (+%d unresolved), final %d (+%d unresolved)\n",
                 stats.provisional, stats.provisional_unres,

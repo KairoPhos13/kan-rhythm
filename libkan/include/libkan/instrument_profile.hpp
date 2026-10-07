@@ -26,7 +26,10 @@ enum class AttackType {
 ///
 /// Plain data only — no format coupling. Instrument packs (charts/spec)
 /// will serialize exactly these fields; apps construct them directly or
-/// from pack data. All times in milliseconds, frequencies in Hz.
+/// from pack data. All times in milliseconds, frequencies in Hz. Every
+/// instrument-specific behaviour of libkan (a flute, a melodica, a guitar)
+/// is expressed through this struct — never through instrument names in
+/// code.
 struct InstrumentProfile {
     InstrumentFamily family = InstrumentFamily::Other;
     AttackType attack_type = AttackType::Fast;
@@ -65,6 +68,18 @@ struct InstrumentProfile {
     /// note-description-stream.md §2.7/§6).
     float mono_poly_threshold = 0.25f;
 
+    /// Legato pitch changes open note records without an attack (wind /
+    /// bowed slurs and transition notes). Strikes (keyboard, plucked) keep
+    /// attack-only boundaries. Pack data — a flute and a melodica differ
+    /// here only through their profile, never through code.
+    bool accepts_legato_boundaries = false;
+
+    /// Acceptance band for intonation evaluation (+/- cents around the
+    /// written/expected pitch): real instruments record with systematic
+    /// detune (measured up to ~50 c on field takes). The game judges the
+    /// residual within this band (calibration-aware), never raw A440.
+    float intonation_band_cents = 60.0f;
+
     // ---- Presets -----------------------------------------------------------
 
     /// Plucked strings (guitar, bass, harp): fast attack, 8 ms blanking.
@@ -78,6 +93,8 @@ struct InstrumentProfile {
         p.judgment_offset_ms = 0.0f;
         p.attack_ramp_ms = 2.0f;
         p.max_simultaneous_notes = 6; // six strings
+        p.accepts_legato_boundaries = false;
+        p.intonation_band_cents = 45.0f;
         return p;
     }
 
@@ -93,6 +110,8 @@ struct InstrumentProfile {
         p.judgment_offset_ms = -20.0f; // judge the air/bow ramp start
         p.attack_ramp_ms = 30.0f;
         p.max_simultaneous_notes = 1; // one air column / one bow
+        p.accepts_legato_boundaries = true; // slurs / transition notes
+        p.intonation_band_cents = 60.0f;
         return p;
     }
 
@@ -108,6 +127,8 @@ struct InstrumentProfile {
         p.judgment_offset_ms = 0.0f;
         p.attack_ramp_ms = 4.0f;
         p.max_simultaneous_notes = 10; // ten fingers
+        p.accepts_legato_boundaries = false;
+        p.intonation_band_cents = 60.0f;
         return p;
     }
 
