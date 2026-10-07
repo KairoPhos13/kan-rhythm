@@ -388,15 +388,11 @@ inline BlindContent classify_content(const float* window, size_t count,
     (void)detail::series_energy(window, count, sample_rate, detail::midi_to_hz(best_midi),
                                 &best_f0_mag);
 
-    if (profile.max_simultaneous_notes <= 1) {
-        out.klass = ContentClass::Mono;
-        out.capture = 1.0f;
-        out.n_series = 1.0f;
-        return out;
-    }
-
     // Accept further series: descending energy, non-harmonic-derivative of
-    // the accepted ones, with their own fundamental line.
+    // the accepted ones, with their own fundamental line. The class fact is
+    // always AUDIO-DERIVED (a "mono" instrument profile caps the candidate
+    // set, but never claims mono over polyphonic audio — a companion
+    // instrument in the recording must show up as polyphonic).
     float accepted[8] = {best_midi};
     size_t n_acc = 1;
     double acc_energy = best_e;

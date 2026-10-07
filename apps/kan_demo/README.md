@@ -76,9 +76,22 @@ configure downloads miniaudio + Cycfi Q + KissFFT — MIT/BSD only).
 ## Validating the backend on recordings (before building the game)
 
 `--input` runs the **exact live pipeline** over an audio file — the same
-consumer code path a live session uses — so the description stream can be
-inspected end to end without an instrument. Two worked examples (audio not
-committed; supply your own recordings under `test_results/audio/`):
+consumer code path a live session uses — and the display is rendered from
+the description stream itself (the same facts the JSONL carries). One
+command runs the whole example set and collects a transcript + stream per
+song (audio not committed; supply recordings under `test_results/audio/`):
+
+```bash
+./apps/kan_demo/examples/run_validation.sh
+# -> test_results/validation/<song>.log    transcript + measured summary
+#    test_results/validation/<song>.jsonl  per-note description stream
+#    test_results/validation/<song>.candidates  hypotheses (piano takes)
+```
+
+Piano takes get chart-stand-in hypotheses generated from spectral f0-line
+evidence (`libkan_harmonic_probe --emit-candidates`), so every chord attack
+is described per candidate; monophonic takes need none. Single-song
+equivalent:
 
 ```bash
 # Polyphonic piano (the hard case): LH chords under an RH melody. The
