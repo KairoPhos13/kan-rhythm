@@ -103,7 +103,7 @@ struct NoteEvent {
         struct { float n_unresolved; float dominant_share; } content;
         struct { float dynamics_db; float dynamics_tier; float attack_ms;
                  float release_ms; float sustain_ratio; float vib_rate_hz;
-                 float vib_depth_c; } expression;
+                 float vib_depth_c; float bend_c; float bend_err_c; } expression;
         struct { float end_ms; float duration_ms; float peak_rms; } close;
     } u;
 };
@@ -204,7 +204,8 @@ inline NoteEvent make_content_candidate(uint32_t note_id, uint32_t strike_group,
 inline NoteEvent make_expression(uint32_t note_id, float t_ms, float dynamics_db,
                                  float dynamics_tier, float attack_ms, float release_ms,
                                  float sustain_ratio, float vib_rate_hz,
-                                 float vib_depth_c) noexcept {
+                                 float vib_depth_c, float bend_c = 0.0f,
+                                 float bend_err_c = 0.0f) noexcept {
     NoteEvent e{};
     e.note_id = note_id;
     e.t_ms = t_ms;
@@ -215,6 +216,8 @@ inline NoteEvent make_expression(uint32_t note_id, float t_ms, float dynamics_db
     e.u.expression.release_ms = release_ms;
     e.u.expression.sustain_ratio = sustain_ratio;
     e.u.expression.vib_rate_hz = vib_rate_hz;
+    e.u.expression.bend_c = bend_c;
+    e.u.expression.bend_err_c = bend_err_c;
     e.u.expression.vib_depth_c = vib_depth_c;
     return e;
 }
@@ -260,7 +263,7 @@ inline size_t note_event_jsonl(const NoteEvent& e, char* buf, size_t cap) noexce
     flags[fp] = '\0';
 
     char head[192];
-    std::snprintf(head, sizeof(head), "{\"v\":2,\"note\":%u,\"kind\":\"%s\",\"t_ms\":%.2f",
+    std::snprintf(head, sizeof(head), "{\"v\":3,\"note\":%u,\"kind\":\"%s\",\"t_ms\":%.2f",
                   e.note_id,
                   e.kind == NoteKind::Hit ? "HIT"
                       : e.kind == NoteKind::Pitch ? "PITCH"
@@ -318,12 +321,13 @@ inline size_t note_event_jsonl(const NoteEvent& e, char* buf, size_t cap) noexce
         std::snprintf(body, sizeof(body),
                       ",\"dyn_db\":%.2f,\"dyn_tier\":\"%s\",\"attack_ms\":%.1f,"
                       "\"release_ms\":%.1f,\"sustain\":%.3f,\"vib_hz\":%.2f,"
-                      "\"vib_depth_c\":%.1f",
+                      "\"vib_depth_c\":%.1f,\"bend_c\":%.1f,\"bend_err_c\":%.1f",
                       double(e.u.expression.dynamics_db),
                       dynamics_tier_name(DynamicsTier(int(e.u.expression.dynamics_tier))),
                       double(e.u.expression.attack_ms), double(e.u.expression.release_ms),
                       double(e.u.expression.sustain_ratio),
-                      double(e.u.expression.vib_rate_hz), double(e.u.expression.vib_depth_c));
+                      double(e.u.expression.vib_rate_hz), double(e.u.expression.vib_depth_c),
+                      double(e.u.expression.bend_c), double(e.u.expression.bend_err_c));
         break;
     case NoteKind::Close:
         std::snprintf(body, sizeof(body),
@@ -1509,9 +1513,23 @@ private:
             VibratoAnalyzer vib;
             v = vib.measure(n.vib);
         }
+        // Bend / slide (schema v3): a monotonic glide within the record.
+        // Disambiguated by exclusion: no vibrato claim on this record (that
+        // is an oscillation, not a glide) and no legato transition began on
+        // it (a step is a TRANSITION record, not a bend). Threshold 25 c =
+        // presence-style measurement gate (below: drift, not a glide).
+        float bend_c = 0.0f, bend_err = 0.0f;
+        if (!v.periodic && n.shift_start_ms < 0.0f && n.vib.size() >= 4) {
+            BendAnalyzer ben;
+            const BendMeasurement bm = ben.measure(n.vib);
+            if (bm.monotonic && std::fabs(bm.end_cents - bm.start_cents) >= 25.0f) {
+                bend_c = bm.end_cents - bm.start_cents;
+                bend_err = bm.fit_error_cents;
+            }
+        }
         emit(note_event::make_expression(n.id, end_ms, dyn_db, float(int(tier)),
                                          attack_ms, release_ms, sustain,
-                                         v.rate_hz, v.depth_cents));
+                                         v.rate_hz, v.depth_cents, bend_c, bend_err));
         emit(note_event::make_close(n.id, end_ms, end_ms, end_ms - n.onset_ms, peak));
     }
 

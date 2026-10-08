@@ -36,7 +36,7 @@ Integration: a true FM vibrato read through the YIN pipeline gives
 rate **4.99 Hz** (true 5.0) — the game can tell "vibrato performed at the
 right speed" from the live stream.
 
-## Bend / slide (NOT yet emitted — analyzer only)
+## Bend / slide (emitted in schema v3)
 
 `BendAnalyzer` measures endpoints, duration, monotonicity and shape-fit
 error against Linear (slide) or EaseOut (string bend) curves. Measured:

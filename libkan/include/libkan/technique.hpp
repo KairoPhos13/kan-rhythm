@@ -209,9 +209,18 @@ public:
             m.rate_stable = std::fabs(ra - rb) <= 0.3f * std::max(ra, rb);
         }
 
+        // Resolvability: a claimed rate must sit below the trajectory's own
+        // Nyquist. The residual false claims on real piano sat at ~11 Hz --
+        // above the 50 ms reading cadence's 10 Hz Nyquist, i.e. noise, not
+        // measurable oscillation. 0.8 leaves margin for the rate estimate.
+        float dt_ms = 0.0f;
+        if (n >= 2) dt_ms = (traj.point(n - 1).t_ms - traj.point(0).t_ms) / float(n - 1);
+        const float max_rate = (dt_ms > 0.0f) ? 0.8f * 500.0f / dt_ms : 1.0e9f;
+        const bool resolvable = m.rate_hz > 0.0f && m.rate_hz < max_rate;
+
         // Periodic only with enough cycles, clear depth, a COHERENT
-        // oscillation and a stable rate.
-        m.periodic = cycles >= 3.0f && m.depth_cents >= 5.0f && m.rate_hz > 0.0f
+        // oscillation, a stable rate, and within the measurable band.
+        m.periodic = cycles >= 3.0f && m.depth_cents >= 5.0f && resolvable
                   && m.coherence >= 0.5f && m.rate_stable;
         return m;
     }

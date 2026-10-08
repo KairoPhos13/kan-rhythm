@@ -19,6 +19,7 @@
 //   8. monophonic legato strikes — each note ends at the next attack
 //   9. legato TRANSITIONS — pitch changes without attacks open records
 //  10. vibrato center — the final pitch is the center of the oscillation
+//  12. bend fact — a glide is claimed as bend_c, disambiguated from vibrato
 #include "libkan/note_stream.hpp"
 
 #include <cmath>
@@ -630,6 +631,28 @@ void fixture_9_legato_transitions() {
 }
 
 // ---------------------------------------------------------------------------
+/// Plucked-style bend: pitch glides linearly from f0 by bend_c cents over
+/// glide_s, then holds (phase-integrated, like add_vibrato_note).
+void add_bend_note(std::vector<float>& sig, float t0, float dur, float freq,
+                   float bend_c, float glide_s, float amp, uint32_t seed) {
+    const size_t at = size_t(t0 * kSr);
+    const size_t n = size_t(dur * kSr);
+    double phase = 0.0;
+    for (size_t i = 0; at + i < sig.size() && i < n; ++i) {
+        const float t = float(i) / kSr;
+        const float g = (glide_s > 0.0f) ? std::min(1.0f, t / glide_s) : 1.0f;
+        const float f = freq * std::pow(2.0f, bend_c * g / 1200.0f);
+        phase += 2.0 * 3.14159265358979 * double(f) / double(kSr);
+        const float atk = (t < 0.005f) ? t / 0.005f : 1.0f;
+        float s = 0.0f;
+        for (int h = 1; h <= 5; ++h) {
+            s += (0.5f / float(h)) * std::exp(-(0.6f + 0.15f * float(h)) * t)
+               * std::sin(float(h) * float(phase) + 0.1f * float(seed % 7u));
+        }
+        sig[at + i] += amp * atk * s;
+    }
+}
+
 void fixture_10_vibrato_center() {
     std::printf("fixture 10: vibrato center — final pitch is the CENTER\n");
     std::vector<float> sig(size_t(2.2f * kSr), 0.0f);
@@ -656,6 +679,48 @@ void fixture_10_vibrato_center() {
               && expr->u.expression.vib_rate_hz < 7.0f,
           "vibrato rate claimed from the stable trajectory (~5 Hz)");
     check(count_transitions(h) == 0, "vibrato does NOT open transition records");
+}
+
+// ---------------------------------------------------------------------------
+void fixture_12_bend_fact() {
+    std::printf("fixture 12: bend fact — glide claimed, disambiguated\n");
+
+    // A: guitar-style bend (+100 c glide over 400 ms) on a plucked profile.
+    {
+        std::vector<float> sig(size_t(2.0f * kSr), 0.0f);
+        add_bend_note(sig, 0.3f, 1.4f, 440.0f, 100.0f, 0.4f, 0.5f, 7u);
+        add_noise_floor(sig, 0.005f, 42u);
+        Harness h;
+        run(sig, kan::InstrumentProfile::plucked(), {}, 1, h);
+        const kan::NoteEvent* expr = nullptr;
+        for (const auto& e : h.events) {
+            if (e.kind == kan::NoteKind::Expression && e.note_id == 1) expr = &e;
+        }
+        check(expr != nullptr, "A: EXPRESSION emitted");
+        if (expr != nullptr) {
+            check(expr->u.expression.bend_c > 60.0f && expr->u.expression.bend_c < 140.0f,
+                  "A: bend_c claims the glide (~+100 c), bend_err reported");
+            check(expr->u.expression.vib_rate_hz == 0.0f,
+                  "A: no vibrato claim on a glide (disambiguated)");
+        }
+        check(count_transitions(h) == 0,
+              "A: glide opens no transition record (plucked profile)");
+    }
+
+    // B: straight note — no bend claim (presence gate: drift is not a glide).
+    {
+        std::vector<float> sig(size_t(2.0f * kSr), 0.0f);
+        add_note(sig, 0.3f, 1.4f, 440.0f, 0.5f, 51u);
+        add_noise_floor(sig, 0.005f, 52u);
+        Harness h;
+        run(sig, kan::InstrumentProfile::plucked(), {}, 1, h);
+        const kan::NoteEvent* expr = nullptr;
+        for (const auto& e : h.events) {
+            if (e.kind == kan::NoteKind::Expression && e.note_id == 1) expr = &e;
+        }
+        check(expr == nullptr || std::fabs(expr->u.expression.bend_c) < 25.0f,
+              "B: straight note claims no bend");
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -719,6 +784,7 @@ int main() {
     fixture_8_mono_legato_strikes();
     fixture_9_legato_transitions();
     fixture_10_vibrato_center();
+    fixture_12_bend_fact();
     fixture_11_restrike_vs_extension();
     std::printf("%s\n", g_pass ? "ALL PASS" : "FAILURES");
     return g_pass ? 0 : 1;

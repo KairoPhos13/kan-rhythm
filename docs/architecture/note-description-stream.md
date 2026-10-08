@@ -235,6 +235,9 @@ struct NoteEvent {
         struct { float midi; float presence; float cents; float amplitude;
                  float similarity; uint32_t strike_group; } candidate;  // Content
         struct { float n_unresolved; float dominant_share; } content; // Content class
+        // EXPRESSION adds bend_c / bend_err_c in v3 (schema v3, 2026-10-08:
+        // a monotonic glide within the record; excluded when a vibrato claim
+        // or a legato transition owns the behavior)
         struct { float dynamics_db; float attack_ms; float release_ms;
                  float sustain_ratio; float vib_rate_hz; float vib_depth_c; } expression;
         struct { float end_ms; float duration_ms; float peak_rms; } close;
@@ -326,7 +329,7 @@ pushes each event to all — `tap.hpp`-style fan-out, but push-based
 (completeness-oriented, not overwrite/freshness). The audio callback stays
 out of this entirely: it only feeds the existing sample ring buffer.
 
-### 5.2 JSONL schema (v2)
+### 5.2 JSONL schema (v3)
 
 One JSON object per line, one per event, deterministic key order so live
 and offline logs diff cleanly:

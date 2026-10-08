@@ -264,6 +264,26 @@ does not block.
 
 ---
 
+## Technique facts — bend emitted (schema v3) + vibrato resolvability gate
+
+- **PASS-22 — bend facts now flow (schema v3).** Audit found BendAnalyzer
+  dead code advertised as shipped; the stream now emits `bend_c` /
+  `bend_err_c` on EXPRESSION (glide displacement + linear-fit error),
+  disambiguated by exclusion: no bend when a vibrato claim owns the record
+  (oscillation vs glide) or when a legato transition began on it (a step
+  is a TRANSITION record). Presence gate |glide| >= 25 c. Validated by
+  `note_stream_test` fixture 12 (plucked +100 c glide claimed; straight
+  note claims nothing; no spurious transitions). JSONL schema v2 -> v3.
+- **PASS-23 — vibrato resolvability gate.** A claimed rate must sit below
+  0.8x the trajectory's own Nyquist (residual claims sat at ~11 Hz on the
+  50 ms stream cadence = above its 10 Hz Nyquist: noise, not measurable
+  oscillation). Piano negative control: 0.19% -> **0.11%** in the 30 ms
+  bench sampling (where 10 Hz is still resolvable); in the product's
+  50 ms stream the same claims are rejected by the gate. The remaining
+  residual (rate ~10 Hz, cadence-locked) lies outside every musical
+  vibrato band and `VibratoAnalyzer::check()` against pack specs rejects
+  it — fact reports honestly, the judge filters (division of labor held).
+
 ## Technique facts (EXPRESSION) — real-data validation (night 2026-10-08)
 
 User request: validate the execution-shape labeling (sustain, vibrato,
@@ -377,11 +397,10 @@ labels): `docs/architecture/validation-status.md`.
    pedal semantics in the profile) — design item, not yet implemented.
 6. **T1 player intonation profile.** Contract documented; the game-side
    accumulation/calibration service does not exist yet.
-7. **Bend facts (schema v3).** BendAnalyzer validated synthetically but
-   not emitted; needs EXPRESSION fields + disambiguation (audit AUDIT-1).
-8. **Vibrato residual gate.** 0.19% false claims on piano sit at ~11 Hz
-   (50 ms reading cadence artifact); a rate-band gate tied to the reading
-   cadence would clear them (technique.hpp measure()).
+7. ~~Bend facts (schema v3)~~ **done** — PASS-22 (fields + disambiguation
+   + fixture 12).
+8. ~~Vibrato residual gate~~ **done** — PASS-23 (Nyquist resolvability);
+   residual ~10 Hz claims are cadence-locked and rejected by spec checks.
 9. **Audit leftovers.** Wire-or-remove kFlagDominant + dominant_midi;
    kan_cli selftest; decide chroma/FFT keep-or-drop; wire kan_analyze
    candidate path; calibration orphans (RelativeTuningTracker, per-string
