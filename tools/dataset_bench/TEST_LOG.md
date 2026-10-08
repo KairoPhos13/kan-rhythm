@@ -295,6 +295,18 @@ properties — the evidence class that backs the game's claims.
   only), (2) the release cliff falls BETWEEN samples after the crossing
   (fix: the cliff is the continued fall after the crossing sample — 24 dB
   in fixture A vs 0.7 dB in the decay case).
+- **ISS-6 EXPERIMENT — end-resolution tail: REJECTED, with the physical
+  truth it revealed.** The obvious fix for the window cap was to keep
+  fitting notes still sounding past their fact window (levels only, up to
+  +1500 ms). It made durations WORSE (p50 211 -> 1710 ms, pinned at the
+  NEW cap): the tail measured **sounding end, which under sustain pedal
+  runs seconds past key-hold**. The audio cannot see key-off with the
+  pedal down — physically. Conclusion (ISS-6 closed): the key-hold+250
+  estimator is the right shape for what the game judges (key holds), its
+  +200 ms offset is a calibratable constant, and the `end_faded` cliff
+  criterion marks which ends are release-observed. Second rejected
+  experiment of the day; both are recorded so nobody retries them
+  without new evidence.
 - **ISS-6 (the big one) — I8's "release bias" is mostly the measurement
   window's own padding.** On real piano, 96% of notes are still sounding
   above threshold at the window edge (key-hold + 250 ms): `end_faded`
