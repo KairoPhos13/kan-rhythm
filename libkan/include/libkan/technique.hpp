@@ -13,7 +13,7 @@
 //
 // Data flow (SPECIFICATION.md §2 + platform-architecture.md §5): libkan
 // MEASURES (TrajectoryBuffer from the per-block cents stream,
-// EnvelopeFollower from the RMS stream, slot amplitudes from any window);
+// EnvelopeAnalyzer from the RMS stream, slot amplitudes from any window);
 // the instrument pack SUPPLIES expectations (the plain *Spec structs below —
 // same "plain data in, no format coupling" rule as InstrumentProfile); the
 // game JUDGES via check() -> TechniqueResult.
@@ -100,6 +100,13 @@ struct VibratoMeasurement {
     float depth_cents = 0.0f;   ///< 0-to-peak (sinusoid fit of the detrended curve)
     float duration_ms = 0.0f;
     float center_cents = 0.0f;  ///< detrended mean (pitch offset around which it oscillates)
+    float coherence = 0.0f;     ///< [0,1] variance explained by a sinusoid at
+                                ///< rate_hz. Gate for `periodic`: fit-noise
+                                ///< wobble (neighbor leakage on straight
+                                ///< notes) crosses zeros and swings widely
+                                ///< but is NOT coherent oscillation
+                                ///< (dataset_bench selftest control).
+    bool rate_stable = false;   ///< first/second half rates agree within 30%
 };
 
 class VibratoAnalyzer {
@@ -151,8 +158,61 @@ public:
         const float rms = float(std::sqrt(acc / double(n)));
         m.depth_cents = rms * 1.41421356f;
 
-        // Periodic only with enough cycles AND clear oscillation depth.
-        m.periodic = cycles >= 3.0f && m.depth_cents >= 5.0f && m.rate_hz > 0.0f;
+        // Coherence: least-squares sinusoid at the estimated rate; how much
+        // of the detrended variance it explains. Real vibrato is coherent;
+        // fit-noise wobble is not.
+        if (m.rate_hz > 0.0f) {
+            const double w = 2.0 * 3.14159265358979 * double(m.rate_hz) / 1000.0;
+            double s2 = 0.0, c2 = 0.0, sc = 0.0, sy = 0.0, cy = 0.0, sst = 0.0;
+            for (size_t i = 0; i < n; ++i) {
+                const double t = double(traj.point(i).t_ms);
+                const double y = double(traj.point(i).cents) - double(mean);
+                const double sn = std::sin(w * t), cs = std::cos(w * t);
+                s2 += sn * sn; c2 += cs * cs; sc += sn * cs;
+                sy += sn * y; cy += cs * y; sst += y * y;
+            }
+            const double det = s2 * c2 - sc * sc;
+            if (det > 1e-12 && sst > 1e-12) {
+                const double a = (sy * c2 - cy * sc) / det;
+                const double b = (cy * s2 - sy * sc) / det;
+                double sse = 0.0;
+                for (size_t i = 0; i < n; ++i) {
+                    const double t = double(traj.point(i).t_ms);
+                    const double y = double(traj.point(i).cents) - double(mean);
+                    const double e = y - (a * std::sin(w * t) + b * std::cos(w * t));
+                    sse += e * e;
+                }
+                m.coherence = float(1.0 - sse / sst);
+            }
+        }
+
+        // Rate stability: crossing rates of both halves must agree (a real
+        // vibrato holds its rate; drift is noise or an uncontrolled swing).
+        auto half_rate = [&](size_t i0, size_t i1) {
+            size_t cr = 0;
+            float ft = 0.0f, lt = 0.0f;
+            float pv = traj.point(i0).cents - mean;
+            for (size_t i = i0 + 1; i < i1; ++i) {
+                const float cv = traj.point(i).cents - mean;
+                if ((pv <= 0.0f && cv > 0.0f) || (pv >= 0.0f && cv < 0.0f)) {
+                    if (cr == 0) ft = traj.point(i - 1).t_ms;
+                    lt = traj.point(i).t_ms;
+                    ++cr;
+                }
+                pv = cv;
+            }
+            return (cr >= 2 && lt > ft) ? float(cr - 1) * 1000.0f / (lt - ft) : 0.0f;
+        };
+        const float ra = half_rate(0, n / 2);
+        const float rb = half_rate(n / 2, n);
+        if (ra > 0.0f && rb > 0.0f) {
+            m.rate_stable = std::fabs(ra - rb) <= 0.3f * std::max(ra, rb);
+        }
+
+        // Periodic only with enough cycles, clear depth, a COHERENT
+        // oscillation and a stable rate.
+        m.periodic = cycles >= 3.0f && m.depth_cents >= 5.0f && m.rate_hz > 0.0f
+                  && m.coherence >= 0.5f && m.rate_stable;
         return m;
     }
 

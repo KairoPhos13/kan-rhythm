@@ -264,6 +264,43 @@ does not block.
 
 ---
 
+## Technique facts (EXPRESSION) — real-data validation (night 2026-10-08)
+
+User request: validate the execution-shape labeling (sustain, vibrato,
+dynamics) and get the capability trustworthy. Summary:
+
+- **PASS-18 — positive control.** `dataset_bench --selftest` injects a
+  5 Hz / 30 c vibrato: detected at 4.94 Hz / 30.2 c; straight notes are
+  NOT claimed (the counterexample suite's mash of fit noise used to be
+  claimed — see PASS-19).
+- **PASS-19 — root cause of false vibrato claims fixed in the library.**
+  `VibratoAnalyzer::periodic` was ">=3 zero-crossing cycles && depth >= 5"
+  — any fit-noise wobble crossed zeros and won the label (synthetic
+  straight notes claimed at 4.6-8.7 Hz, 14-53 c). Added **coherence gate**
+  (sinusoid-fit variance explained >= 0.5) + **rate-stability gate**
+  (first/second-half rates within 30%). `VibratoMeasurement` now reports
+  `coherence` and `rate_stable` (facts, not verdicts).
+- **PASS-20 — negative control on real piano (tech01, 10 MAESTRO files,
+  71,302 notes): vibrato claimed on 0.19%** — piano cannot sustain
+  vibrato. The residual claims (rate p50 11.11 Hz) are cadence artifacts
+  near the 50 ms reading Nyquist, not vibrato territory; documented as
+  the residual signature (a future rate-band gate would clear them).
+- **PASS-21 — envelope/dynamics distributions plausible on real piano:**
+  sustain_ratio p50 0.27 (decaying instrument), hold_ratio p50 1.41
+  (consistent with the +200 ms release bias at ~500 ms notes).
+- **ISS-4 (root cause) — long-note duration outliers diagnosed and
+  flagged.** All 40 batch-03 outliers (>600 ms error) are NEGATIVE on
+  notes written >3 s (median 3.7 s): monotone decay crosses the end
+  threshold while the key is still held — no release to observe. Fix:
+  `end_faded` fact (drop < 6 dB in 300 ms around the crossing = end
+  inferred from decay, not observed) — faded ends are excluded from
+  duration facts, never reported as confident ends (I2 pattern).
+- **AUDIT-1 — repository audit (see Open items).** Notable find the user
+  suspected: EXPRESSION vibrato was **structurally 0.0 on the score-
+  informed path** (the game's main path) — vibrato measured only for
+  blind records. Fixed: vibrato now measures for all records with pitch
+  readings (20/20 ctest).
+
 ## Batch 04 — out-of-sample validation (year 2006, 115 files)
 
 - **Date:** 2026-10-08
@@ -303,6 +340,21 @@ does not block.
 
 ## Open items (pending — tracked here so nothing is lost)
 
+Repository audit 2026-10-08 (full feature inventory) key findings:
+BendAnalyzer is dead code (docs advertised bend as shipped — corrected;
+emitting bend needs schema v3 + bend-vs-vibrato-vs-transition logic);
+`kFlagDominant` can never fire and `BlindContent::dominant_midi` is
+computed then discarded (decide: wire at CONTENT emission or remove);
+`kan_cli` has zero automated coverage; technique `check()`/`TechniqueResult`
+and `SpectralSignatureValidator` have no consumer (pack machinery awaiting
+the game judge); `RelativeTuningTracker` + per-string tuning matrix
+orphaned; KissFFT/ChromaChordValidator consumed by one test only;
+`TapBuffer`/`PitchShifter` await kanfx; `kan_analyze --events` runs blind
+only (never feeds candidates); InstrumentProfile `judgment_offset_ms`/
+`attack_ramp_ms`/`family`/`attack_type` unread by libkan (game-side pack
+data — comments corrected). Doc drift fixed: JSONL v1->v2 heading,
+strike_group/n_unresolved names, EnvelopeAnalyzer name, test count.
+
 Master status document (readiness, sharpening plan, cross-instrument
 transfer and the dataset strategy for instruments without MAESTRO-grade
 labels): `docs/architecture/validation-status.md`.
@@ -325,7 +377,16 @@ labels): `docs/architecture/validation-status.md`.
    pedal semantics in the profile) — design item, not yet implemented.
 6. **T1 player intonation profile.** Contract documented; the game-side
    accumulation/calibration service does not exist yet.
-7. **Known measurement limits (by design, documented).** High-register
+7. **Bend facts (schema v3).** BendAnalyzer validated synthetically but
+   not emitted; needs EXPRESSION fields + disambiguation (audit AUDIT-1).
+8. **Vibrato residual gate.** 0.19% false claims on piano sit at ~11 Hz
+   (50 ms reading cadence artifact); a rate-band gate tied to the reading
+   cadence would clear them (technique.hpp measure()).
+9. **Audit leftovers.** Wire-or-remove kFlagDominant + dominant_midi;
+   kan_cli selftest; decide chroma/FFT keep-or-drop; wire kan_analyze
+   candidate path; calibration orphans (RelativeTuningTracker, per-string
+   matrix) need a consumer or removal.
+10. **Known measurement limits (by design, documented).** High-register
    conditioning above ~25 simultaneous notes (sim degrades, facts resolve
    as not-verified); deep-bass saturation flags (1.2%); long-note duration
    errors beyond the release bias are rare but real.

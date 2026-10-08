@@ -48,11 +48,12 @@ struct InstrumentProfile {
     /// start and the point where the HFC onset detector fires. Fast attacks
     /// fire ~0 ms; slow air/bow ramps fire late, so rhythmic judgment for
     /// those instruments evaluates the ramp start (negative offset applied
-    /// to the onset timestamp by the judgment layer).
+    /// to the onset timestamp by the judgment layer — a GAME-side consumer;
+    /// libkan's detection does not read this field).
     float judgment_offset_ms = 0.0f;
 
-    /// Typical attack ramp duration (informational; used by envelope-shape
-    /// technique validators and slow-attack judgment).
+    /// Typical attack ramp duration. Pack data for the game's judgment
+    /// layer (slow-attack timing expectations); no libkan consumer yet.
     float attack_ramp_ms = 2.0f;
 
     /// Maximum number of simultaneously sounding notes the instrument can

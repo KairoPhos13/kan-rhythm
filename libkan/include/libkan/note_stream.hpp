@@ -1498,8 +1498,14 @@ private:
         const DynamicsTier tier = dynamics_.observe(peak);
         const bool stable_pitch = n.readings > 1
             && float(n.hops) / float(n.readings - 1) <= 0.2f && n.max_dev <= 200.0f;
+        // Vibrato from the 50 ms pitch readings — ALL records (audit fix:
+        // this used to be blind-only, so the game's score-informed path
+        // emitted vib_hz 0.0 structurally). Non-leader chord voices take no
+        // readings and honestly report no vibrato claim; the coherence and
+        // rate-stability gates (technique.hpp) keep fit-noise wobble from
+        // being claimed.
         VibratoMeasurement v;
-        if (stable_pitch && n.candidate_index < 0) {
+        if (stable_pitch) {
             VibratoAnalyzer vib;
             v = vib.measure(n.vib);
         }

@@ -19,6 +19,7 @@ Frieren). Invariants: `measurement-invariants.md`. Game-side contract:
 | Determinism & RT safety | live ≡ offline; callback pushes POD only; ≤2 analysis threads | fixtures I9/I12 |
 | Performance | 3.6–7.1× real time offline (12 jobs); heavy-cavalry adaptive | batch timings |
 | Extensibility | instruments are pack data (`InstrumentProfile`), zero instrument code | I10 |
+| Execution-shape facts (EXPRESSION) | vibrato: 0.19% false claims on real piano (negative control) + injected vibrato detected 4.94/30.2 vs 5 Hz/30 c (positive); envelope/dynamics plausible; faded-out ends flagged, not guessed | tech01 + selftest controls (TEST_LOG PASS-18..21, ISS-4) |
 
 **What this means:** the *measurement science* for piano is at the level of
 a serious judged game. Every claim has a number, a corpus, and a documented

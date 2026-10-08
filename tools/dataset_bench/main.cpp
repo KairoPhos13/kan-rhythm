@@ -12,6 +12,7 @@
 // License note: dataset audio/MIDI is never committed to this repository.
 // MAESTRO (Google Magenta) is CC BY-NC-SA 4.0, research/non-commercial.
 #include "libkan/score_verify.hpp"
+#include "libkan/technique.hpp"
 #include "midi_reader.hpp"
 
 #define MINIAUDIO_IMPLEMENTATION
@@ -45,14 +46,29 @@ struct Entry {
     std::string label;
 };
 
+struct TechRow {
+    std::string label;
+    float onset_ms = 0.0f, dur_ms = 0.0f;
+    int midi = 0, velocity = 0;
+    float amp = 0.0f;
+    // Execution shape (EXPRESSION facts; measurements only):
+    bool vib_periodic = false;
+    float vib_rate = 0.0f, vib_depth = 0.0f, vib_center = 0.0f;
+    float attack_ms = 0.0f, release_ms = 0.0f, sustain_ratio = 0.0f;
+    float hold_ratio = 0.0f;   ///< measured hold / written duration
+    int dyn_tier = 0;          ///< DynamicsTier as int (0=WarmingUp..6=Ff)
+};
+
 struct NoteRow {
     std::string label;
     float onset_ms = 0.0f, dur_ms = 0.0f;
     int midi = 0;
+    int velocity = 0;
     float sim = 0.0f, cents = 0.0f, amp = 0.0f;
     float meas_dur = 0.0f, dur_err = 0.0f, t_peak = 0.0f, onset_err = 0.0f;
     bool found = false;
     bool saturated = false;
+    bool end_faded = false;
 };
 
 struct FileRow {
@@ -100,6 +116,7 @@ bool load_ground_truth(const std::string& path, std::vector<ScoreNote>& notes) {
         n.onset_ms = float(m.onset_ms);
         n.dur_ms = float(m.dur_ms);
         n.midi = m.midi;
+        n.velocity = m.vel;
         notes.push_back(n);
     }
     return !notes.empty();
@@ -207,11 +224,73 @@ bool read_manifest(const std::string& path, const std::string& audio_root,
     return !out.empty();
 }
 
+/// Execution-shape analysis (EXPRESSION facts): vibrato, envelope shape and
+/// dynamics tier per note, from the fitted trajectories. Measurements only.
+std::vector<TechRow> analyze_technique(const Entry& e,
+                                       const std::vector<ScoreNote>& notes,
+                                       float fit_step_ms) {
+    std::vector<TechRow> out;
+    kan::VibratoAnalyzer vib;
+    kan::EnvelopeAnalyzer env;
+    kan::DynamicsClassifier dyn;
+    // DynamicsClassifier wants notes in strike order with their attack peaks.
+    std::vector<size_t> order(notes.size());
+    for (size_t i = 0; i < order.size(); ++i) order[i] = i;
+    std::sort(order.begin(), order.end(), [&](size_t a, size_t b) {
+        return notes[a].onset_ms < notes[b].onset_ms;
+    });
+    std::vector<int> tiers(notes.size(), 0);
+    for (size_t i : order) {
+        tiers[i] = int(dyn.observe(notes[i].amp_peak));
+    }
+    for (size_t i = 0; i < notes.size(); ++i) {
+        const ScoreNote& n = notes[i];
+        TechRow tr;
+        tr.label = e.label;
+        tr.onset_ms = n.onset_ms;
+        tr.dur_ms = n.dur_ms;
+        tr.midi = n.midi;
+        tr.velocity = n.velocity;
+        tr.amp = n.amp_peak;
+        tr.dyn_tier = tiers[i];
+
+        // Vibrato on the sustain region (skip the attack transient).
+        kan::TrajectoryBuffer traj;
+        for (const auto& pt : n.cents_traj) {
+            if (pt.first >= n.onset_ms + 150.0f && pt.first <= n.onset_ms + n.dur_ms + 100.0f) {
+                traj.add(pt.first - n.onset_ms, pt.second);
+            }
+        }
+        if (traj.size() >= 8) {
+            const kan::VibratoMeasurement vm = vib.measure(traj);
+            tr.vib_periodic = vm.periodic;
+            tr.vib_rate = vm.rate_hz;
+            tr.vib_depth = vm.depth_cents;
+            tr.vib_center = vm.center_cents;
+        }
+
+        // Envelope shape from the fitted level series (the note's own level).
+        if (n.levels.size() >= 4) {
+            std::vector<float> lv;
+            for (const auto& lp : n.levels) lv.push_back(lp.second);
+            const kan::EnvelopeMeasurement em = env.measure(lv.data(), lv.size(), fit_step_ms);
+            tr.attack_ms = em.attack_ms;
+            tr.release_ms = em.release_ms;
+            tr.sustain_ratio = em.sustain_ratio;
+        }
+        const float meas = (n.measured_end_ms > 0.0f) ? n.measured_end_ms - n.onset_ms : 0.0f;
+        tr.hold_ratio = (n.dur_ms > 0.0f) ? meas / n.dur_ms : 0.0f;
+        out.push_back(tr);
+    }
+    return out;
+}
+
 std::vector<NoteRow> bench_entry(const Entry& e, float fit_step_ms,
                                  FileRow& fr, std::string* err,
                                  std::vector<kan::score_verify::StrikePurity>* pu = nullptr,
                                  float purity_tref = 200.0f,
-                                 float pedal_ms = 0.0f) {
+                                 float pedal_ms = 0.0f,
+                                 std::vector<TechRow>* tech = nullptr) {
     const auto t0 = std::chrono::steady_clock::now();
     std::vector<float> sig;
     if (!load_audio(e.audio.c_str(), sig)) {
@@ -224,7 +303,11 @@ std::vector<NoteRow> bench_entry(const Entry& e, float fit_step_ms,
         return {};
     }
     std::vector<float> extras;
-    kan::score_verify::measure_score(sig, 48000.0f, notes, &extras, fit_step_ms);
+    kan::score_verify::measure_score(sig, 48000.0f, notes, &extras, fit_step_ms,
+                                     nullptr, tech != nullptr);
+    if (tech != nullptr) {
+        *tech = analyze_technique(e, notes, fit_step_ms);
+    }
 
     std::vector<NoteRow> rows;
     float c_sum = 0.0f, c_max = 0.0f, d_sum = 0.0f, d_max = 0.0f;
@@ -238,6 +321,7 @@ std::vector<NoteRow> bench_entry(const Entry& e, float fit_step_ms,
         r.onset_ms = n.onset_ms;
         r.dur_ms = n.dur_ms;
         r.midi = n.midi;
+        r.velocity = n.velocity;
         r.sim = sim;
         r.cents = cents;
         r.amp = n.amp_peak;
@@ -247,11 +331,12 @@ std::vector<NoteRow> bench_entry(const Entry& e, float fit_step_ms,
         r.onset_err = n.onset_err_ms;
         r.found = sim >= 0.60f;
         r.saturated = n.saturated;
+        r.end_faded = n.end_faded;
         rows.push_back(r);
         if (r.found) {
             ++found;
             const float ca = std::fabs(cents);
-            if (!n.saturated && ca <= 250.0f) {
+            if (!n.saturated && ca <= 250.0f && !n.end_faded) {
                 c_sum += ca;
                 c_max = std::max(c_max, ca);
                 d_sum += r.dur_err;
@@ -292,9 +377,13 @@ std::vector<NoteRow> bench_entry(const Entry& e, float fit_step_ms,
 // dataset required; this is what ctest runs.
 // ---------------------------------------------------------------------------
 
-void add_note(std::vector<float>& sig, float t0, float dur, int midi, float amp, uint32_t seed) {
+void add_note(std::vector<float>& sig, float t0, float dur, int midi, float amp, uint32_t seed,
+              float vib_rate_hz = 0.0f, float vib_depth_cents = 0.0f) {
     const float sr = 48000.0f;
     const float f = 440.0f * std::pow(2.0f, (float(midi) - 69.0f) / 12.0f);
+    // Frequency modulation for vibrato: dev_f = f * depth (ln2 / 1200).
+    const float dev_f = f * vib_depth_cents * 0.0005776f; // ln2/1200
+    const float fm_index = (vib_rate_hz > 0.0f) ? dev_f / vib_rate_hz : 0.0f;
     const size_t at = size_t(t0 / 1000.0f * sr);
     const size_t n = size_t(dur / 1000.0f * sr);
     for (size_t i = 0; at + i < sig.size() && i < n; ++i) {
@@ -308,7 +397,11 @@ void add_note(std::vector<float>& sig, float t0, float dur, int midi, float amp,
             const float decay = std::exp(-(1.2f + 0.25f * float(h)) * t);
             const uint32_t ph = seed * 2654435761u + uint32_t(h) * 40503u;
             const float phase = float((ph >> 8) % 6283u) / 1000.0f;
-            s += (0.5f / float(h)) * decay * std::sin(2.0f * float(M_PI) * f * float(h) * t + phase);
+            const float vib_phase = (vib_rate_hz > 0.0f)
+                ? float(h) * fm_index * std::sin(2.0f * float(M_PI) * vib_rate_hz * t)
+                : 0.0f;
+            s += (0.5f / float(h)) * decay
+               * std::sin(2.0f * float(M_PI) * f * float(h) * t + phase + vib_phase);
         }
         sig[at + i] += amp * s;
     }
@@ -328,16 +421,18 @@ bool write_wav(const std::string& path, const std::vector<float>& sig) {
 bool run_selftest(const std::string& out_dir) {
     std::printf("=== kan_dataset_bench --selftest ===\n");
     fs::create_directories(out_dir);
-    struct P { float t, d; int midi; };
-    const P perf[] = {{0, 1000, 57}, {0, 1000, 60}, {1500, 800, 55}, {2500, 800, 64},
-                      {3500, 1200, 62}, {5000, 1000, 53}, {5000, 1000, 57},
-                      {6500, 1500, 48}, {8500, 1000, 55}};
-    std::vector<float> sig(size_t(10.5f * 48000.0f), 0.0f);
+    struct P { float t, d; int midi; float vr, vd; };
+    const P perf[] = {{0, 1000, 57, 0, 0}, {0, 1000, 60, 0, 0}, {1500, 800, 55, 0, 0},
+                      {2500, 800, 64, 0, 0}, {3500, 1200, 62, 0, 0},
+                      {5000, 1000, 53, 0, 0}, {5000, 1000, 57, 0, 0},
+                      {6500, 1500, 48, 0, 0}, {8500, 1000, 55, 0, 0},
+                      {10500, 2500, 69, 5.0f, 30.0f}}; // vibrato control
+    std::vector<float> sig(size_t(13.5f * 48000.0f), 0.0f);
     std::vector<MidiNote> gt;
     uint32_t seed = 1;
     for (const auto& p : perf) {
-        add_note(sig, p.t, p.d, p.midi, 0.5f, seed++);
-        gt.push_back({double(p.t), double(p.d), p.midi});
+        add_note(sig, p.t, p.d, p.midi, 0.5f, seed++, p.vr, p.vd);
+        gt.push_back({double(p.t), double(p.d), p.midi, 80});
     }
     for (size_t i = 0; i < sig.size(); ++i) {  // deterministic noise floor
         seed = seed * 1664525u + 1013904223u;
@@ -376,7 +471,8 @@ bool run_selftest(const std::string& out_dir) {
     }
     Entry e{wav, mid, "selftest"};
     FileRow fr;
-    const auto rows = bench_entry(e, 75.0f, fr, &err);
+    std::vector<TechRow> tr;
+    const auto rows = bench_entry(e, 25.0f, fr, &err, nullptr, 200.0f, 0.0f, &tr);
     if (rows.empty()) {
         std::printf("  [FAIL] pipeline run: %s\n", err.c_str());
         return false;
@@ -398,6 +494,32 @@ bool run_selftest(const std::string& out_dir) {
     std::printf("  [%s] duration err mean: %.0f ms (release bias visible: I8)\n",
                 " ok ", double(fr.dur_err_mean));
     ok = ok && pass_found && pass_cents;
+
+    // Technique positive control: the injected vibrato (5 Hz, 30 c) must be
+    // claimed with its rate and depth; straight notes must not be claimed.
+    {
+        bool vib_ok = false, straight_ok = true;
+        for (const auto& t : tr) {
+            if (t.midi == 69) {
+                vib_ok = t.vib_periodic && std::fabs(t.vib_rate - 5.0f) <= 1.0f &&
+                         std::fabs(t.vib_depth - 30.0f) <= 12.0f;
+                std::printf("  [%s] vibrato control: periodic=%d rate=%.2f Hz "
+                            "depth=%.1f c (5 Hz / 30 c injected)\n",
+                            vib_ok ? " ok " : "FAIL", int(t.vib_periodic),
+                            double(t.vib_rate), double(t.vib_depth));
+            } else if (t.vib_periodic && t.dur_ms >= 300.0f) {
+                std::printf("    [claim] midi %d dur %.0f rate %.2f Hz depth %.1f c\n",
+                            t.midi, double(t.dur_ms), double(t.vib_rate),
+                            double(t.vib_depth));
+                straight_ok = false;
+            }
+        }
+        std::printf("  [%s] injected vibrato detected with correct rate and depth\n",
+                    vib_ok ? " ok " : "FAIL");
+        std::printf("  [%s] straight notes are not falsely claimed as vibrato\n",
+                    straight_ok ? " ok " : "FAIL");
+        ok = ok && vib_ok && straight_ok;
+    }
     std::printf("%s\n", ok ? "SELFTEST PASS" : "SELFTEST FAIL");
     return ok;
 }
@@ -412,6 +534,7 @@ int main(int argc, char** argv) {
     int jobs = 6, limit = 0, offset = 0;
     float fit_step_ms = 75.0f;
     bool purity_mode = false;
+    bool technique_mode = false;
     float purity_tref = 200.0f;
     float pedal_ms = 0.0f;
 
@@ -428,6 +551,7 @@ int main(int argc, char** argv) {
         else if (a == "--offset") offset = std::atoi(next());
         else if (a == "--fit-step") fit_step_ms = float(std::atof(next()));
         else if (a == "--purity") purity_mode = true;
+        else if (a == "--technique") technique_mode = true;
         else if (a == "--purity-tref") purity_tref = float(std::atof(next()));
         else if (a == "--pedal-ms") pedal_ms = float(std::atof(next()));
         else if (a == "--dump-score") dump_score = next();
@@ -452,7 +576,7 @@ int main(int argc, char** argv) {
             return 1;
         }
         for (const auto& n : notes) {
-            std::printf("%.0f %.0f %d\n", n.onset_ms, n.dur_ms, n.midi);
+            std::printf("%.0f %.0f %d %d\n", n.onset_ms, n.dur_ms, n.midi, n.vel);
         }
         return 0;
     }
@@ -486,6 +610,7 @@ int main(int argc, char** argv) {
     std::vector<std::vector<NoteRow>> rows(entries.size());
     std::vector<FileRow> files(entries.size());
     std::vector<std::vector<kan::score_verify::StrikePurity>> purity(entries.size());
+    std::vector<std::vector<TechRow>> tech(entries.size());
     std::atomic<size_t> next{0};
     std::mutex log;
     std::vector<std::thread> pool;
@@ -498,7 +623,8 @@ int main(int argc, char** argv) {
                 std::string e2;
                 rows[i] = bench_entry(entries[i], fit_step_ms, files[i], &e2,
                                       purity_mode ? &purity[i] : nullptr, purity_tref,
-                                      pedal_ms);
+                                      pedal_ms,
+                                      technique_mode ? &tech[i] : nullptr);
                 if (!e2.empty()) {
                     std::lock_guard<std::mutex> lk(log);
                     std::fprintf(stderr, "[WARN] %s\n", e2.c_str());
@@ -521,7 +647,7 @@ int main(int argc, char** argv) {
     {
         std::ofstream fn(out_dir + "/notes.csv");
         std::ofstream ff(out_dir + "/files.csv");
-        fn << "file,onset_ms,dur_written_ms,midi,found,sim,cents,saturated,amp,"
+        fn << "file,onset_ms,dur_written_ms,midi,velocity,found,sim,cents,saturated,end_faded,amp,"
               "meas_dur_ms,dur_err_ms,t_peak_ms,onset_err_ms\n";
         ff << "file,notes,found,cents_abs_mean,cents_abs_max,"
               "dur_err_mean_ms,dur_err_max_ms,extra_strikes,audio_s,wall_s\n";
@@ -534,7 +660,8 @@ int main(int argc, char** argv) {
             for (const auto& r : rows[i]) {
                 fn << r.label << ',' << r.onset_ms << ',' << r.dur_ms << ',' << r.midi << ','
                    << (r.found ? 1 : 0) << ',' << r.sim << ',' << r.cents << ','
-                   << (r.saturated ? 1 : 0) << ',' << r.amp << ','
+                   << (r.saturated ? 1 : 0) << ',' << (r.end_faded ? 1 : 0) << ','
+                   << r.amp << ','
                    << r.meas_dur << ',' << r.dur_err << ',' << r.t_peak << ',' << r.onset_err << '\n';
             }
             notes += fr.notes;
@@ -598,6 +725,51 @@ int main(int argc, char** argv) {
                  reg_cents[b].size());
         }
     }
+    if (technique_mode) {
+        std::ofstream ft(out_dir + "/technique.csv");
+        ft << "file,onset_ms,dur_ms,midi,velocity,amp,dyn_tier,"
+              "vib_periodic,vib_rate_hz,vib_depth_c,vib_center_c,"
+              "attack_ms,release_ms,sustain_ratio,hold_ratio\n";
+        long n_notes = 0, n_vib = 0;
+        std::vector<float> depths, rates, sustains, holds;
+        for (const auto& group : tech) {
+            for (const auto& t : group) {
+                ft << t.label << ',' << t.onset_ms << ',' << t.dur_ms << ','
+                   << t.midi << ',' << t.velocity << ',' << t.amp << ','
+                   << t.dyn_tier << ',' << (t.vib_periodic ? 1 : 0) << ','
+                   << t.vib_rate << ',' << t.vib_depth << ',' << t.vib_center << ','
+                   << t.attack_ms << ',' << t.release_ms << ','
+                   << t.sustain_ratio << ',' << t.hold_ratio << '\n';
+                ++n_notes;
+                if (t.vib_periodic) {
+                    ++n_vib;
+                    depths.push_back(t.vib_depth);
+                    rates.push_back(t.vib_rate);
+                }
+                if (t.dur_ms >= 300.0f) {  // sustain-shape stats on long notes
+                    sustains.push_back(t.sustain_ratio);
+                    holds.push_back(t.hold_ratio);
+                }
+            }
+        }
+        std::sort(depths.begin(), depths.end());
+        std::sort(rates.begin(), rates.end());
+        std::sort(sustains.begin(), sustains.end());
+        std::sort(holds.begin(), holds.end());
+        emit("# technique (execution-shape facts, %ld notes):\n", n_notes);
+        emit("#   vibrato claimed: %ld notes (%.2f%%)\n",
+             n_notes ? n_vib : 0, n_notes ? 100.0 * double(n_vib) / double(n_notes) : 0.0);
+        if (!depths.empty()) {
+            emit("#   vibrato depth: p50 %.1f c, rate p50 %.2f Hz\n",
+                 pct(depths, 0.50f), pct(rates, 0.50f));
+        }
+        if (!sustains.empty()) {
+            emit("#   sustain_ratio (dur>=300ms): p50 %.2f p95 %.2f\n",
+                 pct(sustains, 0.50f), pct(sustains, 0.95f));
+            emit("#   hold_ratio (measured/written): p50 %.2f p95 %.2f\n",
+                 pct(holds, 0.50f), pct(holds, 0.95f));
+        }
+    }
     if (purity_mode) {
         std::vector<float> un;
         std::ofstream fp(out_dir + "/purity.csv");
@@ -644,12 +816,15 @@ int main(int argc, char** argv) {
     }
     emit("# extra strikes (played, not in ground truth): %ld\n", extras);
     {
-        long sat = 0;
-        for (const auto& fr : rows) (void)fr;
+        long sat = 0, faded = 0;
         for (const auto& group : rows) {
-            for (const auto& r : group) sat += r.saturated ? 1 : 0;
+            for (const auto& r : group) {
+                sat += r.saturated ? 1 : 0;
+                faded += r.end_faded ? 1 : 0;
+            }
         }
         emit("# saturated pitch estimates (excluded; ISS-1): %ld\n", sat);
+        emit("# faded-out ends (duration unmeasurable, excluded): %ld\n", faded);
     }
     emit("# throughput: %.0f s audio in %.0f s wall (jobs %d, %.2fx real time)\n",
          audio_s, wall_s, n_jobs, wall_s > 0.0 ? audio_s / wall_s : 0.0);

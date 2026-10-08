@@ -23,6 +23,7 @@ struct MidiNote {
     double onset_ms = 0.0;
     double dur_ms = 0.0;
     int midi = -1;
+    int vel = 0;  ///< strike velocity (note_on): dynamics ground truth
 };
 
 namespace detail {
@@ -147,6 +148,7 @@ inline bool parse_smf(const std::vector<uint8_t>& data, std::vector<MidiNote>& o
 
     struct Open {
         uint64_t tick;
+        uint8_t vel;
     };
     std::map<int, std::queue<Open>> open;
     out.clear();
@@ -154,14 +156,16 @@ inline bool parse_smf(const std::vector<uint8_t>& data, std::vector<MidiNote>& o
         const uint8_t hi = uint8_t(r.status & 0xF0);
         const int key = (int(r.status & 0x0F) << 8) | int(r.d1);
         if (hi == 0x90 && r.d2 > 0) {
-            open[key].push({r.tick});
+            open[key].push({r.tick, r.d2});
         } else if (hi == 0x80 || (hi == 0x90 && r.d2 == 0)) {
             auto it = open.find(key);
             if (it != open.end() && !it->second.empty()) {
                 const uint64_t on_tick = it->second.front().tick;
+                const uint8_t on_vel = it->second.front().vel;
                 it->second.pop();
                 MidiNote n;
                 n.midi = int(r.d1);
+                n.vel = int(on_vel);
                 n.onset_ms = tick_to_ms(on_tick);
                 n.dur_ms = std::max(1.0, tick_to_ms(r.tick) - n.onset_ms);
                 out.push_back(n);

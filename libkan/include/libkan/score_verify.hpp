@@ -28,7 +28,17 @@ struct ScoreNote {
     float peak_ms = 0.0f; ///< when the note's fitted level peaked
     float cents_center = 0.0f;    ///< amplitude-weighted pitch estimate
     bool saturated = false;       ///< estimate hit its register's search cap
-    std::vector<std::pair<float, float>> levels; ///< (t_ms, fitted level)
+    int velocity = 0;             ///< ground-truth strike velocity (MIDI)
+    bool end_faded = false;       ///< end inferred from slow decay, not an
+                                  ///< observed release (long decaying notes
+                                  ///< cross the end threshold while still
+                                  ///< held: duration unmeasurable -- flag it,
+                                  ///< never report a confident wrong end)
+    std::vector<std::pair<float, float>> levels;      ///< (t_ms, fitted level)
+    std::vector<std::pair<float, float>> cents_traj;  ///< (t_ms, cents) when
+                                      ///< want_traj: execution-shape facts
+                                      ///< (vibrato, bends) need the path, not
+                                      ///< just its center (I3)
     float onset_err_ms = 1e9f;
     float sim_w = 0.0f;      ///< amp-weighted accumulators for center/sim
     float sim_wsum = 0.0f, cents_wsum = 0.0f;
@@ -127,7 +137,8 @@ void measure_score(const std::vector<float>& sig, float sr,
                    std::vector<ScoreNote>& notes,
                    std::vector<float>* extra_strikes = nullptr,
                    float fit_step_ms = 75.0f,
-                   const ::kan::InstrumentProfile* profile_in = nullptr) {
+                   const ::kan::InstrumentProfile* profile_in = nullptr,
+                   bool want_traj = false) {
     const ::kan::InstrumentProfile prof =
         (profile_in != nullptr) ? *profile_in : ::kan::InstrumentProfile::keyboard();
 
@@ -203,6 +214,9 @@ void measure_score(const std::vector<float>& sig, float sr,
                 sn.sim_w += amp;
                 sn.presence = std::max(sn.presence, r.note_presence[k]);
                 sn.levels.push_back({t, amp});
+                if (want_traj) {
+                    sn.cents_traj.push_back({t, validator.refined_cents(k)});
+                }
             }
         }
     }
@@ -236,6 +250,24 @@ void measure_score(const std::vector<float>& sig, float sr,
         sn.measured_end_ms = 0.0f;
         for (const auto& lv : sn.levels) {
             if (lv.second >= thr) sn.measured_end_ms = lv.first;
+        }
+
+        // Release vs fade-out (batch 03 root cause: ALL 40 duration
+        // outliers were negative, on notes with written duration > 3 s --
+        // monotone decay crosses the threshold while the key is still held).
+        // An observed release drops fast; a decay crossing does not. If the
+        // drop around the crossing is gradual, the end was never observed:
+        // flag `end_faded` instead of trusting the crossing time.
+        if (sn.measured_end_ms > 0.0f && !sn.levels.empty()) {
+            float lvl_before = 0.0f, lvl_end = 1.0e30f;
+            const float t_end = sn.measured_end_ms;
+            for (const auto& lv : sn.levels) {
+                if (lv.first <= t_end - 300.0f) lvl_before = std::max(lvl_before, lv.second);
+                if (lv.first >= t_end - 1e-3f && lv.first <= t_end + 1e-3f) lvl_end = lv.second;
+            }
+            const float drop_db = (lvl_end > 0.0f && lvl_before > 0.0f)
+                ? 20.0f * std::log10(lvl_before / std::max(lvl_end, 1e-9f)) : 0.0f;
+            sn.end_faded = drop_db < 6.0f;  // < 6 dB in 300 ms = no release
         }
     }
 

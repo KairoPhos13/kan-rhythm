@@ -398,7 +398,7 @@ Three layers, all present and runnable today:
 ### 6.1 Ground-truth oracles (the ctest suite)
 
 Every detector change must ship a test with **known input → expected
-output**. The suite (18 tests) and its oracles:
+output**. The suite (20 tests) and its oracles:
 
 | test | oracle (known truth) | asserts |
 |---|---|---|
