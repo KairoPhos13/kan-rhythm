@@ -10,6 +10,7 @@
 
 #include <algorithm>
 #include <cmath>
+#include <utility>
 #include <cstdio>
 #include <cstring>
 #include <vector>
@@ -25,6 +26,9 @@ struct ScoreNote {
     float presence = 0.0f, cents = 0.0f, amp_peak = 0.0f;
     float measured_onset_ms = 0.0f, measured_end_ms = 0.0f;
     float peak_ms = 0.0f; ///< when the note's fitted level peaked
+    float cents_center = 0.0f;    ///< amplitude-weighted pitch estimate
+    bool saturated = false;       ///< estimate hit its register's search cap
+    std::vector<std::pair<float, float>> levels; ///< (t_ms, fitted level)
     float onset_err_ms = 1e9f;
     float sim_w = 0.0f;      ///< amp-weighted accumulators for center/sim
     float sim_wsum = 0.0f, cents_wsum = 0.0f;
@@ -122,13 +126,16 @@ bool parse_score(const char* path, std::vector<ScoreNote>& notes) {
 void measure_score(const std::vector<float>& sig, float sr,
                    std::vector<ScoreNote>& notes,
                    std::vector<float>* extra_strikes = nullptr,
-                   float fit_step_ms = 75.0f) {
+                   float fit_step_ms = 75.0f,
+                   const ::kan::InstrumentProfile* profile_in = nullptr) {
+    const ::kan::InstrumentProfile prof =
+        (profile_in != nullptr) ? *profile_in : ::kan::InstrumentProfile::keyboard();
 
     // Detected attacks (for the onset-error column only; the score's own
     // times anchor the measurement, so a missed onset loses no note).
     ::kan::Preconditioner pre(sr);
     ::kan::HybridDetector det(sr);
-    det.set_profile(::kan::InstrumentProfile::keyboard());
+    det.set_profile(prof);
     std::vector<float> cond(128);
     std::vector<float> detected_ms;
     for (size_t off = 0; off + 128 <= sig.size(); off += 128) {
@@ -145,7 +152,10 @@ void measure_score(const std::vector<float>& sig, float sr,
     float t_lo = notes.front().onset_ms, t_hi = 0.0f;
     for (const auto& n : notes) t_hi = std::max(t_hi, n.onset_ms + n.dur_ms);
     ::kan::HarmonicChordValidator validator(sr, 8192);
-    validator.set_search_range_cents(60.0f); // permissive band (field detune)
+    // Wider of the profile's ranges: saturation is flagged per note after
+    // the fit (ISS-1), so exploration may exceed a register's trust band.
+    validator.set_search_range_cents(
+        std::max(prof.pitch_search_cents, prof.pitch_search_cents_low));
     validator.set_passes(1);
     validator.set_refine_rounds(2);
     constexpr size_t kFit = 2048;
@@ -175,9 +185,40 @@ void measure_score(const std::vector<float>& sig, float sr,
             sn.sim_wsum += r.similarity * amp;
             sn.sim_w += amp;
             sn.presence = std::max(sn.presence, r.note_presence[k]);
-            if (amp >= sn.amp_peak * 0.10f) {
-                sn.measured_end_ms = t; // extended while audible
-            }
+            sn.levels.push_back({t, amp});
+        }
+    }
+
+    // Post-processing per note:
+    // (1) saturation (ISS-1): an estimate at its register's cap ran out of
+    //     range and is flagged, never used as a pitch fact (I2);
+    // (2) release-based end (ISS-2): the note ends at its release -- the
+    //     terminal drop below its own sustained (plateau) level. Peak-
+    //     relative rules truncate decaying piano notes and misread swelling
+    //     winds; this is envelope-shape agnostic (end_drop_db is pack data).
+    for (auto& sn : notes) {
+        sn.cents_center = sn.sim_w > 0.0f ? sn.cents_wsum / sn.sim_w : 0.0f;
+        const float cap = (float(sn.midi) < prof.low_register_break_midi)
+            ? prof.pitch_search_cents_low : prof.pitch_search_cents;
+        sn.saturated = sn.sim_w > 0.0f && std::fabs(sn.cents_center) >= cap - 1.0f;
+
+        if (sn.levels.empty()) continue;
+        const size_t i0 = sn.levels.size() / 4;
+        const size_t i1 = (sn.levels.size() * 3) / 4;
+        std::vector<float> mid;
+        for (size_t i = i0; i <= i1 && i < sn.levels.size(); ++i) {
+            mid.push_back(sn.levels[i].second);
+        }
+        float plateau = 0.0f;
+        if (!mid.empty()) {
+            std::nth_element(mid.begin(), mid.begin() + mid.size() / 2, mid.end());
+            plateau = mid[mid.size() / 2];
+        }
+        const float thr = std::max(plateau * std::pow(10.0f, -prof.end_drop_db / 20.0f),
+                                   sn.amp_peak * 0.01f);
+        sn.measured_end_ms = 0.0f;
+        for (const auto& lv : sn.levels) {
+            if (lv.second >= thr) sn.measured_end_ms = lv.first;
         }
     }
 

@@ -277,7 +277,16 @@ void verify_score(const std::vector<float>& sig, float sr,
         if (n.onset_ms > 1000.0f * float(sig.size()) / sr) continue;
         ++in_audio;
         const float sim = n.sim_w > 0.0f ? n.sim_wsum / n.sim_w : 0.0f;
-        const float center = n.sim_w > 0.0f ? n.cents_wsum / n.sim_w : 0.0f;
+        const float center = n.cents_center;
+        if (n.saturated) {
+            std::fprintf(out, "%8.0f %6.0f %4d | %7.2f  SATURATED %7.4f %8.0f %7.0f %9.0f\n",
+                         double(n.onset_ms), double(n.dur_ms), n.midi,
+                         double(sim), double(n.amp_peak),
+                         double((n.measured_end_ms > 0.0f) ? n.measured_end_ms - n.onset_ms : 0.0f),
+                         double((n.peak_ms > 0.0f) ? n.peak_ms - n.onset_ms : -1.0f),
+                         double(n.onset_err_ms));
+            continue;
+        }
         const float meas_dur = (n.measured_end_ms > 0.0f)
             ? n.measured_end_ms - n.onset_ms : 0.0f;
         const float t_peak = (n.peak_ms > 0.0f) ? n.peak_ms - n.onset_ms : -1.0f;
@@ -287,7 +296,7 @@ void verify_score(const std::vector<float>& sig, float sr,
                      double(meas_dur), double(t_peak), double(n.onset_err_ms));
         if (sim >= 0.60f) {
             ++found;
-            if (std::fabs(center) <= 250.0f) {
+            if (!n.saturated && std::fabs(center) <= 250.0f) {
                 cents_err_sum += std::fabs(center);
                 cents_err_max = std::max(cents_err_max, std::fabs(center));
                 ++cents_n;

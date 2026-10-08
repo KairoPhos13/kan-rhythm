@@ -56,6 +56,13 @@ does not block.
   *Plan:* flag saturated estimates (report `-` or a `saturated` bit) and/or
   widen the search range for midi < ~45 and re-measure. Do not let a game
   judge act on a saturated number.
+  **RESOLVED (this batch round):** the search range is now pack data on
+  `InstrumentProfile` (`pitch_search_cents`, `pitch_search_cents_low`,
+  `low_register_break_midi` — per-register bands per instrument, no code
+  per instrument), and any estimate landing at its register's cap is
+  flagged `saturated` and excluded from pitch facts (I2). The fit explores
+  the wider range; trust stays per band. Asserted in `libkan_score_error_test`
+  (wrong-pitch case). To be re-verified at scale in batch 03.
 - **ISS-2 — long sustained notes truncate early (negative duration error).**
   The 31 rows with |dur_err| > 600 ms (0.08%) are all *negative* and all
   long notes (written 2.7–6.2 s): e.g. written 6210 ms measured 3379 ms.
@@ -65,10 +72,30 @@ does not block.
   the decay slope to key-off), re-check the I8 bias afterward — the end
   rule change alters historical measurements (checklist in
   measurement-invariants.md §4).
+  **RESOLVED (this batch round):** release-based end rule — a note ends at
+  its release, the terminal drop of `end_drop_db` below its own sustained
+  (plateau) level. Envelope-shape agnostic: piano decays, winds swell, both
+  end in a release (the user's wind concern is exactly why the rule is
+  relative to the plateau, not the peak). `end_drop_db` is pack data
+  (keyboard 12, plucked 18, wind/bowed 10). Re-check I8 in batch 03 — the
+  bias number may shift with the new end rule.
 - **ISS-3 — one file carries most misses.** 318 of the 508 not-found notes
   live in a single file (`SMF_05_R1_2004_01-..._Track02`, 18,947 notes).
   *Plan:* inspect that file in batch 02 analysis (miss clustering: soft
   passages? repeated notes? file-level gain?) before tuning anything.
+  **DIAGNOSED (this batch round):** not an ensemble or foreign-instrument
+  file — the metadata row says *Frédéric Chopin, "12 Etudes, Op. 25"*,
+  solo piano (the whole CSV is solo-piano repertoire; no multi-instrument
+  entries in v3.0.0). The real cause is **note density**: 18,947 notes in
+  23.5 min = 13.4 notes/s; the alive-window rule (written dur + 250 ms)
+  puts a **peak of 27 simultaneous candidates** and >10 (the
+  `kMaxScoreNotes` fit cap) for 4.3% of the piece. Truncated candidates
+  are never fitted → sim collapses (miss median sim 0.43) → scattered
+  misses (median gap 197 ms). Virtuoso fast passages, not bad audio.
+  *Plan:* when >10 notes are alive, fit in groups so every alive note is
+  measured (each fit stays <= 10 candidates — the RT budget cap is about
+  per-fit cost, not about refusing to measure). Until then, treat dense-
+  passage misses as a known cap artifact, not a detection failure.
 
 ---
 
@@ -79,5 +106,8 @@ does not block.
 - **Command:** `kan_dataset_bench --maestro data/maestro-v3.0.0 --jobs 12
   --out runs/batch02`
 - **Status:** in progress; results and analysis to be appended here.
+  Note: batch 02 runs the pre-fix binary — its outputs measure the old
+  end rule and unsaturated pitch stats by design (the batch log shows the
+  tool as it was when the batch ran; batch 03 carries the fixes).
 
 ---

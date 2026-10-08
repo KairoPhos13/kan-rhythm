@@ -52,6 +52,7 @@ struct NoteRow {
     float sim = 0.0f, cents = 0.0f, amp = 0.0f;
     float meas_dur = 0.0f, dur_err = 0.0f, t_peak = 0.0f, onset_err = 0.0f;
     bool found = false;
+    bool saturated = false;
 };
 
 struct FileRow {
@@ -227,7 +228,7 @@ std::vector<NoteRow> bench_entry(const Entry& e, float fit_step_ms,
     int found = 0, n_abs = 0;
     for (const auto& n : notes) {
         const float sim = n.sim_w > 0.0f ? n.sim_wsum / n.sim_w : 0.0f;
-        const float cents = n.sim_w > 0.0f ? n.cents_wsum / n.sim_w : 0.0f;
+        const float cents = n.cents_center;
         const float meas = (n.measured_end_ms > 0.0f) ? n.measured_end_ms - n.onset_ms : 0.0f;
         NoteRow r;
         r.label = e.label;
@@ -242,11 +243,12 @@ std::vector<NoteRow> bench_entry(const Entry& e, float fit_step_ms,
         r.t_peak = (n.peak_ms > 0.0f) ? n.peak_ms - n.onset_ms : -1.0f;
         r.onset_err = n.onset_err_ms;
         r.found = sim >= 0.60f;
+        r.saturated = n.saturated;
         rows.push_back(r);
         if (r.found) {
             ++found;
             const float ca = std::fabs(cents);
-            if (ca <= 250.0f) {
+            if (!n.saturated && ca <= 250.0f) {
                 c_sum += ca;
                 c_max = std::max(c_max, ca);
                 d_sum += r.dur_err;
@@ -388,6 +390,7 @@ bool run_selftest(const std::string& out_dir) {
 } // namespace
 
 int main(int argc, char** argv) {
+    std::setvbuf(stdout, nullptr, _IOLBF, 0);  // live progress in batch logs
     std::string manifest, maestro_root, out_dir = "dataset_bench_out", audio_root, split;
     std::string dump_score, selftest_dir = "dataset_bench_selftest_out";
     bool selftest = false;
@@ -494,7 +497,7 @@ int main(int argc, char** argv) {
     {
         std::ofstream fn(out_dir + "/notes.csv");
         std::ofstream ff(out_dir + "/files.csv");
-        fn << "file,onset_ms,dur_written_ms,midi,found,sim,cents,amp,"
+        fn << "file,onset_ms,dur_written_ms,midi,found,sim,cents,saturated,amp,"
               "meas_dur_ms,dur_err_ms,t_peak_ms,onset_err_ms\n";
         ff << "file,notes,found,cents_abs_mean,cents_abs_max,"
               "dur_err_mean_ms,dur_err_max_ms,extra_strikes,audio_s,wall_s\n";
@@ -506,7 +509,8 @@ int main(int argc, char** argv) {
                << fr.extras << ',' << fr.audio_s << ',' << fr.wall_s << '\n';
             for (const auto& r : rows[i]) {
                 fn << r.label << ',' << r.onset_ms << ',' << r.dur_ms << ',' << r.midi << ','
-                   << (r.found ? 1 : 0) << ',' << r.sim << ',' << r.cents << ',' << r.amp << ','
+                   << (r.found ? 1 : 0) << ',' << r.sim << ',' << r.cents << ','
+                   << (r.saturated ? 1 : 0) << ',' << r.amp << ','
                    << r.meas_dur << ',' << r.dur_err << ',' << r.t_peak << ',' << r.onset_err << '\n';
             }
             notes += fr.notes;
@@ -539,6 +543,14 @@ int main(int argc, char** argv) {
     emit("# duration err (measured-written): mean %+.0f ms, max %.0f ms  "
          "[I8: release-bias estimate]\n", d_mean, d_max);
     emit("# extra strikes (played, not in ground truth): %ld\n", extras);
+    {
+        long sat = 0;
+        for (const auto& fr : rows) (void)fr;
+        for (const auto& group : rows) {
+            for (const auto& r : group) sat += r.saturated ? 1 : 0;
+        }
+        emit("# saturated pitch estimates (excluded; ISS-1): %ld\n", sat);
+    }
     emit("# throughput: %.0f s audio in %.0f s wall (jobs %d, %.2fx real time)\n",
          audio_s, wall_s, n_jobs, wall_s > 0.0 ? audio_s / wall_s : 0.0);
     if (so != nullptr) std::fclose(so);

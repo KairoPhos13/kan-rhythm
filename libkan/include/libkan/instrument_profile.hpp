@@ -80,6 +80,27 @@ struct InstrumentProfile {
     /// residual within this band (calibration-aware), never raw A440.
     float intonation_band_cents = 60.0f;
 
+    /// Pitch-refinement search range (+/- cents around the expected pitch).
+    /// Estimates that land at the cap are flagged "saturated" and are never
+    /// used as pitch facts (measurement-invariants.md I2/I6): a number at
+    /// the cap means "ran out of range", not "this detuned". Measured on
+    /// MAESTRO batch 01: deep piano bass saturates a 60 c range (ISS-1).
+    float pitch_search_cents = 60.0f;
+
+    /// Wider range below low_register_break_midi: deep registers are
+    /// inharmonic and fundamental-weak (piano bass, low guitar strings), so
+    /// they need more room before an estimate counts as saturated.
+    float pitch_search_cents_low = 120.0f;
+    float low_register_break_midi = 45.0f;
+
+    /// Release detection for the note-end measurement: a note ends at its
+    /// release -- the terminal drop of end_drop_db below its own sustained
+    /// (plateau) level. Peak-relative rules truncate decaying piano notes
+    /// (MAESTRO ISS-2) and misread swelling winds; this is envelope-shape
+    /// agnostic (piano decays, winds swell: both end in a release), and
+    /// only the strength is pack data.
+    float end_drop_db = 12.0f;
+
     // ---- Presets -----------------------------------------------------------
 
     /// Plucked strings (guitar, bass, harp): fast attack, 8 ms blanking.
@@ -95,6 +116,10 @@ struct InstrumentProfile {
         p.max_simultaneous_notes = 6; // six strings
         p.accepts_legato_boundaries = false;
         p.intonation_band_cents = 45.0f;
+        p.pitch_search_cents = 60.0f;
+        p.pitch_search_cents_low = 90.0f; // low strings are inharmonic too
+        p.low_register_break_midi = 45.0f;
+        p.end_drop_db = 18.0f;            // plucked decay ends near silence
         return p;
     }
 
@@ -112,6 +137,10 @@ struct InstrumentProfile {
         p.max_simultaneous_notes = 1; // one air column / one bow
         p.accepts_legato_boundaries = true; // slurs / transition notes
         p.intonation_band_cents = 60.0f;
+        p.pitch_search_cents = 60.0f;  // no inharmonic bass: uniform range
+        p.pitch_search_cents_low = 60.0f;
+        p.low_register_break_midi = 0.0f;
+        p.end_drop_db = 10.0f;         // clear breath/bow release
         return p;
     }
 
@@ -129,6 +158,10 @@ struct InstrumentProfile {
         p.max_simultaneous_notes = 10; // ten fingers
         p.accepts_legato_boundaries = false;
         p.intonation_band_cents = 60.0f;
+        p.pitch_search_cents = 60.0f;
+        p.pitch_search_cents_low = 120.0f; // piano bass saturates 60 c (ISS-1)
+        p.low_register_break_midi = 45.0f;
+        p.end_drop_db = 12.0f;
         return p;
     }
 

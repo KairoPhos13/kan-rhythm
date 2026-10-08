@@ -130,9 +130,11 @@ int main() {
         // reach it, while sim stays high. So the judge MUST gate on |cents|
         // — sim alone would let this pass. (And a +/-60 c band would half-
         // swallow it: this is why game judging should use a tighter band.)
-        const float cents1 = notes[1].cents_wsum / notes[1].sim_w;
+        const float cents1 = notes[1].cents_center;
         check(std::fabs(cents1) > 50.0f,
               "the written C4 bends visibly off pitch (|cents| > 50)");
+        check(notes[1].saturated,
+              "the estimate saturates at the search cap and is flagged (ISS-1)");
         check(sim_of(notes[0]) >= 0.80f && sim_of(notes[2]) >= 0.80f,
               "the correctly played notes still verify");
     }
