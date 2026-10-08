@@ -25,6 +25,7 @@
 #include "libkan/calibration.hpp"
 #include "libkan/technique.hpp"
 #include "libkan/note_stream.hpp"
+#include "libkan/score_verify.hpp"
 #ifdef KAN_DEMO_HAVE_BACF
 #include "libkan/bacf_detector.hpp"
 #endif
@@ -655,11 +656,48 @@ void print_usage() {
         "                        measurements (presence/cents/amplitude)\n"
         "  --no-gate             disable the adaptive noise gate\n"
         "  --noise-cal <ms>      room-silence calibration window (default 500)\n"
+            "  --guide \"C5,G5,G5(vibrato),...\"  sequence tracking: validate each\n"
+        "                      note as played, announce the next (no timing)\n"
         "  --selftest            offline pipeline check (no audio device)\n"
         "  --help                this text\n");
 }
 
 } // namespace
+
+// ---- guide mode: sequence tracking, note by note (no timing judgment) ----
+struct GuideStepSpec { int midi = -1; bool vib = false; };
+struct GuideTracker {
+    std::vector<GuideStepSpec> steps;
+    size_t idx = 0;
+    bool fed = false;
+    bool done_all = false;
+    std::string pending;
+
+    bool parse_inline(const char* spec) {
+        std::string tok;
+        auto flush = [&](std::string t) {
+            while (!t.empty() && (t.back() == ' ' || t.back() == '\r')) t.pop_back();
+            while (!t.empty() && t.front() == ' ') t.erase(t.begin());
+            if (t.empty()) return;
+            GuideStepSpec g;
+            const size_t par = t.find('(');
+            if (par != std::string::npos) {
+                g.vib = t.find("vibrato", par) != std::string::npos;
+                t = t.substr(0, par);
+            }
+            g.midi = kan::score_verify::note_name_to_midi(t.c_str());
+            if (g.midi >= 0) steps.push_back(g);
+        };
+        for (const char* q = spec; *q != '\0'; ++q) {
+            if (*q == ',') { flush(tok); tok.clear(); } else tok += *q;
+        }
+        flush(tok);
+        return !steps.empty();
+    }
+    const GuideStepSpec* cur() const {
+        return (idx < steps.size()) ? &steps[idx] : nullptr;
+    }
+};
 
 int main(int argc, char** argv) {
     const char* instrument_name = "ocarina";
@@ -672,6 +710,7 @@ int main(int argc, char** argv) {
     bool calibrate = false;
     bool vibrato_mode = false;
     bool use_gate = true;
+    const char* guide_arg = nullptr;
     int noise_cal_ms = 500;
 
     for (int i = 1; i < argc; ++i) {
@@ -697,6 +736,8 @@ int main(int argc, char** argv) {
             use_gate = false;
         } else if (std::strcmp(argv[i], "--noise-cal") == 0 && i + 1 < argc) {
             noise_cal_ms = std::atoi(argv[++i]);
+        } else if (std::strcmp(argv[i], "--guide") == 0 && i + 1 < argc) {
+            guide_arg = argv[++i];
         } else if (std::strcmp(argv[i], "--selftest") == 0) {
             return run_selftest();
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
@@ -850,6 +891,16 @@ int main(int argc, char** argv) {
     kan::NoteDescriber desc(float(SAMPLE_RATE), inst.profile);
     kan::NoteEventStream ev_stream(4096);
     desc.subscribe(ev_stream);
+
+    // Guide: sequence tracking over the validated candidate path.
+    GuideTracker guide;
+    if (guide_arg != nullptr) {
+        if (!guide.parse_inline(guide_arg)) {
+            std::fprintf(stderr, "[guide] cannot parse sequence\n");
+            return 1;
+        }
+        printf("GUIDE: %zu notes loaded. Play them one by one.\\n", guide.steps.size());
+    }
 
     // The display is rendered FROM the event stream (the same facts the
     // JSONL log carries) — one schema for display, log and offline tools.
@@ -1109,6 +1160,37 @@ int main(int argc, char** argv) {
         desc.process_block(pipeline.conditioned_last, BLOCK_SIZE);
         while (desc.finalize_due()) {}
         drain_events();
+
+        // Guide: feed the current step's hypotheses and verify as played.
+        if (guide_arg != nullptr && !guide.done_all) {
+            if (!guide.fed && guide.cur() != nullptr) {
+                kan::NoteDescriber::CandidateSet cs;
+                cs.note_id = 0;
+                cs.count = 1;
+                cs.entries[0] = {0, float(guide.cur()->midi), 1};
+                if (desc.set_candidates(cs)) {
+                    guide.fed = true;
+                    printf("[guide] next: MIDI %d%s\n", guide.cur()->midi,
+                           guide.cur()->vib ? " (vibrato)" : "");
+                }
+            }
+            const GuideStepSpec* g = guide.cur();
+            if (g != nullptr) {
+                for (auto& row : score) {
+                    if (row.midi == g->midi && row.sim >= 0.5f) {
+                        printf("[guide] played: MIDI %d  sim %.2f  cents %+.0f\n",
+                               g->midi, double(row.sim), double(row.cents));
+                        ++guide.idx;
+                        guide.fed = false;
+                        if (guide.idx >= guide.steps.size()) {
+                            guide.done_all = true;
+                            printf("[guide] sequence complete.\n");
+                        }
+                        break;
+                    }
+                }
+            }
+        }
 
         if (r.onset) {
             ++notes_played;
