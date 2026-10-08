@@ -685,7 +685,8 @@ struct GuideTracker {
     size_t idx = 0;
     bool fed = false;
     bool done_all = false;
-    int last_attack = -1; // one advance per physical strike
+    int last_attack = -1;  // one advance per physical strike
+    int last_played = -999; // ...or per arrival on the target (legato!)
     std::string pending;
 
     bool parse_inline(const char* spec) {
@@ -1138,7 +1139,17 @@ int main(int argc, char** argv) {
                             midi_to_name(played_midi).c_str(), dev, gbar);
                 std::fflush(stdout);
                 const bool hit = (played_midi == target) && std::fabs(cents) <= 50.0;
-                if (hit && guide.last_attack != stats.attacks) {
+                // Advance on ARRIVAL at the target: a new strike OR the
+                // pitch having just moved onto it. Winds play legato
+                // (accepts_legato_boundaries) -- no attack fires between
+                // chained notes, so an attack-only guard froze the guide
+                // ("as if still tuning"). One advance per articulation:
+                // holding the note keeps played_midi constant, so repeats
+                // still need a re-tongue/re-strike.
+                const bool arrived = (guide.last_attack != stats.attacks)
+                                  || (played_midi != guide.last_played);
+                guide.last_played = played_midi;
+                if (hit && arrived) {
                     guide.last_attack = stats.attacks;
                     ++guide.idx;
                     guide.fed = false;
