@@ -540,3 +540,23 @@ labels): `docs/architecture/validation-status.md`.
    conditioning above ~25 simultaneous notes (sim degrades, facts resolve
    as not-verified); deep-bass saturation flags (1.2%); long-note duration
    errors beyond the release bias are rare but real.
+
+## Named TODO (user request, 2026-10-08): `kan_demo --guide` sequence tracking
+
+Spec locked from the user's example:
+
+    kan_demo --instrument ocarina \
+      --guide "C5,G5,G5,F5,G5(vibrato),G5,A#5,F5(vibrato),C5,..."
+
+- Inline comma-separated sequence; `(vibrato)` = validate the vibrato
+  fact on that note (coherence-gated); no timing judgment — one note at a
+  time, validated as played, then the next is announced until the whole
+  sequence completes.
+- Implementation: guide state machine over the validated candidate path
+  (NoteDescriber + set_candidates per step, verification on the
+  candidate facts); works live and with `--input` (offline mode first for
+  determinism, selftest coverage).
+- Process note (NOTE-6 recurrence): the first implementation attempt
+  silently no-op'd on Python string replaces and was claimed done in
+  chat. Rule reinforced: every patch is verified by grep BEFORE it is
+  reported as done.
