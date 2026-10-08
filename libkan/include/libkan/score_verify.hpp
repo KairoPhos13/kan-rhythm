@@ -295,17 +295,24 @@ void measure_score(const std::vector<float>& sig, float sr,
             const float t_end = sn.measured_end_ms;
             const float t_first = sn.levels.front().first;
             const float lookback = std::min(100.0f, std::max(1.0f, t_end - t_first));
-            float lvl_before = 0.0f, lvl_end = 1.0e30f;
+            float lvl_before = 0.0f, lvl_after = -1.0f;
             for (const auto& lv : sn.levels) {
-                if (lv.first <= t_end - lookback) lvl_before = std::max(lvl_before, lv.second);
-                if (lv.first >= t_end - 1e-3f && lv.first <= t_end + 1e-3f) lvl_end = lv.second;
+                // Local window ONLY: reaching back to the attack peak made
+                // slow decays look like cliffs (fixture matrix case B/D).
+                if (lv.first >= t_end - lookback - 1e-3f && lv.first <= t_end + 1e-3f) {
+                    lvl_before = std::max(lvl_before, lv.second);
+                }
+                if (lvl_after < 0.0f && lv.first > t_end + 1e-3f) lvl_after = lv.second;
             }
-            const float drop_db = (lvl_end > 0.0f && lvl_before > 0.0f)
-                ? 20.0f * std::log10(lvl_before / std::max(lvl_end, 1e-9f)) : 0.0f;
-            // 0.06 dB/ms (6 dB per 100 ms): damper cliffs pass, decay
-            // crossings fade.
-            sn.end_faded = lvl_before <= 0.0f || lvl_end >= 1.0e29f
-                        || drop_db < 0.06f * lookback;
+            // The cliff is the CONTINUED fall after the crossing sample:
+            // on a release the level collapses in the next sample (24 dB
+            // measured in fixture A); on a decay or pedal ring it keeps
+            // drifting slowly. No sample after = the end was never
+            // observed (faded, by definition).
+            const float drop_db = (lvl_after > 0.0f && lvl_before > 0.0f)
+                ? 20.0f * std::log10(lvl_before / lvl_after) : 0.0f;
+            sn.end_faded = lvl_before <= 0.0f || lvl_after < 0.0f
+                        || drop_db < 6.0f;
         }
     }
 

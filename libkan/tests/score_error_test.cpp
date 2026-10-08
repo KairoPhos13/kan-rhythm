@@ -370,6 +370,83 @@ int main() {
               "all 3 mashed keys appear among the extra-pitch candidates");
     }
 
+    // 10. Envelope-type matrix (ISS-5): the end_faded flag must classify
+    //     the END TYPE correctly on every envelope shape. Contract:
+    //     release (cliff) -> observed end; decay crossing / pedal ring ->
+    //     inferred end (faded). Only a flag validated here is a fact.
+    {
+        std::printf("envelope matrix (ISS-5): end_faded must classify end types\n");
+        auto add_shape_note = [](std::vector<float>& sig, float t0_ms, float total_ms,
+                                 int midi, float amp, float plateau_ms,
+                                 float release_ms, float tau_s) {
+            const float f = 440.0f * std::pow(2.0f, (float(midi) - 69.0f) / 12.0f);
+            const size_t at = size_t(t0_ms / 1000.0f * kSr);
+            const size_t n = size_t(total_ms / 1000.0f * kSr);
+            for (size_t i = 0; at + i < sig.size() && i < n; ++i) {
+                const float t = float(i) / kSr;
+                const float t_ms = t * 1000.0f;
+                float env = std::exp(-t / std::max(tau_s, 1e-3f));
+                if (release_ms > 0.0f && t_ms > plateau_ms) {
+                    const float g = std::min(1.0f, (t_ms - plateau_ms) / release_ms);
+                    env *= (1.0f - g);
+                }
+                float s = 0.0f;
+                for (int h = 1; h <= 5; ++h) {
+                    s += (0.5f / float(h))
+                       * std::sin(2.0f * float(M_PI) * f * float(h) * t + 0.3f * float(h));
+                }
+                sig[at + i] += amp * env * s;
+            }
+        };
+        // Notes start at 1000 ms: the measurement grid begins 200 ms after
+        // the first onset, so a fixture note must live in covered territory
+        // (what the flag's criterion is validated on).
+        // A quiet lead-in note at 500 ms establishes the measurement grid
+        // (it starts 200 ms after the first onset); the shaped note at
+        // 2500 ms is then fully covered -- the flag's criterion is
+        // validated where it actually operates. The lead is part of the
+        // score, so the fit models it honestly.
+        auto measure_one = [&](float total_ms, int midi, float plateau_ms,
+                               float release_ms, float tau_s, float written_ms) {
+            std::vector<float> sig(size_t((3000.0f + total_ms + 400.0f) / 1000.0f * kSr), 0.0f);
+            add_shape_note(sig, 500.0f, 3000.0f, 33, 0.25f, 2500.0f, 50.0f, 50.0f);
+            add_shape_note(sig, 2500.0f, total_ms, midi, 0.5f, plateau_ms, release_ms, tau_s);
+            add_noise_floor(sig, 0.005f, 99u);
+            std::vector<kan::score_verify::ScoreNote> notes(2);
+            notes[0].onset_ms = 500.0f;
+            notes[0].dur_ms = 2500.0f;
+            notes[0].midi = 33;
+            notes[1].onset_ms = 2500.0f;
+            notes[1].dur_ms = written_ms;
+            notes[1].midi = midi;
+            kan::score_verify::measure_score(sig, kSr, notes, nullptr, 30.0f);
+            return notes[1];
+        };
+        // A: clean release (plateau then damper cliff) -> NOT faded.
+        {
+            const auto n = measure_one(600.0f, 57, 500.0f, 30.0f, 50.0f, 500.0f);
+            check(!n.end_faded, "A: clean release = observed end (not faded)");
+        }
+        // B: monotone slow decay crossing the threshold while held -> faded.
+        {
+            const auto n = measure_one(4500.0f, 45, 4500.0f, 0.0f, 1.2f, 4000.0f);
+            check(n.end_faded,
+                  "B: decay crossing = inferred end (faded) -- the ISS-2 shape");
+        }
+        // C: pedal ring (key release, slow tail) -> faded (no cliff exists).
+        {
+            const auto n = measure_one(2900.0f, 57, 400.0f, 0.0f, 0.8f, 400.0f);
+            check(n.end_faded,
+                  "C: pedal ring = inferred end (faded) -- release not audible");
+        }
+        // D: short note with fast release -> NOT faded (the 43% bug shape).
+        {
+            const auto n = measure_one(90.0f, 72, 60.0f, 20.0f, 50.0f, 60.0f);
+            check(!n.end_faded,
+                  "D: short note with release = observed end (not faded)");
+        }
+    }
+
     std::printf("%s\n", g_pass ? "ALL PASS" : "FAILURES");
     return g_pass ? 0 : 1;
 }

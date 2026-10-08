@@ -287,6 +287,28 @@ does not block.
 Three years of material (2004/2006/2008) now confirm the same measured
 properties — the evidence class that backs the game's claims.
 
+- **ISS-5 RESOLVED — `end_faded` certified by the envelope matrix** (the
+  named follow-up, executed): 4 controlled envelope shapes (clean release,
+  decay crossing, pedal ring, short note) all classified correctly. Two
+  real bugs were found and fixed en route: (1) `lvl_before` reached back
+  to the attack peak so slow decays looked like cliffs (fix: local window
+  only), (2) the release cliff falls BETWEEN samples after the crossing
+  (fix: the cliff is the continued fall after the crossing sample — 24 dB
+  in fixture A vs 0.7 dB in the decay case).
+- **ISS-6 (the big one) — I8's "release bias" is mostly the measurement
+  window's own padding.** On real piano, 96% of notes are still sounding
+  above threshold at the window edge (key-hold + 250 ms): `end_faded`
+  honestly says "end never observed", and `measured_end` pins at the
+  window cap. The famous stability of p99 = 249 ms across three years is
+  stable **because 250 ms is a constant of the method**, not a property
+  of piano releases. Reinterpretation: duration facts are currently
+  "written + ~window padding" — stable, calibratable, coarse. True
+  release detection (running past the window, damper-cliff tracking) is
+  the named path to sub-100 ms duration facts. Everything published
+  before this entry interpreted the bias as release decay; the numbers
+  stand, their meaning is corrected here.
+- ~~ISS-5 provisional~~ (superseded by the resolution above).
+
 - **ISS-5 — `end_faded` is PROVISIONAL (do not rely on it yet).** Batch 05
   caught it over-firing at 71%; two criterion fixes (fixed 300 ms window
   mis-flagged short notes; proportional slope mixed plateau and cliff)
