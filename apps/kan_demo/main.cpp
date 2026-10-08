@@ -72,9 +72,13 @@ DemoInstrument preset(const char* name) {
     d.name = name;
     d.hint = "";
     if (std::strcmp(name, "ocarina") == 0) {
-        // 12-hole soprano ocarina in C: ~C5..F6, slow breath attack.
+        // 12-hole soprano ocarina: nominal C5..F6, slow breath attack.
+        // Band widened below (user field test 2026-10-08: a real ocarina's
+        // lowest fingering sounded as G4 and was cut by the old 480 Hz
+        // floor). Detuned/offset instruments must be DETECTABLE first;
+        // judging their tuning is the calibration layer's job.
         d.profile = kan::InstrumentProfile::wind_bowed();
-        d.profile.min_freq_hz = 480.0f;
+        d.profile.min_freq_hz = 330.0f;
         d.profile.max_freq_hz = 1450.0f;
         d.hint = "wind, 15 ms blanking, 480-1450 Hz (C5-F6)";
     } else if (std::strcmp(name, "flute") == 0) {

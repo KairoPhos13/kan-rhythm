@@ -572,3 +572,23 @@ compute lost to one interruption.
 entry's rows to notes.csv/files.csv as it completes (mutex-guarded), so
 an interrupted run keeps everything it measured. Relaunched batch06
 in the meantime; every long run from now on is at risk until this lands.
+
+## Next phase (user field test with a real ocarina, 2026-10-08)
+
+User report, kept verbatim in substance: the instrument is very
+out of tune — the lowest fingering (nominal A4) sounds as G4 and was
+NOT detected (below the 480 Hz band floor; widened to 330 Hz now:
+detection first, tuning judgment later); C5 sits where D5 should be
+(systematic ~+2 semitones fingering offset); high notes barely sound
+(register response).
+
+These are SYSTEMATIC instrument+player properties, not player errors —
+exactly the calibration layer (T1) target. Named next-phase items:
+- `InstrumentProfile` tuning offset (transposition) + per-register
+  response, pack data
+- a calibration mode (play the lowest note / a reference note: the tool
+  estimates the offset and biases its expectations) — the demo's
+  `--calibrate` already measures global detune; extend to offset+range
+- guide/judgment then works against the CALIBRATED expectations, not
+  against A440 fingering assumptions (fairness: a detuned instrument
+  must not convict its player)
