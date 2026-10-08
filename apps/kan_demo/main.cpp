@@ -263,7 +263,9 @@ struct Pipeline {
 // With --events the same facts go to a JSONL log (the schema kan_analyze
 // --events writes offline; live/offline byte-identical on the same audio).
 
+static bool g_guide_quiet = false; // guide mode: quiet console
 void print_event(const kan::NoteEvent& e, FILE* jsonl) {
+    if (g_guide_quiet && jsonl == nullptr) return; // guide: quiet console
     if (jsonl != nullptr) {
         char buf[512];
         if (kan::note_event_jsonl(e, buf, sizeof(buf)) > 0) std::fputs(buf, jsonl);
@@ -679,6 +681,7 @@ struct GuideTracker {
     size_t idx = 0;
     bool fed = false;
     bool done_all = false;
+    int last_attack = -1; // one advance per physical strike
     std::string pending;
 
     bool parse_inline(const char* spec) {
@@ -907,6 +910,7 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "[guide] cannot parse sequence\n");
             return 1;
         }
+        g_guide_quiet = true;
         printf("GUIDE: %zu notes loaded. Play them one by one.\\n", guide.steps.size());
     }
 
@@ -1117,9 +1121,39 @@ int main(int argc, char** argv) {
             const int pos = std::clamp(int(std::lround(cents / 10.0f)) + 8, 0, 16);
             for (int i = 0; i < 17; ++i) bar[i] = (i == 8) ? '|' : (i == pos ? '#' : '.');
             bar[16] = '\0';
-            std::printf("\r♪ %-4s %7.2f Hz  %+6.1f cents  %s  (+%.0f ms)%s   ",
-                        midi_to_name(display_midi).c_str(), freq, cents, bar, ms_after, vib_str);
-            std::fflush(stdout);
+            if (guide_arg != nullptr && guide.cur() != nullptr) {
+                const int target = guide.cur()->midi;
+                const int played_midi = int(display_midi);
+                const double dev = double((played_midi - target) * 100) + cents;
+                const int gpos = std::clamp(int(std::lround(dev / 10.0)) + 8, 0, 16);
+                char gbar[17];
+                for (int i = 0; i < 17; ++i) gbar[i] = (i == 8) ? '|' : (i == gpos ? '#' : '.');
+                gbar[16] = '\0';
+                std::printf("\r[guide] target %-4s   played %-4s %+7.0f c   %s   ",
+                            midi_to_name(target).c_str(),
+                            midi_to_name(played_midi).c_str(), dev, gbar);
+                std::fflush(stdout);
+                const bool hit = (played_midi == target) && std::fabs(cents) <= 50.0;
+                if (hit && guide.last_attack != stats.attacks) {
+                    guide.last_attack = stats.attacks;
+                    ++guide.idx;
+                    guide.fed = false;
+                    std::printf("\n");
+                    if (guide.idx >= guide.steps.size()) {
+                        guide.done_all = true;
+                        std::printf("[guide] sequence complete.\n");
+                    } else {
+                        char nb2[16];
+                        std::printf("[guide] next: %s%s\n",
+                                    midi_to_name(guide.cur()->midi, nb2, sizeof(nb2)),
+                                    guide.cur()->vib ? " (vibrato)" : "");
+                    }
+                }
+            } else {
+                std::printf("\r♪ %-4s %7.2f Hz  %+6.1f cents  %s  (+%.0f ms)%s   ",
+                            midi_to_name(display_midi).c_str(), freq, cents, bar, ms_after, vib_str);
+                std::fflush(stdout);
+            }
         }
     };
 
@@ -1184,12 +1218,11 @@ int main(int argc, char** argv) {
                            guide.cur()->vib ? " (vibrato)" : "");
                 }
             }
-            const GuideStepSpec* g = guide.cur();
-            if (g != nullptr) {
+            if (false) { // verification lives in the slider (live pitch)
                 for (auto& row : score) {
-                    if (row.midi == g->midi && row.sim >= 0.5f) {
+                    if (false && row.sim >= 0.5f) {
                         char nb[16];
-                        midi_to_name(g->midi, nb, sizeof(nb));
+                        midi_to_name(row.midi, nb, sizeof(nb));
                         printf("[guide] played: %s  sim %.2f  cents %+.0f\n",
                                nb, double(row.sim), double(row.cents));
                         ++guide.idx;
