@@ -264,6 +264,33 @@ does not block.
 
 ---
 
+## Miss-pocket decomposition (velocity ground truth, vel01: 38,817 notes)
+
+- **PASS-24 — root-cause map of the ~3% miss rate** (MIDI velocity now in
+  the ground truth; analysis asserts CSV field alignment — see NOTE-6):
+  - by velocity: soft (<=p25=50) **4.73%** -> loud (>p75=78) 1.54%
+  - by register x velocity: **high soft 13.67%** (the dominant pocket),
+    high loud 3.70%, low soft 4.43%, low loud 1.17%, mid soft 1.47%,
+    mid loud **0.16%**
+  - by duration: mild gradient (2.1% <60 ms -> 3.4% >=300 ms)
+- **Interpretation (physics, consistent with the known limits):** soft
+  high-register notes carry little energy (fast decay, weak fundamentals
+  that double as other series' harmonics — the conditioning limit's
+  cousin), so their facts degrade first. Mid-register loud notes are
+  nearly always measurable. This decomposes the earlier "dense high
+  register" pocket into register x dynamics, not density alone.
+- **Proposed fixes (checklist-gated, measurement-semantics changes):**
+  (a) velocity-aware amplitude prior to regularize weak-note fits
+  (ground-truth velocity says how loud the note should be); (b) longer
+  analysis windows for low-SNR notes; (c) accept and publish the recall
+  table as instrument facts (the game's judge must not convict a player
+  for a soft-high note the measurement cannot resolve — G2 honesty
+  extended by register AND dynamics).
+- **NOTE-6 — a CSV column was silently missing (velocity) while its
+  header claimed it** (an unreplaced patch pattern; caught because the
+  analysis read all-1 velocities). Field-count alignment is now asserted
+  in analysis scripts; lesson recorded alongside the patch-discipline one.
+
 ## Technique facts — bend emitted (schema v3) + vibrato resolvability gate
 
 - **PASS-22 — bend facts now flow (schema v3).** Audit found BendAnalyzer

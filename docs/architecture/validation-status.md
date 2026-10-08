@@ -57,10 +57,12 @@ Prioritized by *which numbers would change a design decision*:
    bleed? notes in audio but not in MIDI? If the tail is mostly
    identifiable context, the G6 trigger can move below p95 and detection
    sharpens without false positives.
-2. **Miss-rate pockets.** ~3% not-found concentrates in dense high
-   register (5.0%) and soft-strike contexts. Target the highest-miss
-   files/pieces; decide whether a model improvement (interference
-   cancellation, sparse solvers) is worth the semantics change.
+2. **Miss-rate pockets — decomposed (vel01, 38k notes).** The pocket is
+   **soft + high register (13.67% miss)**; mid-loud is 0.16%. Register x
+   dynamics, not density alone. Candidate fixes: velocity-aware amplitude
+   prior (semantics change, checklist), longer windows for low-SNR notes,
+   or publishing the recall table as instrument facts so the game judge
+   never convicts a player for an unresolvable soft-high note.
 3. **Duration outliers.** 40 rows > 600 ms error — pattern before any end-
    rule change (checklist §4).
 4. **Generalization across recording eras.** Years 2013–2018 (different

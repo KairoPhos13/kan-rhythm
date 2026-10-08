@@ -659,6 +659,7 @@ int main(int argc, char** argv) {
                << fr.extras << ',' << fr.audio_s << ',' << fr.wall_s << '\n';
             for (const auto& r : rows[i]) {
                 fn << r.label << ',' << r.onset_ms << ',' << r.dur_ms << ',' << r.midi << ','
+                   << r.velocity << ','
                    << (r.found ? 1 : 0) << ',' << r.sim << ',' << r.cents << ','
                    << (r.saturated ? 1 : 0) << ',' << (r.end_faded ? 1 : 0) << ','
                    << r.amp << ','
