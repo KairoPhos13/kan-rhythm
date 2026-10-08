@@ -261,3 +261,34 @@ does not block.
   tool as it was when the batch ran; batch 03 carries the fixes).
 
 ---
+
+---
+
+## Open items (pending — tracked here so nothing is lost)
+
+1. **Batch 04 running (out-of-sample validation).** Year folder 2006 (115
+   files, ~26 h audio) with the perf-fixed binary and purity calibration
+   (`--purity --purity-tref 80 --pedal-ms 1500`). Purpose: does the G6
+   baseline (calibrated on 2004) hold on unseen material? Append results
+   here when it lands.
+2. **G6 threshold finalization.** Per-band p99 + player-relative anomaly
+   needs one more pass once batch 04 confirms the baseline; the concrete
+   threshold numbers and the two-signal corroboration rule must be written
+   into the pack schema before the game implements the mod.
+3. **Duration outliers.** 40 rows (0.005%) with |dur_err| > 600 ms in
+   batch 03 — inspect for pattern (pedal? repeated notes? wrong note-off?)
+   before touching the end rule again (invariants checklist §4).
+4. **Remaining year folders.** 2004 done (132), 2006 running (115); 2008,
+   2009, 2011, 2013-2018 remain. Disk-limited: extract per folder, run,
+   and keep the summary of each in this log. Full MAESTRO projection
+   (~45 h wall at 12 jobs with the heavy cavalry) or `--fit-step` triage.
+5. **Purity fact for the live stream.** `StrikePurity` currently lives in
+   the offline verification core (score_verify). The game's live path
+   needs the same fact from the note stream (chart-supplied candidates +
+   pedal semantics in the profile) — design item, not yet implemented.
+6. **T1 player intonation profile.** Contract documented; the game-side
+   accumulation/calibration service does not exist yet.
+7. **Known measurement limits (by design, documented).** High-register
+   conditioning above ~25 simultaneous notes (sim degrades, facts resolve
+   as not-verified); deep-bass saturation flags (1.2%); long-note duration
+   errors beyond the release bias are rare but real.
