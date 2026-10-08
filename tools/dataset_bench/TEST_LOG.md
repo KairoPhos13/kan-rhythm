@@ -264,6 +264,40 @@ does not block.
 
 ---
 
+## Batch 05 — full battery on unseen material (year 2008, 147 files)
+
+- **Date:** 2026-10-08
+- **Scope:** players/recording unseen by any tuning, 14.7 h audio,
+  **572,660 notes**, 49,049 purity strikes; full battery (technique at
+  30 ms trajectory + purity + all night fixes)
+- **Pre-registered expectations vs measured:**
+
+| validation | expected | measured (2008) | verdict |
+|---|---|---|---|
+| found-rate | ~97.5% | **97.6%** | PASS |
+| \|cents\| p50 / p95 | ~4 / ~25-37 c | 3.8 / 29.1 c | PASS |
+| per register | low weaker | low 13.4/62.1, mid 3.2/22.7, high 4.2/27.0 | PASS |
+| duration bias | +210±10 ms | p50 234 / p99 250 ms | PASS (same family) |
+| saturated | ~1.2% | 0.77% (4,306) | PASS |
+| vibrato (negative control) | <= 0.2%, ~10 Hz residual | **0.10%**, 11.11 Hz | PASS |
+| sustain / hold | ~0.27 / ~1.4 | 0.31 / 1.45 | PASS |
+| purity (recalibrated) | mash 0.061 > band p95 | keyed 2-4 p95 **0.034** | PASS |
+| throughput | ~3-4x | 1.39x (fit-step 30 + battery) | NOTE |
+
+Three years of material (2004/2006/2008) now confirm the same measured
+properties — the evidence class that backs the game's claims.
+
+- **ISS-5 — `end_faded` is PROVISIONAL (do not rely on it yet).** Batch 05
+  caught it over-firing at 71%; two criterion fixes (fixed 300 ms window
+  mis-flagged short notes; proportional slope mixed plateau and cliff)
+  brought it to 37%, but the remaining pattern is unexplained (short
+  notes flag MORE: 43% <100 ms vs 11% >=1 s — pedal-vs-grid physics
+  unresolved). Per our own standard, an under-validated flag is not a
+  fact: duration stats remain stable either way (both groups show the
+  same +234 ms bias), the game must NOT use `end_faded` until an
+  envelope-type fixture matrix (release / decay-fade / pedal-ring / short
+  note) validates the criterion. Named open item below.
+
 ## The soft-high pocket: experiments, one fix kept, one rejected
 
 Root-cause work on PASS-24's pocket (user: "try it!"). The decisive
@@ -431,6 +465,12 @@ only (never feeds candidates); InstrumentProfile `judgment_offset_ms`/
 `attack_ramp_ms`/`family`/`attack_type` unread by libkan (game-side pack
 data — comments corrected). Doc drift fixed: JSONL v1->v2 heading,
 strike_group/n_unresolved names, EnvelopeAnalyzer name, test count.
+
+**ISS-5 follow-up (named):** envelope-type fixture matrix for `end_faded`
+(4 synthetic cases: clean release, monotone decay crossing, pedal-ring
+extension, short note < 100 ms) + per-type re-measure on MAESTRO before
+the flag becomes a fact. Duration facts themselves are validated and
+stable without it.
 
 Master status document (readiness, sharpening plan, cross-instrument
 transfer and the dataset strategy for instruments without MAESTRO-grade

@@ -281,15 +281,31 @@ void measure_score(const std::vector<float>& sig, float sr,
         // drop around the crossing is gradual, the end was never observed:
         // flag `end_faded` instead of trusting the crossing time.
         if (sn.measured_end_ms > 0.0f && !sn.levels.empty()) {
-            float lvl_before = 0.0f, lvl_end = 1.0e30f;
+            // Slope criterion (batch 05 found the fixed-window version
+            // over-fired 71%: notes shorter than the 300 ms lookback had
+            // no history and were flagged by default). A release falls
+            // fast (~0.2 dB/ms, damper), a decay crossing is slow (~0.01
+            // dB/ms) -- rate over the available lookback separates them
+            // at any note length.
+            // The release signature is a local CLIFF near the crossing
+            // (damper: ~10+ dB within ~100 ms); a decay crossing sees only
+            // 1-3 dB there. Windowed locally so note length cannot change
+            // the verdict (the 300 ms fixed window mis-flagged short
+            // notes; the long proportional slope mixed plateau and cliff).
             const float t_end = sn.measured_end_ms;
+            const float t_first = sn.levels.front().first;
+            const float lookback = std::min(100.0f, std::max(1.0f, t_end - t_first));
+            float lvl_before = 0.0f, lvl_end = 1.0e30f;
             for (const auto& lv : sn.levels) {
-                if (lv.first <= t_end - 300.0f) lvl_before = std::max(lvl_before, lv.second);
+                if (lv.first <= t_end - lookback) lvl_before = std::max(lvl_before, lv.second);
                 if (lv.first >= t_end - 1e-3f && lv.first <= t_end + 1e-3f) lvl_end = lv.second;
             }
             const float drop_db = (lvl_end > 0.0f && lvl_before > 0.0f)
                 ? 20.0f * std::log10(lvl_before / std::max(lvl_end, 1e-9f)) : 0.0f;
-            sn.end_faded = drop_db < 6.0f;  // < 6 dB in 300 ms = no release
+            // 0.06 dB/ms (6 dB per 100 ms): damper cliffs pass, decay
+            // crossings fade.
+            sn.end_faded = lvl_before <= 0.0f || lvl_end >= 1.0e29f
+                        || drop_db < 0.06f * lookback;
         }
     }
 
