@@ -10,3 +10,4 @@ test_results/
 tools/dataset_bench/data/
 tools/dataset_bench/*_out/
 dataset_bench_selftest_out/
+tools/dataset_bench/runs/

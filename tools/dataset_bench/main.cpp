@@ -180,7 +180,9 @@ bool discover_maestro(const std::string& root, const std::string& split,
     for (const auto& e : fs::recursive_directory_iterator(root)) {
         if (!e.is_regular_file()) continue;
         const std::string p = e.path().string();
-        if (p.size() < 4 || p.compare(p.size() - 4, 4, ".mid") != 0) continue;
+        const bool is_mid = (p.size() >= 4 && p.compare(p.size() - 4, 4, ".mid") == 0) ||
+            (p.size() >= 5 && p.compare(p.size() - 5, 5, ".midi") == 0);
+        if (!is_mid) continue;
         const std::string audio = find_audio_for_midi(p);
         if (audio.empty()) continue;
         out.push_back({audio, p, e.path().filename().string()});

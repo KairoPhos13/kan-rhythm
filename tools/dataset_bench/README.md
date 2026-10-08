@@ -65,11 +65,13 @@ Outputs in `<out>/` (default `dataset_bench_out/`):
 
 ## Throughput and hardware
 
-Measured core throughput is ~0.17× real time on one core (AVX2 Gram), so
-the full 200 h is ~34 CPU-hours: about **3 h wall on 12 `--jobs`**, or
-~1.5 h with `--fit-step 150` for triage runs. The `summary.txt` throughput
-line reports the achieved real-time factor — use `--limit`/`--offset` to
-page through subsets while refining.
+Measured on real MAESTRO data (batch 01 of `TEST_LOG.md`): **15.2× real
+time on 5 jobs** (the score-anchored core is far cheaper than the blind
+stream), so the full 200 h is roughly **13 h wall at 5 jobs, ~7 h at 12**,
+and half that with `--fit-step 150` for triage runs. The `summary.txt`
+throughput line reports the achieved real-time factor — run in batches and
+track findings in `TEST_LOG.md` (user workflow: batches, fixes between
+batches, never the whole dataset blind).
 
 **GPU (decided):** the analysis core stays CPU-only (invariants I9/I11 —
 the benchmark must validate exactly the code the game runs). A GPU batch
