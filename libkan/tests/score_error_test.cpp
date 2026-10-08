@@ -282,6 +282,94 @@ int main() {
               "all 40 extreme-density notes are measured (facts, never truncation)");
     }
 
+    // 9. Mash / cheat-superset (the "press random keys that include the
+    //    right ones" attack): the written chord verifies — but the extra
+    //    sounding keys must leave a measurable purity signature that a
+    //    judge can penalize. Measured here to keep the game-side rule
+    //    honest (game-judging-guide G6).
+    {
+        std::printf("cheat: correct chord + 3 random extra keys — mash attack\n");
+        // The written chord: A3 + C3 + F2 (F major, 800 ms at t=0).
+        auto make_chord = []() {
+            std::vector<kan::score_verify::ScoreNote> notes(3);
+            notes[0].onset_ms = 0.0f;  notes[0].dur_ms = 800.0f; notes[0].midi = 57;
+            notes[1].onset_ms = 0.0f;  notes[1].dur_ms = 800.0f; notes[1].midi = 48;
+            notes[2].onset_ms = 0.0f;  notes[2].dur_ms = 800.0f; notes[2].midi = 41;
+            return notes;
+        };
+        // Control: the chord played correctly.
+        std::vector<float> clean(size_t(1.4f * kSr), 0.0f);
+        add_note(clean, 0.0f, 800.0f, 57, 0.5f, 1u);
+        add_note(clean, 0.0f, 800.0f, 48, 0.5f, 2u);
+        add_note(clean, 0.0f, 800.0f, 41, 0.5f, 3u);
+        add_noise_floor(clean, 0.005f, 99u);
+        auto cn = make_chord();
+        kan::score_verify::measure_score(clean, kSr, cn);
+
+        // Mash: same chord + D#4, G#2, B3 struck at the same time.
+        std::vector<float> mash(size_t(1.4f * kSr), 0.0f);
+        add_note(mash, 0.0f, 800.0f, 57, 0.5f, 1u);
+        add_note(mash, 0.0f, 800.0f, 48, 0.5f, 2u);
+        add_note(mash, 0.0f, 800.0f, 41, 0.5f, 3u);
+        add_note(mash, 0.0f, 800.0f, 63, 0.5f, 4u);   // EXTRA: D#4
+        add_note(mash, 0.0f, 800.0f, 44, 0.5f, 5u);   // EXTRA: G#2
+        add_note(mash, 0.0f, 800.0f, 59, 0.5f, 6u);   // EXTRA: B3
+        add_noise_floor(mash, 0.005f, 99u);
+        auto mn = make_chord();
+        std::vector<float> extras;
+        kan::score_verify::measure_score(mash, kSr, mn, &extras);
+
+        float sim_clean = 0.0f, sim_mash = 0.0f, amp_clean = 0.0f, amp_mash = 0.0f;
+        for (const auto& n : cn) { sim_clean += sim_of(n); amp_clean += n.amp_peak; }
+        for (const auto& n : mn) { sim_mash += sim_of(n); amp_mash += n.amp_peak; }
+        std::printf("    sim: clean %.3f vs mash %.3f | written-set amp: clean %.2f vs mash %.2f\n",
+                    double(sim_clean / 3.0), double(sim_mash / 3.0),
+                    double(amp_clean), double(amp_mash));
+        dump(mn);
+        bool notes_verify = true;
+        for (const auto& n : mn) {
+            if (sim_of(n) < 0.60f) notes_verify = false;
+        }
+        check(notes_verify,
+              "the written chord still verifies (note gate alone passes the cheat)");
+        // sim alone does NOT drop (energy gets absorbed: amps inflate ~2-4x,
+        // cents bend) -- the honest finding that motivates G6.
+        check(amp_mash > amp_clean * 1.5f,
+              "absorption signature: the written set's level inflates >1.5x");
+
+        // The detection that DOES work: set-extension search -- the extra
+        // sounding pitches are found as non-expected pitches at the strike.
+        std::vector<kan::score_verify::ExtraPitch> xp_clean, xp_mash;
+        std::vector<kan::score_verify::StrikePurity> pu_clean, pu_mash;
+        kan::score_verify::search_extra_pitches(clean, kSr, cn, xp_clean, &pu_clean);
+        kan::score_verify::search_extra_pitches(mash, kSr, mn, xp_mash, &pu_mash);
+        std::printf("    extra-pitch search: clean %zu, mash %zu\n",
+                    xp_clean.size(), xp_mash.size());
+        const float un_clean = pu_clean.empty() ? 0.0f : pu_clean[0].unexplained;
+        const float un_mash = pu_mash.empty() ? 0.0f : pu_mash[0].unexplained;
+        std::printf("    strike purity (unexplained energy): clean %.3f vs mash %.3f\n",
+                    double(un_clean), double(un_mash));
+        // The robust primary fact of the purity mod (G6): unexplained energy.
+        check(un_mash >= 0.03f && un_mash > 3.0f * un_clean,
+              "unexplained-energy purity flags the mash (>=3x clean, >=3%)");
+        for (const auto& x : xp_mash) {
+            std::printf("    [extra] midi %d gain %.3f amp %.3f\n",
+                        x.midi, double(x.sim_gain), double(x.amp));
+        }
+        // Candidate list: total recall but noisy neighbors (honestly noted);
+        // the list is informational for replay UI, the purity number judges.
+        int caught = 0;
+        for (int want : {63, 44, 59}) {
+            for (const auto& x : xp_mash) {
+                if (std::abs(x.midi - want) <= 1) { ++caught; break; }
+            }
+        }
+        check(xp_clean.empty(),
+              "clean chord: no phantom extra pitches (no false accusation)");
+        check(caught == 3,
+              "all 3 mashed keys appear among the extra-pitch candidates");
+    }
+
     std::printf("%s\n", g_pass ? "ALL PASS" : "FAILURES");
     return g_pass ? 0 : 1;
 }

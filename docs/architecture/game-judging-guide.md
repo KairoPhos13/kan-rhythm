@@ -63,6 +63,38 @@ MAESTRO: p50 210 / p99 249 ms — tight and stable). Rules:
 - the bias is **instrument-pack data** (plucked/wind releases differ —
   `end_drop_db` and the release semantics come from the pack profile).
 
+### G6 — Purity mod (optional — user design decision)
+
+**Design (by analogy with osu! mods):** casual play does not penalize
+mashing (pressing random keys that include the right ones — measured: the
+note gate alone passes the cheat); purity judgment is an **optional mod**
+enabled for the hardcore score tiers. The mod makes a score mean "played
+the notes *and nothing else*".
+
+Measured facts (score_error_test case 9: correct F-major chord vs the same
+chord mashed with 3 random keys):
+
+| fact | clean | mash |
+|---|---|---|
+| strike unexplained energy (1 − sim0) | 0.1% | **6.1%** |
+| written-set level (absorption) | 0.35 | 2.10 (inflated ~6×) |
+| extra-pitch candidates (recall / noise) | 0 | 13 (all 3 true keys among them, plus neighbors) |
+
+- **Primary fact: per-strike unexplained energy** (`StrikePurity`). Robust,
+  no false-accusation risk on clean strikes. The mod's threshold is
+  **pack data calibrated on real takes** (pedal and resonance leave a
+  non-zero baseline — measure it from MAESTRO before any conviction).
+- **Secondary: extra-pitch candidates** (`ExtraPitch` list). Total recall
+  but noisy neighbors — informational material for a replay UI
+  ("these keys sounded at this strike"), never the judge.
+- **Absorption signature**: when extras are mashed, the written notes'
+  fitted levels inflate (2-6×) and their cents bend (−25 c measured). A
+  level-vs-expectation check (player calibration, T1) is a third,
+  corroborating signal.
+- **The penalty is game policy**; libkan emits the facts only. Suggested:
+  the mod gates a precision sub-score and/or a score multiplier on
+  hardcore tiers, exactly like osu!'s difficulty mods.
+
 ### G5 — Extra notes: set comparison at strikes
 
 A played-but-not-written note is visible as an *unmatched strike* (T2), and

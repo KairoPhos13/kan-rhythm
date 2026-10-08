@@ -260,5 +260,107 @@ void measure_score(const std::vector<float>& sig, float sr,
 
 }
 
+/// A pitch OUTSIDE the written set that explains significant residual
+/// energy at a strike (the "mash"/cheat-superset case). Measurement only:
+/// "these pitches sound at this strike and the score does not account for
+/// them" — penalizing the precision is the game's call (G6).
+struct ExtraPitch {
+    float t_ms = 0.0f;
+    int midi = 0;
+    float sim_gain = 0.0f; ///< similarity gain when added to the written set
+    float amp = 0.0f;      ///< its fitted level
+};
+
+/// Per-strike purity: how much of the strike's energy the written set does
+/// NOT explain. The robust primary fact for the game's optional purity mod
+/// (game-judging-guide G6): measured 0.1% on a clean strike vs 6.1% on a
+/// mash of correct chord + 3 random keys. Candidate lists are noisy (recall
+/// is total, neighbors leak in); this number is not.
+struct StrikePurity {
+    float t_ms = 0.0f;
+    float sim0 = 0.0f;       ///< similarity of the written set alone
+    float unexplained = 0.0f; ///< 1 - sim0: energy outside the score
+};
+
+/// Set-extension search per strike (heavy cavalry: one extra fit per
+/// chromatic candidate). Detects extra sounding pitches that the written
+/// set cannot explain — including keys mashed alongside correct ones,
+/// whose energy otherwise gets absorbed into the written notes' fits
+/// (near-miss absorption: amps inflate, cents bend; sim alone does NOT
+/// drop reliably).
+inline void search_extra_pitches(const std::vector<float>& sig, float sr,
+                                 const std::vector<ScoreNote>& notes,
+                                 std::vector<ExtraPitch>& out,
+                                 std::vector<StrikePurity>* purity = nullptr,
+                                 float t_ref_ms = 200.0f,
+                                 // Calibrated on the mash counterexample
+                                 // (score_error_test case 9): true extra keys
+                                 // show gains 0.034-0.044 with amps >= 0.10;
+                                 // a clean strike has sim0 ~0.999 (no room).
+                                 float sim_gain_min = 0.03f,
+                                 float amp_min = 0.05f) {
+    ::kan::HarmonicChordValidator validator(sr, 8192,
+        ::kan::HarmonicChordValidator::kHardCapNotes);
+    validator.set_search_range_cents(60.0f);
+    validator.set_passes(1);
+    validator.set_refine_rounds(2);
+    constexpr size_t kFit = 2048;
+    float window[kFit];
+
+    // Strikes = distinct written onsets (30 ms clustering).
+    std::vector<float> strikes;
+    for (const auto& n : notes) {
+        if (strikes.empty() || n.onset_ms - strikes.back() > 30.0f) {
+            strikes.push_back(n.onset_ms);
+        }
+    }
+    for (float onset : strikes) {
+        const float t = onset + t_ref_ms;
+        const size_t wend = size_t(t / 1000.0f * sr);
+        if (wend < kFit || wend > sig.size()) continue;
+        std::memcpy(window, &sig[wend - kFit], kFit * sizeof(float));
+
+        std::vector<size_t> alive;
+        for (size_t i = 0; i < notes.size(); ++i) {
+            if (notes[i].onset_ms <= t && t < notes[i].onset_ms + notes[i].dur_ms + 250.0f) {
+                alive.push_back(i);
+            }
+        }
+        if (alive.empty()) continue;
+
+        int lo = 108, hi = 21;
+        std::vector<float> base;
+        for (size_t i : alive) {
+            base.push_back(float(notes[i].midi));
+            lo = std::min(lo, notes[i].midi);
+            hi = std::max(hi, notes[i].midi);
+        }
+        if (!validator.set_expected_chord(base.data(), base.size())) continue;
+        const float sim0 = validator.validate(window, kFit).similarity;
+        if (purity != nullptr) {
+            purity->push_back({t, sim0, 1.0f - sim0});
+        }
+        if (sim0 >= 0.995f) continue;  // nothing left unexplained
+
+        for (int cand = std::max(21, lo - 12); cand <= std::min(108, hi + 12); ++cand) {
+            bool taken = false;
+            for (float m : base) {
+                if (int(m) == cand) { taken = true; break; }
+            }
+            if (taken) continue;
+            std::vector<float> ext = base;
+            ext.push_back(float(cand));
+            if (!validator.set_expected_chord(ext.data(), ext.size())) continue;
+            const ::kan::ChordResult r = validator.validate(window, kFit);
+            const float amp = validator.note_rms(ext.size() - 1);
+            const float gain = r.similarity - sim0;
+            if (gain >= sim_gain_min && amp >= amp_min) {
+                out.push_back({t, cand, gain, amp});
+            }
+
+        }
+    }
+}
+
 } // namespace score_verify
 } // namespace kan

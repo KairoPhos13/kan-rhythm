@@ -141,10 +141,28 @@ does not block.
   15.2x) on 5 jobs: dense passages now spend 2 passes / 4 refine rounds.
   Effort where density demands it, exactly the agreed tradeoff.
 
+### Mash counterexample (user question: "press random keys that include the right ones")
+
+- **NOTE-2 — the note gate alone passes the cheat (measured).** Playing the
+  correct chord mashed with 3 random keys verifies the written notes (sim
+  stays ~0.85); sim does NOT drop — the extras' energy is *absorbed* into
+  the written fits (amps inflate ~6x, cents bend -25 c). Score-error case 9
+  keeps this honest.
+- **PASS-10 — the purity fact catches it.** Per-strike unexplained energy
+  (1 - sim0): 0.1% clean vs **6.1%** mash; the extra-pitch candidate search
+  finds all 3 true keys among 13 candidates (total recall, noisy neighbors
+  -> informational only). `StrikePurity` + `ExtraPitch` exported from
+  score_verify.
+- **User design decision:** purity judging is an *optional mod* for
+  hardcore score tiers (osu analogy) -- game-judging-guide G6. Threshold
+  must be calibrated on real-pedal baselines (MAESTRO) before convicting.
+
 ### Still open
 
 - ISS-3 verification at folder scale (batch 03, running: the Chopin file's
   miss rate should drop now that nothing is truncated by the candidate cap).
+- Purity-mod baseline calibration on real strikes (pedal/resonance floor)
+  once batch 03 lands.
 
 ---
 
