@@ -105,6 +105,49 @@ does not block.
 
 ---
 
+## Batch 03a — fixes verified on real data (same 5 files as batch 01)
+
+- **Date:** 2026-10-07
+- **Scope:** `--limit 5` (identical entries as batch 01, for direct
+  comparison), 37,241 notes, all fixes applied: saturation flag (ISS-1),
+  release-based end rule (ISS-2), smooth register bands, heavy cavalry
+  (ISS-3), percentiles + per-register stats
+- **Command:** `kan_dataset_bench --maestro data/maestro-v3.0.0 --limit 5
+  --jobs 5 --out runs/batch03a`
+- **Results:** found **98.8%** (was 98.6%); |cents| mean 8.1 c; duration
+  err mean **+209 ms** (was +207 — the release rule does NOT shift I8 ✓);
+  dur_err p50 210 / p95 246 / p99 249 ms (was max 2831 ms); **390 saturated
+  estimates flagged and excluded** (1.1% of found); |cents| p50 4.0 /
+  p95 31.2 / p99 53.7 c; per register: low p50 16.4 / p95 67.2 · mid 3.7 /
+  25.3 · high 3.7 / 29.1 c.
+
+### Good passes (fix verification)
+
+- **PASS-6 — ISS-2 fixed at scale.** Duration error max dropped from
+  2831 ms to **1051 ms** and the distribution is tight (p99 249 ms ≈ the
+  release bias itself): long notes no longer truncate early.
+- **PASS-7 — I8 stable under the new end rule.** +209 ms vs +207 ms: the
+  release-based end rule preserves the documented bias (the §4 invariant
+  checklist was followed; the number survives).
+- **PASS-8 — ISS-1 fixed at scale.** 390 estimates now report "ran out of
+  range" instead of a fake ±60 c number; all excluded from pitch facts.
+  The max |cents| of 111.3 c is real exploration in the bass (wide band),
+  not saturation masquerading as measurement.
+- **PASS-9 — per-register honesty published.** Low register is honestly
+  weaker (p95 67.2 c) than mid/high (p95 ~25-29 c) — the game-judging
+  guide (docs/architecture/game-judging-guide.md) records the consequence:
+  never convict a bass note with a treble-grade band.
+- **NOTE-1 — heavy cavalry has a cost.** Throughput 6.96x real time (was
+  15.2x) on 5 jobs: dense passages now spend 2 passes / 4 refine rounds.
+  Effort where density demands it, exactly the agreed tradeoff.
+
+### Still open
+
+- ISS-3 verification at folder scale (batch 03, running: the Chopin file's
+  miss rate should drop now that nothing is truncated by the candidate cap).
+
+---
+
 ## Batch 02 — full 2004 folder (132 files) — running
 
 - **Date:** 2026-10-07

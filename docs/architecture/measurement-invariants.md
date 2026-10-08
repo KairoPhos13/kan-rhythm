@@ -235,6 +235,10 @@ across drivers (it would violate I9).
 
 A game judge built on these measurements stays fair if it follows:
 
+Game-side implementation requirements for all of this (gates G1-G5,
+compute scheduling, player calibration, and the "must never" list) live in
+[`game-judging-guide.md`](game-judging-guide.md).
+
 1. **Presence/played-or-not:** sim/presence gates (sim ≥ 0.60 found;
    ≈ 0 means not played). Never amplitude (I7).
 2. **Pitch correctness:** gate on `|cents|`, band **±40–50 c** (I6);
