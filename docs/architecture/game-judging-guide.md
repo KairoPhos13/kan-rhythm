@@ -61,6 +61,14 @@ played/not-played from **sim/presence**; amplitude is a loudness fact only.
 
 ### G3 — Timing: strike facts and the peak signature
 
+**Legato is a first-class playing style, not an edge case** (user field
+note, 2026-10-08: ocarina and many winds play chained notes as the normal
+style). On instruments with `accepts_legato_boundaries`, a new note opens
+its record at the pitch-shift moment with no attack event — so timing
+judgment for those notes must anchor on the **transition moment**, never
+on an attack that does not exist; and presence/advance checks must not
+require strikes (the guide froze on this once — recorded in TEST_LOG).
+
 HIT timestamps are the strike times (records open at the first measurement
 slot but keep the strike time — I4/§7 of the design doc). For score-anchored
 verification the `t_peak` offset is the visible late/early signature. A note
