@@ -127,6 +127,21 @@ attacks across registers/dynamics, (3) a documented expectation table like
 this one. Large corpora are a bonus, not a requirement — and if the only
 available labels are AI-generated, the published numbers must say so.
 
+## 5. Future design notes (parked deliberately)
+
+- **Heavy cavalry for winds → ensemble levels** (user idea, 2026-10-08;
+  explicitly a LATER feature). The adaptive escalation already proven on
+  piano (capacity up to 64 candidates, dense-window passes/refinement)
+  extends naturally to ensemble settings: several wind voices sounding
+  together drive the candidate count up, and the fit brings the effort
+  the density demands. What it needs beyond today's code: **per-voice
+  instrument profiles in one joint fit** (mixed timbres — ranges,
+  intonation bands, release semantics per voice), chart-supplied
+  hypotheses per voice (the game knows the parts), and multi-timbre
+  validation corpora (see §4 pyramid — self-labeling controllers become
+  attractive here). The mono/poly classification (`max_simultaneous_notes
+  = 1` per profile) must become per-voice, not per-session.
+
 ---
 
 *Cross-references:* `game-judging-guide.md` (G1–G6), `measurement-invariants.md`

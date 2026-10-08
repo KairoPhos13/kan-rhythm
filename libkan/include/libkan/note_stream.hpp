@@ -596,7 +596,14 @@ public:
     }
 
     /// Share the calibrated onset energy floor with the pipeline's stage 0.
-    void set_noise_floor(float energy) noexcept { detector_.set_noise_floor(energy); }
+    void set_noise_floor(float energy) noexcept {
+        detector_.set_noise_floor(energy);
+        // Bleeding edge: the harmonic validator references similarity to
+        // the energy ABOVE the floor too (soft instruments — ocarina,
+        // flute — lose windows to floor-in-denominator otherwise).
+        // Detector takes energy, validator takes RMS.
+        validator_.set_noise_floor(energy > 0.0f ? std::sqrt(energy) : 0.0f);
+    }
 
     /// Caller-supplied hypotheses for one attack (fixed-slot copy, no
     /// allocation). Applies to the named attack's group (note_id = the
