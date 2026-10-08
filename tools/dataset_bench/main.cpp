@@ -530,6 +530,26 @@ int main(int argc, char** argv) {
 
     const double c_mean = n_abs ? c_sum / n_abs : 0.0;
     const double d_mean = n_abs ? d_sum / n_abs : 0.0;
+
+    // Distribution facts (a ranked-mode credential needs percentiles and
+    // per-register honesty, not just means).
+    std::vector<float> cents_all, dur_all;
+    std::vector<float> reg_cents[3]; // low / mid / high register
+    for (const auto& group : rows) {
+        for (const auto& r : group) {
+            if (!r.found || r.saturated || std::fabs(r.cents) > 250.0f) continue;
+            cents_all.push_back(std::fabs(r.cents));
+            dur_all.push_back(std::fabs(r.dur_err));
+            const int band = (r.midi < 45) ? 0 : (r.midi <= 72 ? 1 : 2);
+            reg_cents[band].push_back(std::fabs(r.cents));
+        }
+    }
+    auto pct = [](std::vector<float>& v, float q) -> double {
+        if (v.empty()) return 0.0;
+        std::sort(v.begin(), v.end());
+        const size_t i = size_t(q * double(v.size() - 1) + 0.5);
+        return double(v[i]);
+    };
     FILE* so = std::fopen((out_dir + "/summary.txt").c_str(), "w");
     auto emit = [&](const char* fmt, auto... args) {
         std::printf(fmt, args...);
@@ -542,6 +562,18 @@ int main(int argc, char** argv) {
          c_mean, c_max);
     emit("# duration err (measured-written): mean %+.0f ms, max %.0f ms  "
          "[I8: release-bias estimate]\n", d_mean, d_max);
+    emit("# |cents| percentiles: p50 %.1f c, p95 %.1f c, p99 %.1f c\n",
+         pct(cents_all, 0.50f), pct(cents_all, 0.95f), pct(cents_all, 0.99f));
+    emit("# |dur_err| percentiles: p50 %.0f ms, p95 %.0f ms, p99 %.0f ms\n",
+         pct(dur_all, 0.50f), pct(dur_all, 0.95f), pct(dur_all, 0.99f));
+    {
+        static const char* RN[3] = {"low (<45)", "mid (45-72)", "high (>72)"};
+        for (int b = 0; b < 3; ++b) {
+            emit("# |cents| %s register: p50 %.1f c, p95 %.1f c (%zu notes)\n",
+                 RN[b], pct(reg_cents[b], 0.50f), pct(reg_cents[b], 0.95f),
+                 reg_cents[b].size());
+        }
+    }
     emit("# extra strikes (played, not in ground truth): %ld\n", extras);
     {
         long sat = 0;
