@@ -270,7 +270,8 @@ compute scheduling, player calibration, and the "must never" list) live in
 
 ---
 
-*Cross-references:* design of record `note-description-stream.md` (§7
+*Cross-references:* overall status and readiness `validation-status.md`;
+design of record `note-description-stream.md` (§7
 decisions); evidence `libkan/tests/harmonic_probe_notes.hpp`;
 counterexamples `libkan/tests/score_error_test.cpp`; budget `docs/
 architecture/platform-architecture.md`.

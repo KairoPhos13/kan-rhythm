@@ -303,6 +303,10 @@ does not block.
 
 ## Open items (pending — tracked here so nothing is lost)
 
+Master status document (readiness, sharpening plan, cross-instrument
+transfer and the dataset strategy for instruments without MAESTRO-grade
+labels): `docs/architecture/validation-status.md`.
+
 1. ~~Batch 04~~ **done** — see the batch 04 entry; baselines now on 36k
    strikes across two years of unseen material.
 2. **G6 threshold finalization.** Numbers are now measured (verified-strike
