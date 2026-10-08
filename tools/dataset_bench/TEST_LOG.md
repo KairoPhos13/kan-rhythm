@@ -264,17 +264,50 @@ does not block.
 
 ---
 
+## Batch 04 — out-of-sample validation (year 2006, 115 files)
+
+- **Date:** 2026-10-08
+- **Scope:** unseen material (players/recording not used by any tuning),
+  25.3 h audio, **864,448 notes**, 36,126 sampled strikes for purity;
+  perf-fixed binary, `--purity --purity-tref 80 --pedal-ms 1500`
+- **Results:**
+  - **Quality metrics hold out-of-sample:** found 96.7%; |cents| p50 4.6 /
+    p95 37.5 / p99 64.9 c (2004: 4.9/36.3/61.1); duration mean **+208 ms**
+    and p50 211 / p95 246 / p99 249 ms (2004: 210/246/249 — essentially
+    identical); low register p50 19.1 / p95 79.2 c. I3 and I8 are stable
+    properties of the measurement, not of the corpus.
+  - **Purity baseline: the center holds, the tails taught us a lesson.**
+    p50 0.006 (2004: 0.004) but p95 0.064 (was 0.038) and p99 0.476 (was
+    0.097). The 1,574-strike calibration sample **underestimated the tails
+    5x** — small samples lie about tails. Final baseline now on 36k
+    strikes.
+  - **Tail composition (the decisive analysis):** strikes where the
+    written set already fails verification carry the tail (p50 0.021 /
+    p90 1.000, n=1,623). On fully verified strikes (n=34,503): p50 0.006 /
+    p90 0.030 / p95 0.052 / p99 0.177.
+
+### Conclusions (G6 rule refined)
+
+- **PASS-16 — purity as a standalone conviction is not viable** (raw
+  threshold would flag ~5% of clean strikes at the mash signal level).
+  Documented honestly instead of shipped.
+- **PASS-17 — the refined rule is viable:** purity anomaly is judged ONLY
+  on fully verified strikes (miss-strikes stay unjudged, I2), acts as a
+  **trigger for corroboration** (extra-pitch candidates + level-inflation
+  signature must agree), and as a **player-relative anomaly** (T1 style).
+  Trigger level from the big baseline: ~p95 of verified strikes (0.05).
+- **NOTE-5 — calibration samples must cover the tails:** threshold work
+  needs >= tens of thousands of strikes, not hundreds.
+
+---
+
 ## Open items (pending — tracked here so nothing is lost)
 
-1. **Batch 04 running (out-of-sample validation).** Year folder 2006 (115
-   files, ~26 h audio) with the perf-fixed binary and purity calibration
-   (`--purity --purity-tref 80 --pedal-ms 1500`). Purpose: does the G6
-   baseline (calibrated on 2004) hold on unseen material? Append results
-   here when it lands.
-2. **G6 threshold finalization.** Per-band p99 + player-relative anomaly
-   needs one more pass once batch 04 confirms the baseline; the concrete
-   threshold numbers and the two-signal corroboration rule must be written
-   into the pack schema before the game implements the mod.
+1. ~~Batch 04~~ **done** — see the batch 04 entry; baselines now on 36k
+   strikes across two years of unseen material.
+2. **G6 threshold finalization.** Numbers are now measured (verified-strike
+   p95 0.05 trigger, two-signal corroboration, player-relative anomaly);
+   write them into the pack schema before the game implements the mod.
 3. **Duration outliers.** 40 rows (0.005%) with |dur_err| > 600 ms in
    batch 03 — inspect for pattern (pedal? repeated notes? wrong note-off?)
    before touching the end rule again (invariants checklist §4).

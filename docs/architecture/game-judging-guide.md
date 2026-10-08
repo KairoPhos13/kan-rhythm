@@ -96,14 +96,22 @@ chord mashed with 3 random keys):
   | 5-10 | 1008 | 0.003 | 0.023 | 0.082 |
   | 11+ | 48 | 0.003 | 0.014 | 0.216 |
 
-  The synthetic mash (0.061, 3 keyed notes) sits above p95 of its band
-  (0.047) — detectable, with a ~5% per-band false-positive rate before
-  player calibration.
-- **Conviction rule (recommended):** per-keyed-density thresholds from the
-  pack baseline **plus player-relative anomaly** (T1 style): a strike is
-  suspicious when its unexplained energy exceeds the *player's own* band
-  distribution (z-score). Player calibration sharpens the mod exactly like
-  it sharpens intonation.
+  **Out-of-sample (36,126 strikes, year 2006 — batch 04):** the center is
+  stable (p50 0.006) but the tails are heavier than the 2004 pilot
+  suggested (p95 0.064, p99 0.476) — small calibration samples lie about
+  tails. The tail belongs to strikes whose written set already fails
+  verification; on **fully verified strikes** (n=34,503) the baseline is
+  p50 0.006 / p90 0.030 / **p95 0.052** / p99 0.177.
+- **Conviction rule (refined after batch 04 — measured, not shipped raw):**
+  1. Purity is judged ONLY on fully verified strikes (miss-strikes stay
+     unjudged — I2).
+  2. It is a **trigger**, not a verdict: ~p95 of verified strikes (0.05)
+     opens an investigation; conviction needs a second signal to agree
+     (extra-pitch candidates or the level-inflation absorption signature).
+  3. **Player-relative anomaly** (T1 style) sharpens it further: a strike
+     suspicious against the *player's own* distribution over many plays.
+  A raw standalone threshold is NOT viable (~5% clean strikes at mash
+  level) — measured and documented rather than shipped.
 - **Exclusions:** strikes whose fit fails (sim0 near 0, the max 1.000
   tail) are unjudged, never convicted (I2).
 - **Corroboration:** act on agreement of two signals — purity anomaly AND
