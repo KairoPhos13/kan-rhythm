@@ -292,15 +292,17 @@ private:
         n_atoms_ = note_count_ * kAtomsPerNote;
         for (size_t k = 0; k < note_count_; ++k) refined_cents_[k] = 0.0f;
 
+        float prev_cents[kHardCapNotes];
         for (int round = 0; round < refine_rounds_; ++round) {
             for (size_t k = 0; k < note_count_; ++k) {
                 const float f = GoertzelChordValidator::midi_to_hz(
                     expected_midi_[k] + refined_cents_[k] / 100.0f);
                 materialize(&atoms_[k * kAtomsPerNote * max_window_], f, count);
             }
+            for (size_t k = 0; k < note_count_; ++k) prev_cents[k] = refined_cents_[k];
             build_normal_equations(x, count);
             const double lambda = 1e-3 * gram_trace() / double(n_atoms_) + 1e-12;
-            if (!solve_cholesky(gram_.data(), max_atoms_, rhs_.data(), sol_.data(),
+            if (!solve_cholesky(gram_.data(), n_atoms_, rhs_.data(), sol_.data(),
                                 n_atoms_, lambda)) {
                 return false;
             }
@@ -338,6 +340,16 @@ private:
                 }
                 refined_cents_[k] = search_note_cents(k, count);
             }
+
+            // Convergence exit: if the search barely moved anything, more
+            // rounds cannot help -- the heavy cavalry leaves when the fight
+            // is won (this is where dense-window cost comes back down).
+            float max_delta = 0.0f;
+            for (size_t k = 0; k < note_count_; ++k) {
+                max_delta = std::max(max_delta,
+                                     std::fabs(refined_cents_[k] - prev_cents[k]));
+            }
+            if (max_delta < 0.5f) break;
         }
         return true;
     }
@@ -435,15 +447,15 @@ private:
             for (size_t j = i; j < n_atoms_; ++j) {
                 const float* aj = &atoms_[j * max_window_];
                 const double g = gram_detail::wdot(ai, weights_.data(), aj, count);
-                gram_[i * max_atoms_ + j] = float(g);
-                gram_[j * max_atoms_ + i] = float(g);
+                gram_[i * n_atoms_ + j] = float(g);  // packed stride: cache-
+                gram_[j * n_atoms_ + i] = float(g);  // friendly for the solve
             }
         }
     }
 
     double gram_trace() const noexcept {
         double trace = 0.0;
-        for (size_t i = 0; i < n_atoms_; ++i) trace += gram_[i * max_atoms_ + i];
+        for (size_t i = 0; i < n_atoms_; ++i) trace += gram_[i * n_atoms_ + i];
         return trace;
     }
 

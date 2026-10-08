@@ -208,7 +208,10 @@ bool read_manifest(const std::string& path, const std::string& audio_root,
 }
 
 std::vector<NoteRow> bench_entry(const Entry& e, float fit_step_ms,
-                                 FileRow& fr, std::string* err) {
+                                 FileRow& fr, std::string* err,
+                                 std::vector<kan::score_verify::StrikePurity>* pu = nullptr,
+                                 float purity_tref = 200.0f,
+                                 float pedal_ms = 0.0f) {
     const auto t0 = std::chrono::steady_clock::now();
     std::vector<float> sig;
     if (!load_audio(e.audio.c_str(), sig)) {
@@ -256,6 +259,18 @@ std::vector<NoteRow> bench_entry(const Entry& e, float fit_step_ms,
                 ++n_abs;
             }
         }
+    }
+    if (pu != nullptr) {
+        // Purity-mod calibration (G6): sample strikes, one joint fit each.
+        size_t n_strikes = 0;
+        float last = -1.0e9f;
+        for (const auto& n : notes) {
+            if (n.onset_ms - last > 30.0f) { ++n_strikes; last = n.onset_ms; }
+        }
+        const size_t stride = std::max<size_t>(1, n_strikes / 300);
+        kan::score_verify::search_extra_pitches(sig, 48000.0f, notes,
+                                                nullptr, pu, stride, purity_tref,
+                                                pedal_ms);
     }
     const auto t1 = std::chrono::steady_clock::now();
     fr.label = e.label;
@@ -396,6 +411,9 @@ int main(int argc, char** argv) {
     bool selftest = false;
     int jobs = 6, limit = 0, offset = 0;
     float fit_step_ms = 75.0f;
+    bool purity_mode = false;
+    float purity_tref = 200.0f;
+    float pedal_ms = 0.0f;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -409,6 +427,9 @@ int main(int argc, char** argv) {
         else if (a == "--limit") limit = std::atoi(next());
         else if (a == "--offset") offset = std::atoi(next());
         else if (a == "--fit-step") fit_step_ms = float(std::atof(next()));
+        else if (a == "--purity") purity_mode = true;
+        else if (a == "--purity-tref") purity_tref = float(std::atof(next()));
+        else if (a == "--pedal-ms") pedal_ms = float(std::atof(next()));
         else if (a == "--dump-score") dump_score = next();
         else if (a == "--selftest") selftest = true;
         else if (a == "--selftest-dir") selftest_dir = next();
@@ -464,6 +485,7 @@ int main(int argc, char** argv) {
 
     std::vector<std::vector<NoteRow>> rows(entries.size());
     std::vector<FileRow> files(entries.size());
+    std::vector<std::vector<kan::score_verify::StrikePurity>> purity(entries.size());
     std::atomic<size_t> next{0};
     std::mutex log;
     std::vector<std::thread> pool;
@@ -474,7 +496,9 @@ int main(int argc, char** argv) {
                 const size_t i = next.fetch_add(1);
                 if (i >= entries.size()) break;
                 std::string e2;
-                rows[i] = bench_entry(entries[i], fit_step_ms, files[i], &e2);
+                rows[i] = bench_entry(entries[i], fit_step_ms, files[i], &e2,
+                                      purity_mode ? &purity[i] : nullptr, purity_tref,
+                                      pedal_ms);
                 if (!e2.empty()) {
                     std::lock_guard<std::mutex> lk(log);
                     std::fprintf(stderr, "[WARN] %s\n", e2.c_str());
@@ -572,6 +596,50 @@ int main(int argc, char** argv) {
             emit("# |cents| %s register: p50 %.1f c, p95 %.1f c (%zu notes)\n",
                  RN[b], pct(reg_cents[b], 0.50f), pct(reg_cents[b], 0.95f),
                  reg_cents[b].size());
+        }
+    }
+    if (purity_mode) {
+        std::vector<float> un;
+        std::ofstream fp(out_dir + "/purity.csv");
+        fp << "file,t_ms,sim0,unexplained\n";
+        for (size_t i = 0; i < entries.size(); ++i) {
+            for (const auto& sp : purity[i]) {
+                fp << entries[i].label << ',' << sp.t_ms << ',' << sp.sim0 << ','
+                   << sp.unexplained << '\n';
+                un.push_back(sp.unexplained);
+            }
+        }
+        std::sort(un.begin(), un.end());
+        if (!un.empty()) {
+            emit("# strike purity (unexplained energy, %zu sampled real strikes):\n",
+                 un.size());
+            emit("#   p50 %.3f p90 %.3f p95 %.3f p99 %.3f max %.3f\n",
+                 pct(un, 0.50f), pct(un, 0.90f), pct(un, 0.95f),
+                 pct(un, 0.99f), pct(un, 1.00f));
+            // Per-density context: the baseline depends on how much is
+            // sounding (pedal, tails, conditioning), so the mod threshold
+            // must be calibrated per band (G6).
+            for (int band = 0; band < 4; ++band) {
+                std::vector<float> ub;
+                for (const auto& group : purity) {
+                    for (const auto& sp : group) {
+                        const bool in =
+                            (band == 0 && sp.keyed <= 1) ||
+                            (band == 1 && sp.keyed >= 2 && sp.keyed <= 4) ||
+                            (band == 2 && sp.keyed >= 5 && sp.keyed <= 10) ||
+                            (band == 3 && sp.keyed >= 11);
+                        if (in) ub.push_back(sp.unexplained);
+                    }
+                }
+                if (ub.empty()) continue;
+                std::sort(ub.begin(), ub.end());
+                static const char* BN[4] = {"1", "2-4", "5-10", "11+"};
+                emit("#   keyed %-4s (%4zu strikes): p50 %.3f p95 %.3f p99 %.3f\n",
+                     BN[band], ub.size(), pct(ub, 0.50f), pct(ub, 0.95f),
+                     pct(ub, 0.99f));
+            }
+            emit("#   G6 mod threshold: per-band p99 + margin (game decides);\n"
+                 "#   synthetic mash 0.061 vs synthetic clean 0.001\n");
         }
     }
     emit("# extra strikes (played, not in ground truth): %ld\n", extras);

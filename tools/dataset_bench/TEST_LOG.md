@@ -157,6 +157,25 @@ does not block.
   hardcore score tiers (osu analogy) -- game-judging-guide G6. Threshold
   must be calibrated on real-pedal baselines (MAESTRO) before convicting.
 
+### Purity-mod calibration (G6) — the fact had to be fixed before the mod
+
+- **PASS-13 — measured before shipping a threshold (the whole point).**
+  Raw unexplained-energy on 1,574 sampled real strikes: p50 0.038 /
+  p99 0.633 — the synthetic mash (0.061) sits INSIDE the clean
+  distribution. A raw threshold would have convicted innocents; caught
+  here, before any game rule existed.
+- **PASS-14 — diagnosis and fix: the sounding set is not the key-hold
+  set.** The keyed-1 band showed p50 0.305 (pedal-held notes miscounted
+  as unexplained). With a pedal-aware candidate set (released notes stay
+  candidates 1500 ms after note-off), the clean baseline collapses ~10x:
+  p50 0.004 / p95 0.038 / p99 0.097.
+- **PASS-15 — per-keyed-density bands measured** (batch 03f): 2-4 keyed
+  p50 0.007 / p95 0.047 / p99 0.095 etc.; the mash signal (0.061) lands
+  above p95 of its band. G6 conviction rule = per-band threshold +
+  player-relative anomaly (T1 style) + two-signal corroboration.
+- **NOTE-4 — fit-failure tail (unexplained = 1.0) must stay unjudged**
+  (the soft-strike misses); exclusions recorded in the guide.
+
 ### Still open
 
 - ISS-3 verification at folder scale (batch 03, running: the Chopin file's
@@ -165,6 +184,26 @@ does not block.
   once batch 03 lands.
 
 ---
+
+## Performance: why throughput fell (user question)
+
+- **ANSWER — hardware acceleration is active** (the hot Gram loop is
+  AVX2-vectorized; verified in code). The fall had two implementation
+  causes and one design cost:
+  1. **Cache regression (mine):** raising validator capacity 10 -> 64
+     changed the Gram stride 120 -> 768; the Cholesky walked 3 KB jumps.
+     Fixed with a packed stride (rows n_atoms_ apart).
+  2. **No convergence exit (mine):** dense windows spent 4 refine rounds
+     even after the fit had converged. Fixed: exit when the search moves
+     < 0.5 c (the heavy cavalry leaves when the fight is won).
+  3. **The heavy cavalry itself (the approved tradeoff):** 2 passes / 4
+     rounds in dense windows is genuinely more work than batch 01's
+     single pass.
+- **Measured recovery:** 6.96x -> 7.14x real time on 5 jobs with
+  *identical* outputs (percentiles and saturation counts bit-equal).
+  The remaining gap vs batch 01's 15.2x is cost item 3 — effort where
+  density demands it. Levers if ever needed: adaptive fit-step in sparse
+  regions, per-window effort scaling.
 
 ## Batch 03 — full 2004 folder with all fixes (132 files)
 

@@ -280,6 +280,9 @@ struct StrikePurity {
     float t_ms = 0.0f;
     float sim0 = 0.0f;       ///< similarity of the written set alone
     float unexplained = 0.0f; ///< 1 - sim0: energy outside the score
+    int alive = 0;            ///< candidates alive (keyed + pedal-extended)
+    int keyed = 0;            ///< notes actually keyed (key-hold count: the
+                              ///< right density context for thresholds)
 };
 
 /// Set-extension search per strike (heavy cavalry: one extra fit per
@@ -290,9 +293,18 @@ struct StrikePurity {
 /// drop reliably).
 inline void search_extra_pitches(const std::vector<float>& sig, float sr,
                                  const std::vector<ScoreNote>& notes,
-                                 std::vector<ExtraPitch>& out,
+                                 std::vector<ExtraPitch>* out = nullptr,
                                  std::vector<StrikePurity>* purity = nullptr,
+                                 size_t strike_stride = 1,
                                  float t_ref_ms = 200.0f,
+                                 // Pedal-aware candidate set: on piano the
+                                 // sounding set outlives the key holds
+                                 // (sustain pedal). Released notes stay
+                                 // candidates for pedal_ms after note-off,
+                                 // else their ringing is miscounted as
+                                 // "unexplained" (the clean baseline was
+                                 // polluted exactly there).
+                                 float pedal_ms = 0.0f,
                                  // Calibrated on the mash counterexample
                                  // (score_error_test case 9): true extra keys
                                  // show gains 0.034-0.044 with amps >= 0.10;
@@ -314,7 +326,9 @@ inline void search_extra_pitches(const std::vector<float>& sig, float sr,
             strikes.push_back(n.onset_ms);
         }
     }
+    size_t strike_idx = 0;
     for (float onset : strikes) {
+        if ((strike_idx++ % std::max<size_t>(1, strike_stride)) != 0) continue;
         const float t = onset + t_ref_ms;
         const size_t wend = size_t(t / 1000.0f * sr);
         if (wend < kFit || wend > sig.size()) continue;
@@ -322,7 +336,8 @@ inline void search_extra_pitches(const std::vector<float>& sig, float sr,
 
         std::vector<size_t> alive;
         for (size_t i = 0; i < notes.size(); ++i) {
-            if (notes[i].onset_ms <= t && t < notes[i].onset_ms + notes[i].dur_ms + 250.0f) {
+            const float hold = notes[i].dur_ms + 250.0f + pedal_ms;
+            if (notes[i].onset_ms <= t && t < notes[i].onset_ms + hold) {
                 alive.push_back(i);
             }
         }
@@ -338,9 +353,15 @@ inline void search_extra_pitches(const std::vector<float>& sig, float sr,
         if (!validator.set_expected_chord(base.data(), base.size())) continue;
         const float sim0 = validator.validate(window, kFit).similarity;
         if (purity != nullptr) {
-            purity->push_back({t, sim0, 1.0f - sim0});
+            int keyed = 0;
+            for (size_t i = 0; i < notes.size(); ++i) {
+                if (notes[i].onset_ms <= t &&
+                    t < notes[i].onset_ms + notes[i].dur_ms + 250.0f) ++keyed;
+            }
+            purity->push_back({t, sim0, 1.0f - sim0, int(alive.size()), keyed});
         }
-        if (sim0 >= 0.995f) continue;  // nothing left unexplained
+        if (out == nullptr) continue;   // purity-only mode: one fit per strike
+        if (sim0 >= 0.995f) continue;   // nothing left unexplained
 
         for (int cand = std::max(21, lo - 12); cand <= std::min(108, hi + 12); ++cand) {
             bool taken = false;
@@ -355,7 +376,7 @@ inline void search_extra_pitches(const std::vector<float>& sig, float sr,
             const float amp = validator.note_rms(ext.size() - 1);
             const float gain = r.similarity - sim0;
             if (gain >= sim_gain_min && amp >= amp_min) {
-                out.push_back({t, cand, gain, amp});
+                out->push_back({t, cand, gain, amp});
             }
 
         }

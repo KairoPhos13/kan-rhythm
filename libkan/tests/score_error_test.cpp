@@ -341,8 +341,8 @@ int main() {
         // sounding pitches are found as non-expected pitches at the strike.
         std::vector<kan::score_verify::ExtraPitch> xp_clean, xp_mash;
         std::vector<kan::score_verify::StrikePurity> pu_clean, pu_mash;
-        kan::score_verify::search_extra_pitches(clean, kSr, cn, xp_clean, &pu_clean);
-        kan::score_verify::search_extra_pitches(mash, kSr, mn, xp_mash, &pu_mash);
+        kan::score_verify::search_extra_pitches(clean, kSr, cn, &xp_clean, &pu_clean);
+        kan::score_verify::search_extra_pitches(mash, kSr, mn, &xp_mash, &pu_mash);
         std::printf("    extra-pitch search: clean %zu, mash %zu\n",
                     xp_clean.size(), xp_mash.size());
         const float un_clean = pu_clean.empty() ? 0.0f : pu_clean[0].unexplained;

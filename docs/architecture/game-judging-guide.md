@@ -80,10 +80,34 @@ chord mashed with 3 random keys):
 | written-set level (absorption) | 0.35 | 2.10 (inflated ~6×) |
 | extra-pitch candidates (recall / noise) | 0 | 13 (all 3 true keys among them, plus neighbors) |
 
-- **Primary fact: per-strike unexplained energy** (`StrikePurity`). Robust,
-  no false-accusation risk on clean strikes. The mod's threshold is
-  **pack data calibrated on real takes** (pedal and resonance leave a
-  non-zero baseline — measure it from MAESTRO before any conviction).
+- **Primary fact: per-strike unexplained energy** (`StrikePurity`) — but
+  ONLY with the **pedal-aware candidate set**. Measured on 1,574 real
+  MAESTRO strikes (batch 03f): the raw baseline is p50 0.038 / p99 0.633,
+  which *engulfs* the mash signal (0.061) — a raw threshold would convict
+  innocents. Cause: on piano the sounding set outlives the key holds
+  (sustain pedal), so legitimate pedal ringing counted as "unexplained"
+  (~10x pollution). With released notes kept as candidates for 1500 ms
+  after note-off, the clean baseline collapses:
+
+  | keyed notes | strikes | p50 | p95 | p99 |
+  |---|---|---|---|---|
+  | 1 | 26 | 0.021 | 0.199 | 1.000 |
+  | 2-4 | 492 | 0.007 | 0.047 | 0.095 |
+  | 5-10 | 1008 | 0.003 | 0.023 | 0.082 |
+  | 11+ | 48 | 0.003 | 0.014 | 0.216 |
+
+  The synthetic mash (0.061, 3 keyed notes) sits above p95 of its band
+  (0.047) — detectable, with a ~5% per-band false-positive rate before
+  player calibration.
+- **Conviction rule (recommended):** per-keyed-density thresholds from the
+  pack baseline **plus player-relative anomaly** (T1 style): a strike is
+  suspicious when its unexplained energy exceeds the *player's own* band
+  distribution (z-score). Player calibration sharpens the mod exactly like
+  it sharpens intonation.
+- **Exclusions:** strikes whose fit fails (sim0 near 0, the max 1.000
+  tail) are unjudged, never convicted (I2).
+- **Corroboration:** act on agreement of two signals — purity anomaly AND
+  extra-pitch candidates or the level-inflation absorption signature.
 - **Secondary: extra-pitch candidates** (`ExtraPitch` list). Total recall
   but noisy neighbors — informational material for a replay UI
   ("these keys sounded at this strike"), never the judge.
