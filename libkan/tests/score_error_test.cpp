@@ -92,6 +92,20 @@ void dump(const std::vector<kan::score_verify::ScoreNote>& notes) {
 int main() {
     std::printf("=== score_error_test: mistakes must fail loudly ===\n");
 
+    // Band interpolation (ISS-1 follow-up): the search/trust band is a
+    // smooth curve with register (user decision), not a hard breakpoint.
+    {
+        std::printf("band: pitch_search_cents_at() interpolates smoothly\n");
+        const kan::InstrumentProfile kp = kan::InstrumentProfile::keyboard();
+        check(kp.pitch_search_cents_at(20) >= 119.0f,
+              "deep bass gets the wide band (120 c)");
+        check(kp.pitch_search_cents_at(80) <= 61.0f,
+              "upper registers get the base band (60 c)");
+        const float mid = kp.pitch_search_cents_at(45);
+        check(mid > 60.0f && mid < 120.0f,
+              "transition register interpolates strictly between the anchors");
+    }
+
     // 1. Control: correct playing -> everything verifies.
     {
         std::printf("control: correct playing\n");
@@ -210,6 +224,62 @@ int main() {
         // +225 ms error beyond the written end.
         check(meas > notes[2].dur_ms + 200.0f,
               "the over-held G3 shows duration error beyond the release bias");
+    }
+
+    // 7. Dense passage (ISS-3 regression): a 28-note glissando mirrors the
+    //    real density peak measured on Chopin Op. 25 (27 alive at once).
+    //    The heavy tier must engage: every note measured and verified by a
+    //    joint fit -- no fixed-cap truncation.
+    {
+        std::printf("density: 28-note glissando (real Chopin peak) — heavy cavalry\n");
+        std::vector<float> sig(size_t(2.6f * kSr), 0.0f);
+        std::vector<kan::score_verify::ScoreNote> notes(28);
+        for (int i = 0; i < 28; ++i) {
+            const float t = 35.0f * float(i);
+            const int midi = 40 + 2 * i;
+            add_note(sig, t, 1200.0f, float(midi), 0.25f, uint32_t(100 + i));
+            notes[size_t(i)].onset_ms = t;
+            notes[size_t(i)].dur_ms = 1200.0f;
+            notes[size_t(i)].midi = midi;
+        }
+        add_noise_floor(sig, 0.005f, 99u);
+        kan::score_verify::measure_score(sig, kSr, notes);
+        int measured = 0, found = 0;
+        for (const auto& n : notes) {
+            if (n.sim_w > 0.0f) ++measured;
+            if (sim_of(n) >= 0.60f) ++found;
+        }
+        dump(notes);
+        check(measured == 28, "all 28 dense-passage notes are measured (no cap truncation)");
+        // Fit quality holds through midi ~84 (sim 0.93-1.00); the top of an
+        // extreme 28-note cluster degrades (conditioning: ~336 atoms vs 2048
+        // samples) and is honestly reported as not-verified, never as fact.
+        check(found >= 24, "at least 24/28 verify (top-octave degradation documented)");
+    }
+
+    // 8. Beyond design (documented limit): 40 simultaneous notes exceed any
+    //    real instrument density. Every note must still be MEASURED (facts
+    //    over guesses), even if some cannot fully verify.
+    {
+        std::printf("density: 40-note extreme (>32 alive) — documented limit\n");
+        std::vector<float> sig(size_t(3.2f * kSr), 0.0f);
+        std::vector<kan::score_verify::ScoreNote> notes(40);
+        for (int i = 0; i < 40; ++i) {
+            const float t = 25.0f * float(i);
+            const int midi = 36 + 2 * i;
+            add_note(sig, t, 1200.0f, float(midi), 0.25f, uint32_t(100 + i));
+            notes[size_t(i)].onset_ms = t;
+            notes[size_t(i)].dur_ms = 1200.0f;
+            notes[size_t(i)].midi = midi;
+        }
+        add_noise_floor(sig, 0.005f, 99u);
+        kan::score_verify::measure_score(sig, kSr, notes);
+        int measured = 0;
+        for (const auto& n : notes) {
+            if (n.sim_w > 0.0f) ++measured;
+        }
+        check(measured == 40,
+              "all 40 extreme-density notes are measured (facts, never truncation)");
     }
 
     std::printf("%s\n", g_pass ? "ALL PASS" : "FAILURES");

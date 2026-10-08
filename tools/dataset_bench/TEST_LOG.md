@@ -63,6 +63,12 @@ does not block.
   flagged `saturated` and excluded from pitch facts (I2). The fit explores
   the wider range; trust stays per band. Asserted in `libkan_score_error_test`
   (wrong-pitch case). To be re-verified at scale in batch 03.
+  **FOLLOW-UP (user decision):** the trust band is now a *smooth linear
+  curve* with register (`pitch_search_cents_at(midi)`, anchored at
+  (33, 120 c) and (57, 60 c) for keyboard), not a hard breakpoint --
+  inharmonicity grows continuously toward the bass, so the band must too.
+  Flat bands for instruments without a bass problem (wind). Asserted in
+  `libkan_score_error_test` (band-interpolation block).
 - **ISS-2 — long sustained notes truncate early (negative duration error).**
   The 31 rows with |dur_err| > 600 ms (0.08%) are all *negative* and all
   long notes (written 2.7–6.2 s): e.g. written 6210 ms measured 3379 ms.

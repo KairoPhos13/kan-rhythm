@@ -151,41 +151,59 @@ void measure_score(const std::vector<float>& sig, float sr,
     // without contamination — that is the register-by-note model.
     float t_lo = notes.front().onset_ms, t_hi = 0.0f;
     for (const auto& n : notes) t_hi = std::max(t_hi, n.onset_ms + n.dur_ms);
-    ::kan::HarmonicChordValidator validator(sr, 8192);
+    // Heavy cavalry: capacity for every alive note at once (analysis-side;
+    // the live path keeps its 10-note capacity). All scratch is sized at
+    // construction — never on the analysis hot path.
+    ::kan::HarmonicChordValidator validator(sr, 8192,
+        ::kan::HarmonicChordValidator::kHardCapNotes);
     // Wider of the profile's ranges: saturation is flagged per note after
     // the fit (ISS-1), so exploration may exceed a register's trust band.
     validator.set_search_range_cents(
         std::max(prof.pitch_search_cents, prof.pitch_search_cents_low));
-    validator.set_passes(1);
-    validator.set_refine_rounds(2);
     constexpr size_t kFit = 2048;
     float window[kFit];
     for (float t = t_lo + 200.0f; t < t_hi + 300.0f; t += fit_step_ms) {
-        float midis[kMaxScoreNotes];
-        size_t idxs[kMaxScoreNotes];
-        size_t n_live = 0;
-        for (size_t i = 0; i < notes.size() && n_live < kMaxScoreNotes; ++i) {
+        // Adaptive escalation: the fit brings the effort the density
+        // demands — all alive notes modeled jointly (no truncation, the
+        // ISS-3 cap artifact), extra passes and refinement only when dense,
+        // and group-fitting beyond capacity so no note goes unmeasured.
+        std::vector<size_t> alive;
+        for (size_t i = 0; i < notes.size(); ++i) {
             if (notes[i].onset_ms <= t && t < notes[i].onset_ms + notes[i].dur_ms + 250.0f) {
-                midis[n_live] = float(notes[i].midi);
-                idxs[n_live] = i;
-                ++n_live;
+                alive.push_back(i);
             }
         }
-        if (n_live == 0) continue;
+        if (alive.empty()) continue;
         const size_t wend = size_t(t / 1000.0f * sr);
         if (wend < kFit || wend > sig.size()) continue;  // window must fit
         std::memcpy(window, &sig[wend - kFit], kFit * sizeof(float));
-        if (!validator.set_expected_chord(midis, n_live)) continue;
-        const ::kan::ChordResult r = validator.validate(window, kFit);
-        for (size_t k = 0; k < n_live; ++k) {
-            ScoreNote& sn = notes[idxs[k]];
-            const float amp = validator.note_rms(k);
-            if (amp > sn.amp_peak) { sn.amp_peak = amp; sn.peak_ms = t; }
-            sn.cents_wsum += validator.refined_cents(k) * amp;
-            sn.sim_wsum += r.similarity * amp;
-            sn.sim_w += amp;
-            sn.presence = std::max(sn.presence, r.note_presence[k]);
-            sn.levels.push_back({t, amp});
+
+        const bool dense = alive.size() > 10;
+        validator.set_passes(dense ? 2 : 1);
+        validator.set_refine_rounds(dense ? 4 : 2);
+        const size_t cap = validator.max_notes();
+        for (size_t g0 = 0; g0 < alive.size(); g0 += cap) {
+            const size_t g1 = std::min(alive.size(), g0 + cap);
+            float midis[::kan::HarmonicChordValidator::kHardCapNotes];
+            size_t idxs[::kan::HarmonicChordValidator::kHardCapNotes];
+            size_t n = 0;
+            for (size_t i = g0; i < g1; ++i) {  // onset order: chord voices
+                midis[n] = float(notes[alive[i]].midi);  // stay together
+                idxs[n] = alive[i];
+                ++n;
+            }
+            if (!validator.set_expected_chord(midis, n)) continue;
+            const ::kan::ChordResult r = validator.validate(window, kFit);
+            for (size_t k = 0; k < n; ++k) {
+                ScoreNote& sn = notes[idxs[k]];
+                const float amp = validator.note_rms(k);
+                if (amp > sn.amp_peak) { sn.amp_peak = amp; sn.peak_ms = t; }
+                sn.cents_wsum += validator.refined_cents(k) * amp;
+                sn.sim_wsum += r.similarity * amp;
+                sn.sim_w += amp;
+                sn.presence = std::max(sn.presence, r.note_presence[k]);
+                sn.levels.push_back({t, amp});
+            }
         }
     }
 
@@ -198,8 +216,7 @@ void measure_score(const std::vector<float>& sig, float sr,
     //     winds; this is envelope-shape agnostic (end_drop_db is pack data).
     for (auto& sn : notes) {
         sn.cents_center = sn.sim_w > 0.0f ? sn.cents_wsum / sn.sim_w : 0.0f;
-        const float cap = (float(sn.midi) < prof.low_register_break_midi)
-            ? prof.pitch_search_cents_low : prof.pitch_search_cents;
+        const float cap = prof.pitch_search_cents_at(sn.midi); // smooth band
         sn.saturated = sn.sim_w > 0.0f && std::fabs(sn.cents_center) >= cap - 1.0f;
 
         if (sn.levels.empty()) continue;

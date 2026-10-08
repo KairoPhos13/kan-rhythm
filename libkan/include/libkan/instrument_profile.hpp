@@ -87,11 +87,30 @@ struct InstrumentProfile {
     /// MAESTRO batch 01: deep piano bass saturates a 60 c range (ISS-1).
     float pitch_search_cents = 60.0f;
 
-    /// Wider range below low_register_break_midi: deep registers are
-    /// inharmonic and fundamental-weak (piano bass, low guitar strings), so
-    /// they need more room before an estimate counts as saturated.
+    /// Wider range toward the bass, interpolated smoothly with register
+    /// (user decision: no hard breakpoint). Inharmonicity and fundamental
+    /// weakness grow *continuously* toward the deep register (stiff piano
+    /// strings, low guitar strings), so the search/trust band is a linear
+    /// curve between (pitch_search_low_midi, pitch_search_cents_low) and
+    /// (pitch_search_high_midi, pitch_search_cents) -- see
+    /// pitch_search_cents_at(). Pack data per instrument; for instruments
+    /// without a bass problem set both values equal (flat band).
     float pitch_search_cents_low = 120.0f;
-    float low_register_break_midi = 45.0f;
+    float pitch_search_low_midi = 33.0f;   ///< A1: full wide band at/below
+    float pitch_search_high_midi = 57.0f;  ///< A3: full base band at/above
+
+    /// The trust/search band at a given register: linear interpolation
+    /// between the two anchor points (flat outside them).
+    float pitch_search_cents_at(int midi) const noexcept {
+        const float lo = pitch_search_low_midi;
+        const float hi = pitch_search_high_midi;
+        if (hi <= lo) return pitch_search_cents;
+        const float m = float(midi);
+        if (m <= lo) return pitch_search_cents_low;
+        if (m >= hi) return pitch_search_cents;
+        const float x = (m - lo) / (hi - lo);
+        return pitch_search_cents_low + x * (pitch_search_cents - pitch_search_cents_low);
+    }
 
     /// Release detection for the note-end measurement: a note ends at its
     /// release -- the terminal drop of end_drop_db below its own sustained
@@ -118,7 +137,8 @@ struct InstrumentProfile {
         p.intonation_band_cents = 45.0f;
         p.pitch_search_cents = 60.0f;
         p.pitch_search_cents_low = 90.0f; // low strings are inharmonic too
-        p.low_register_break_midi = 45.0f;
+        p.pitch_search_low_midi = 28.0f;
+        p.pitch_search_high_midi = 52.0f;
         p.end_drop_db = 18.0f;            // plucked decay ends near silence
         return p;
     }
@@ -137,9 +157,8 @@ struct InstrumentProfile {
         p.max_simultaneous_notes = 1; // one air column / one bow
         p.accepts_legato_boundaries = true; // slurs / transition notes
         p.intonation_band_cents = 60.0f;
-        p.pitch_search_cents = 60.0f;  // no inharmonic bass: uniform range
+        p.pitch_search_cents = 60.0f;  // no inharmonic bass: flat band
         p.pitch_search_cents_low = 60.0f;
-        p.low_register_break_midi = 0.0f;
         p.end_drop_db = 10.0f;         // clear breath/bow release
         return p;
     }
@@ -160,7 +179,8 @@ struct InstrumentProfile {
         p.intonation_band_cents = 60.0f;
         p.pitch_search_cents = 60.0f;
         p.pitch_search_cents_low = 120.0f; // piano bass saturates 60 c (ISS-1)
-        p.low_register_break_midi = 45.0f;
+        p.pitch_search_low_midi = 33.0f;   // smooth band curve A1..A3
+        p.pitch_search_high_midi = 57.0f;
         p.end_drop_db = 12.0f;
         return p;
     }

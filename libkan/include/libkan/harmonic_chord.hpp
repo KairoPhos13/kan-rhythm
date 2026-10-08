@@ -112,32 +112,53 @@ inline double dot(const float* a, const float* b, size_t n) noexcept {
 /// Joint harmonic least-squares chord validator (explained-energy metric).
 class HarmonicChordValidator {
 public:
-    static constexpr size_t kMaxNotes = 10;   ///< expected chord tones (hard cap;
-                                             ///< per-instrument caps come from
-                                             ///< InstrumentProfile::max_simultaneous_notes)
+    static constexpr size_t kMaxNotes = 10;   ///< default capacity (the live
+                                             ///< path; per-instrument caps come
+                                             ///< from InstrumentProfile::max_simultaneous_notes)
+    static constexpr size_t kHardCapNotes = 64; ///< absolute cap; dense-passsage
+                                             ///< measurement may construct up
+                                             ///< to this ("heavy cavalry": effort
+                                             ///< escalates only when density
+                                             ///< demands it). Real density peaks
+                                             ///< near 27 alive (MAESTRO Chopin
+                                             ///< Op. 25); 64 keeps every note in
+                                             ///< one joint fit well past that.
     static constexpr size_t kHarmonics = 6;   ///< fundamental + first five
     static constexpr size_t kSearchHarmonics = 3; ///< used by the frequency search
     static constexpr size_t kAtomsPerNote = kHarmonics * 2;         // cos+sin
     static constexpr size_t kMaxAtoms = kMaxNotes * kAtomsPerNote; // 120
 
     /// `max_window` bounds the analysis length; scratch is sized once here.
-    explicit HarmonicChordValidator(float sample_rate = 48000.0f, size_t max_window = 1536)
-        : sample_rate_(sample_rate), max_window_(max_window) {
-        atoms_.assign(kMaxAtoms * max_window_, 0.0f);
-        gram_.assign(kMaxAtoms * kMaxAtoms, 0.0f);
-        rhs_.assign(kMaxAtoms, 0.0f);
-        sol_.assign(kMaxAtoms, 0.0f);
+    /// `max_notes` selects the candidate capacity (default 10 = the live
+    /// path; up to kHardCapNotes for dense offline measurement). All
+    /// scratch is sized at construction — never on the analysis hot path.
+    explicit HarmonicChordValidator(float sample_rate = 48000.0f,
+                                    size_t max_window = 1536,
+                                    size_t max_notes = kMaxNotes)
+        : sample_rate_(sample_rate), max_window_(max_window),
+          max_notes_(max_notes < 1 ? 1 : (max_notes > kHardCapNotes ? kHardCapNotes : max_notes)),
+          max_atoms_(max_notes_ * kAtomsPerNote) {
+        atoms_.assign(max_atoms_ * max_window_, 0.0f);
+        gram_.assign(max_atoms_ * max_atoms_, 0.0f);
+        rhs_.assign(max_atoms_, 0.0f);
+        sol_.assign(max_atoms_, 0.0f);
         weights_.assign(max_window_, 1.0f);
         residual_.assign(max_window_, 0.0f);
         abs_scratch_.assign(max_window_, 0.0f);
         fit_scratch_.assign(max_window_, 0.0);
         own_scratch_.assign(max_window_, 0.0);
+        expected_midi_.assign(max_notes_, 0.0f);
+        refined_cents_.assign(max_notes_, 0.0f);
+        note_rms_.assign(max_notes_, 0.0f);
     }
 
+    /// Candidate capacity actually in effect for this instance.
+    size_t max_notes() const noexcept { return max_notes_; }
+
     /// Set the chord the chart expects (MIDI note numbers, A4 = 69). Setup
-    /// path (may allocate); returns false if `n` exceeds kMaxNotes.
+    /// path (may allocate); returns false if `n` exceeds capacity.
     bool set_expected_chord(const float* midi_notes, size_t n) {
-        if (n == 0 || n > kMaxNotes) return false;
+        if (n == 0 || n > max_notes_) return false;
         note_count_ = n;
         for (size_t i = 0; i < n; ++i) expected_midi_[i] = midi_notes[i];
         presence_floor_ = 0.45f / float(n); // fair-share based; tolerates strum
@@ -175,14 +196,14 @@ public:
     /// Refined detuning of expected note `k` from the last validate() call,
     /// in cents (diagnostics / judgment feedback).
     float refined_cents(size_t k) const noexcept {
-        return (k < kMaxNotes) ? refined_cents_[k] : 0.0f;
+        return (k < max_notes_) ? refined_cents_[k] : 0.0f;
     }
 
     /// Fitted component RMS of expected note `k` from the last validate()
     /// call (absolute amplitude of the note inside the window — the
     /// per-candidate "amplitude" measurement of the description stream).
     float note_rms(size_t k) const noexcept {
-        return (k < kMaxNotes) ? note_rms_[k] : 0.0f;
+        return (k < max_notes_) ? note_rms_[k] : 0.0f;
     }
 
     /// Recommended analysis window (samples): ~21 ms at 48 kHz keeps
@@ -233,7 +254,7 @@ public:
         // component (component norm — per-atom c*b terms can go negative
         // between coherent harmonics).
         double total_energy = 0.0;
-        double note_energy[kMaxNotes] = {0};
+        double note_energy[kHardCapNotes] = {0};
         for (size_t k = 0; k < note_count_; ++k) {
             double e = 0.0;
             const float* base = &atoms_[k * kAtomsPerNote * max_window_];
@@ -249,7 +270,7 @@ public:
             total_energy += e;
         }
         float min_presence = 1.0f;
-        for (size_t k = 0; k < note_count_ && k < kMaxNotes; ++k) {
+        for (size_t k = 0; k < note_count_ && k < max_notes_; ++k) {
             res.note_presence[k] = (total_energy > 1e-18) ? float(note_energy[k] / total_energy) : 0.0f;
             note_rms_[k] = float(std::sqrt(note_energy[k] / double(count)));
             min_presence = std::min(min_presence, res.note_presence[k]);
@@ -279,7 +300,7 @@ private:
             }
             build_normal_equations(x, count);
             const double lambda = 1e-3 * gram_trace() / double(n_atoms_) + 1e-12;
-            if (!solve_cholesky(gram_.data(), kMaxAtoms, rhs_.data(), sol_.data(),
+            if (!solve_cholesky(gram_.data(), max_atoms_, rhs_.data(), sol_.data(),
                                 n_atoms_, lambda)) {
                 return false;
             }
@@ -414,15 +435,15 @@ private:
             for (size_t j = i; j < n_atoms_; ++j) {
                 const float* aj = &atoms_[j * max_window_];
                 const double g = gram_detail::wdot(ai, weights_.data(), aj, count);
-                gram_[i * kMaxAtoms + j] = float(g);
-                gram_[j * kMaxAtoms + i] = float(g);
+                gram_[i * max_atoms_ + j] = float(g);
+                gram_[j * max_atoms_ + i] = float(g);
             }
         }
     }
 
     double gram_trace() const noexcept {
         double trace = 0.0;
-        for (size_t i = 0; i < n_atoms_; ++i) trace += gram_[i * kMaxAtoms + i];
+        for (size_t i = 0; i < n_atoms_; ++i) trace += gram_[i * max_atoms_ + i];
         return trace;
     }
 
@@ -469,10 +490,12 @@ private:
 
     size_t note_count_ = 0;
     size_t n_atoms_ = 0;
+    size_t max_notes_ = kMaxNotes;
+    size_t max_atoms_ = kMaxNotes * kAtomsPerNote;
 
-    float expected_midi_[kMaxNotes] = {0};
-    float refined_cents_[kMaxNotes] = {0};
-    float note_rms_[kMaxNotes] = {0};
+    std::vector<float> expected_midi_;   ///< max_notes_
+    std::vector<float> refined_cents_;   ///< max_notes_
+    std::vector<float> note_rms_;        ///< max_notes_
 
     std::vector<float> atoms_;       ///< kMaxAtoms * max_window_ (joint basis)
     std::vector<float> gram_;        ///< kMaxAtoms^2
