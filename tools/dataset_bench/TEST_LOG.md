@@ -166,6 +166,50 @@ does not block.
 
 ---
 
+## Batch 03 — full 2004 folder with all fixes (132 files)
+
+- **Date:** 2026-10-07
+- **Scope:** whole extracted folder, 23.2 h audio, **815,032 notes**, all
+  fixes in (saturation flags, release-based end rule, smooth register
+  bands, heavy cavalry)
+- **Command:** `kan_dataset_bench --maestro data/maestro-v3.0.0 --jobs 12
+  --out runs/batch03`
+- **Results:** found **97.3%** (flat vs batch 02: 97.27 -> 97.29%); |cents|
+  p50 4.9 / p95 36.3 / p99 61.1 c (max 119 = honest bass exploration in
+  the wide band); duration err mean +208 ms, **p50 210 / p95 246 / p99 249
+  ms**, max 3078 ms (was 9564); **9,828 saturated estimates flagged**
+  (1.21%); per register: low p50 19.1 / p95 76.1 · mid 4.0 / 28.2 · high
+  5.4 / 31.3 c.
+
+### Good passes
+
+- **PASS-11 — duration facts are tight at scale.** p99 = 249 ms across
+  815k notes: the release bias is stable and the truncation tail is gone
+  (40 rows > 600 ms err, 0.005%).
+- **PASS-12 — saturation honesty at scale.** 1.21% of estimates now say
+  "ran out of range" instead of a fabricated cap number; all excluded from
+  pitch facts and from the judge's reach.
+
+### Issue revisions (honesty rule)
+
+- **ISS-3 REVISED — cap truncation was real but NOT the main miss cause.**
+  The heavy cavalry recovered only 19 of the Chopin file's 318 misses
+  (98.3 -> 98.4%). Every note is now measured (the regression test proves
+  no truncation), but the residual misses concentrate exactly where the
+  documented conditioning limit lives: miss rate **5.02% high (>72) vs
+  1.71% mid vs 2.44% low**. Dense top-octave clusters degrade the joint
+  fit and honestly resolve as not-verified. Options if this matters for
+  gameplay (it likely does not: game judging is per-strike, <=10 sounding
+  notes): interference-cancellation iterations, sparse solvers (OMP),
+  velocity priors — all measurement-semantics changes through the §4
+  checklist.
+- **NOTE-3 — heavy cavalry costs throughput.** 7.28x -> 4.22x real time on
+  12 jobs (5.5 h wall for the folder; full MAESTRO projected ~45 h wall).
+  `--fit-step` triage mode and more year folders in parallel remain the
+  scaling levers; GPU stays out (T3).
+
+---
+
 ## Batch 02 — full 2004 folder (132 files) — running
 
 - **Date:** 2026-10-07
