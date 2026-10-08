@@ -560,3 +560,15 @@ Spec locked from the user's example:
   silently no-op'd on Python string replaces and was claimed done in
   chat. Rule reinforced: every patch is verified by grep BEFORE it is
   reported as done.
+
+## Batch 06 interrupted — tooling weakness found (2026-10-08)
+
+The 2009 run died at 97/125 files (process gone, cause unknown) and the
+**outputs were lost**: `kan_dataset_bench` accumulates all rows in memory
+and writes notes.csv/files.csv/summary.txt only at the end. ~8 h of
+compute lost to one interruption.
+
+**Named TODO (high value): incremental checkpointing** — append each
+entry's rows to notes.csv/files.csv as it completes (mutex-guarded), so
+an interrupted run keeps everything it measured. Relaunched batch06
+in the meantime; every long run from now on is at risk until this lands.
