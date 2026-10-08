@@ -665,6 +665,14 @@ void print_usage() {
 } // namespace
 
 // ---- guide mode: sequence tracking, note by note (no timing judgment) ----
+// Musical notation display (the user reads ABCD, not MIDI numbers).
+const char* midi_to_name(int midi, char* buf, size_t n) {
+    static const char* NAMES[12] = {"C", "C#", "D", "D#", "E", "F",
+                                    "F#", "G", "G#", "A", "A#", "B"};
+    std::snprintf(buf, n, "%s%d", NAMES[midi % 12], midi / 12 - 1);
+    return buf;
+}
+
 struct GuideStepSpec { int midi = -1; bool vib = false; };
 struct GuideTracker {
     std::vector<GuideStepSpec> steps;
@@ -1170,7 +1178,9 @@ int main(int argc, char** argv) {
                 cs.entries[0] = {0, float(guide.cur()->midi), 1};
                 if (desc.set_candidates(cs)) {
                     guide.fed = true;
-                    printf("[guide] next: MIDI %d%s\n", guide.cur()->midi,
+                    char nb[16];
+                    midi_to_name(guide.cur()->midi, nb, sizeof(nb));
+                    printf("[guide] next: %s%s\n", nb,
                            guide.cur()->vib ? " (vibrato)" : "");
                 }
             }
@@ -1178,8 +1188,10 @@ int main(int argc, char** argv) {
             if (g != nullptr) {
                 for (auto& row : score) {
                     if (row.midi == g->midi && row.sim >= 0.5f) {
-                        printf("[guide] played: MIDI %d  sim %.2f  cents %+.0f\n",
-                               g->midi, double(row.sim), double(row.cents));
+                        char nb[16];
+                        midi_to_name(g->midi, nb, sizeof(nb));
+                        printf("[guide] played: %s  sim %.2f  cents %+.0f\n",
+                               nb, double(row.sim), double(row.cents));
                         ++guide.idx;
                         guide.fed = false;
                         if (guide.idx >= guide.steps.size()) {
