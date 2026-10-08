@@ -46,6 +46,18 @@ played/not-played from **sim/presence**; amplitude is a loudness fact only.
   (p95 67 c vs 25 c mid). Either loosen the band below midi ~45 or treat
   low-register pitch as advisory; do not convict a bass note with a
   treble-grade band.
+- **Recall table (publish as instrument facts; MAESTRO, 38k notes).**
+  Presence recall depends on register x dynamics — a judge must treat
+  unresolvable notes as UNJUDGED, never as player errors:
+
+  | segment | recall | note |
+  |---|---|---|
+  | mid, loud | 99.8% | essentially always measurable |
+  | mid, soft | 98.7% | |
+  | low, loud | 98.8% | |
+  | low, soft | 95.9% | |
+  | high, loud | 96.5% | |
+  | high, soft | **87.4%** | physics-limited (low SNR) |
 
 ### G3 — Timing: strike facts and the peak signature
 

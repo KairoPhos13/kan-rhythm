@@ -155,6 +155,16 @@ public:
     /// Candidate capacity actually in effect for this instance.
     size_t max_notes() const noexcept { return max_notes_; }
 
+    /// Noise-floor-aware similarity (root-cause fix, vel01): the floor is
+    /// unexplainable by any note model, so it must not sit in the metric's
+    /// denominator. In soft passages the floor dominated the total energy
+    /// and collapsed similarity to 0.36 on notes that were fitted with
+    /// correct amplitude and pitch (missed soft-high notes) -- the metric,
+    /// not the measurement, was failing. Set the window's noise-floor RMS
+    /// here; 0 keeps legacy behavior.
+    void set_noise_floor(float rms) noexcept { noise_floor_ = (rms > 0.0f) ? rms : 0.0f; }
+    float noise_floor() const noexcept { return noise_floor_; }
+
     /// Set the chord the chart expects (MIDI note numbers, A4 = 69). Setup
     /// path (may allocate); returns false if `n` exceeds capacity.
     bool set_expected_chord(const float* midi_notes, size_t n) {
@@ -248,7 +258,16 @@ public:
         if (xx_w <= 1e-12) return res;
         double cb = 0.0;
         for (size_t a = 0; a < n_atoms_; ++a) cb += double(sol_[a]) * double(rhs_[a]);
-        res.similarity = float(std::clamp(cb / xx_w, 0.0, 1.0));
+        // Reference the explained fraction to the energy ABOVE the noise
+        // floor (unexplainable by any note model). When essentially no
+        // signal rises above the floor there is nothing to explain, and
+        // similarity is honestly 0 (the absent-note semantic is kept).
+        double wcount = 0.0;
+        for (size_t t = 0; t < count; ++t) wcount += double(weights_[t]);
+        const double floor_w = double(noise_floor_) * double(noise_floor_) * wcount;
+        const double sig_w = xx_w - floor_w;
+        res.similarity = (sig_w > 1e-12)
+            ? float(std::clamp(cb / sig_w, 0.0, 1.0)) : 0.0f;
 
         // Per-note presence: weighted energy share of each note's fitted
         // component (component norm — per-atom c*b terms can go negative
@@ -504,6 +523,7 @@ private:
     size_t n_atoms_ = 0;
     size_t max_notes_ = kMaxNotes;
     size_t max_atoms_ = kMaxNotes * kAtomsPerNote;
+    float noise_floor_ = 0.0f;
 
     std::vector<float> expected_midi_;   ///< max_notes_
     std::vector<float> refined_cents_;   ///< max_notes_

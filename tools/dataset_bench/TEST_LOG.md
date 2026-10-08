@@ -264,6 +264,36 @@ does not block.
 
 ---
 
+## The soft-high pocket: experiments, one fix kept, one rejected
+
+Root-cause work on PASS-24's pocket (user: "try it!"). The decisive
+experiment measured the pocket's victims: missed soft-high notes had
+**good amplitude (0.0067) and correct pitch (8 c)** but sim 0.36 — the
+*metric* was failing, not the measurement: the similarity denominator
+(window energy) is dominated by the noise floor in soft passages, and by
+unmodeled ringing.
+
+- **PASS-25 — noise-floor-referenced similarity (kept).** `similarity` is
+  now the explained fraction of the energy ABOVE the estimated noise
+  floor (5th-percentile frame RMS), with the honest guard: no signal
+  above floor -> similarity 0 (absent-note semantics preserved; the full
+  counterexample suite passes unchanged). vel02: high-soft pocket
+  13.67% -> 12.59%, overall 97.32% -> 97.51% — modest recall gain, but
+  it also sharpens the G6 purity separation (recalibrated: mash 0.061 vs
+  its band's p95 0.037, was 0.047).
+- **REJECTED — pedal-aware candidate sets inside measure_score.** The
+  purity search's pedal fix (strike-sampled) tempted the same for the
+  score core. It broke the dense fixtures (near-collinear extended sets
+  fail the Cholesky) and exploded cost (5 files > 30 min). Reverted in
+  full; kept only in `search_extra_pitches` where it is strike-sampled
+  and validated. Recorded so nobody retries it without new evidence.
+- **The velocity-prior hypothesis (the original plan) was disproved by
+  the experiment above**: the pocket's notes are fitted with correct
+  amplitude and pitch — an amplitude prior has nothing to fix. What is
+  left is physics (low SNR in soft high register): see the recall table
+  in `game-judging-guide.md` G2 (published as instrument facts so judges
+  never convict unresolvable notes — path 3 of the plan).
+
 ## Miss-pocket decomposition (velocity ground truth, vel01: 38,817 notes)
 
 - **PASS-24 — root-cause map of the ~3% miss rate** (MIDI velocity now in

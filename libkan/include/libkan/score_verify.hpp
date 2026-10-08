@@ -131,6 +131,23 @@ bool parse_score(const char* path, std::vector<ScoreNote>& notes) {
 
 /// Measure the written notes against the audio (joint model: at each fit
 /// time the candidates are the written notes alive there). `extra_strikes`,
+/// Noise-floor estimate: 5th percentile of 128-sample frame RMS over the
+/// take (robust to musical density: quietest content approximates the
+/// floor). Used as the similarity reference.
+inline float estimate_noise_floor(const std::vector<float>& sig) {
+    if (sig.empty()) return 0.0f;
+    std::vector<float> frames;
+    frames.reserve(sig.size() / 128 + 1);
+    for (size_t off = 0; off + 128 <= sig.size(); off += 128) {
+        double acc = 0.0;
+        for (size_t i = 0; i < 128; ++i) acc += double(sig[off + i]) * double(sig[off + i]);
+        frames.push_back(float(std::sqrt(acc / 128.0)));
+    }
+    if (frames.empty()) return 0.0f;
+    std::nth_element(frames.begin(), frames.begin() + frames.size() / 20, frames.end());
+    return frames[frames.size() / 20];
+}
+
 /// when given, receives detected strikes that no written onset explains
 /// (played but not written — energy the score cannot account for).
 void measure_score(const std::vector<float>& sig, float sr,
@@ -138,7 +155,8 @@ void measure_score(const std::vector<float>& sig, float sr,
                    std::vector<float>* extra_strikes = nullptr,
                    float fit_step_ms = 75.0f,
                    const ::kan::InstrumentProfile* profile_in = nullptr,
-                   bool want_traj = false) {
+                   bool want_traj = false,
+                   float noise_floor_rms = -1.0f) {
     const ::kan::InstrumentProfile prof =
         (profile_in != nullptr) ? *profile_in : ::kan::InstrumentProfile::keyboard();
 
@@ -167,6 +185,10 @@ void measure_score(const std::vector<float>& sig, float sr,
     // construction — never on the analysis hot path.
     ::kan::HarmonicChordValidator validator(sr, 8192,
         ::kan::HarmonicChordValidator::kHardCapNotes);
+    // Noise floor (similarity reference): explicit override or estimated.
+    const float floor_rms = (noise_floor_rms >= 0.0f) ? noise_floor_rms
+                                                      : estimate_noise_floor(sig);
+    validator.set_noise_floor(floor_rms);
     // Wider of the profile's ranges: saturation is flagged per note after
     // the fit (ISS-1), so exploration may exceed a register's trust band.
     validator.set_search_range_cents(
@@ -345,6 +367,9 @@ inline void search_extra_pitches(const std::vector<float>& sig, float sr,
                                  float amp_min = 0.05f) {
     ::kan::HarmonicChordValidator validator(sr, 8192,
         ::kan::HarmonicChordValidator::kHardCapNotes);
+    // Same noise-floor semantics as measure_score (the purity baseline was
+    // calibrated on it and must be recalibrated with it -- checklist).
+    validator.set_noise_floor(estimate_noise_floor(sig));
     validator.set_search_range_cents(60.0f);
     validator.set_passes(1);
     validator.set_refine_rounds(2);
