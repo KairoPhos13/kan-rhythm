@@ -592,3 +592,38 @@ exactly the calibration layer (T1) target. Named next-phase items:
 - guide/judgment then works against the CALIBRATED expectations, not
   against A440 fingering assumptions (fairness: a detuned instrument
   must not convict its player)
+
+## Batch 06 — full battery on year 2009 (125 files, 788,780 notes)
+
+- **Date:** 2026-10-08. Fourth year of material, unseen players/recording.
+- **Core metrics stable across 4 years** (2004/2006/2008/2009):
+
+| metric | 2008 | 2009 | verdict |
+|---|---|---|---|
+| found | 97.6% | 96.5% | same family |
+| cents p50 / p95 | 3.8 / 29.1 | 4.2 / 32.1 c | PASS |
+| duration p50 / p99 | 234 / 250 | 234 / 250 ms | PASS (identical) |
+| saturated | 0.77% | 0.80% | PASS |
+| vibrato (negative control) | 0.10% | 0.12% | PASS |
+| sustain / hold | 0.31 / 1.45 | 0.26 / 1.44 | PASS |
+| faded-out ends | — | 94.6% | consistent with ISS-6 semantics |
+
+- **ISS-7 (diagnosed) — the purity tail drift is fit failures, not corpus
+  impurity.** 2009's purity tails look far heavier (keyed 2-4 p95 0.265
+  vs 0.034 in the 2008 calibration). Per-file analysis: the tail is
+  concentrated in specific files with **p95 = 1.000 exactly** (sim0 = 0:
+  the fit failed) while their found% stays 83-92 — dense files where the
+  pedal-expanded candidate sets (up to 64) exceed the joint fit's
+  conditioning limit and the Cholesky fails. This is the SAME failure
+  mode that made the pedal experiment fail inside measure_score
+  (rejected earlier), resurfacing in the purity search. Median file p95
+  is 0.142; best files sit at 0.000-0.009.
+- **Consequences (decided):**
+  1. The purity fact MUST exclude fit-failure strikes (sim0 == 0 is
+     "not measured", never "unexplained 100%" — the NOTE-4 rule becomes
+     mandatory enforcement in `search_extra_pitches`).
+  2. G6 thresholds stay **session/player-relative** (the design already
+     said so; now proven necessary: an absolute threshold calibrated on
+     one year breaks on the next).
+  3. The pedal-expanded candidate set needs its conditioning guard
+     (cap or grouping) before purity numbers are quoted per file.
