@@ -800,7 +800,8 @@ int main(int argc, char** argv) {
             wav = "kan_demo_transcribe.wav";
             const std::string extra = std::getenv("KAN_YTDL_ARGS")
                 ? std::getenv("KAN_YTDL_ARGS") : "";
-        const std::string cmd = dl + " " + extra + " -x --audio-format wav --no-playlist "
+        const std::string cmd = dl + " " + extra + " --remote-components ejs:github "
+                "-x --audio-format wav --no-playlist "
                 "-o 'kan_demo_transcribe.%(ext)s' '" + transcribe_src + "'";
             std::printf("[fetch] %s\n", cmd.c_str());
             if (std::system(cmd.c_str()) != 0) return 1;
