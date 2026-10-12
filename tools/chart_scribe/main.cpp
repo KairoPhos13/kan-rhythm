@@ -90,18 +90,20 @@ bool run_selftest() {
 
 int main(int argc, char** argv) {
     std::string src, out = "transcription", profile_name = "piano";
+    std::string stem_name;
     bool selftest = false;
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
         auto next = [&]() -> const char* { return (i + 1 < argc) ? argv[++i] : ""; };
         if (a == "--out") out = next();
         else if (a == "--instrument") profile_name = next();
+        else if (a == "--stem") stem_name = next();
         else if (a == "--selftest") selftest = true;
         else if (a[0] != '-') src = a;
         else {
             std::fprintf(stderr,
                 "usage: kan_chart_scribe <audio|youtube-url> [--out base] "
-                "[--instrument piano|ocarina|flute|recorder|guitar] [--selftest]\n");
+                "[--instrument piano|ocarina|flute|recorder|guitar] [--stem piano] [--selftest]\n");
             return 2;
         }
     }
@@ -135,6 +137,19 @@ int main(int argc, char** argv) {
         }
     }
 
+    // Layer 0: if --stem is given, separate first and transcribe only
+    // that instrument's stem (the fix for full-band UNRESOLVED noise).
+    if (!stem_name.empty()) {
+        const std::string dir = kan::separate_stems(audio, out + "_stems", "6");
+        if (dir.empty()) {
+            std::fprintf(stderr, "[ERROR] separation failed (is Demucs "
+                                 "installed? pip install --user "
+                                 "--break-system-packages demucs)\n");
+            return 1;
+        }
+        audio = dir + "/" + stem_name + ".wav";
+        std::printf("[stem] transcribing only: %s\n", audio.c_str());
+    }
     std::vector<float> sig;
     if (!load_audio(audio.c_str(), sig)) {
         std::fprintf(stderr, "[ERROR] cannot decode audio: %s\n", audio.c_str());

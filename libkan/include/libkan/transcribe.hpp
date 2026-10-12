@@ -19,6 +19,37 @@
 
 namespace kan {
 
+/// ---- Layer 0: source separation (stem extraction) --------------------
+/// Find a music source separator (Demucs: MIT, htdemucs_6s gives
+/// drums/bass/vocals/guitar/piano/other). Empty = none installed.
+inline std::string find_separator() {
+    if (std::system("command -v demucs > /dev/null 2>&1") == 0) return "demucs";
+    if (std::system("python3 -m demucs --help > /dev/null 2>&1") == 0) {
+        return "python3 -m demucs";
+    }
+    return "";
+}
+
+/// Run the separator: produces <out_dir>/<model>/<basename>/{stem}.wav.
+/// `stems` selects the model: "6" = htdemucs_6s (default), "4" = htdemucs.
+/// Returns the directory holding the stem wavs ("" on failure).
+inline std::string separate_stems(const std::string& audio,
+                                  const std::string& out_dir,
+                                  const std::string& stems = "6") {
+    const std::string sep = find_separator();
+    if (sep.empty()) return "";
+    const std::string model = (stems == "4") ? "htdemucs" : "htdemucs_6s";
+    const std::string cmd = sep + " -n " + model + " -o '" + out_dir + "' '"
+                          + audio + "'";
+    std::printf("[separate] %s\n", cmd.c_str());
+    if (std::system(cmd.c_str()) != 0) return "";
+    const size_t slash = audio.find_last_of("/\\");
+    std::string base = (slash == std::string::npos) ? audio : audio.substr(slash + 1);
+    const size_t dot = base.find_last_of('.');
+    if (dot != std::string::npos) base = base.substr(0, dot);
+    return out_dir + "/" + model + "/" + base;
+}
+
 /// Find a usable audio downloader for URLs (yt-dlp on PATH, user install,
 /// python module, or youtube-dl). Empty string = none available.
 inline std::string find_audio_downloader() {
