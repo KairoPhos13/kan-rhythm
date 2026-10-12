@@ -1,0 +1,3 @@
+[submodule "game/client"]
+	path = game/client
+	url = https://github.com/KairoPhos13/kan.git

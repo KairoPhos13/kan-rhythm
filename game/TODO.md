@@ -8,8 +8,10 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
 
 ### Setup & compliance (do first)
 
-- [ ] Fork `ppy/osu` (osu!lazer, MIT) → **`kan-client`** repository; submodule
-      into `game/client/`; green build on Linux/Windows/macOS (dotnet 8 + CMake)
+- [x] Fork `ppy/osu` (osu!lazer, MIT) → **`kan`** (github.com/KairoPhos13/kan);
+      submodule wired at `game/client/` (2026-10-12)
+- [ ] Baseline build green on Linux/Windows/macOS (dotnet 8 + CMake) +
+      `game/docs/environment.md` (toolchain, commands, timing notes)
 - [ ] Rebrand baseline (ADR-0011 — visible from the first build): window
       title + about screen say **kan!**; credits name ppy/osu contributors;
       `THIRD_PARTY_NOTICES` generation + about-screen entry; policy for

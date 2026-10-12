@@ -14,8 +14,8 @@ editor). Integration architecture:
   instrument helpers, mods, P/Invoke bridge to libkan/kanfx
 - `screens/` — kan-specific screens (calibration, instrument packs,
   kan!forge)
-- `client/` — git submodule of the `kan-client` fork (osu!lazer, rebranded
-  per ADR-0011: standalone **kan!** game, not a mod)
+- `client/` — git submodule of the **kan** fork (github.com/KairoPhos13/kan,
+  osu!lazer rebranded per ADR-0011: standalone **kan!** game, not a mod)
 - `docs/` — fork divergence log (every fork-level change, why, and its
   upstream-PR status)
 

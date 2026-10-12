@@ -29,8 +29,8 @@ our product identity, regardless of the code license.
   pages say **kan!** only. Upstream osu! appears exactly once: in the
   attribution/credits ("Built on osu!lazer (MIT) — ppy/osu contributors"),
   which is both a license obligation and a community-respect statement.
-- Fork repository renamed accordingly: `kan-client` (not `kan-osu`);
-  submodule path `game/client/`.
+- Fork repository: **`KairoPhos13/kan`** (github.com/KairoPhos13/kan — created
+  2026-10-12); submodule path `game/client/`.
 
 ### 2. What we KEEP (osu! UX patterns, behavior and flow)
 

@@ -9,7 +9,7 @@ the community formats.
 
 | Piece | Home | Form |
 |---|---|---|
-| osu!lazer fork (`kan-osu`) | own repository (submodule of `game/`) | fork, rebased onto upstream regularly |
+| osu!lazer fork (`kan`) | `game/client/` (submodule of github.com/KairoPhos13/kan) | fork, rebased onto upstream regularly |
 | kan ruleset (game mode) | `game/ruleset/` → ruleset plugin | C# library loaded by the fork |
 | kan screens (calibration, instrument packs, kan!forge) | `game/screens/` | C# — inside ruleset where possible, fork-level only when necessary |
 | DSP core (onset/pitch/judgment) | `libkan/` | C++20 header-only + shared lib target |
@@ -90,8 +90,8 @@ attribution/credits.
 
 ## 5. Work sequencing
 
-1. Fork `ppy/osu` → `kan-osu` repo; submodule into `game/`; green build on
-   Linux/Windows/macOS.
+1. ~~Fork `ppy/osu` → `kan` repo; submodule into `game/client/`~~ (done
+   2026-10-12); next: green build on Linux/Windows/macOS.
 2. Empty kan ruleset plugin loading inside the fork (proves the plugin path).
 3. C-ABI shim in `libkan/abi/` + P/Invoke wrapper consuming live onset events
    (proves the latency boundary).
