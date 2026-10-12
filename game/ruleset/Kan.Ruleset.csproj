@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup Label="Project">
+    <TargetFramework>net10.0</TargetFramework>
+    <!--
+      The assembly file name MUST match the fork's ruleset discovery glob
+      ("osu.Game.Rulesets.*.dll", see RulesetStore.loadFromDisk / loadUserRulesets).
+      This is a hard technical constraint of the upstream plugin loader and the
+      only place where the upstream "osu.Game.Rulesets" prefix survives in kan!
+      code. All C# namespaces of this project use the Kan.* convention
+      (ADR-0011) and the product identity of the plugin is "kan!".
+    -->
+    <AssemblyName>osu.Game.Rulesets.Kan</AssemblyName>
+    <RootNamespace>Kan.Ruleset</RootNamespace>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>disable</ImplicitUsings>
+    <Description>kan! ruleset plugin — the real-instrument game mode (placeholder skeleton, Phase 0)</Description>
+    <Version>0.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup Label="Project References">
+    <!--
+      The ruleset compiles AGAINST the fork (game/client, git submodule of
+      github.com/KairoPhos13/kan), never inside it. See game/docs/environment.md.
+    -->
+    <ProjectReference Include="..\client\osu.Game\osu.Game.csproj" />
+  </ItemGroup>
+
+  <!--
+    Development convenience: place the built plugin next to the fork's
+    executable output so the ruleset loader picks it up on startup.
+    For installed builds, users drop the DLL into the game's "rulesets/"
+    storage folder instead (both paths are documented in game/docs/environment.md).
+  -->
+  <Target Name="KanCopyPluginToClientOutput" AfterTargets="Build">
+    <ItemGroup>
+      <KanClientOutputDirs Include="..\client\osu.Desktop\bin\$(Configuration)\net10.0\" />
+    </ItemGroup>
+    <Copy SourceFiles="$(TargetPath)" DestinationFolder="%(KanClientOutputDirs.Identity)" SkipUnchangedFiles="true" />
+  </Target>
+</Project>
