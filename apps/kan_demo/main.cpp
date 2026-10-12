@@ -40,6 +40,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cstring>
 #include <string>
 #include <thread>
 #include <vector>
@@ -789,15 +790,18 @@ int main(int argc, char** argv) {
     if (transcribe_src != nullptr) {
         std::string wav = transcribe_src;
         if (std::strncmp(transcribe_src, "http", 4) == 0) {
-            if (std::system("command -v yt-dlp > /dev/null 2>&1") != 0) {
-                std::fprintf(stderr, "[ERROR] yt-dlp needed for URLs; "
-                                     "or pass a local audio file\n");
-                return 1;
-            }
+        const std::string dl = kan::find_audio_downloader();
+        if (dl.empty()) {
+            std::fprintf(stderr, "[ERROR] no downloader (yt-dlp/youtube-dl); "
+                                 "install with: pip install --user yt-dlp  "
+                                 "or pass a local audio file\n");
+            return 1;
+        }
             wav = "kan_demo_transcribe.wav";
-            const std::string cmd = std::string(
-                "yt-dlp -x --audio-format wav --no-playlist -o '")
-                + "kan_demo_transcribe.%(ext)s' '" + transcribe_src + "'";
+            const std::string extra = std::getenv("KAN_YTDL_ARGS")
+                ? std::getenv("KAN_YTDL_ARGS") : "";
+        const std::string cmd = dl + " " + extra + " -x --audio-format wav --no-playlist "
+                "-o 'kan_demo_transcribe.%(ext)s' '" + transcribe_src + "'";
             std::printf("[fetch] %s\n", cmd.c_str());
             if (std::system(cmd.c_str()) != 0) return 1;
         }

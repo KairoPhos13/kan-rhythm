@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <string>
@@ -113,14 +114,18 @@ int main(int argc, char** argv) {
     std::string audio = src;
     if (src.rfind("http", 0) == 0) {
         // YouTube (or any URL yt-dlp supports): fetch audio as wav.
-        if (std::system("command -v yt-dlp > /dev/null 2>&1") != 0) {
+        const std::string dl = kan::find_audio_downloader();
+        if (dl.empty()) {
             std::fprintf(stderr,
-                "[ERROR] yt-dlp not installed — needed for URLs. "
-                "Install it or pass a local audio file.\n");
+                "[ERROR] no downloader (yt-dlp/youtube-dl) for URLs. "
+                "Install with: pip install --user yt-dlp — or pass a "
+                "local audio file.\n");
             return 1;
         }
         audio = out + "_source.wav";
-        const std::string cmd = "yt-dlp -x --audio-format wav --no-playlist "
+        const std::string extra = std::getenv("KAN_YTDL_ARGS")
+                ? std::getenv("KAN_YTDL_ARGS") : "";
+        const std::string cmd = dl + " " + extra + " -x --audio-format wav --no-playlist "
                                 "-o '" + out + "_source.%(ext)s' '" + src + "'";
         std::printf("[fetch] %s\n", cmd.c_str());
         if (std::system(cmd.c_str()) != 0) {

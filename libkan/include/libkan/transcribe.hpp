@@ -19,6 +19,20 @@
 
 namespace kan {
 
+/// Find a usable audio downloader for URLs (yt-dlp on PATH, user install,
+/// python module, or youtube-dl). Empty string = none available.
+inline std::string find_audio_downloader() {
+    if (std::system("command -v yt-dlp > /dev/null 2>&1") == 0) return "yt-dlp";
+    if (std::system("test -x \"$HOME/.local/bin/yt-dlp\"") == 0) {
+        return "\"$HOME/.local/bin/yt-dlp\"";
+    }
+    if (std::system("python3 -m yt_dlp --version > /dev/null 2>&1") == 0) {
+        return "python3 -m yt_dlp";
+    }
+    if (std::system("command -v youtube-dl > /dev/null 2>&1") == 0) return "youtube-dl";
+    return "";
+}
+
 /// One struck note as transcribed from audio.
 struct TranscribedNote {
     float onset_ms = 0.0f;
