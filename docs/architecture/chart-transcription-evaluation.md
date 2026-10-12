@@ -85,6 +85,37 @@ respects the §4 honesty rule and keeps judgment and transcription on the
 same measurement physics — no systematic mismatch between how a chart is
 made and how it is judged.
 
+## 3b. Time anchors — the +250 ms question (decided 2026-10-12)
+
+The MAESTRO "+250 ms" is NOT strike delay (user question, answered with
+evidence):
+
+- **Onsets (strikes): 5-20 ms error.** Physical anchor difference: the
+  Disklavier MIDI labels the KEY event, the audio records the STRING
+  sound (hammer travel ~10-20 ms) + block quantization (2.7 ms) + HFC
+  build. Not a defect: two anchors.
+- **Duration (ends): +210/234 ms bias, p99 = 250 ms.** This is OUR
+  measurement window padding (ISS-6: looking stops at key-hold + 250 ms
+  and the end pins there; p99 = 250 is stable because it is the method's
+  constant).
+- **Winds:** slow breath ramps are profile data (`judgment_offset_ms`,
+  -20 ms for winds) — already modeled.
+
+**Decision: correct at the SERIALIZER (chart_scribe), never with a fudge
+factor in the game.** The game compares audio-anchored charts against
+audio-anchored player input — anchor symmetry gives zero correction on
+both sides. Chart serialization writes:
+
+1. `dur = measured_end - calibrated_bias` (~210 ms, measured on 1.5M+
+   notes), keeping the raw end and `end_faded` for the editor;
+2. onset = the AUDIO attack (HIT semantics already);
+3. per-profile `judgment_offset_ms` where the instrument's attack ramp
+   shifts the audible anchor.
+
+Consistency for sensitive ears comes from documented semantics ("anchored
+to sound; duration bias-corrected by X") plus published error numbers —
+not from pretending the anchors coincide.
+
 ## 4. Named TODOs
 
 1. `tools/chart_scribe` (Layer 1): blind facts -> chart text with
@@ -95,3 +126,5 @@ made and how it is judged.
 3. Layer-2 proposer adapter (Basic Pitch first) emitting draft rows with
    a `propose` marker for the human.
 4. Editor UX is out of scope here (authoring tool is a separate track).
+5. chart_scribe duration serialization: bias-corrected duration + raw
+   end + `end_faded` columns (see s3b).
