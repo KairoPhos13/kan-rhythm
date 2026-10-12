@@ -10,23 +10,46 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
 
 - [x] Fork `ppy/osu` (osu!lazer, MIT) → **`kan`** (github.com/KairoPhos13/kan);
       submodule wired at `game/client/` (2026-10-12)
-- [ ] Baseline build green on Linux/Windows/macOS (dotnet 8 + CMake) +
-      `game/docs/environment.md` (toolchain, commands, timing notes)
-- [ ] Rebrand baseline (ADR-0011 — visible from the first build): window
-      title + about screen say **kan!**; credits name ppy/osu contributors;
-      `THIRD_PARTY_NOTICES` generation + about-screen entry; policy for
-      marking modified files
+- [x] Baseline build green on **Linux** (.NET 10 SDK — the fork targets
+      `net10.0`, "dotnet 8" plans are superseded) + `game/docs/environment.md`
+      (toolchain, commands, timing notes) — verified 2026-10-12: build
+      0 warnings / 0 errors, running **kan!** window, ruleset plugin loading
+      (log-proven)
+- [ ] Verify baseline build on Windows/macOS (same commands; unverified —
+      record results in `game/docs/environment.md`)
+- [ ] **Push fork commits to the fork repo** (`0f5db37`, `2970c68` →
+      github.com/KairoPhos13/kan): blocked on this build machine having no
+      GitHub credentials — the maintainer must push before merging
+      `agent/game` into `main` (see `game/docs/fork-divergence.md` pin log)
+- [x] Rebrand baseline (ADR-0011 — visible from the first build): window
+      title + splash text say **kan!**; about screen (Settings → General →
+      About kan!) credits "Built on osu!lazer (MIT) — ppy/osu contributors";
+      `THIRD_PARTY_NOTICES` generated (`game/tools/gen-third-party-notices.py`)
+      + embedded + shown in about screen; modified-file marking policy in
+      `game/docs/fork-divergence.md` (2026-10-12; interactive screenshot QA
+      of the about screen still pending)
 - [ ] String sweep: user-facing `osu!` references → `kan!` in adapted code
-      (mechanical deltas logged in `game/docs/fork-divergence.md`)
+      (scope list in `game/docs/fork-divergence.md`; mechanical deltas logged
+      there)
 - [ ] Identity design v0: logo/wordmark, color palette, typography, default
-      skin shell (original or license-clear assets per `assets/` rules)
-- [ ] BASS licensing resolution (verify non-commercial applicability vs
-      purchase one-time license vs replace backend) — decision + evidence in
-      `game/docs/bass-licensing.md`
-- [ ] Create `game/docs/fork-divergence.md` (every fork-level change logs:
-      what/why/merge-conflict cost/upstream-PR status)
-- [ ] Empty kan ruleset plugin loading inside the fork (proves plugin path,
-      `Kan.*` namespaces for new code)
+      skin shell (original or license-clear assets per `assets/` rules) —
+      includes replacing the osu!-derived intro visuals and `lazer.ico` app
+      icon (trademark hygiene, ADR-0011 §5)
+- [x] BASS licensing resolution — analysis + recommendation in
+      `game/docs/bass-licensing.md` (2026-10-12: verify applicability with
+      un4seen first; budget one-time commercial licence if `kan!supporter`
+      ships paid perks; backend replacement not needed — capture path is
+      miniaudio already). Closing action: written answer from un4seen on file
+- [x] Create `game/docs/fork-divergence.md` (every fork-level change logs:
+      what/why/merge-conflict cost/upstream-PR status) — started 2026-10-12
+- [x] Empty kan ruleset plugin loading inside the fork (proves plugin path,
+      `Kan.*` namespaces for new code) — `game/ruleset/` (Kan.Ruleset),
+      assembly `osu.Game.Rulesets.Kan` (loader-glob constraint, see
+      fork-divergence.md F-8); placeholder mode screen; log line
+      "kan! ruleset loaded" proves discovery (2026-10-12)
+- [ ] QA pass: screenshot-verify about screen + play the placeholder mode on
+      a real beatmap; run the fork test suite to completion
+      (`env -u DISPLAY dotnet test osu.Desktop.slnf`) as regression baseline
 
 ### Input & judgment core
 
