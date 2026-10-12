@@ -128,6 +128,23 @@ Consequences (see also `game/docs/fork-divergence.md`):
   env -u DISPLAY dotnet test osu.Desktop.slnf -c Release -- NUnit.ConsoleOut=0
   ```
 
+- **Measured 2026-10-12** (Release, headless, .NET SDK 10.0.401):
+  `osu.Game.Tests` completed — **5481 passed / 9 failed / 23 skipped**
+  (5513 total, 16 m 20 s). Re-running the 9 failures twice showed:
+  2 are flaky (spectator `TestClientSendsCorrectRuleset`, editor
+  `TestRestart` — pass on rerun); 7 fail deterministically (4× chat-link
+  action mapping in `TestSceneChatLink`, `BeatmapImporterTests
+  .TestImportFailsWithFilenamesDifferingOnlyInCase`, `TestSettingsMigration
+  .TestDisplayStarsMigration`) — none of these code paths intersect the
+  kan! deltas (see `fork-divergence.md`), pending verification against a
+  pristine `816df139fd` build (`game/TODO.md`).
+  Full result file: `game/client/osu.Game.Tests/TestResults/*.trx` (not
+  committed).
+- After `osu.Game.Tests`, the `dotnet test osu.Desktop.slnf` run aborts while
+  starting the ruleset test projects with a
+  `Microsoft.CodeCoverage.targets MSB4181` tooling error (SDK 10.0.401).
+  Running test projects individually (`dotnet test osu.Game.Rulesets.Osu.Tests/...`)
+  is the workaround; tracked in `game/TODO.md`.
 - The kan ruleset currently has no test project (Phase 0 skeleton). The DSP
   tests live in `libkan/tests/` (root `CONTRIBUTING.md` §4) and are unrelated
   to this component.

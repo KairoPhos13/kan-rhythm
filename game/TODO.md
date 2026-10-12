@@ -48,8 +48,15 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       fork-divergence.md F-8); placeholder mode screen; log line
       "kan! ruleset loaded" proves discovery (2026-10-12)
 - [ ] QA pass: screenshot-verify about screen + play the placeholder mode on
-      a real beatmap; run the fork test suite to completion
-      (`env -u DISPLAY dotnet test osu.Desktop.slnf`) as regression baseline
+      a real beatmap (2026-10-12 fork test suite status:
+      `osu.Game.Tests` ran headless — 5481 passed / 9 failed / 23 skipped in
+      16m20s; 2 of the 9 are flaky (spectator `TestClientSendsCorrectRuleset`,
+      editor `TestRestart` — pass on rerun), 7 fail deterministically in code
+      the Phase 0 deltas do not touch: 4× chat-link action mapping, beatmap
+      importer case-folding, star-display migration)
+- [ ] Verify those 7 deterministic failures reproduce on a pristine
+      `816df139fd` build (upstream/environment issue, not ours) and, if so,
+      consider reporting upstream
 
 ### Input & judgment core
 
