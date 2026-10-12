@@ -9,6 +9,10 @@ CLI utilities supporting development and content creation.
 - [ ] `kanchart-info` — dump manifest, layers, difficulties of a package
 - [ ] `kanchart-pack` / `kanchart-unpack` — author-friendly (un)packing of
       `.kan` containers with SHA-256 manifest regeneration
+- [ ] `kanchart-convert` — bidirectional `.kan` ↔ `.osz` (osu! beatmap)
+      conversion (ADR-0010, osu-integration.md §3): Layers 1–3 → audio +
+      control points + ruleset HitObjects + difficulties; round-trip
+      lossless for kan! data; osu!-only extras kept on the `.osz` side
 
 ## Audio analysis
 

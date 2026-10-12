@@ -53,6 +53,13 @@ microphone or audio interface.
   featuring local ONNX inference (**HTDemucs** for stem separation +
   **Basic Pitch** for automated draft note transcription) and **`kan!check`**,
   a biomechanical linter that validates physical playability per instrument.
+- **Client base — osu!lazer:** the game client is a fork of `ppy/osu`
+  (MIT, ADR-0010) + a kan ruleset plugin, giving us osu!-class menus, skins,
+  particles and frame stability from day one. Instrument capture and
+  judgment stay in `libkan`/`kanfx` behind a C-ABI bridge; `.kan` maps
+  convert bidirectionally to `.osz`. License compliance is ship-blocking
+  (attribution preserved, `THIRD_PARTY_NOTICES` shipped, fixes contributed
+  back upstream).
 
 Full details: [docs/SPECIFICATION.md](docs/SPECIFICATION.md) ·
 [docs/ROADMAP.md](docs/ROADMAP.md)
@@ -142,7 +149,7 @@ Detailed milestones with hard engineering gates (KPIs): [docs/ROADMAP.md](docs/R
 
 | Component          | Name            | Role                                                        |
 |--------------------|-----------------|-------------------------------------------------------------|
-| Game / client      | **kan!**        | Ultra-low-latency main client                                |
+| Game / client      | **kan!**        | osu!lazer fork + kan ruleset (ultra-low-latency client)      |
 | DSP engine (C++)   | **libkan**      | Milestone 1 library (onset + BACF + Goertzel + pitch-shift)  |
 | Song package       | **`.kan`**      | Compressed container: audio, tempo map, all instruments      |
 | Arrangement file   | **`.kchart`**   | Lightweight (<50 KB) community per-instrument chart          |

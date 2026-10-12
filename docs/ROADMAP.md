@@ -35,15 +35,22 @@ YIN monophonic pitch in cents, live CLI, offline ctest).
 ---
 
 ## Milestone 2 — One-lane playable prototype ("vertical slice" of game feel)
-**Months 3–4** · Component: `game/`
+**Months 3–4** · Component: `game/` (on osu!lazer — ADR-0010)
 
-Integrate libkan into a lightweight graphics engine (Godot 4 via GDExtension
-C++, or own SDL3/Vulkan client) to validate the visual dopamine loop,
-osu!-style feedback.
+Build the kan! client as a **fork of `ppy/osu` (osu!lazer, MIT) + kan
+ruleset** per ADR-0010 and
+[docs/architecture/osu-integration.md](architecture/osu-integration.md).
+libkan/kanfx stay the real-time DSP core, bridged via a C-ABI shim.
+Frame-stability is largely inherited from osu!framework; effort goes to
+input bridging, dual-axis judgment, and calibration UX.
 
 **Deliverables**
+- `kan-osu` fork + kan ruleset plugin loading (with license-compliance
+  setup: THIRD_PARTY_NOTICES, fork-divergence log, BASS licensing decision)
+- C-ABI shim + P/Invoke bridge preserving the M1 latency gates
 - 3-step calibration screen (acoustic latency, noise floor, fixed-instrument detune)
 - Dual judgment engine (instant attack + pitch stability)
+- `.kan` ↔ `.osz` converter + one demo song playable end-to-end
 - Real support for 3 test instruments: acoustic guitar (mic), recorder flute, keyboard/piano
 
 **Release Gates**
@@ -52,6 +59,8 @@ osu!-style feedback.
 | Visual-audio jitter | Frame time variation < **2 ms** @ 120 FPS |
 | Auto-pitch backing track: instrument artificially detuned −35 cents | Track matched in < **2 s** calibration, no audible artifacts, no score loss |
 | False-onset rate from ambient noise (normal room, 45 dB SPL, 50 cm from mic) | < **1%** |
+| End-to-end input latency added by the C#/P-Invoke bridge | < **1 frame** @ 120 FPS on top of the C++ gates |
+| License compliance | All ADR-0010 checklist items resolved before any public build |
 
 ---
 

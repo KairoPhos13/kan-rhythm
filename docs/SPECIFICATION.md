@@ -189,3 +189,23 @@ Summary:
 - Score integrity: idempotent submission, manifest hash verification,
   server-side replay re-simulation, synthetic-injection classifier (≥99%
   gate), append-only audit events.
+
+## 10. Game client base (osu!lazer)
+
+Per [ADR-0010](adr/0010-osu-lazer-base-client.md): the kan! client is a
+fork of `ppy/osu` (osu!lazer, **MIT**) + a kan ruleset plugin + kan screens,
+not a from-scratch engine. Integration architecture:
+[architecture/osu-integration.md](architecture/osu-integration.md).
+
+- Minimize fork divergence: ruleset-plugin path first; every fork delta
+  logged with its upstream-PR status; rebase onto upstream regularly.
+- `libkan`/`kanfx` remain the real-time DSP core behind a C-ABI shim
+  (P/Invoke); osu!framework audio handles music/SFX only — instrument
+  capture and judgment stay ours, so the latency gates remain authoritative.
+- `.kan`/`.kchart` remain the community formats; bidirectional `.kan` ↔
+  `.osz` conversion maps Layers 1–3 onto beatmaps/difficulties/HitObjects.
+- License compliance is ship-blocking: preserve upstream headers and MIT
+  text, ship `THIRD_PARTY_NOTICES`, mark substantially modified files,
+  contribute fixes back upstream. BASS (osu!framework's audio backend,
+  free for non-commercial use) must be resolved (verify / purchase /
+  replace) before any donation-driven release.

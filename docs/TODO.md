@@ -20,7 +20,8 @@
 - [ ] `architecture/` — system overview + audio pipeline diagram + threading model
 - [ ] `dsp/` — onset detector tuning notes, YIN vs BACF comparison results,
       latency budget breakdown (measurements from apps/kan_cli harness)
-- [ ] ADR: game engine choice (Godot 4 GDExtension vs SDL3/Vulkan) — Milestone 2
+- [ ] ~~ADR: game engine choice (Godot 4 GDExtension vs SDL3/Vulkan)~~ —
+      closed by ADR-0010 (osu!lazer base client)
 - [ ] ADR: native plugin ABI for custom DSP/visual nodes (deferred until
       data-driven packs prove insufficient)
 - [x] ADR: `kp` formula (weighted top-N + difficulty multiplier + dual-axis mix)
@@ -29,6 +30,9 @@
       — `adr/0007-server-implementation-stack.md` (proposed draft)
 - [ ] ADR: stem/transcription model choices (HTDemucs, Basic Pitch) — Milestone 3
 - [ ] ADR: donation provider selection — Milestone 4
+- [x] ADR-0010: osu!lazer base client (fork + ruleset) —
+      `adr/0010-osu-lazer-base-client.md` (accepted; supersedes the "engine
+      selection" item above — Godot/SDL3 alternatives closed)
 
 ## Rules
 

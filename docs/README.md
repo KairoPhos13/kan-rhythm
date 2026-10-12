@@ -10,7 +10,9 @@ Architecture deep-dives:
 [architecture/platform-architecture.md](architecture/platform-architecture.md)
 (extensibility: FX graph, visuals, instrument packs, mods) ·
 [architecture/backend-data-model.md](architecture/backend-data-model.md)
-(server: database model, leaderboards, anti-cheat).
+(server: database model, leaderboards, anti-cheat) ·
+[architecture/osu-integration.md](architecture/osu-integration.md)
+(client base: osu!lazer fork + ruleset, C-ABI bridge, `.kan`↔`.osz`).
 
 ## Intended contents
 

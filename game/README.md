@@ -1,17 +1,33 @@
 # game/
 
-The **kan!** game client (engine integration, rendering, gameplay logic,
-dual-axis scoring) and the integrated **kan!forge** map editor with local AI
-stem separation and note transcription.
+The **kan!** game client, built on **osu!lazer** (`ppy/osu`, MIT) per
+[ADR-0010](../docs/adr/0010-osu-lazer-base-client.md): a fork + kan ruleset
+(game mode) + custom screens (calibration, instrument packs, **kan!forge**
+editor). Integration architecture:
+[docs/architecture/osu-integration.md](../docs/architecture/osu-integration.md).
 
-**Status:** planned — see [TODO.md](TODO.md) for the scoped task list
-(Milestones 2–3).
+**Status:** Milestone 2 (vertical slice) — see [TODO.md](TODO.md).
 
-## Ground rules (apply from day one)
+## Contents
 
-- English only (code, comments, docs, commits) — see root `CONTRIBUTING.md`
-- Real-time safety: gameplay code consumes audio through
-  `libkan`'s lock-free ring buffer; never block or allocate on the audio path
-- Dependencies flow toward `libkan/`; the game must not be referenced by it
-- This component is designed to be extractable into its own repository later:
-  keep it self-contained and declare its dependencies explicitly in CMake
+- `ruleset/` — kan ruleset plugin (C#): highway, dual-axis judgment,
+  instrument helpers, mods, P/Invoke bridge to libkan/kanfx
+- `screens/` — kan-specific screens (calibration, instrument packs,
+  kan!forge)
+- `osu/` — git submodule of the `kan-osu` fork (created in task 1)
+- `docs/` — fork divergence log (every fork-level change, why, and its
+  upstream-PR status)
+
+## Ground rules
+
+- English only (root `CONTRIBUTING.md`)
+- **Minimize fork divergence**: prefer ruleset-plugin code over fork edits;
+  every fork delta documents its merge-conflict cost and upstream-PR status
+  in `game/docs/fork-divergence.md`
+- **License compliance is ship-blocking** (ADR-0010): keep upstream headers
+  and license text, ship `THIRD_PARTY_NOTICES`, mark substantially changed
+  files, contribute fixes back upstream, resolve BASS licensing before any
+  donation-driven release
+- Real-time safety: instrument capture and judgment stay in libkan/kanfx
+  (C++); osu!framework audio is used only for music/SFX playback
+- C#/.NET 8 + CMake toolchain; extractable into the `kan-osu` repo later

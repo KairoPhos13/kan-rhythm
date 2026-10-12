@@ -85,3 +85,14 @@ an offline test with a known expected result (see `libkan/tests/dsp_test.cpp`).
 Code is MIT (see `LICENSE`). Do not add dependencies with licenses
 incompatible with MIT (GPL/AGPL) without discussing it first.
 miniaudio (MIT-0 / public domain) is the reference for acceptable licensing.
+
+The kan! client is built on a fork of `ppy/osu` (osu!lazer, MIT — ADR-0010).
+Working with third-party open-source code obliges us to respect it in kind:
+
+- Preserve every upstream copyright header and license text; never strip
+  attribution from adapted code.
+- Ship `THIRD_PARTY_NOTICES` in the client; mark substantially modified
+  upstream files.
+- Contribute general improvements back upstream (PRs to `ppy/osu`).
+- Track license-sensitive third-party components (e.g. BASS, free for
+  non-commercial use) and resolve their status before any public release.
