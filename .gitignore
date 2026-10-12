@@ -11,3 +11,13 @@ tools/dataset_bench/data/
 tools/dataset_bench/*_out/
 dataset_bench_selftest_out/
 tools/dataset_bench/runs/
+
+# Generated audio/data artifacts (never committed)
+*.wav
+*.mid
+demo_song*
+kan_demo_transcribe*
+chart_scribe_selftest*
+stem_split_*
+stems/
+*_stems/

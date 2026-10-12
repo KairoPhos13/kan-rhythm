@@ -116,6 +116,56 @@ Consistency for sensitive ears comes from documented semantics ("anchored
 to sound; duration bias-corrected by X") plus published error numbers —
 not from pretending the anchors coincide.
 
+## 3c. Layer 0: source separation — comparison & policy
+
+### Mass-use policy (user decision, 2026-10-12)
+
+The project targets MASSIVE use. Rules:
+
+1. **Best experience available on each machine, zero configuration.**
+   GPU when the user has one (CUDA or ROCm — both expose as `cuda` to
+   torch), CPU otherwise. The device is probed automatically
+   (`best_separator_device()`), never a user setting.
+2. **Heavy AI dependencies are OPTIONAL layers, never core.** Core =
+   pure C++20 + single-header miniaudio; nothing in `libkan/` requires
+   Python or torch. AI helpers plug in behind detect-and-invoke
+   boundaries (like `yt-dlp`), with `KAN_SEPARATOR` / `KAN_YTDL_ARGS`
+   user overrides.
+3. **Dependency size matters.** torch is gigabytes; lighter runtimes
+   (ONNX Runtime, ~50 MB, with CPU/CUDA/ROCm/Metal/DirectML backends)
+   fit mass distribution far better. Roadmap: accept an ONNX-based
+   separator via `KAN_SEPARATOR` today; prefer one as default backend
+   once a good separation model is verified.
+
+### Comparison (user asked what to expect)
+
+| project | stems | strengths | limitations | verdict |
+|---|---|---|---|---|
+| **Demucs 4.x** (Meta, MIT) | 4: drums/bass/vocals/other; **6s adds guitar+piano** | SOTA quality; pip-installable; CPU ok, GPU faster | **FIXED stem set** — no "ocarina" class: winds land in *vocals* (lead) or *other*; torch-sized dep | **adopted (optional layer)** |
+| Spleeter (Deezer, MIT) | 2/4/5 | light, fast | older quality; TF stack; same fixed-class problem | rejected (quality) |
+| Open-Unmix (UMX, MIT) | 4 | simple, torch | weaker separation | rejected |
+| UVR / MDX-Net / RoFormer | per-model (karaoke, custom) | best-in-class vocal/instrumental splits | GUI ecosystem, model licensing varies | radar for vocal splits |
+| ONNX-based separators | varies | ~50 MB runtime; every HW backend | model quality varies | **preferred future backend** |
+
+**Capabilities to expect (honest):**
+
+- Clean separation of *categories*, not instruments: for an ocarina song
+  the lead usually lands in `vocals` or `other` — verify by ear with
+  `--only vocals` / `--only other` (both generated for the sample song).
+- Artifacts: bleed between stems, warble on dense passages. For
+  transcription this helps a lot (the target instrument stops competing
+  for the spectrum); for karaoke backing artifacts are usually masked by
+  the player's own instrument.
+- Everything separation outputs is a DRAFT (AI model, §4 weak-label
+  rule). The remix math (minus/only) is ours and deterministic.
+
+**ROCm note:** this environment runs `torch 2.12.0+cpu`; GPU use needs
+the ROCm torch wheel matched to the installed ROCm release
+(`pip install --user --break-system-packages torch --index-url
+https://download.pytorch.org/whl/rocm6.x`). Wheel availability for the
+Python version (3.14 here) is the compatibility risk — CPU works
+regardless, and the auto-device probe means users never think about it.
+
 ## 4. Named TODOs
 
 1. `tools/chart_scribe` (Layer 1): blind facts -> chart text with

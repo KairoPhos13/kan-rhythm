@@ -23,11 +23,25 @@ namespace kan {
 /// Find a music source separator (Demucs: MIT, htdemucs_6s gives
 /// drums/bass/vocals/guitar/piano/other). Empty = none installed.
 inline std::string find_separator() {
+    // User override first (mass-use policy: plug any separator without
+    // recompiling, e.g. a lighter ONNX-based one).
+    const char* custom = std::getenv("KAN_SEPARATOR");
+    if (custom != nullptr && *custom != '\0') return custom;
     if (std::system("command -v demucs > /dev/null 2>&1") == 0) return "demucs";
     if (std::system("python3 -m demucs --help > /dev/null 2>&1") == 0) {
         return "python3 -m demucs";
     }
     return "";
+}
+
+/// Best device automatically (mass-use policy: GPU when the user has one
+/// — CUDA or ROCm, both expose as "cuda" to torch — CPU otherwise; the
+/// user never configures devices).
+inline std::string best_separator_device() {
+    if (std::system("python3 -c \"import torch,sys;sys.exit(0 if torch.cuda.is_available() else 1)\" > /dev/null 2>&1") == 0) {
+        return "cuda";
+    }
+    return "cpu";
 }
 
 /// Run the separator: produces <out_dir>/<model>/<basename>/{stem}.wav.
@@ -39,8 +53,8 @@ inline std::string separate_stems(const std::string& audio,
     const std::string sep = find_separator();
     if (sep.empty()) return "";
     const std::string model = (stems == "4") ? "htdemucs" : "htdemucs_6s";
-    const std::string cmd = sep + " -n " + model + " -o '" + out_dir + "' '"
-                          + audio + "'";
+    const std::string cmd = sep + " -n " + model + " -d " + best_separator_device()
+                          + " -o '" + out_dir + "' '" + audio + "'";
     std::printf("[separate] %s\n", cmd.c_str());
     if (std::system(cmd.c_str()) != 0) return "";
     const size_t slash = audio.find_last_of("/\\");

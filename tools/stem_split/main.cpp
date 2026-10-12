@@ -120,8 +120,15 @@ int main(int argc, char** argv) {
         const std::string a = argv[i];
         auto next = [&]() -> const char* { return (i + 1 < argc) ? argv[++i] : ""; };
         if (a == "--out-dir") out_dir = next();
-        else if (a == "--minus") { minus = true; do_remix = true; }
-        else if (a == "--only") { minus = false; do_remix = true; }
+        else if (a == "--minus" || a == "--only") {
+            minus = (a == "--minus");
+            do_remix = true;
+            std::string list = next(), tok;
+            for (char c : list + ",") {
+                if (c == ',' || c == ' ') { if (!tok.empty()) sel.push_back(tok); tok.clear(); }
+                else tok += c;
+            }
+        }
         else if (a == "--out") out = next();
         else if (a == "--selftest") selftest = true;
         else if (a == "--stems") {
