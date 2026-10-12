@@ -718,6 +718,31 @@ struct GuideTracker {
     }
 };
 
+static bool load_audio_local(const char* path, std::vector<float>& sig) {
+    ma_decoder_config cfg = ma_decoder_config_init(ma_format_f32, 1, 48000);
+    ma_decoder dec;
+    if (ma_decoder_init_file(path, &cfg, &dec) != MA_SUCCESS) return false;
+    float chunk[4096];
+    for (;;) {
+        ma_uint64 got = 0;
+        if (ma_decoder_read_pcm_frames(&dec, chunk, 4096, &got) != MA_SUCCESS) break;
+        if (got == 0) break;
+        sig.insert(sig.end(), chunk, chunk + got);
+    }
+    ma_decoder_uninit(&dec);
+    return !sig.empty();
+}
+
+static void write_wav_local(const std::string& path, const std::vector<float>& sig) {
+    ma_encoder_config cfg =
+        ma_encoder_config_init(ma_encoding_format_wav, ma_format_f32, 1, 48000);
+    ma_encoder enc;
+    if (ma_encoder_init_file(path.c_str(), &cfg, &enc) != MA_SUCCESS) return;
+    ma_uint64 written = 0;
+    ma_encoder_write_pcm_frames(&enc, sig.data(), sig.size(), &written);
+    ma_encoder_uninit(&enc);
+}
+
 int main(int argc, char** argv) {
     const char* instrument_name = "ocarina";
     const char* expect_note = nullptr;
@@ -731,6 +756,12 @@ int main(int argc, char** argv) {
     bool use_gate = true;
     const char* guide_arg = nullptr;
     const char* transcribe_src = nullptr;
+    const char* stem_name = nullptr;
+    const char* minus_stems = nullptr;
+    const char* only_stems = nullptr;
+    const char* out_base_c = "kan_demo_transcribe";
+    std::string out_base = out_base_c;
+    bool separate_flag = false;
     int noise_cal_ms = 500;
 
     for (int i = 1; i < argc; ++i) {
@@ -760,6 +791,16 @@ int main(int argc, char** argv) {
             guide_arg = argv[++i];
         } else if (std::strcmp(argv[i], "--transcribe") == 0 && i + 1 < argc) {
             transcribe_src = argv[++i]; // executed after the profile exists
+        } else if (std::strcmp(argv[i], "--stem") == 0 && i + 1 < argc) {
+            stem_name = argv[++i];      // transcribe only this decoupled stem
+        } else if (std::strcmp(argv[i], "--minus") == 0 && i + 1 < argc) {
+            minus_stems = argv[++i];    // audio WITHOUT these stems (backing)
+        } else if (std::strcmp(argv[i], "--only") == 0 && i + 1 < argc) {
+            only_stems = argv[++i];     // audio with ONLY these stems
+        } else if (std::strcmp(argv[i], "--separate") == 0) {
+            separate_flag = true;       // just produce the stems folder
+        } else if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc) {
+            out_base = argv[++i];
         } else if (std::strcmp(argv[i], "--selftest") == 0) {
             return run_selftest();
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
@@ -823,21 +864,87 @@ int main(int argc, char** argv) {
             }
             ma_decoder_uninit(&dec);
         }
+        // ---- Layer 0 (optional): separation, stems, backing remixes ----
+        std::string work_wav = wav;
+        if (stem_name != nullptr || minus_stems != nullptr
+            || only_stems != nullptr || separate_flag) {
+            const std::string dir = kan::separate_stems(wav, out_base + "_stems", "6");
+            if (dir.empty()) {
+                std::fprintf(stderr, "[ERROR] separation failed (Demucs needed: "
+                                     "pip install --user --break-system-packages "
+                                     "demucs)\n");
+                return 1;
+            }
+            std::printf("[stems] %s\n", dir.c_str());
+            auto load_stem = [&](std::vector<float>& dst, const std::string& nm) {
+                const std::string p = dir + "/" + nm + ".wav";
+                std::vector<float> tmp;
+                if (!load_audio_local(p.c_str(), tmp)) return false;
+                if (dst.size() < tmp.size()) dst.resize(tmp.size(), 0.0f);
+                for (size_t i = 0; i < tmp.size(); ++i) dst[i] += tmp[i];
+                return true;
+            };
+            auto write_mix = [&](const std::string& list, bool minus,
+                                 const std::string& outp) {
+                std::vector<std::string> sel;
+                std::string tok;
+                for (char c : std::string(list) + ",") {
+                    if (c == ',' || c == ' ') { if (!tok.empty()) sel.push_back(tok); tok.clear(); }
+                    else tok += c;
+                }
+                std::vector<float> acc;
+                int used = 0;
+                for (const char* nm : {"drums", "bass", "vocals", "guitar", "piano", "other"}) {
+                    std::vector<float> tmp;
+                    if (!load_audio_local((dir + "/" + nm + ".wav").c_str(), tmp)) continue;
+                    bool wanted = sel.empty();
+                    for (auto& x : sel) wanted = wanted || (x == nm);
+                    if (minus ? wanted : !wanted) continue;
+                    if (acc.size() < tmp.size()) acc.resize(tmp.size(), 0.0f);
+                    for (size_t i = 0; i < tmp.size(); ++i) acc[i] += tmp[i];
+                    ++used;
+                }
+                if (used == 0) return false;
+                write_wav_local(outp, acc);
+                std::printf("[mix] %s  (%d stems)\n", outp.c_str(), used);
+                return true;
+            };
+            (void)load_stem;
+            if (minus_stems != nullptr) {
+                write_mix(minus_stems, true, out_base + "_without.wav");
+            }
+            if (only_stems != nullptr) {
+                write_mix(only_stems, false, out_base + "_only.wav");
+            }
+            if (stem_name != nullptr) {
+                work_wav = dir + "/" + std::string(stem_name) + ".wav";
+                std::printf("[stem] transcribing only: %s\n", work_wav.c_str());
+            }
+        }
+        // ---- transcription ----
+        {
+            std::vector<float> sig2;
+            if (work_wav != wav && !load_audio_local(work_wav.c_str(), sig2)) {
+                std::fprintf(stderr, "[ERROR] cannot decode stem %s\n", work_wav.c_str());
+                return 1;
+            }
+            if (work_wav != wav) sig.swap(sig2);
+        }
         std::printf("[audio] %.1f s - transcribing...\n", double(sig.size()) / 48000.0);
         const auto notes = kan::transcribe_audio(sig.data(), sig.size(), 48000.0f,
                                                  inst.profile);
         {
-            std::ofstream fs("kan_demo_transcribe.score");
+            std::ofstream fs(out_base + ".score");
             fs << kan::chart_text(notes);
-            std::ofstream fl("kan_demo_transcribe.log");
+            std::ofstream fl(out_base + ".log");
             fl << kan::chart_log(notes);
             const auto mid = kan::chart_midi(notes);
-            std::ofstream fm("kan_demo_transcribe.mid", std::ios::binary);
+            std::ofstream fm(out_base + ".mid", std::ios::binary);
             fm.write(reinterpret_cast<const char*>(mid.data()),
                      std::streamsize(mid.size()));
         }
-        std::printf("[done] %zu notes -> kan_demo_transcribe.{score,log,mid}\n",
-                    notes.size());
+        std::printf("[done] %zu notes -> %s.{score,log,mid}\n",
+                    notes.size(), out_base.c_str());
         std::printf("%s\n", kan::chart_log(notes).c_str());
         return 0;
     }
