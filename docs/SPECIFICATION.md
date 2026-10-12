@@ -189,6 +189,11 @@ Summary:
 - Score integrity: idempotent submission, manifest hash verification,
   server-side replay re-simulation, synthetic-injection classifier (≥99%
   gate), append-only audit events.
+- **osu! reuse (ADR-0012):** `kp` adopts the MIT pp architecture from
+  `ppy/osu-tools` (difficulty attributes → performance calc → weighted
+  top-N) extended with the intonation axis; spectator/multiplayer may adopt
+  `ppy/osu-server-spectator` (MIT) later; `ppy/osu-web` is AGPL —
+  clean-room UX emulation only, no code ever.
 
 ## 10. Game client base (osu!lazer)
 

@@ -36,6 +36,10 @@
 - [x] ADR-0011: rebrand to KAN! identity (standalone game, not a mod) —
       `adr/0011-rebrand-kan-identity.md` (accepted; keep osu! UX patterns,
       redesign gameplay visuals, namespace/trademark policy)
+- [x] ADR-0012: server & leaderboards osu! reuse policy —
+      `adr/0012-server-leaderboards-osu-reuse.md` (accepted; verified
+      licenses 2026-10-12: osu-tools MIT → kp reference, spectator MIT →
+      deferred, osu-web AGPL → clean-room only)
 
 ## Rules
 

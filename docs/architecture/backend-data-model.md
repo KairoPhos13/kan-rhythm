@@ -5,6 +5,15 @@ charts, scores, leaderboards (`kp`), replays, donations/entitlements, events,
 anti-cheat. Lives in `server/` now; expected to extract into the `kan-web`
 repository at Milestone 4.
 
+**osu! reuse policy (ADR-0012):** the backend stays ours (this document).
+Adopted from the MIT-licensed osu! ecosystem: the **pp architecture** from
+`ppy/osu-tools` as the reference for `kp` (difficulty attributes →
+performance calc → weighted top-N, extended with our intonation axis and
+per-instrument/input-method weighting), and (deferred) `ppy/osu-server-spectator`
+for multiplayer/spectating. **`ppy/osu-web` is AGPL-3.0 — no code from it
+may enter this repository**; its website/profile UX is emulated clean-room
+from public behavior only.
+
 ## 1. Guiding decisions
 
 1. **Modular monolith first, services later.** One deployable with strict

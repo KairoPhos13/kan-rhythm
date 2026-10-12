@@ -7,8 +7,12 @@ Implementation starts Milestone 4; spec/design work can start earlier.
 
 - [ ] ADR: implementation stack (TypeScript/NestJS vs Go vs Rust) with
       hiring/contributor-ecosystem reasoning
-- [ ] ADR: `kp` formula (osu!-pp analog: weighted top-N, difficulty
-      multiplier from chart features; dual-axis mix ratio timing vs cents)
+- [ ] **kp engine design (ADR-0012):** adopt the pp architecture from
+      `ppy/osu-tools` (MIT — difficulty attributes → performance calculation
+      → weighted top-N) as the reference implementation; adapt with the
+      dual-axis intonation component and per-instrument-family /
+      per-input-method weighting; keep upstream headers + copyright for any
+      adapted code
 - [ ] ADR: ranked-status workflow & QA roles (kan!check pre-screen →
       community review → ranked), osu! BN precedent
 - [ ] OpenAPI v1 contract in `server/api/openapi.yaml` (auth, catalog,
@@ -21,6 +25,18 @@ Implementation starts Milestone 4; spec/design work can start earlier.
       webhook forgery; mitigations mapped to endpoints
 
 ## Implementation phase (Milestone 4)
+
+- [ ] kp module: difficulty-attribute pipeline + performance calculation
+      (osu-tools reference, ADR-0012), async recompute, per-instrument-family
+      ranks, board upserts
+- [ ] Multiplayer/spectator (post-M4, deferred): adopt
+      `ppy/osu-server-spectator` (MIT) instead of writing a protocol;
+      verify its contract against our OpenAPI at that time
+- [ ] Web frontend (future `kan-web` repo): **clean-room rule (ADR-0012)** —
+      `ppy/osu-web` is AGPL-3.0; emulate its UX patterns from public
+      behavior/screenshots only; no code from it ever enters our repos.
+      Contributors deep-familiar with osu-web source stay off the
+      corresponding implementation areas
 
 - [ ] Auth module: OAuth2 device flow for the game client
 - [ ] Catalog module: `.kan` upload with SHA-256 verification, presigned CDN
