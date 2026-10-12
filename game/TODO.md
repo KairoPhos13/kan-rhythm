@@ -8,16 +8,23 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
 
 ### Setup & compliance (do first)
 
-- [ ] Fork `ppy/osu` (osu!lazer, MIT) → `kan-osu` repository; submodule into
-      `game/osu/`; green build on Linux/Windows/macOS (dotnet 8 + CMake)
-- [ ] Create `game/docs/fork-divergence.md` (every fork-level change logs:
-      what/why/merge-conflict cost/upstream-PR status)
-- [ ] License compliance setup (ship-blocking, ADR-0010): `THIRD_PARTY_NOTICES`
-      generation + about-screen entry, policy for marking modified files
+- [ ] Fork `ppy/osu` (osu!lazer, MIT) → **`kan-client`** repository; submodule
+      into `game/client/`; green build on Linux/Windows/macOS (dotnet 8 + CMake)
+- [ ] Rebrand baseline (ADR-0011 — visible from the first build): window
+      title + about screen say **kan!**; credits name ppy/osu contributors;
+      `THIRD_PARTY_NOTICES` generation + about-screen entry; policy for
+      marking modified files
+- [ ] String sweep: user-facing `osu!` references → `kan!` in adapted code
+      (mechanical deltas logged in `game/docs/fork-divergence.md`)
+- [ ] Identity design v0: logo/wordmark, color palette, typography, default
+      skin shell (original or license-clear assets per `assets/` rules)
 - [ ] BASS licensing resolution (verify non-commercial applicability vs
       purchase one-time license vs replace backend) — decision + evidence in
       `game/docs/bass-licensing.md`
-- [ ] Empty kan ruleset plugin loading inside the fork (proves plugin path)
+- [ ] Create `game/docs/fork-divergence.md` (every fork-level change logs:
+      what/why/merge-conflict cost/upstream-PR status)
+- [ ] Empty kan ruleset plugin loading inside the fork (proves plugin path,
+      `Kan.*` namespaces for new code)
 
 ### Input & judgment core
 
@@ -36,8 +43,10 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
 
 - [ ] Single-lane highway using ruleset drawables @ 120+ FPS
       (gate: frame jitter < 2 ms — largely inherited, verify with our skin)
-- [ ] Instant hit feedback <15 ms from onset event to pixels: sparks, impact
-      SFX, judgment text
+- [ ] Judgment indicators (dual-axis: attack timing + intonation) — kan!
+      visual vocabulary, not osu! hit bursts (ADR-0011)
+- [ ] HUD redesign: intonation meters, sustain lanes, instrument helpers —
+      keep osu!'s score/combo/accuracy presentation grammar underneath
 - [ ] 3-step calibration screen (acoustic latency, noise floor, fixed-
       instrument detune → Δc applied to kanfx backing-track pitch shift)
 - [ ] Instrument helper renderers (per instrument pack): fret/string bubbles,

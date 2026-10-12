@@ -56,6 +56,28 @@ the community formats.
 Lossless round-trip is required for Layers 1–3 data; osu!-specific extras
 (slider paths, combo counters) stay in the `.osz` side only.
 
+## 6. Rebranding (ADR-0011): keep the UX, change the identity
+
+**kan! is a standalone game, not an osu! mod.** MIT covers copyright, not
+trademarks: osu! name/logo never appear in our product identity. Full
+decision: [ADR-0011](../adr/0011-rebrand-kan-identity.md).
+
+| Area | Keep (osu! patterns) | Redesign (kan! identity) |
+|---|---|---|
+| Menus & flow | main menu → song select → results structure, search/grouping UX | skin, palette, typography, logo, menu music |
+| Scoring HUD | number/combo/accuracy presentation grammar | fed by our dual-axis judgment; intonation meters, sustain lanes |
+| In-game visuals | hit-object pipeline, frame pacing | note highway, judgment indicators, fingering/breathing helpers — no approach-circle grammar |
+| Mods | osu! `Mod` classes and overlay UX | kan! mods (NoHelpers, intonation strictness) |
+| Settings/replays | settings screens, key bindings, replay viewer | branding strings, sound design |
+
+Code policy (rebase-ability first): adapted upstream code keeps
+`osu.Game.*`/`osu.Framework.*` namespaces (renaming them would create
+catastrophic merge conflicts); **new** kan! code uses `Kan.*` namespaces;
+user-facing strings in adapted code are rebranded and logged as mechanical
+deltas in `game/docs/fork-divergence.md`. The client window title, about
+screen and installer say **kan!**; upstream osu! appears once — in
+attribution/credits.
+
 ## 4. License compliance checklist (ship-blocking)
 
 - [ ] Fork preserves all upstream copyright headers and `LICENSE` files

@@ -209,3 +209,9 @@ not a from-scratch engine. Integration architecture:
   contribute fixes back upstream. BASS (osu!framework's audio backend,
   free for non-commercial use) must be resolved (verify / purchase /
   replace) before any donation-driven release.
+- **Rebrand (ADR-0011):** the product is **kan!** (kanade — "you kan!"), a
+  standalone game, not an osu! mod. Keep osu! UX patterns (menus, scoring
+  grammar, song select, mods, settings, replays); redesign gameplay visuals
+  (judgment indicators, buttons, highway) and identity (logo, palette,
+  skin, SFX). Upstream keeps its `osu.*` namespaces for rebase-ability;
+  new code uses `Kan.*`; osu! branding never appears outside credits.

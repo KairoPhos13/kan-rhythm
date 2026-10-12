@@ -33,6 +33,9 @@
 - [x] ADR-0010: osu!lazer base client (fork + ruleset) —
       `adr/0010-osu-lazer-base-client.md` (accepted; supersedes the "engine
       selection" item above — Godot/SDL3 alternatives closed)
+- [x] ADR-0011: rebrand to KAN! identity (standalone game, not a mod) —
+      `adr/0011-rebrand-kan-identity.md` (accepted; keep osu! UX patterns,
+      redesign gameplay visuals, namespace/trademark policy)
 
 ## Rules
 

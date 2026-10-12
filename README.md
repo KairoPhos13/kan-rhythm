@@ -53,13 +53,14 @@ microphone or audio interface.
   featuring local ONNX inference (**HTDemucs** for stem separation +
   **Basic Pitch** for automated draft note transcription) and **`kan!check`**,
   a biomechanical linter that validates physical playability per instrument.
-- **Client base — osu!lazer:** the game client is a fork of `ppy/osu`
-  (MIT, ADR-0010) + a kan ruleset plugin, giving us osu!-class menus, skins,
-  particles and frame stability from day one. Instrument capture and
-  judgment stay in `libkan`/`kanfx` behind a C-ABI bridge; `.kan` maps
-  convert bidirectionally to `.osz`. License compliance is ship-blocking
-  (attribution preserved, `THIRD_PARTY_NOTICES` shipped, fixes contributed
-  back upstream).
+- **Client base — osu!lazer, rebranded as kan!:** the game client is a
+  fork of `ppy/osu` (MIT, ADR-0010) + a kan ruleset plugin, giving us
+  osu!-class menus, scoring, skins and frame stability from day one —
+  redesigned into KAN! (kanade, "you kan!") per ADR-0011: a standalone
+  game, not a mod. Instrument capture and judgment stay in `libkan`/`kanfx`
+  behind a C-ABI bridge; `.kan` maps convert bidirectionally to `.osz`.
+  License compliance is ship-blocking (attribution preserved,
+  `THIRD_PARTY_NOTICES` shipped, fixes contributed back upstream).
 
 Full details: [docs/SPECIFICATION.md](docs/SPECIFICATION.md) ·
 [docs/ROADMAP.md](docs/ROADMAP.md)
