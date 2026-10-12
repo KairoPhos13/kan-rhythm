@@ -1,0 +1,10 @@
+transcription log — one row per struck note (draft)
+     t_start     t_end    dur   note   dyn     vib      flags
+        3      1501   1289  ?        -9 dB  UNRESOLVED
+     1501      2501    790  ?       -13 dB  UNRESOLVED
+     2501      3501    790  ?       -14 dB  UNRESOLVED
+     3501      5003   1291  ?       -10 dB  UNRESOLVED
+     5003      6501   1289  ?       -10 dB  UNRESOLVED
+     6501      8501   1790  ?       -13 dB  UNRESOLVED
+     8501     10501   1790  ?       -13 dB  UNRESOLVED
+    10501     13490   2779  A4      -14 dB  vibrato 

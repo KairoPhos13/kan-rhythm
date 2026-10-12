@@ -26,6 +26,8 @@
 #include "libkan/technique.hpp"
 #include "libkan/note_stream.hpp"
 #include "libkan/score_verify.hpp"
+#include "libkan/transcribe.hpp"
+#include <fstream>
 #ifdef KAN_DEMO_HAVE_BACF
 #include "libkan/bacf_detector.hpp"
 #endif
@@ -727,6 +729,7 @@ int main(int argc, char** argv) {
     bool vibrato_mode = false;
     bool use_gate = true;
     const char* guide_arg = nullptr;
+    const char* transcribe_src = nullptr;
     int noise_cal_ms = 500;
 
     for (int i = 1; i < argc; ++i) {
@@ -754,6 +757,8 @@ int main(int argc, char** argv) {
             noise_cal_ms = std::atoi(argv[++i]);
         } else if (std::strcmp(argv[i], "--guide") == 0 && i + 1 < argc) {
             guide_arg = argv[++i];
+        } else if (std::strcmp(argv[i], "--transcribe") == 0 && i + 1 < argc) {
+            transcribe_src = argv[++i]; // executed after the profile exists
         } else if (std::strcmp(argv[i], "--selftest") == 0) {
             return run_selftest();
         } else if (std::strcmp(argv[i], "--help") == 0 || std::strcmp(argv[i], "-h") == 0) {
@@ -779,6 +784,58 @@ int main(int argc, char** argv) {
 #endif
 
     DemoInstrument inst = preset(instrument_name);
+
+    // ---- transcribe mode: audio/URL -> .score + .mid + .log (draft) ----
+    if (transcribe_src != nullptr) {
+        std::string wav = transcribe_src;
+        if (std::strncmp(transcribe_src, "http", 4) == 0) {
+            if (std::system("command -v yt-dlp > /dev/null 2>&1") != 0) {
+                std::fprintf(stderr, "[ERROR] yt-dlp needed for URLs; "
+                                     "or pass a local audio file\n");
+                return 1;
+            }
+            wav = "kan_demo_transcribe.wav";
+            const std::string cmd = std::string(
+                "yt-dlp -x --audio-format wav --no-playlist -o '")
+                + "kan_demo_transcribe.%(ext)s' '" + transcribe_src + "'";
+            std::printf("[fetch] %s\n", cmd.c_str());
+            if (std::system(cmd.c_str()) != 0) return 1;
+        }
+        std::vector<float> sig;
+        {
+            ma_decoder_config cfg = ma_decoder_config_init(ma_format_f32, 1, 48000);
+            ma_decoder dec;
+            if (ma_decoder_init_file(wav.c_str(), &cfg, &dec) != MA_SUCCESS) {
+                std::fprintf(stderr, "[ERROR] cannot decode %s\n", wav.c_str());
+                return 1;
+            }
+            float chunk[4096];
+            for (;;) {
+                ma_uint64 got = 0;
+                if (ma_decoder_read_pcm_frames(&dec, chunk, 4096, &got) != MA_SUCCESS) break;
+                if (got == 0) break;
+                sig.insert(sig.end(), chunk, chunk + got);
+            }
+            ma_decoder_uninit(&dec);
+        }
+        std::printf("[audio] %.1f s - transcribing...\n", double(sig.size()) / 48000.0);
+        const auto notes = kan::transcribe_audio(sig.data(), sig.size(), 48000.0f,
+                                                 inst.profile);
+        {
+            std::ofstream fs("kan_demo_transcribe.score");
+            fs << kan::chart_text(notes);
+            std::ofstream fl("kan_demo_transcribe.log");
+            fl << kan::chart_log(notes);
+            const auto mid = kan::chart_midi(notes);
+            std::ofstream fm("kan_demo_transcribe.mid", std::ios::binary);
+            fm.write(reinterpret_cast<const char*>(mid.data()),
+                     std::streamsize(mid.size()));
+        }
+        std::printf("[done] %zu notes -> kan_demo_transcribe.{score,log,mid}\n",
+                    notes.size());
+        std::printf("%s\n", kan::chart_log(notes).c_str());
+        return 0;
+    }
     if (std::strcmp(inst.name, "?") == 0) {
         std::fprintf(stderr, "[ERROR] Unknown instrument '%s'. "
                              "Valid: ocarina, flute, recorder, guitar, piano.\n",
