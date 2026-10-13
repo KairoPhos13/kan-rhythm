@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Threading;
+using osu.Framework.Graphics;
 using osu.Framework.Logging;
 using osu.Game.Beatmaps;
 using osu.Game.Configuration;
@@ -16,6 +17,7 @@ using Kan.Ruleset.Beatmaps;
 using Kan.Ruleset.Configuration;
 using Kan.Ruleset.Difficulty;
 using Kan.Ruleset.UI;
+using Kan.Forge.Editor;
 
 namespace Kan.Ruleset
 {
@@ -72,5 +74,16 @@ namespace Kan.Ruleset
 
         /// <summary>The v0 instrument selector (category-tied, persisted).</summary>
         public override RulesetSettingsSubsection? CreateSettings() => new KanSettingsSubsection(this);
+
+        /// <summary>
+        /// kan!forge level-creation panel (prompt §2.1) in the editor's
+        /// entry/setup window — stems &amp; transcription with progress.
+        /// </summary>
+        public override IEnumerable<Drawable> CreateEditorSetupSections()
+        {
+            var sections = new List<Drawable>(base.CreateEditorSetupSections());
+            sections.Insert(0, new KanCreationSection());
+            return sections;
+        }
     }
 }

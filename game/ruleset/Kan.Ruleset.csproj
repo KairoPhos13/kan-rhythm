@@ -23,6 +23,7 @@
       github.com/KairoPhos13/kan), never inside it. See game/docs/environment.md.
     -->
     <ProjectReference Include="..\client\osu.Game\osu.Game.csproj" />
+    <ProjectReference Include="..\forge\Kan.Forge.csproj" />
   </ItemGroup>
 
   <!--
@@ -34,7 +35,11 @@
   <Target Name="KanCopyPluginToClientOutput" AfterTargets="Build">
     <ItemGroup>
       <KanClientOutputDirs Include="..\client\osu.Desktop\bin\$(Configuration)\net10.0\" />
+      <KanPluginFiles Include="$(TargetPath)" />
+      <KanPluginFiles Include="$(TargetDir)Kan.Forge.dll" Condition="Exists('$(TargetDir)Kan.Forge.dll')" />
+      <KanPluginFiles Include="$(TargetDir)libkan_forge_native.so" Condition="Exists('$(TargetDir)libkan_forge_native.so')" />
+      <KanPluginFiles Include="$(TargetDir)libkan_forge_native.dylib" Condition="Exists('$(TargetDir)libkan_forge_native.dylib')" />
     </ItemGroup>
-    <Copy SourceFiles="$(TargetPath)" DestinationFolder="%(KanClientOutputDirs.Identity)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(KanPluginFiles)" DestinationFolder="%(KanClientOutputDirs.Identity)" SkipUnchangedFiles="true" />
   </Target>
 </Project>
