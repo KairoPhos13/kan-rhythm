@@ -17,6 +17,15 @@
     <ProjectReference Include="..\client\osu.Game\osu.Game.csproj" />
   </ItemGroup>
 
+  <ItemGroup Label="Package References">
+    <!--
+      ManagedBass (MIT): decode-only use for extracting audio from video
+      containers. The native BASS library is already shipped and loaded by
+      osu!framework — no new dependency surface (see game/docs/bass-licensing.md).
+    -->
+    <PackageReference Include="ppy.ManagedBass" Version="2022.1216.0" />
+  </ItemGroup>
+
   <ItemGroup Label="Native bridge">
     <!--
       libkan_forge_native is built by CMake (see native/CMakeLists.txt):

@@ -25,6 +25,22 @@ namespace Kan.Forge.Tracks
         /// <summary>Muted tracks are excluded from the rendered mix.</summary>
         public bool Muted;
 
+        /// <summary>
+        /// True when this track is the product of a render/mixdown: mixed
+        /// material that must not be offered for demixing again (owner
+        /// requirement 2026-10-13).
+        /// </summary>
+        public bool IsMixdown;
+
+        /// <summary>
+        /// The naming rule for rendered mixdowns (our renders are written as
+        /// <c>audio-render*.wav</c>); imported files that look like one are
+        /// treated as mixed material too.
+        /// </summary>
+        public static bool LooksLikeMixdown(string pathOrName)
+            => System.IO.Path.GetFileNameWithoutExtension(pathOrName)
+                   .StartsWith(@"audio-render", System.StringComparison.OrdinalIgnoreCase);
+
         public ForgeTrack(string name, string path)
         {
             Name = name;
@@ -35,6 +51,7 @@ namespace Kan.Forge.Tracks
         {
             Gain = Gain,
             Muted = Muted,
+            IsMixdown = IsMixdown,
         };
     }
 
