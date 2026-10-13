@@ -109,12 +109,17 @@ disable actions with a hint up front instead of failing halfway.
   the bridge) or a URL (yt-dlp fetch, "download" progress phase — see §7 for
   the policy).
 
-## 6b. Media & tracks: one unified list with roles (owner requirements, 2026-10-13)
+## 6b. Media & tracks: import in Resources, arrange in the tracks tab
 
-The creation flow is **merged into the editor's stock Resources section**
-(`KanMediaSection : ResourcesSection`) — the existing navigators (audio /
-background / video) and the kan! pipeline are one organic form. Model of
-record:
+Two surfaces, one rule set (owner requirements 2026-10-13):
+
+**Resources (setup) is the ONLY place that reads files** — audio tracks
+(multiple, via the same navigator pattern as background/video), plus the
+stock rows for video and images. With "video provides the audio" on, the
+video's audio joins the track list automatically (as an accompaniment).
+Nothing else anywhere asks for a path: the **tracks tab** (a first-class
+editor tab next to setup/compose/design/timing/verify — fork F-11) only
+*selects and arranges* the resources imported or created there.
 
 - **One place to load tracks, one place for video.** The "Add audio track"
   navigator is the single entry point for audio (pick repeatedly for

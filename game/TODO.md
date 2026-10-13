@@ -163,6 +163,13 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       2026-10-13): per-row waveform thumbnails (`kan_forge_analyze_track`);
       after separation, empty-looking stems are labelled and **moved to the
       end of the list** (still selectable) (2026-10-13)
+- [x] **"tracks" editor tab** (owner 2026-10-13): the track editor is a
+      first-class editor tab next to setup/compose/design/timing/verify
+      (fork F-11 generic hook `Ruleset.CreateTracksEditorScreen()`); the
+      tab holds the unified list + roles + track editing + actions, and
+      **Resources is the only file-reading surface** (multiple audio
+      imports; video/images via the stock rows; video audio joins the list
+      automatically). Verified live (2026-10-13)
 - [x] URL/YouTube policy (owner 2026-10-13): yt-dlp fetch is **developer-
       build tooling only** (hidden outside dev builds / `KAN_DEV_TOOLS=1`);
       the official flow is local files only — no claims exposure

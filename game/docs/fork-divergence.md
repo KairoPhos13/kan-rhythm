@@ -24,12 +24,13 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-12 | *(none — first wiring)* | `816df139fd` (upstream `ppy/osu` master) | fork created + submodule wired (previous session) | green |
 | 2026-10-12 | `816df139fd` | `2970c68` (branch `agent/game` on `github.com/KairoPhos13/kan`) | Phase 0 rebrand baseline (entries F-1…F-6) | green (0 warnings / 0 errors, verified on Linux) |
 | 2026-10-13 | `2970c68` | `e704f03` (branch `agent/game`) | owner direction: stock game modes + osu!stable legacy IPC removed (entries F-9/F-10) | green (0 warnings / 0 errors; run verified with only the kan! ruleset) |
+| 2026-10-13 | `e704f03` | `ec02860` (branch `agent/game`) | ruleset-provided "tracks" editor tab (entry F-11) | green (0 warnings / 0 errors; tab verified live) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
-> `2970c68` and `e704f03` exist only in the local submodule object store.
-> **Before merging `agent/game` into `main`, the maintainer must push them:**
-> `git -C game/client push origin e704f03:refs/heads/agent/game`
+> `2970c68`, `e704f03` and `ec02860` exist only in the local submodule object
+> store. **Before merging `agent/game` into `main`, the maintainer must push
+> them:** `git -C game/client push origin ec02860:refs/heads/agent/game`
 > (then merge/fast-forward the fork's `master` as desired). Until then,
 > `git submodule update` works on this machine's shared object store only.
 
@@ -160,6 +161,22 @@ Policy (rebase-ability first, ADR-0011 §4):
   rarely change upstream — rebase conflict only if upstream edits them).
 - **Upstream-PR:** none (this is upstream functionality others may want; we
   simply do not ship it).
+
+### F-11 — ruleset-provided "tracks" editor tab
+
+- **What:** `EditorScreenMode.Tracks` + `Ruleset.CreateTracksEditorScreen()`
+  virtual (returns null → the tab is hidden) + `Editor`: tab visibility
+  filtered by the hook, screen instance created once and reused. The screen
+  implementation lives in kan code (`Kan.Forge.Editor.KanTracksScreen`).
+- **Why:** owner direction 2026-10-13 — the track editor (unified resource
+  list, roles, non-destructive track editing, actions) is a first-class
+  editor tab next to setup/compose/design/timing/verify. ADR-0010 §2
+  explicitly allows first-class kan!forge screens; the hook itself is
+  generic and upstream-shaped.
+- **Merge-conflict cost:** low — one enum member, one virtual, two small
+  touch points in `Editor.cs`.
+- **Upstream-PR:** candidate ("ruleset-provided editor screens") once the
+  shape settles; not yet offered.
 
 ## String sweep — remaining scope (deferred, game/TODO.md)
 

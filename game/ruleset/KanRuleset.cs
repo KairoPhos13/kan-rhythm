@@ -128,5 +128,13 @@ namespace Kan.Ruleset
             },
             new DesignSection(),
         ];
+
+        /// <summary>
+        /// The editor's "tracks" tab (fork F-11 hook): the unified resource
+        /// list with roles, the non-destructive track editor and the optional
+        /// actions (owner 2026-10-13: the track editor lives next to
+        /// setup/compose/design/timing/verify).
+        /// </summary>
+        public override osu.Game.Screens.Edit.EditorScreen? CreateTracksEditorScreen() => new KanTracksScreen();
     }
 }
