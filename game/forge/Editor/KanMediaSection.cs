@@ -30,18 +30,23 @@ namespace Kan.Forge.Editor
 {
     /// <summary>
     /// The editor's **media &amp; creation** panel — the stock osu! Resources
-    /// section (audio track / background / video navigators) with the kan!
-    /// creation flow merged in, so there is one organic media area and no
-    /// seam between "the existing" and "the new" (owner requirement
-    /// 2026-10-13):
+    /// section (audio / background / video) with the kan! creation flow
+    /// merged in as one organic area (owner requirements 2026-10-13):
     ///
-    /// - the pipeline runs on the **same audio the stock navigator selects**;
-    /// - a **video carries its audio** into the source track by default
-    ///   (many clips have the audio inside the container) with a
-    ///   "video provides the audio" switch for the visuals-only case;
-    /// - **individual track import stays an option** (own stems/multitrack)
-    ///   via the same file-navigator pattern, and the final step renders one
-    ///   playable track back into the beatmap audio.
+    /// - **one place to load tracks** (the navigator below; pick repeatedly
+    ///   for multiple tracks) and **one place for video** (the stock row
+    ///   above — with "video provides the audio", the video's audio joins the
+    ///   list as a track);
+    /// - **one unified track list** where each track takes a role:
+    ///   *reference* (the original take — transcription uses it
+    ///   automatically; the future Mod Auto plays to it), *accompaniment*
+    ///   (what the render mixes), *demux* (queued for source separation);
+    /// - **demux results rejoin the list** and can take any role, but are
+    ///   never demuxable again (a track that has been demuxed neither) —
+    ///   only unmixed, undemuxed material can be separated;
+    /// - **nothing is mandatory**: demux and transcription are independent
+    ///   optional actions — needed in one case, skippable in another. The
+    ///   render only needs its accompaniment selection.
     ///
     /// Everything below the stock rows is kan! code; the upstream rows are
     /// untouched (registered through Ruleset.CreateEditorSetupSections).
@@ -55,10 +60,10 @@ namespace Kan.Forge.Editor
         private BeatmapManager beatmaps { get; set; } = null!;
 
         private FormCheckBox videoProvidesAudio = null!;
-        private FormButton separateButton = null!;
+        private FormButton demuxButton = null!;
         private FormButton transcribeButton = null!;
         private FormButton renderButton = null!;
-        private KanProgressBar separateProgress = null!;
+        private KanProgressBar demuxProgress = null!;
         private KanProgressBar transcribeProgress = null!;
         private OsuSpriteText statusText = null!;
 
@@ -66,53 +71,18 @@ namespace Kan.Forge.Editor
         private FillFlowContainer trackFlow = null!;
         private FormFileSelector trackSelector = null!;
 
-        // Per-action track pickers (owner 2026-10-13): separation ("demix")
-        // and transcription run on a *specific* loaded track — the unmixed
-        // stems / imported tracks — falling back to the source audio.
-        private FormDropdown<string> separateSourceDropdown = null!;
-        private FormDropdown<string> transcribeSourceDropdown = null!;
-        private readonly Dictionary<string, string> trackSources = new();
-
-        private const string source_audio_label = @"Source audio (beatmap)";
-
-        private static bool devToolsEnabled
-            => DebugUtils.IsDebugBuild
-               || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(@"KAN_DEV_TOOLS"));
+        private readonly HashSet<string> extractedVideos = new();
 
         [BackgroundDependencyLoader]
         private void loadKan()
         {
-            var mergeAudio = new BindableBool(true);
-
             videoProvidesAudio = new FormCheckBox
             {
                 Caption = @"Video provides the audio",
-                HintText = @"When the clip's audio lives inside the video, it becomes the source track. Turn off to use the video for visuals only.",
-                Current = mergeAudio,
+                HintText = @"When the clip's audio lives inside the video, it joins the track list. Turn off to use the video for visuals only.",
+                Current = new BindableBool(true),
                 Margin = new MarginPadding { Top = 12 },
             };
-            separateButton = new FormButton
-            {
-                Caption = @"Separate audio stems (demix)",
-                ButtonText = @"run",
-                Action = startSeparation,
-            };
-            separateSourceDropdown = new FormDropdown<string>
-            {
-                Caption = @"Demix track (a loaded unmixed track — default: the source audio)",
-            };
-            separateProgress = new KanProgressBar();
-            transcribeButton = new FormButton
-            {
-                Caption = @"Generate transcription",
-                ButtonText = @"run",
-                Action = startTranscription,
-            };
-            transcribeSourceDropdown = new FormDropdown<string>
-            {
-                Caption = @"Transcribe track (a loaded unmixed track — default: the source audio)",
-            };
-            transcribeProgress = new KanProgressBar();
             trackFlow = new FillFlowContainer
             {
                 RelativeSizeAxes = Axes.X,
@@ -122,12 +92,26 @@ namespace Kan.Forge.Editor
             };
             trackSelector = new FormFileSelector(SupportedExtensions.AUDIO_EXTENSIONS)
             {
-                Caption = @"Add individual track (optional)",
-                PlaceholderText = @"own stems, multitrack material, reference takes…",
+                Caption = @"Add audio track",
+                PlaceholderText = @"reference take, accompaniments, own stems… — pick repeatedly to add more",
             };
+            demuxButton = new FormButton
+            {
+                Caption = @"Demux selected tracks (optional)",
+                ButtonText = @"run",
+                Action = startDemux,
+            };
+            demuxProgress = new KanProgressBar();
+            transcribeButton = new FormButton
+            {
+                Caption = @"Transcribe the reference track (optional)",
+                ButtonText = @"run",
+                Action = startTranscription,
+            };
+            transcribeProgress = new KanProgressBar();
             renderButton = new FormButton
             {
-                Caption = @"Render single track (mixdown to beatmap audio)",
+                Caption = @"Render single track (mixdown of the accompaniments)",
                 ButtonText = @"render",
                 Action = startRender,
             };
@@ -140,12 +124,6 @@ namespace Kan.Forge.Editor
             var added = new List<Drawable>
             {
                 videoProvidesAudio,
-                separateSourceDropdown,
-                separateButton,
-                separateProgress,
-                transcribeSourceDropdown,
-                transcribeButton,
-                transcribeProgress,
                 new OsuSpriteText
                 {
                     Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
@@ -154,6 +132,10 @@ namespace Kan.Forge.Editor
                 },
                 trackFlow,
                 trackSelector,
+                demuxButton,
+                demuxProgress,
+                transcribeButton,
+                transcribeProgress,
                 renderButton,
                 statusText,
             };
@@ -169,45 +151,64 @@ namespace Kan.Forge.Editor
 
             AddRange(added);
 
-            // The navigator applies immediately — same behaviour as the
-            // stock background/video rows.
+            // The navigator applies immediately (like the stock rows) and
+            // clears itself so more tracks can be picked right away.
             trackSelector.Current.BindValueChanged(change =>
             {
-                if (change.NewValue != null)
-                    addTrack(change.NewValue);
+                if (change.NewValue == null) return;
+                addTrack(change.NewValue);
+                trackSelector.Current.Value = null;
             });
+        }
 
-            rebuildSourceDropdowns();
+        private static bool devToolsEnabled
+            => DebugUtils.IsDebugBuild
+               || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(@"KAN_DEV_TOOLS"));
+
+        // ------------------------------------------------------------------
+        // Video -> track list (merge)
+        // ------------------------------------------------------------------
+
+        protected override void Update()
+        {
+            base.Update();
+            maybeExtractVideoAudio();
         }
 
         /// <summary>
-        /// The source audio for the pipeline — merged semantics:
-        /// the beatmap's audio track if set (stock navigator), otherwise the
-        /// audio inside the beatmap's video when "video provides the audio"
-        /// is on.
+        /// When the beatmap gains a video and "video provides the audio" is
+        /// on, its audio joins the track list (as an accompaniment — the user
+        /// can re-role it). Runs at most every 30 frames.
         /// </summary>
-        private string? resolveSourceAudio()
+        private int videoCheckCountdown;
+
+        private void maybeExtractVideoAudio()
         {
-            string? audioFile = Beatmap.BeatmapInfo.Metadata.AudioFile;
-            if (!string.IsNullOrEmpty(audioFile))
-                return materialise(audioFile);
+            if (--videoCheckCountdown > 0) return;
+            videoCheckCountdown = 30;
 
-            if (videoProvidesAudio.Current.Value)
-            {
-                string? videoFile = findVideoFile();
-                if (videoFile != null)
-                    return extractVideoAudio(videoFile);
-            }
+            if (!videoProvidesAudio.Current.Value) return;
 
-            return null;
+            string? videoFile = working.Value.BeatmapSetInfo.Files
+                                       .Select(f => f.Filename)
+                                       .FirstOrDefault(MediaAudioExtractor.IsVideo);
+            if (videoFile == null || extractedVideos.Contains(videoFile)) return;
+
+            extractedVideos.Add(videoFile);
+
+            runJob(() => Task.Run(() => extractVideoAudio(videoFile)),
+                demuxProgress,
+                wav =>
+                {
+                    var track = trackSet.Import(Path.GetFileNameWithoutExtension(videoFile) + @" (video audio)", wav);
+                    track.IsAccompaniment = true;
+                    rebuildTrackRows();
+                    status($"Video audio joined the track list ({trackSet.Tracks.Count} in the set).");
+                },
+                ex => status($"Video audio extraction failed: {ex.Message}"));
         }
 
-        private string? findVideoFile()
-            => working.Value.BeatmapSetInfo.Files
-                      .Select(f => f.Filename)
-                      .FirstOrDefault(MediaAudioExtractor.IsVideo);
-
-        private string? extractVideoAudio(string videoFile)
+        private string extractVideoAudio(string videoFile)
         {
             string? src = materialise(videoFile);
             if (src == null)
@@ -240,132 +241,9 @@ namespace Kan.Forge.Editor
             return tmp;
         }
 
-        /// <summary>
-        /// Rebuild both per-action pickers: the loaded (unmixed) tracks first,
-        /// then the source audio — **mixdowns are never offered** (they are
-        /// mixed material; demixing them again is a nonsense workflow).
-        /// </summary>
-        private void rebuildSourceDropdowns()
-        {
-            string? selectedSeparate = separateSourceDropdown.Current.Value;
-            string? selectedTranscribe = transcribeSourceDropdown.Current.Value;
-
-            trackSources.Clear();
-            trackSources[source_audio_label] = string.Empty;
-
-            foreach (var track in trackSet.Tracks)
-            {
-                if (track.IsMixdown || ForgeTrack.LooksLikeMixdown(track.Path))
-                    continue;
-
-                string label = track.Name;
-                for (int i = 2; trackSources.ContainsKey(label); i++)
-                    label = $"{track.Name} ({i})";
-
-                trackSources[label] = track.Path;
-            }
-
-            // If the beatmap's audio is itself a rendered mixdown, the source
-            // entry is not a valid demix/transcribe input either.
-            string? audioFile = Beatmap.BeatmapInfo.Metadata.AudioFile;
-            if (!string.IsNullOrEmpty(audioFile) && ForgeTrack.LooksLikeMixdown(audioFile))
-                trackSources.Remove(source_audio_label);
-
-            string[] items = trackSources.Keys.ToArray();
-
-            foreach (var (dropdown, previous) in new[]
-                     {
-                         (separateSourceDropdown, selectedSeparate),
-                         (transcribeSourceDropdown, selectedTranscribe),
-                     })
-            {
-                dropdown.Items = items;
-                dropdown.Current.Value = previous != null && trackSources.ContainsKey(previous)
-                    ? previous
-                    : items.FirstOrDefault() ?? source_audio_label;
-            }
-        }
-
-        /// <summary>
-        /// The input for a pipeline action: the selected loaded track, else
-        /// the source audio — never a mixdown (guarded on both ends). Reports
-        /// every failure case itself; returns null when there is no valid
-        /// input.
-        /// </summary>
-        private string? resolveActionSource(FormDropdown<string> dropdown)
-        {
-            string? label = dropdown.Current.Value;
-
-            if (label != null && trackSources.TryGetValue(label, out string? path) && path.Length > 0)
-            {
-                if (ForgeTrack.LooksLikeMixdown(path))
-                {
-                    status($"{label} is a rendered mixdown — pick an unmixed track.");
-                    return null;
-                }
-
-                return path;
-            }
-
-            try
-            {
-                string? source = resolveSourceAudio();
-
-                if (source == null)
-                {
-                    status("No source audio: pick a track above, or let the video provide it.");
-                    return null;
-                }
-
-                if (ForgeTrack.LooksLikeMixdown(source))
-                {
-                    status("The beatmap audio is a rendered mixdown — pick an unmixed track above.");
-                    return null;
-                }
-
-                return source;
-            }
-            catch (Exception e)
-            {
-                status(e.Message);
-                return null;
-            }
-        }
-
-        private void startSeparation()
-        {
-            string? source = resolveActionSource(separateSourceDropdown);
-            if (source == null) return;
-
-            setBusy(true);
-            separateProgress.Set(0, "starting");
-            string outDir = Path.Combine(Path.GetTempPath(), "kan-forge",
-                                         "stems-" + Guid.NewGuid().ToString("N")[..8]);
-
-            runJob(() => ForgeJobs.SeparateStemsAsync(source, outDir, report(separateProgress), Scheduler),
-                separateProgress,
-                stemDir =>
-                {
-                    int added = registerStems(stemDir);
-                    status($"Stems ready in {stemDir} — {added} tracks added.");
-                },
-                ex => status($"Separation failed: {ex.Message}"));
-        }
-
-        private int registerStems(string stemDir)
-        {
-            if (!Directory.Exists(stemDir)) return 0;
-
-            int added = 0;
-            foreach (string file in Directory.EnumerateFiles(stemDir, "*.wav").OrderBy(f => f))
-            {
-                trackSet.Import(Path.GetFileNameWithoutExtension(file), file);
-                added++;
-            }
-
-            if (added > 0) Scheduler.Add(rebuildTrackRows);
-            return added;
-        }
+        // ------------------------------------------------------------------
+        // Track list
+        // ------------------------------------------------------------------
 
         private void addTrack(FileInfo file)
         {
@@ -387,21 +265,103 @@ namespace Kan.Forge.Editor
             rebuildTrackRows();
         }
 
+        private void onRoleChanged()
+        {
+            // Deferred: role toggles fire from inside a row's own controls,
+            // and rebuilding disposes that row.
+            Scheduler.Add(rebuildTrackRows);
+        }
+
         private void rebuildTrackRows()
         {
             trackFlow.Clear();
             foreach (var track in trackSet.Tracks)
-                trackFlow.Add(new TrackRow(track, removeTrack));
+                trackFlow.Add(new TrackRow(trackSet, track, removeTrack, onRoleChanged));
+        }
 
-            rebuildSourceDropdowns();
+        // ------------------------------------------------------------------
+        // Optional actions — none of them requires another
+        // ------------------------------------------------------------------
+
+        private void startDemux()
+        {
+            var queue = trackSet.DemuxQueue.ToList();
+            if (queue.Count == 0)
+            {
+                status(trackSet.Tracks.Count == 0
+                    ? "Demux is optional — add a track and mark it 'demux' first."
+                    : "Demux is optional — mark at least one eligible track 'demux' first.");
+                return;
+            }
+
+            setBusy(true);
+            demuxProgress.Set(0, "starting");
+
+            runJob(() => Task.Run(() => demuxAll(queue)),
+                demuxProgress,
+                stemsAdded =>
+                {
+                    rebuildTrackRows();
+                    status($"Demux done — {stemsAdded} stem tracks joined the list.");
+                },
+                ex => status($"Demux failed: {ex.Message}"));
+        }
+
+        private int demuxAll(List<ForgeTrack> queue)
+        {
+            int stemsAdded = 0;
+
+            foreach (var track in queue)
+            {
+                string outDir = Path.Combine(Path.GetTempPath(), "kan-forge",
+                                             "stems-" + Guid.NewGuid().ToString("N")[..8]);
+
+                Scheduler.Add(() => demuxProgress.Set(0, $"demux {track.Name}"));
+                ForgeJobs.SeparateStemsAsync(track.Path, outDir).GetAwaiter().GetResult();
+
+                // The source has been demuxed (never again), and the results
+                // join the list as separated tracks (any role except demux).
+                track.DemuxPending = false;
+                track.IsSeparated = true;
+
+                if (!Directory.Exists(outDir)) continue;
+
+                foreach (string file in Directory.EnumerateFiles(Path.Combine(outDir, "roformer"), "*.wav")
+                                                 .OrderBy(f => f))
+                {
+                    var stem = trackSet.Import(Path.GetFileNameWithoutExtension(file), file);
+                    stem.IsSeparated = true;
+                    stemsAdded++;
+                }
+            }
+
+            return stemsAdded;
+        }
+
+        private void startTranscription()
+        {
+            var reference = trackSet.Reference;
+            if (reference == null)
+            {
+                status("Transcription is optional — mark one track as 'reference' first.");
+                return;
+            }
+
+            setBusy(true);
+            transcribeProgress.Set(0, "starting");
+
+            runJob(() => ForgeJobs.TranscribeAsync(reference.Path, @"keyboard", report(transcribeProgress), Scheduler),
+                transcribeProgress,
+                draft => status($"Transcription ready from '{reference.Name}': {describe(draft)}"),
+                ex => status($"Transcription failed: {ex.Message}"));
         }
 
         private void startRender()
         {
-            var audible = trackSet.Audible.ToList();
-            if (audible.Count == 0)
+            var accomp = trackSet.Accompaniments.ToList();
+            if (accomp.Count == 0)
             {
-                status("Render: no audible tracks — add tracks or unmute some.");
+                status("Render: select at least one 'accompaniment' track first.");
                 return;
             }
 
@@ -410,14 +370,14 @@ namespace Kan.Forge.Editor
                                          "render-" + Guid.NewGuid().ToString("N")[..8] + ".wav");
             Directory.CreateDirectory(Path.GetDirectoryName(outWav)!);
 
-            runJob(() => ForgeJobs.RenderMixAsync(audible, outWav, null, Scheduler),
+            runJob(() => ForgeJobs.RenderMixAsync(accomp, outWav, null, Scheduler),
                 transcribeProgress,
                 path =>
                 {
                     string? applied = applyAsBeatmapAudio(path);
                     status(applied != null
-                        ? $"Rendered {audible.Count} tracks → {applied} (now the beatmap audio)."
-                        : $"Rendered {audible.Count} tracks → {path} (could not set it as beatmap audio).");
+                        ? $"Rendered {accomp.Count} accompaniments → {applied} (now the beatmap audio)."
+                        : $"Rendered {accomp.Count} accompaniments → {path} (could not set it as beatmap audio).");
                 },
                 ex => status($"Render failed: {ex.Message}"));
         }
@@ -436,10 +396,6 @@ namespace Kan.Forge.Editor
                     beatmaps.AddFile(set, stream, name);
 
                 working.Value.BeatmapInfo.Metadata.AudioFile = name;
-
-                // The beatmap audio is now a mixdown: the source entry must
-                // leave the demix/transcribe pickers.
-                rebuildSourceDropdowns();
                 return name;
             }
             catch (Exception e)
@@ -449,19 +405,9 @@ namespace Kan.Forge.Editor
             }
         }
 
-        private void startTranscription()
-        {
-            string? source = resolveActionSource(transcribeSourceDropdown);
-            if (source == null) return;
-
-            setBusy(true);
-            transcribeProgress.Set(0, "starting");
-
-            runJob(() => ForgeJobs.TranscribeAsync(source, @"keyboard", report(transcribeProgress), Scheduler),
-                transcribeProgress,
-                draft => status($"Transcription ready: {describe(draft)}"),
-                ex => status($"Transcription failed: {ex.Message}"));
-        }
+        // ------------------------------------------------------------------
+        // Plumbing
+        // ------------------------------------------------------------------
 
         private async void runJob<T>(Func<Task<T>> body, KanProgressBar progress,
                                      Action<T> onDone, Action<Exception> onFail)
@@ -488,7 +434,7 @@ namespace Kan.Forge.Editor
 
         private void setBusy(bool busy)
         {
-            separateButton.Enabled.Value = !busy;
+            demuxButton.Enabled.Value = !busy;
             transcribeButton.Enabled.Value = !busy;
             renderButton.Enabled.Value = !busy;
         }
@@ -510,10 +456,13 @@ namespace Kan.Forge.Editor
             return $"{draft.Notes.Count} notes ({unresolved} unresolved pitch)";
         }
 
-        /// <summary>One editor track: name, volume, mute, remove.</summary>
+        /// <summary>
+        /// One row of the unified track list: name, roles (reference /
+        /// accompaniment / demux), volume, mute, remove.
+        /// </summary>
         private partial class TrackRow : FillFlowContainer
         {
-            public TrackRow(ForgeTrack track, Action<ForgeTrack> onRemove)
+            public TrackRow(ForgeTrackSet set, ForgeTrack track, Action<ForgeTrack> onRemove, Action onRoleChanged)
             {
                 RelativeSizeAxes = Axes.X;
                 AutoSizeAxes = Axes.Y;
@@ -527,9 +476,33 @@ namespace Kan.Forge.Editor
                     Precision = 0.05f,
                 };
                 var muted = new BindableBool(track.Muted);
+                var reference = new BindableBool(track.IsReference);
+                var accomp = new BindableBool(track.IsAccompaniment);
+                var demux = new BindableBool(track.DemuxPending);
 
                 gain.BindValueChanged(v => track.Gain = v.NewValue);
                 muted.BindValueChanged(v => track.Muted = v.NewValue);
+                reference.BindValueChanged(v =>
+                {
+                    // The reference role is exclusive across the set.
+                    if (v.NewValue)
+                        set.SetReference(track);
+                    else
+                        track.IsReference = false;
+
+                    onRoleChanged();
+                });
+                accomp.BindValueChanged(v => track.IsAccompaniment = v.NewValue);
+                demux.BindValueChanged(v =>
+                {
+                    if (!track.CanDemux && v.NewValue)
+                    {
+                        demux.Value = false;
+                        return;
+                    }
+
+                    track.DemuxPending = v.NewValue;
+                });
 
                 Children = new Drawable[]
                 {
@@ -537,6 +510,23 @@ namespace Kan.Forge.Editor
                     {
                         Text = track.Name,
                         Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
+                    },
+                    new FormCheckBox
+                    {
+                        Caption = track.CanDemux
+                            ? @"demux (separate into stems)"
+                            : @"demux (already separated — not again)",
+                        Current = demux,
+                    },
+                    new FormCheckBox
+                    {
+                        Caption = @"reference (the take to transcribe)",
+                        Current = reference,
+                    },
+                    new FormCheckBox
+                    {
+                        Caption = @"accompaniment (mixed into the beatmap audio)",
+                        Current = accomp,
                     },
                     new FormSliderBar<float>
                     {

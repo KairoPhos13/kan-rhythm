@@ -109,37 +109,40 @@ disable actions with a hint up front instead of failing halfway.
   the bridge) or a URL (yt-dlp fetch, "download" progress phase — see §7 for
   the policy).
 
-## 6b. Media & tracks: one merged area (owner requirements, 2026-10-13)
+## 6b. Media & tracks: one unified list with roles (owner requirements, 2026-10-13)
 
 The creation flow is **merged into the editor's stock Resources section**
 (`KanMediaSection : ResourcesSection`) — the existing navigators (audio /
-background / video) and the kan! pipeline are one organic form, no seam
-between "the existing" and "the new". Rules of record:
+background / video) and the kan! pipeline are one organic form. Model of
+record:
 
-- **Navigator everywhere:** adding an individual track uses the same
-  file-navigator pattern as the background/video rows (`FormFileSelector`,
-  drag-drop included). Separate track import stays **optional**.
-- **Video provides the audio (merge):** many source clips carry their audio
-  inside the video container; when the beatmap has no audio track and the
-  switch is on, the video's audio is extracted (BASS decode, see §7) and
-  becomes the source. The switch off = "visuals only".
-- **Per-action track pickers:** separation ("demix") and transcription run
-  on a **specific loaded track** (the unmixed stems / imported tracks) —
-  each action has its own selector listing the loaded tracks, defaulting to
-  the source audio.
-- **Mixdowns are never re-demixed:** rendered tracks
-  (`ForgeTrack.LooksLikeMixdown`, i.e. `audio-render*`) are mixed material —
-  excluded from the demix/transcribe pickers (and from the source entry once
-  the beatmap audio becomes a render). Tested (`MixdownRuleTest`).
-- **Tracks & render:** every track has volume (0..2) and mute; muted tracks
-  are excluded from the render entirely (they must not extend the rendered
-  mix). The final step renders **one playable track**
+- **One place to load tracks, one place for video.** The "Add audio track"
+  navigator is the single entry point for audio (pick repeatedly for
+  multiple tracks); the stock video row is the single entry point for video
+  (with "video provides the audio" on, the video's audio joins the track
+  list as an accompaniment — the visuals-only case turns the switch off).
+- **One unified track list; every track takes a role there:**
+  - **reference** (exactly one, optional) — the original take. Transcription
+    runs on it automatically (no picker), and the future Mod Auto plays to
+    it;
+  - **accompaniment** (many) — what the beatmap-audio render mixes;
+  - **demux** (queue) — tracks scheduled for source separation.
+  Volume and mute stay per track.
+- **Demux results rejoin the list** as new tracks and can take any role —
+  but **a demuxed track is never demuxable again** (neither is a demux
+  result or a rendered mixdown): "hace perder el tiempo".
+- **Nothing is mandatory:** demux and transcription are independent,
+  optional actions — needed in one case, skippable in another. The render
+  only needs its accompaniment selection; a reference is only needed if you
+  want transcription (or later the Mod Auto).
+- **Render:** the audible accompaniments are mixed
   (`ForgeJobs.RenderMixAsync` → `kan_forge_mix_tracks`: gains applied,
-  peak-protected) and installs it as the beatmap's audio track — playback
+  peak-protected) and installed as the beatmap's audio track — playback
   uses exactly what the editor heard.
 
 Verified live in QA (2026-10-13): track import via navigator, transcription
-of a selected track, render → `audio-render.wav` set as beatmap audio.
+of the reference, render → `audio-render.wav` set as beatmap audio; role
+semantics covered by `TrackRolesTest` / `MixdownRuleTest`.
 
 ## 7. URL / YouTube policy (owner decision, 2026-10-13)
 
