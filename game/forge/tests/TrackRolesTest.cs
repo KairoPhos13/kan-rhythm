@@ -80,6 +80,20 @@ namespace Kan.Forge.Tests
         }
 
         [Test]
+        public void TestDuplicateImportsAreRefused()
+        {
+            var set = new ForgeTrackSet();
+
+            Assert.That(set.Import("a", "/tmp/a.wav"), Is.Not.Null);
+            Assert.That(set.Import("a again", "/tmp/a.wav"), Is.Null,
+                        "the same file is never added twice");
+            Assert.That(set.Import("a case", "/TMP/A.WAV"), Is.Null,
+                        "paths compare case-insensitively");
+            Assert.That(set.Tracks.Count, Is.EqualTo(1));
+            Assert.That(set.ContainsPath("/tmp/a.wav"), Is.True);
+        }
+
+        [Test]
         public void TestDemuxResultsCanTakeOtherRoles()
         {
             var set = new ForgeTrackSet();

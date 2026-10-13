@@ -231,6 +231,12 @@ namespace Kan.Forge.Editor
                 path =>
                 {
                     var created = trackSet.Import(trackName, path);
+                    if (created == null)
+                    {
+                        status($"'{trackName}' is already in the set.");
+                        return;
+                    }
+
                     created.IsSeparated = source.IsSeparated;
                     created.IsMixdown = source.IsMixdown;
                     rebuildTrackRows();
@@ -294,6 +300,8 @@ namespace Kan.Forge.Editor
                                                  .OrderBy(f => f))
                 {
                     var stem = trackSet.Import(Path.GetFileNameWithoutExtension(file), file);
+                    if (stem == null) continue;
+
                     stem.IsSeparated = true;
 
                     // Label stems that seem to carry no meaningful audio
@@ -602,7 +610,8 @@ namespace Kan.Forge.Editor
                     },
                     new FormButton
                     {
-                        ButtonText = $@"remove '{track.Name}'",
+                        Caption = @"remove",
+                        ButtonText = @"✕",
                         Action = () => onRemove(track),
                     },
                 });

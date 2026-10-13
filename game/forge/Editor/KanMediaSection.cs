@@ -117,6 +117,7 @@ namespace Kan.Forge.Editor
             }
 
             AddRange(added);
+            hideStockAudioSelector();
 
             // The navigator applies immediately (like the stock rows) and
             // clears itself so more tracks can be picked right away.
@@ -126,6 +127,31 @@ namespace Kan.Forge.Editor
                 addTrack(change.NewValue);
                 trackSelector.Current.Value = null;
             });
+        }
+
+        /// <summary>
+        /// Owner rule 2026-10-13: Resources has ONE audio import surface (the
+        /// navigator above). The upstream "Audio Track" selector is hidden —
+        /// the 'music' role connects the chosen track to the beatmap audio
+        /// instead. Implemented via reflection on an upstream private field:
+        /// if a future upstream rename hides the change, the row merely
+        /// reappears (harmless), and the behaviour is tracked in the
+        /// fork-divergence log.
+        /// </summary>
+        private void hideStockAudioSelector()
+        {
+            try
+            {
+                var field = typeof(ResourcesSection).GetField("audioTrackChooser",
+                    System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+
+                if (field?.GetValue(this) is Drawable chooser)
+                    chooser.Expire();
+            }
+            catch
+            {
+                // Never break the editor over cosmetics.
+            }
         }
 
         // ------------------------------------------------------------------
@@ -170,6 +196,8 @@ namespace Kan.Forge.Editor
                     }
 
                     var track = trackSet.Import(Path.GetFileNameWithoutExtension(videoFile) + @" (video audio)", task.Result);
+                    if (track == null) return;
+
                     track.IsAccompaniment = true;
                     analyzeLater(track);
                     status($"Video audio joined the track list ({trackSet.Tracks.Count} in the set).");
@@ -222,6 +250,12 @@ namespace Kan.Forge.Editor
             }
 
             var track = trackSet.Import(Path.GetFileNameWithoutExtension(file.Name), file.FullName);
+            if (track == null)
+            {
+                status($"'{file.Name}' is already in the set.");
+                return;
+            }
+
             track.IsMixdown = ForgeTrack.LooksLikeMixdown(file.Name);
             analyzeLater(track);
             status($"Track '{file.Name}' imported.");
@@ -256,13 +290,20 @@ namespace Kan.Forge.Editor
             }
 
             foreach (var track in trackSet.Tracks)
-                explorer.Add(new ExplorerRow(track));
+                explorer.Add(new ExplorerRow(track, removeFromSet));
         }
 
-        /// <summary>Compact read-only row: waveform background + name + role badges.</summary>
+        private void removeFromSet(ForgeTrack track)
+        {
+            trackSet.Remove(track);
+            rebuildExplorer();
+            status($"'{track.Name}' removed from the set.");
+        }
+
+        /// <summary>Compact read-only row: waveform background + name + role badges + remove.</summary>
         private partial class ExplorerRow : Container
         {
-            public ExplorerRow(ForgeTrack track)
+            public ExplorerRow(ForgeTrack track, Action<ForgeTrack> onRemove)
             {
                 RelativeSizeAxes = Axes.X;
                 Height = 34;
@@ -299,6 +340,15 @@ namespace Kan.Forge.Editor
                         Anchor = Anchor.CentreLeft,
                         Origin = Anchor.CentreLeft,
                         Margin = new MarginPadding { Left = 8 },
+                    },
+                    new FormButton
+                    {
+                        ButtonText = @"✕",
+                        Width = 60,
+                        Anchor = Anchor.CentreRight,
+                        Origin = Anchor.CentreRight,
+                        Margin = new MarginPadding { Right = 6 },
+                        Action = () => onRemove(track),
                     },
                 };
             }

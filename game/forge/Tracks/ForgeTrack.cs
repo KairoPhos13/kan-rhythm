@@ -1,6 +1,7 @@
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -134,9 +135,20 @@ namespace Kan.Forge.Tracks
 
         public void Remove(ForgeTrack track) => Tracks.Remove(track);
 
-        /// <summary>Import any audio the user has (reference take, stems, extras…).</summary>
-        public ForgeTrack Import(string name, string path)
+        /// <summary>True when a track from this file path is already in the set.</summary>
+        public bool ContainsPath(string path)
+            => Tracks.Any(t => string.Equals(t.Path, path, StringComparison.OrdinalIgnoreCase));
+
+        /// <summary>
+        /// Import any audio the user has (reference take, stems, extras…).
+        /// Returns <see langword="null"/> when the same file is already in
+        /// the set — a track is never added twice (owner 2026-10-13).
+        /// </summary>
+        public ForgeTrack? Import(string name, string path)
         {
+            if (ContainsPath(path))
+                return null;
+
             var track = new ForgeTrack(name, path);
             Tracks.Add(track);
             return track;
