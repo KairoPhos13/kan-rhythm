@@ -653,3 +653,32 @@ exactly the calibration layer (T1) target. Named next-phase items:
 4. Listening sets delivered: roformer_* (F16 GPU), roformer_q8_stem*,
    roformer_q4_stem* (official order: 0:bass 1:drums 2:other/winds
    3:vocals 4:guitar 5:piano).
+
+## Hardware acceleration matrix — COMPLETE (2026-10-13, measured)
+
+| grade | CPU (3:40 song) | GPU (Vulkan) | quality (user ears) |
+|---|---|---|---|
+| F16 (334 MB) | 34m 08s | **43.6 s** | reference |
+| Q8 (179 MB) | 32m 23s | 54.8 s | indistinguishable |
+| Q4 (96 MB) | 38m 52s* | 54.3 s | indistinguishable; ONE case BETTER than F16 |
+| Q8 clip, -march=native | 6m03.9s == 6m04.4s generic | — | — |
+
+(*contaminated by parallel tests; still within the same band)
+
+**Conclusions (decided):**
+1. **GPU + F16 is the outright winner**: fastest AND max quality.
+   Quantized grades are SLOWER on GPU (dequant overhead, no fast quant
+   paths) and equal on CPU.
+2. **CPU: no lever left** — quantization: no speedup (measured);
+   `-march=native`: no speedup (ggml already dispatches AVX2 at
+   runtime). CPU is ~30-40 min/song any grade — over the 10-15 min
+   budget. For no-GPU creators: background processing (their own
+   earlier design idea) is the answer, not a magic flag.
+3. **Quality finding (user):** quantization is audibly neutral, with one
+   case where Q4 beat F16 (quantization-as-regularization + possible F16
+   conversion artifacts). Storage-efficient grades are therefore FREE
+   quality-wise — Q4 is the right choice for DISTRIBUTION size (96 MB),
+   F16 for GPU runtime.
+4. Answers given: Vulkan is a GPU API (no "Vulkan on CPU"; CPU
+   acceleration = SIMD); -march=native = compile for this CPU's
+   instruction set.
