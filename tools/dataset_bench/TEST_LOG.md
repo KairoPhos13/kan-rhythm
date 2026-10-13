@@ -627,3 +627,29 @@ exactly the calibration layer (T1) target. Named next-phase items:
      one year breaks on the next).
   3. The pedal-expanded candidate set needs its conditioning guard
      (cap or grouping) before purity numbers are quoted per file.
+
+## CPU vs GPU benchmark — quantization does NOT speed up CPU here
+(2026-10-13, song 3:40, 6-stem RoFormer, measured)
+
+| grade | CPU wall | GPU (Vulkan) wall |
+|---|---|---|
+| F16 (334 MB) | 34m 08s | 43.6 s |
+| Q8 official (179 MB) | 32m 23s | — |
+| Q4 official (96 MB) | 38m 52s (contaminated by parallel tests) | — |
+
+**Findings:**
+1. Quantization gives NO CPU speedup for this model on this machine
+   (user CPU time similar: 128-153 min across ~4 cores) — likely the
+   wall time is dominated by ops where quantization does not help
+   (attention/norms/activations over many frames), not the big matmuls.
+   The earlier "quantization is the CPU lever" hypothesis is DISPROVEN
+   by measurement.
+2. GPU is ~45x faster than CPU here. The 10-15 min creator budget holds
+   on GPU (seconds) but NOT on CPU (~30-40 min per song, any grade).
+3. Options for no-GPU users (in order of honesty): background
+   processing while the creator works (their own earlier idea), a
+   smaller/faster model variant someday, or a `-march=native` ggml
+   rebuild (untested lever — may help the quantized kernels).
+4. Listening sets delivered: roformer_* (F16 GPU), roformer_q8_stem*,
+   roformer_q4_stem* (official order: 0:bass 1:drums 2:other/winds
+   3:vocals 4:guitar 5:piano).
