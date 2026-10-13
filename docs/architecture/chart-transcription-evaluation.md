@@ -223,6 +223,30 @@ weights cannot ship as a default in a mass-use product. Quality is
 genuinely higher, so testing on our ocarina case is still worthwhile:
 the test measures quality, the license gate governs distribution.
 
+### Vulkan / GPU generalization — answered (2026-10-12)
+
+**Yes, Vulkan inference is possible today.** The vehicle found and
+verified: `chenmozhijin/BSRoformer.cpp` (MIT, 2026) — GGML-based C++
+inference for BS/Mel-Band-RoFormer:
+
+- **CPU + CUDA + Vulkan** acceleration via GGML backends (Vulkan 1.4
+  detected on this machine; ggml-vulkan needs the `glslang` dev library
+  to compile here — one package away).
+- **GGUF model format with quantization** (FP32/FP16/Q8/Q5/Q4): the
+  6-stem F16 model is **334 MB** vs the 1.5 GB PyTorch ckpt.
+- Pre-converted GGUF zoo on HF (`chenmozhijin/BSRoformer-GGUF`,
+  `studio409/BSRoformer-SW-6Stem-GGUF` — 6 stems!).
+- **No torch at runtime** — the mass-use dream backend.
+
+**Even better for this machine: GGML's HIP backend (ROCm)** — the user's
+AMD GPU would accelerate without Vulkan or CUDA layers at all.
+
+Verdict: `BSRoformer.cpp` becomes the **preferred RoFormer backend**
+(quality + tiny deps + cross-vendor GPU); Demucs stays the robust
+default; the PyTorch/roformer-separation path is demoted to a fallback
+(it needed config-yaml surgery: `!!python/tuple` tags and a namespace
+bug — integration friction worth avoiding).
+
 ### Roadmap (decided)
 
 1. **Now:** Demucs 6s; per-instrument stem mapping in the pack data
@@ -253,6 +277,7 @@ the test measures quality, the license gate governs distribution.
 4. Editor UX is out of scope here (authoring tool is a separate track).
 5. Score-informed extraction (s3d roadmap item 3): TF mask from our
    pitch facts -> deterministic target-instrument stems.
-6. KAN_SEPARATOR adapters for RoFormer/MDX instrument models.
+6. KAN_SEPARATOR adapter for bs_roformer-cli (GGUF backend) + HIP build
+   for ROCm machines; PyTorch RoFormer as last-resort fallback.
 5. chart_scribe duration serialization: bias-corrected duration + raw
    end + `end_faded` columns (see s3b).
