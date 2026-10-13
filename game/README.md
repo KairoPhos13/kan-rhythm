@@ -12,12 +12,14 @@ editor). Integration architecture:
 
 - `ruleset/` — kan ruleset plugin (C#): highway, dual-axis judgment,
   instrument helpers, mods, P/Invoke bridge to libkan/kanfx
+  (Phase 0 skeleton in place — see `ruleset/README.md`)
 - `screens/` — kan-specific screens (calibration, instrument packs,
   kan!forge)
 - `client/` — git submodule of the **kan** fork (github.com/KairoPhos13/kan,
   osu!lazer rebranded per ADR-0011: standalone **kan!** game, not a mod)
-- `docs/` — fork divergence log (every fork-level change, why, and its
-  upstream-PR status)
+- `docs/` — environment & build docs (`environment.md`), fork divergence log
+  (`fork-divergence.md`), BASS licensing analysis (`bass-licensing.md`)
+- `tools/` — `gen-third-party-notices.py` (license compliance artifacts)
 
 ## Ground rules
 
