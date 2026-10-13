@@ -142,12 +142,14 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       requirement) (2026-10-13)
 - [ ] Editor authors per instrument (shared taxonomy with the client per
       `game/docs/instrument-modes.md` §5)
-- [x] Track model (owner 2026-10-13): per-track **volume + mute**, importing
-      **individual tracks** (stems auto-register after separation; any user
-      audio file can join the set) and the final **render of one playable
-      track** (gains applied, muted excluded, peak-protected) installed as
-      the beatmap audio — `ForgeTrackSet` / `RenderMixAsync` /
-      `kan_forge_mix_tracks`, tested (2026-10-13)
+- [x] **Merged media area** (owner 2026-10-13): creation flow lives inside
+      the stock Resources section (`KanMediaSection : ResourcesSection`) —
+      navigator-based track import (like background/video), **video provides
+      the audio** merge (extract from the container, visuals-only option),
+      per-action **track pickers** for demix and transcription (loaded
+      unmixed tracks), **mixdowns never re-demixed** (tested), volume/mute
+      per track, render single track → beatmap audio. Verified live in QA
+      (2026-10-13)
 - [x] URL/YouTube policy (owner 2026-10-13): yt-dlp fetch is **developer-
       build tooling only** (hidden outside dev builds / `KAN_DEV_TOOLS=1`);
       the official flow is local files only — no claims exposure

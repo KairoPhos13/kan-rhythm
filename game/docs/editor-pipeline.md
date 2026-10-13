@@ -109,23 +109,37 @@ disable actions with a hint up front instead of failing halfway.
   the bridge) or a URL (yt-dlp fetch, "download" progress phase — see §7 for
   the policy).
 
-## 6b. Tracks & render (owner requirements, 2026-10-13)
+## 6b. Media & tracks: one merged area (owner requirements, 2026-10-13)
 
-The editor works with a **track set** (`Kan.Forge.Tracks.ForgeTrackSet`):
+The creation flow is **merged into the editor's stock Resources section**
+(`KanMediaSection : ResourcesSection`) — the existing navigators (audio /
+background / video) and the kan! pipeline are one organic form, no seam
+between "the existing" and "the new". Rules of record:
 
-- **Every track has volume (0..2) and mute**; muted tracks are excluded from
-  the render entirely (they do not extend the rendered mix either — covered
-  by tests).
-- **Individual tracks can be added** when the user has them: generated stems
-  auto-register after separation (`bass/drums/guitar/other/piano/vocals`),
-  and the user can import any audio file as an additional track (own stems,
-  multitrack material, a reference take…).
-- **The final step renders one playable track** (`ForgeJobs.RenderMixAsync` →
-  `kan_forge_mix_tracks`): audible tracks are decoded (mono 48 kHz), summed
-  with their gains, peak-protected (scaled down instead of clipping) and
-  written as a single WAV — which is then installed as the beatmap's audio
-  track (`audio-render.wav` in the beatmap set), so playback uses exactly
-  what the editor heard.
+- **Navigator everywhere:** adding an individual track uses the same
+  file-navigator pattern as the background/video rows (`FormFileSelector`,
+  drag-drop included). Separate track import stays **optional**.
+- **Video provides the audio (merge):** many source clips carry their audio
+  inside the video container; when the beatmap has no audio track and the
+  switch is on, the video's audio is extracted (BASS decode, see §7) and
+  becomes the source. The switch off = "visuals only".
+- **Per-action track pickers:** separation ("demix") and transcription run
+  on a **specific loaded track** (the unmixed stems / imported tracks) —
+  each action has its own selector listing the loaded tracks, defaulting to
+  the source audio.
+- **Mixdowns are never re-demixed:** rendered tracks
+  (`ForgeTrack.LooksLikeMixdown`, i.e. `audio-render*`) are mixed material —
+  excluded from the demix/transcribe pickers (and from the source entry once
+  the beatmap audio becomes a render). Tested (`MixdownRuleTest`).
+- **Tracks & render:** every track has volume (0..2) and mute; muted tracks
+  are excluded from the render entirely (they must not extend the rendered
+  mix). The final step renders **one playable track**
+  (`ForgeJobs.RenderMixAsync` → `kan_forge_mix_tracks`: gains applied,
+  peak-protected) and installs it as the beatmap's audio track — playback
+  uses exactly what the editor heard.
+
+Verified live in QA (2026-10-13): track import via navigator, transcription
+of a selected track, render → `audio-render.wav` set as beatmap audio.
 
 ## 7. URL / YouTube policy (owner decision, 2026-10-13)
 
