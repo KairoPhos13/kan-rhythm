@@ -127,18 +127,46 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
 - [ ] Import one converted demo song (charts/official/) as beatmap
       difficulties and play it end-to-end
 
-## Milestone 3 — kan!forge editor
+## Milestone 3 — kan!forge editor (implementation notes:
+`game/docs/editor-pipeline.md`)
 
+- [x] Entry-window pipeline (prompt §2.1): "Separate audio stems" +
+      "Generate transcription" with live progress bars driven by the libkan
+      progress API, background jobs while the form stays usable —
+      `KanCreationSection` in the editor setup screen (2026-10-13)
+- [x] libkan C-ABI bridge (`game/forge/native`): POD notes, progress
+      contract, fetch/separate/transcribe, environment probes + native
+      self-test with synthesized input (2026-10-13)
+- [x] Transcription draft model + temporal-edit propagation (cut/move/delete
+      → shift/split/remove, physically faithful, tested — the §2.2 hard
+      requirement) (2026-10-13)
 - [ ] Editor authors per instrument (shared taxonomy with the client per
-      `game/docs/instrument-modes.md` §5; owner developing the editor in
-      parallel — level generation is the editor's job)
+      `game/docs/instrument-modes.md` §5)
+- [ ] NLE timeline UI (prompt §2.2): up to 6 stem tracks + source audio +      a video track (extend background visuals to VIDEO sources); volume/mute
+      per channel; cut/move/delete on any track; the video trim use case
+      (cutting intros/outros/ads from a YouTube recording); every edit drives
+      the propagation engine
+- [ ] Transcription editor UI (prompt §2.3): per-note pitch/onset/duration +
+      EXPRession facts (vibrato, bend, dynamics tier) editing; comparison
+      metadata inspection (onset anchor, bias-corrected duration + raw end +
+      `end_faded`, `saturated`, presence/sim) with "unjudged" states; edited
+      fragments shown as proposals
+- [ ] Persist the draft into the level store (backend-data-model.md) +
+      `.score` / MIDI / JSONL import/export (libkan interchange formats)
+- [ ] In-editor per-stem playback/enable toggles
+      (chart-transcription-evaluation.md §3d)
+- [ ] Environment polish (acceptance criterion 5): GPU/CPU automatic device
+      + model auto-download UX; first-class error surfaces (missing model,
+      missing bs_roformer, unsupported codec, zero resolved notes)
 - [ ] Interactive spectrogram timeline @ 60 FPS (editor overlay on osu!
       editor framework where possible)
-- [ ] ONNX Runtime integration (local, async — never during gameplay):
-      HTDemucs stems (gate: 3-min song < 25 s GTX 1650/M1), Basic Pitch
-      draft notes (gate: ≥ 80% pre-placement accuracy)
+- [ ] Inference stack per chart-transcription-evaluation.md (**GGUF +
+      Vulkan, single stack**): bs_roformer source separation + transcription;
+      heavy AI dependencies remain optional layers. Gates: 3-min song → stems
+      < 25 s (GTX 1650/M1), ≥ 80% pre-placement draft accuracy
 - [ ] Drag-and-drop MP3 → stems → draft notes workflow
 - [ ] Importers: `.gp5`, `.musicxml`, `.mid` → Layer 2 canonical score
+      (consume `chart_scribe` MIDI drafts directly)
 - [ ] Chart authoring UI for Layer 3 (`.kchart`) incl. fingering fields
 - [ ] `kan!check` biomechanical linter integration (red alerts: impossible
       fret jumps at BPM, missing breathing windows for winds)

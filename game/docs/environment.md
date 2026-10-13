@@ -81,6 +81,25 @@ dotnet build -c Release
 A post-build step copies `osu.Game.Rulesets.Kan.dll` next to the client
 executable automatically (development convenience).
 
+Build the kan!forge pipeline pieces (level-creation pipeline —
+`game/docs/editor-pipeline.md`):
+
+```bash
+# native C-ABI bridge (libkan_forge_native) + its offline self-test
+cmake -S game/forge/native -B game/forge/native/build -DCMAKE_BUILD_TYPE=Release
+cmake --build game/forge/native/build -j
+ctest --test-dir game/forge/native/build --output-on-failure
+
+# C# side (Kan.Forge) and its tests
+cd game/forge && dotnet build -c Release
+cd tests && dotnet test -c Release
+```
+
+`game/ruleset` picks up `Kan.Forge.dll` and `libkan_forge_native.so`
+automatically and copies both next to the client executable. The bridge is a
+standalone CMake project on purpose (it must not require changes to the
+monorepo root build); C++20, `-Wall -Wextra`, no warnings.
+
 Run the client:
 
 ```bash
