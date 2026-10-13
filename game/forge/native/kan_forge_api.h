@@ -101,6 +101,34 @@ KAN_FORGE_API kan_forge_status kan_forge_mix_tracks(const char* const* paths,
                                                     const char* out_wav,
                                                     char* err, int32_t err_cap);
 
+/* Track editor (non-destructive: the source is never modified — each edit
+ * produces a NEW track the caller adds to its list under a user-chosen
+ * name). Ranges are milliseconds in source time.
+ *   KEEP: keep [start, end), silence the rest (original timing preserved)
+ *   MUTE: silence [start, end), keep the rest (original timing preserved)
+ *   TRIM: crop to [start, end) — tight file, original offset is lost */
+typedef enum kan_forge_edit_mode {
+    KAN_FORGE_EDIT_KEEP = 0,
+    KAN_FORGE_EDIT_MUTE = 1,
+    KAN_FORGE_EDIT_TRIM = 2
+} kan_forge_edit_mode;
+
+KAN_FORGE_API kan_forge_status kan_forge_edit_track(const char* audio_path,
+                                                    float start_ms, float end_ms,
+                                                    int32_t mode,
+                                                    const char* out_wav,
+                                                    char* err, int32_t err_cap);
+
+/* Content analysis for the track list: one decode pass produces the data
+ * behind both the waveform preview and the "no meaningful audio" marking.
+ * - peaks: bucket_count peak magnitudes (0..1) spread evenly over the file
+ * - out_peak / out_rms: whole-file peak and RMS (0..1)
+ * A bucket_count of 0 (or peaks == NULL) skips the bucket pass. */
+KAN_FORGE_API kan_forge_status kan_forge_analyze_track(const char* audio_path,
+                                                       float* peaks, int32_t bucket_count,
+                                                       float* out_peak, float* out_rms,
+                                                       char* err, int32_t err_cap);
+
 #ifdef __cplusplus
 }
 #endif

@@ -210,6 +210,99 @@ bool write_wav_pcm16(const std::string& path, const std::vector<float>& sig, int
 
 } // namespace
 
+kan_forge_status kan_forge_edit_track(const char* audio_path, float start_ms, float end_ms,
+                                      int32_t mode, const char* out_wav,
+                                      char* err, int32_t err_cap) {
+    if (audio_path == nullptr || out_wav == nullptr) {
+        set_err(err, err_cap, "edit: missing audio path or output path");
+        return KAN_FORGE_ERR_ARGS;
+    }
+    if (end_ms < start_ms || start_ms < 0.0f) {
+        set_err(err, err_cap, "edit: invalid range (need 0 <= start <= end)");
+        return KAN_FORGE_ERR_ARGS;
+    }
+
+    std::vector<float> sig;
+    if (!load_audio(audio_path, sig)) {
+        set_err(err, err_cap, "edit: cannot decode audio (missing file or unsupported codec)");
+        return KAN_FORGE_ERR_DECODE;
+    }
+
+    const size_t sr = 48000;
+    size_t a = size_t(start_ms * 0.001f * float(sr));
+    size_t b = size_t(end_ms * 0.001f * float(sr));
+    if (a > sig.size()) a = sig.size();
+    if (b > sig.size()) b = sig.size();
+
+    std::vector<float> out;
+    switch (mode) {
+        case KAN_FORGE_EDIT_KEEP:
+            // Keep the range, silence the rest — original timing preserved.
+            out.assign(sig.size(), 0.0f);
+            std::copy(sig.begin() + std::ptrdiff_t(a), sig.begin() + std::ptrdiff_t(b), out.begin() + std::ptrdiff_t(a));
+            break;
+
+        case KAN_FORGE_EDIT_MUTE:
+            // Silence the range, keep the rest — original timing preserved.
+            out = sig;
+            std::fill(out.begin() + std::ptrdiff_t(a), out.begin() + std::ptrdiff_t(b), 0.0f);
+            break;
+
+        case KAN_FORGE_EDIT_TRIM:
+            // Tight crop to the range (offset lost by design).
+            out.assign(sig.begin() + std::ptrdiff_t(a), sig.begin() + std::ptrdiff_t(b));
+            break;
+
+        default:
+            set_err(err, err_cap, "edit: unknown mode");
+            return KAN_FORGE_ERR_ARGS;
+    }
+
+    if (!write_wav_pcm16(out_wav, out, 48000)) {
+        set_err(err, err_cap, "edit: cannot write output file");
+        return KAN_FORGE_ERR_TRANSCRIBE;
+    }
+    return KAN_FORGE_OK;
+}
+
+kan_forge_status kan_forge_analyze_track(const char* audio_path, float* peaks, int32_t bucket_count,
+                                         float* out_peak, float* out_rms,
+                                         char* err, int32_t err_cap) {
+    if (audio_path == nullptr || out_peak == nullptr || out_rms == nullptr) {
+        set_err(err, err_cap, "analyze: missing audio path or outputs");
+        return KAN_FORGE_ERR_ARGS;
+    }
+    *out_peak = 0.0f;
+    *out_rms = 0.0f;
+
+    std::vector<float> sig;
+    if (!load_audio(audio_path, sig)) {
+        set_err(err, err_cap, "analyze: cannot decode audio (missing file or unsupported codec)");
+        return KAN_FORGE_ERR_DECODE;
+    }
+
+    double sum_sq = 0.0;
+    float peak = 0.0f;
+    for (float s : sig) {
+        const float a = std::fabs(s);
+        if (a > peak) peak = a;
+        sum_sq += double(s) * double(s);
+    }
+    *out_peak = peak;
+    *out_rms = float(std::sqrt(sum_sq / double(sig.size())));
+
+    if (peaks != nullptr && bucket_count > 0) {
+        for (int32_t i = 0; i < bucket_count; ++i) peaks[i] = 0.0f;
+        const size_t per = (sig.size() + size_t(bucket_count) - 1) / size_t(bucket_count);
+        for (size_t i = 0; i < sig.size(); ++i) {
+            const size_t b = i / per;
+            const float a = std::fabs(sig[i]);
+            if (b < size_t(bucket_count) && a > peaks[b]) peaks[b] = a;
+        }
+    }
+    return KAN_FORGE_OK;
+}
+
 kan_forge_status kan_forge_mix_tracks(const char* const* paths, const float* gains,
                                       int32_t count, const char* out_wav,
                                       char* err, int32_t err_cap) {

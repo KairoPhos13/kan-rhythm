@@ -45,6 +45,19 @@ namespace Kan.Forge.Native
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
     public delegate void KanForgeProgressFn(IntPtr user, IntPtr phaseUtf8, int percent);
 
+    /// <summary>Track-edit modes of the kan_forge_api C ABI (non-destructive).</summary>
+    public enum KanForgeEditMode
+    {
+        /// <summary>Keep [start, end), silence the rest (timing preserved).</summary>
+        Keep = 0,
+
+        /// <summary>Silence [start, end), keep the rest (timing preserved).</summary>
+        Mute = 1,
+
+        /// <summary>Crop to [start, end) — tight file, offset lost.</summary>
+        Trim = 2,
+    }
+
     /// <summary>
     /// P/Invoke surface of libkan_forge_native — the thin adapter that keeps
     /// libkan invocation out of the rest of the game code (minimal fork
@@ -81,6 +94,16 @@ namespace Kan.Forge.Native
         public static extern KanForgeStatus MixTracks([In, MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPStr)] string[] paths,
                                                      float[] gains, int count, string outWav,
                                                      byte[] err, int errCap);
+
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_edit_track", CallingConvention = CallingConvention.Cdecl)]
+        public static extern KanForgeStatus EditTrack(string audioPath, float startMs, float endMs,
+                                                     int mode, string outWav, byte[] err, int errCap);
+
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_analyze_track", CallingConvention = CallingConvention.Cdecl)]
+        public static extern KanForgeStatus AnalyzeTrack(string audioPath,
+                                                        [Out] float[] peaks, int bucketCount,
+                                                        out float outPeak, out float outRms,
+                                                        byte[] err, int errCap);
 
         public static string Version()
         {

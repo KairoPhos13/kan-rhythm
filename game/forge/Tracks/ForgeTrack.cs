@@ -53,6 +53,22 @@ namespace Kan.Forge.Tracks
         /// <summary>Product of a render/mixdown — mixed material, never demuxable.</summary>
         public bool IsMixdown;
 
+        // ---- content analysis (waveform preview + meaningful-audio marking)
+
+        /// <summary>Waveform preview buckets (0..1), null until analysed.</summary>
+        public float[]? Peaks;
+
+        public float PeakLevel;
+
+        public float RmsLevel;
+
+        /// <summary>
+        /// The analysis found no meaningful audio: the track is labelled and
+        /// moved to the end of the list (it stays selectable — the user may
+        /// know better).
+        /// </summary>
+        public bool LikelyEmpty;
+
         /// <summary>Whether this track may still be scheduled for demux.</summary>
         public bool CanDemux => !IsSeparated && !IsMixdown;
 
@@ -126,6 +142,20 @@ namespace Kan.Forge.Tracks
         {
             foreach (var t in Tracks)
                 t.IsReference = false;
+        }
+
+        /// <summary>
+        /// Meaningful tracks first, "no meaningful audio" tracks at the end
+        /// (owner requirement 2026-10-13: don't mislead the user). Stable:
+        /// relative order inside each group is preserved.
+        /// </summary>
+        public void OrderByMeaning()
+        {
+            var meaningful = Tracks.Where(t => !t.LikelyEmpty).ToList();
+            var empty = Tracks.Where(t => t.LikelyEmpty).ToList();
+            Tracks.Clear();
+            Tracks.AddRange(meaningful);
+            Tracks.AddRange(empty);
         }
     }
 }

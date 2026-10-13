@@ -22,6 +22,7 @@ using osu.Game.Graphics.UserInterfaceV2;
 using osu.Game.Screens.Edit.Setup;
 using osu.Game.Utils;
 using Kan.Forge.Media;
+using Kan.Forge.Native;
 using Kan.Forge.Pipeline;
 using Kan.Forge.Tracks;
 using Kan.Forge.Transcription;
@@ -203,6 +204,7 @@ namespace Kan.Forge.Editor
                     var track = trackSet.Import(Path.GetFileNameWithoutExtension(videoFile) + @" (video audio)", wav);
                     track.IsAccompaniment = true;
                     rebuildTrackRows();
+                    analyzeLater(track);
                     status($"Video audio joined the track list ({trackSet.Tracks.Count} in the set).");
                 },
                 ex => status($"Video audio extraction failed: {ex.Message}"));
@@ -256,13 +258,63 @@ namespace Kan.Forge.Editor
             var track = trackSet.Import(Path.GetFileNameWithoutExtension(file.Name), file.FullName);
             track.IsMixdown = ForgeTrack.LooksLikeMixdown(file.Name);
             rebuildTrackRows();
+            analyzeLater(track);
             status($"Track '{file.Name}' added ({trackSet.Tracks.Count} in the set).");
         }
+
+        /// <summary>
+        /// Analyse a track off-thread (waveform preview + meaningful-audio
+        /// marking) and refresh the list when done.
+        /// </summary>
+        private void analyzeLater(ForgeTrack track)
+            => Task.Run(() => TrackAnalysis.Analyze(track))
+                   .ContinueWith(_ => Scheduler.Add(rebuildTrackRows));
 
         private void removeTrack(ForgeTrack track)
         {
             trackSet.Remove(track);
             rebuildTrackRows();
+        }
+
+        /// <summary>
+        /// The track editor (non-destructive, owner 2026-10-13): an edit of a
+        /// time range creates a NEW track with a user-chosen name and adds it
+        /// to the list. The source is never modified; the new track inherits
+        /// its material class (a stem stays "separated", a mixdown stays
+        /// "mixed") and starts with no roles — the user assigns them.
+        /// </summary>
+        private void createEditedTrack(ForgeTrack source, string name, string fromSeconds,
+                                       string toSeconds, KanForgeEditMode mode)
+        {
+            if (!float.TryParse(fromSeconds, System.Globalization.NumberStyles.Float,
+                                System.Globalization.CultureInfo.InvariantCulture, out float from)
+                || !float.TryParse(toSeconds, System.Globalization.NumberStyles.Float,
+                                   System.Globalization.CultureInfo.InvariantCulture, out float to)
+                || from < 0 || to <= from)
+            {
+                status("Edit: give a valid range (0 <= from < to, seconds).");
+                return;
+            }
+
+            string trackName = string.IsNullOrWhiteSpace(name) ? $"{source.Name} (edit)" : name.Trim();
+
+            setBusy(true);
+            string outWav = Path.Combine(Path.GetTempPath(), "kan-forge",
+                                         "edit-" + Guid.NewGuid().ToString("N")[..8] + ".wav");
+            Directory.CreateDirectory(Path.GetDirectoryName(outWav)!);
+
+            runJob(() => ForgeJobs.EditTrackAsync(source.Path, mode, from * 1000, to * 1000, outWav, null, Scheduler),
+                transcribeProgress,
+                path =>
+                {
+                    var created = trackSet.Import(trackName, path);
+                    created.IsSeparated = source.IsSeparated;
+                    created.IsMixdown = source.IsMixdown;
+                    rebuildTrackRows();
+                    analyzeLater(created);
+                    status($"New track '{trackName}' added ({trackSet.Tracks.Count} in the set).");
+                },
+                ex => status($"Edit failed: {ex.Message}"));
         }
 
         private void onRoleChanged()
@@ -276,7 +328,7 @@ namespace Kan.Forge.Editor
         {
             trackFlow.Clear();
             foreach (var track in trackSet.Tracks)
-                trackFlow.Add(new TrackRow(trackSet, track, removeTrack, onRoleChanged));
+                trackFlow.Add(new TrackRow(trackSet, track, removeTrack, onRoleChanged, createEditedTrack));
         }
 
         // ------------------------------------------------------------------
@@ -301,6 +353,9 @@ namespace Kan.Forge.Editor
                 demuxProgress,
                 stemsAdded =>
                 {
+                    // Meaningful stems first; "no meaningful audio" stems go
+                    // to the end of the list so they don't mislead.
+                    trackSet.OrderByMeaning();
                     rebuildTrackRows();
                     status($"Demux done — {stemsAdded} stem tracks joined the list.");
                 },
@@ -331,6 +386,10 @@ namespace Kan.Forge.Editor
                 {
                     var stem = trackSet.Import(Path.GetFileNameWithoutExtension(file), file);
                     stem.IsSeparated = true;
+
+                    // Label stems that seem to carry no meaningful audio
+                    // (waveform + marking) — on this worker thread already.
+                    TrackAnalysis.Analyze(stem);
                     stemsAdded++;
                 }
             }
@@ -462,7 +521,9 @@ namespace Kan.Forge.Editor
         /// </summary>
         private partial class TrackRow : FillFlowContainer
         {
-            public TrackRow(ForgeTrackSet set, ForgeTrack track, Action<ForgeTrack> onRemove, Action onRoleChanged)
+            public TrackRow(ForgeTrackSet set, ForgeTrack track, Action<ForgeTrack> onRemove,
+                            Action onRoleChanged,
+                            Action<ForgeTrack, string, string, string, KanForgeEditMode> onCreateEdited)
             {
                 RelativeSizeAxes = Axes.X;
                 AutoSizeAxes = Axes.Y;
@@ -504,6 +565,20 @@ namespace Kan.Forge.Editor
                     track.DemuxPending = v.NewValue;
                 });
 
+                var nameBox = new FormTextBox
+                {
+                    Caption = @"new track name",
+                    PlaceholderText = $@"{track.Name} (edit)",
+                };
+                var fromBox = new FormNumberBox(true)
+                {
+                    Caption = @"from (s)",
+                };
+                var toBox = new FormNumberBox(true)
+                {
+                    Caption = @"to (s)",
+                };
+
                 Children = new Drawable[]
                 {
                     new OsuSpriteText
@@ -511,6 +586,15 @@ namespace Kan.Forge.Editor
                         Text = track.Name,
                         Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
                     },
+                    new WaveformPreview(track),
+                    track.LikelyEmpty
+                        ? new OsuSpriteText
+                        {
+                            Font = OsuFont.GetFont(size: 10),
+                            Colour = new Colour4(1.0f, 0.75f, 0.25f, 1),
+                            Text = @"⚠ seems to contain no meaningful audio — select only if you are sure",
+                        }
+                        : new Container { Height = 0 },
                     new FormCheckBox
                     {
                         Caption = track.CanDemux
@@ -539,12 +623,107 @@ namespace Kan.Forge.Editor
                         Caption = @"mute",
                         Current = muted,
                     },
+                    new OsuSpriteText
+                    {
+                        Font = OsuFont.GetFont(size: 11, weight: FontWeight.Bold),
+                        Text = @"edit → new track (the source is never modified)",
+                        Margin = new MarginPadding { Top = 6 },
+                    },
+                    new FormTextBox
+                    {
+                        Caption = @"new track name",
+                        PlaceholderText = $@"{track.Name} (edit)",
+                    },
+                    new FormNumberBox(true)
+                    {
+                        Caption = @"from (s)",
+                    },
+                    new FormNumberBox(true)
+                    {
+                        Caption = @"to (s)",
+                    },
+                    new FormButton
+                    {
+                        Caption = @"Keep range only",
+                        ButtonText = @"create",
+                        Action = () => onCreateEdited(track, nameBox.Current.Value ?? string.Empty,
+                                                      fromBox.Current.Value ?? string.Empty,
+                                                      toBox.Current.Value ?? string.Empty,
+                                                      KanForgeEditMode.Keep),
+                    },
+                    new FormButton
+                    {
+                        Caption = @"Silence range",
+                        ButtonText = @"create",
+                        Action = () => onCreateEdited(track, nameBox.Current.Value ?? string.Empty,
+                                                      fromBox.Current.Value ?? string.Empty,
+                                                      toBox.Current.Value ?? string.Empty,
+                                                      KanForgeEditMode.Mute),
+                    },
+                    new FormButton
+                    {
+                        Caption = @"Trim to range (offset lost)",
+                        ButtonText = @"create",
+                        Action = () => onCreateEdited(track, nameBox.Current.Value ?? string.Empty,
+                                                      fromBox.Current.Value ?? string.Empty,
+                                                      toBox.Current.Value ?? string.Empty,
+                                                      KanForgeEditMode.Trim),
+                    },
                     new FormButton
                     {
                         ButtonText = $@"remove '{track.Name}'",
                         Action = () => onRemove(track),
                     },
                 };
+            }
+        }
+
+        /// <summary>
+        /// Waveform preview of a track: one bar per analysis bucket — the
+        /// user sees the activity before selecting anything. Dimmed when the
+        /// analysis found no meaningful audio.
+        /// </summary>
+        private partial class WaveformPreview : CompositeDrawable
+        {
+            public WaveformPreview(ForgeTrack track)
+            {
+                RelativeSizeAxes = Axes.X;
+                Height = 32;
+
+                var peaks = track.Peaks;
+
+                if (peaks == null)
+                {
+                    AddInternal(new OsuSpriteText
+                    {
+                        Text = @"analysing…",
+                        Font = OsuFont.GetFont(size: 9),
+                        Alpha = 0.6f,
+                        Anchor = Anchor.CentreLeft,
+                        Origin = Anchor.CentreLeft,
+                    });
+                    return;
+                }
+
+                Colour4 colour = track.LikelyEmpty
+                    ? new Colour4(0.6f, 0.6f, 0.6f, 0.35f)
+                    : new Colour4(1, 1, 1, 0.75f);
+
+                for (int i = 0; i < peaks.Length; i++)
+                {
+                    AddInternal(new Box
+                    {
+                        RelativeSizeAxes = Axes.X,
+                        RelativePositionAxes = Axes.Both,
+                        Anchor = Anchor.Centre,
+                        Origin = Anchor.Centre,
+                        X = i / (float)peaks.Length,
+                        Width = 0.85f / peaks.Length,
+                        Y = 0,
+                        Height = MathF.Max(1.5f, peaks[i] * 30),
+                        Colour = colour,
+                    });
+                }
             }
         }
 

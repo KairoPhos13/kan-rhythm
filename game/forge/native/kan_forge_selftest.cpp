@@ -191,6 +191,78 @@ int main() {
         }
     }
 
+    // 5. Track editor: KEEP / MUTE / TRIM on known audio.
+    {
+        const std::string edited = "kan_forge_selftest_edit.wav";
+        auto read_peak = [&](float t0, float t1) {
+            std::vector<float> v;
+            if (!read_wav(edited, v)) return -1.0f;
+            const size_t a = size_t(t0 * 0.001f * sr), b = size_t(t1 * 0.001f * sr);
+            float p = 0.0f;
+            for (size_t i = a; i < b && i < v.size(); ++i)
+                p = std::fabs(v[i]) > p ? std::fabs(v[i]) : p;
+            return p;
+        };
+
+        // MUTE [0, 300): the melody's first note region is silenced.
+        st = kan_forge_edit_track(wav.c_str(), 0.0f, 300.0f, KAN_FORGE_EDIT_MUTE, edited.c_str(), err,
+                                  sizeof(err));
+        if (st != KAN_FORGE_OK || read_peak(0, 290) != 0.0f || read_peak(400, 900) <= 0.0f) {
+            std::fprintf(stderr, "SELFTEST FAIL: MUTE range wrong (status %d)\n", int(st));
+            ++failures;
+        }
+
+        // KEEP [1000, 1700): only the second note survives.
+        st = kan_forge_edit_track(wav.c_str(), 1000.0f, 1700.0f, KAN_FORGE_EDIT_KEEP, edited.c_str(), err,
+                                  sizeof(err));
+        if (st != KAN_FORGE_OK || read_peak(0, 900) != 0.0f || read_peak(1100, 1600) <= 0.0f
+            || read_peak(2000, 2900) != 0.0f) {
+            std::fprintf(stderr, "SELFTEST FAIL: KEEP range wrong (status %d)\n", int(st));
+            ++failures;
+        }
+
+        // TRIM [1000, 1700): tight 700 ms crop (offset lost by design).
+        st = kan_forge_edit_track(wav.c_str(), 1000.0f, 1700.0f, KAN_FORGE_EDIT_TRIM, edited.c_str(), err,
+                                  sizeof(err));
+        std::vector<float> trimmed;
+        if (st != KAN_FORGE_OK || !read_wav(edited, trimmed)
+            || trimmed.size() != size_t(0.7f * sr)) {
+            std::fprintf(stderr, "SELFTEST FAIL: TRIM length wrong (status %d size %zu)\n", int(st),
+                         trimmed.size());
+            ++failures;
+        }
+    }
+
+    // 6. Analysis: waveform buckets + meaningful-audio levels.
+    {
+        float peak = 0.0f, rms = 0.0f;
+        float buckets[64];
+        st = kan_forge_analyze_track(wav.c_str(), buckets, 64, &peak, &rms, err, sizeof(err));
+        if (st != KAN_FORGE_OK || peak <= 0.2f || rms <= 0.05f) {
+            std::fprintf(stderr, "SELFTEST FAIL: analyze loud wrong (peak %.4f rms %.4f)\n", peak, rms);
+            ++failures;
+        } else {
+            // The melody (0.3-0.8 / 1.0-1.5 / 1.7-2.2 / 2.4-3.0 s over 3.2 s
+            // at 64 buckets = 50 ms each) has a silent gap at 0.85-0.9 s.
+            float before = buckets[12], gap = buckets[17], after = buckets[22];
+            if (!(before > 0.0f && gap < before * 0.25f && after > 0.0f)) {
+                std::fprintf(stderr, "SELFTEST FAIL: waveform buckets wrong (%.4f %.4f %.4f)\n",
+                             before, gap, after);
+                ++failures;
+            }
+        }
+
+        // A silent file must analyse as empty.
+        std::vector<float> silence(size_t(0.5f * sr), 0.0f);
+        write_wav("kan_forge_selftest_silence.wav", silence, int(sr));
+        st = kan_forge_analyze_track("kan_forge_selftest_silence.wav", nullptr, 0, &peak, &rms, err,
+                                     sizeof(err));
+        if (st != KAN_FORGE_OK || peak != 0.0f || rms != 0.0f) {
+            std::fprintf(stderr, "SELFTEST FAIL: silence not empty (peak %.6f rms %.6f)\n", peak, rms);
+            ++failures;
+        }
+    }
+
     if (failures == 0) std::printf("kan_forge_selftest OK\n");
     return failures == 0 ? 0 : 1;
 }

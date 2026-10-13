@@ -195,5 +195,24 @@ namespace Kan.Forge.Pipeline
                     throw new ForgeException(KanForgeNative.ErrMessage(err));
                 return outWav;
             }, onProgress, uiScheduler);
+        /// <summary>
+        /// Track editor (non-destructive): produce a NEW track from a time
+        /// range of an existing one — KEEP/MUTE/TRIM semantics of
+        /// <see cref="KanForgeEditMode"/>. The source is never modified; the
+        /// caller adds the result to its track list under a user-chosen name.
+        /// </summary>
+        public static Task<string> EditTrackAsync(string audioPath, KanForgeEditMode mode,
+                                                  float startMs, float endMs, string outWav,
+                                                  Action<ForgeProgress>? onProgress = null,
+                                                  Scheduler? uiScheduler = null)
+            => ForgeJobRunner.RunAsync(sink =>
+            {
+                var err = new byte[err_cap];
+                KanForgeStatus st = KanForgeNative.EditTrack(audioPath, startMs, endMs, (int)mode,
+                                                             outWav, err, err_cap);
+                if (st != KanForgeStatus.Ok)
+                    throw new ForgeException(KanForgeNative.ErrMessage(err));
+                return outWav;
+            }, onProgress, uiScheduler);
     }
 }
