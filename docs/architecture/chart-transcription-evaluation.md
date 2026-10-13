@@ -284,6 +284,30 @@ from Demucs categories).
   is silent"; and optional removal of unclassified accompaniment while
   keeping the rest.
 
+### Flows on GPU — validated; Demucs ports exist (2026-10-12)
+
+**OUR flow validated on GPU:** `kan_stem_split` now auto-detects the
+bs_roformer backend (`KAN_ROFORMER_CLI` + `KAN_ROFORMER_GGUF`) and runs
+it (Vulkan), normalizing outputs to official names in the Demucs-like
+layout (bass/drums/guitar/other/piano/vocals). End-to-end tested on the
+sample song.
+
+**Demucs GGML port EXISTS (correcting an earlier claim):**
+
+| port | stack | GPU | stars | note |
+|---|---|---|---|---|
+| `sevagh/demucs.cpp` | C++17 + **ggml** + Eigen3 (Demucs v3 hybrid + v4 hybrid transformer) | via ggml backends (Vulkan candidate — verify) | 178 | **the Demucs-on-Vulkan vehicle** |
+| `nikhilunni/demucs-rs` | Rust | gpu/wasm topics | 150 | alternative |
+| `sevagh/demucs.onnx` | C++ ONNX/ORT | ORT EPs (no Vulkan) | 68 | fallback |
+
+Next verification item: build `demucs.cpp` with ggml-Vulkan and run the
+same flow test — if it holds, the low-budget path gets GPU too and the
+mass-use story is complete (both backends torch-free).
+
+Remaining adapter gap: input resampling to 44.1 kHz inside the
+bs_roformer path (models require it; our pipeline uses 48 k).
+
+### Roadmap (decided)
 ### Roadmap (decided)
 ### Roadmap (decided)
 

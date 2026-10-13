@@ -14,10 +14,25 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <filesystem>
 #include <string>
 #include <vector>
 
 namespace kan {
+
+// Small filesystem helpers for the separator adapters (header-only).
+inline void fs_create_all(const std::string& p) {
+    std::error_code ec;
+    std::filesystem::create_directories(p, ec);
+}
+inline bool fs_exists(const std::string& p) {
+    std::error_code ec;
+    return std::filesystem::exists(p, ec);
+}
+inline void fs_rename(const std::string& a, const std::string& b) {
+    std::error_code ec;
+    std::filesystem::rename(a, b, ec);
+}
 
 /// ---- Layer 0: source separation (stem extraction) --------------------
 /// Find a music source separator (Demucs: MIT, htdemucs_6s gives
@@ -27,6 +42,17 @@ inline std::string find_separator() {
     // recompiling, e.g. a lighter ONNX-based one).
     const char* custom = std::getenv("KAN_SEPARATOR");
     if (custom != nullptr && *custom != '\0') return custom;
+    // Preferred: bs_roformer-cli (GGUF/GGML — CPU or Vulkan GPU, no torch
+    // at runtime; MIT code + MIT models). KAN_ROFORMER_GGUF points at the
+    // model; KAN_ROFORMER_CLI at the binary if not on PATH.
+    const char* gguf = std::getenv("KAN_ROFORMER_GGUF");
+    const char* cli = std::getenv("KAN_ROFORMER_CLI");
+    const std::string bs = (cli != nullptr && *cli != '\0') ? cli : "bs_roformer-cli";
+    if (gguf != nullptr && *gguf != '\0'
+        && std::system((bs + " --help > /dev/null 2>&1").c_str()) == 0) {
+        return "bsroformer:" + bs + ":" + gguf;
+    }
+    // Low-budget fallback: Demucs (torch).
     if (std::system("command -v demucs > /dev/null 2>&1") == 0) return "demucs";
     if (std::system("python3 -m demucs --help > /dev/null 2>&1") == 0) {
         return "python3 -m demucs";
@@ -52,6 +78,31 @@ inline std::string separate_stems(const std::string& audio,
                                   const std::string& stems = "6") {
     const std::string sep = find_separator();
     if (sep.empty()) return "";
+    if (sep.rfind("bsroformer:", 0) == 0) {
+        // bs_roformer-cli backend (GGUF; Vulkan or CPU). Outputs stem_N.wav
+        // in official order: 0:bass 1:drums 2:other 3:vocals 4:guitar 5:piano.
+        const size_t c1 = sep.find(':', 11);
+        const std::string cli = sep.substr(11, c1 - 11);
+        const std::string gguf = sep.substr(c1 + 1);
+        fs_create_all(out_dir);
+        const std::string stem_out = out_dir + "/roformer_out.wav";
+        const std::string cmd = cli + " '" + gguf + "' '" + audio + "' '" + stem_out + "'";
+        std::printf("[separate] %s\n", cmd.c_str());
+        if (std::system(cmd.c_str()) != 0) return "";
+        // Normalize to the Demucs-like layout the callers expect.
+        static const char* N[6] = {"bass", "drums", "other", "vocals", "guitar", "piano"};
+        const std::string dir = out_dir + "/roformer";
+        fs_create_all(dir);
+        bool any = false;
+        for (int i = 0; i < 6; ++i) {
+            const std::string src = out_dir + "/roformer_out_stem_" + std::to_string(i) + ".wav";
+            if (fs_exists(src)) {
+                fs_rename(src, dir + "/" + N[i] + ".wav");
+                any = true;
+            }
+        }
+        return any ? dir : std::string("");
+    }
     const std::string model = (stems == "4") ? "htdemucs" : "htdemucs_6s";
     const std::string cmd = sep + " -n " + model + " -d " + best_separator_device()
                           + " -o '" + out_dir + "' '" + audio + "'";
