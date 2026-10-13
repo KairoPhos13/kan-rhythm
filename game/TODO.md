@@ -153,6 +153,16 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       Volume/mute per track; render → beatmap audio. Merged into the stock
       Resources section (`KanMediaSection : ResourcesSection`). Verified in
       QA + `TrackRolesTest`/`MixdownRuleTest` (2026-10-13)
+- [x] **Track editor v1** (owner 2026-10-13): non-destructive range edits
+      create **new tracks with user-defined names** (keep range / silence
+      range / trim to range; timing preserved where it matters for
+      background alignment) — covers the two-instruments-in-one-take case
+      (clean lead → reference; the other instrument → background).
+      Native `kan_forge_edit_track` + row UI + self-test (2026-10-13)
+- [x] **Waveform previews + "no meaningful audio" marking** (owner
+      2026-10-13): per-row waveform thumbnails (`kan_forge_analyze_track`);
+      after separation, empty-looking stems are labelled and **moved to the
+      end of the list** (still selectable) (2026-10-13)
 - [x] URL/YouTube policy (owner 2026-10-13): yt-dlp fetch is **developer-
       build tooling only** (hidden outside dev builds / `KAN_DEV_TOOLS=1`);
       the official flow is local files only — no claims exposure

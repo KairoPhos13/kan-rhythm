@@ -131,6 +131,25 @@ record:
 - **Demux results rejoin the list** as new tracks and can take any role —
   but **a demuxed track is never demuxable again** (neither is a demux
   result or a rendered mixdown): "hace perder el tiempo".
+- **Track editor v1 (non-destructive, owner 2026-10-13):** editing a track
+  **creates a NEW track with a user-chosen name** and adds it to the list;
+  the source is never modified. Range operations on a track:
+  *keep range only* / *silence range* (both preserve original timing — so an
+  edited background stays aligned to the song) and *trim to range* (tight
+  file, offset lost). The typical case: a section recording two instruments
+  (e.g. alto C + bass C ocarinas) yields a cleaned lead track (→ reference,
+  transcribed cleanly) and the other instrument's non-overlapping parts as
+  background (→ accompaniment). New tracks inherit the material class of
+  their source (a stem stays "separated", a mixdown stays "mixed") and
+  start with no roles.
+- **Waveform previews & meaningful-audio marking:** one analysis pass per
+  track (`kan_forge_analyze_track`) feeds a waveform thumbnail on the row —
+  activity is visible *before* selecting anything — and the
+  **"no meaningful audio"** rule (both peak and RMS below the noise floor).
+  After separation, such stems are labelled ("⚠ seems to contain no
+  meaningful audio — select only if you are sure") and **moved to the end of
+  the list** so they don't mislead; they stay fully selectable (the user may
+  know better).
 - **Nothing is mandatory:** demux and transcription are independent,
   optional actions — needed in one case, skippable in another. The render
   only needs its accompaniment selection; a reference is only needed if you
