@@ -61,6 +61,34 @@ Category facts from the owner:
    judgment + visuals, one source of truth.
 4. **Personalization menu** (future): the instrument list gets long, so the
    player chooses which instruments/categories are enabled and visible.
+5. **Instrument selector, category-tied** (owner, 2026-10-13): an additional
+   selector to choose an instrument, where the instrument list is tied to
+   the selected category (category → instrument).
+6. **Persistence in local files** (owner, 2026-10-13): the selection must be
+   saved locally so the program remembers it from the last run.
+
+### v0 realised (2026-10-13) — selector + persistence
+
+Requirements 5 and 6 are implemented in the ruleset plugin (zero fork
+divergence):
+
+- **Selector UI:** Settings → Rulesets → kan! (`KanSettingsSubsection`):
+  a *Category* dropdown (`Keys`, `Winds/others`) and an *Instrument*
+  dropdown whose entries are filtered by the selected category
+  (`KanInstrumentCatalog` is the single source of truth for the
+  category ↔ instrument tie and display names). Changing category snaps the
+  instrument to the category's first entry if needed.
+- **Persistence:** osu!lazer's standard ruleset-settings mechanism
+  (`KanRulesetConfigManager` : `RulesetConfigManager<>`) — the selection is
+  stored in the local **`client.realm`** (game storage, e.g.
+  `~/.local/share/kan/client.realm`) and reloaded on startup. No custom file
+  handling needed; values survive restarts.
+- **Provisional defaults:** category `Keys`, instrument `Piano` (owner has
+  not specified a startup instrument yet).
+- **Still open:** the final placement of the selector at play start (song
+  select / play setup), the variant selector (ocarina types), and wiring the
+  selection to instrument-wise effects (kanfx packs) once they exist — all
+  tracked in `../TODO.md`.
 
 ## 4. Architecture options for "instruments in the mode selector"
 

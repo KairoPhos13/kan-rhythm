@@ -6,10 +6,14 @@ using System.Collections.Generic;
 using System.Threading;
 using osu.Framework.Logging;
 using osu.Game.Beatmaps;
+using osu.Game.Configuration;
+using osu.Game.Overlays.Settings;
+using osu.Game.Rulesets.Configuration;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.UI;
 using Kan.Ruleset.Beatmaps;
+using Kan.Ruleset.Configuration;
 using Kan.Ruleset.Difficulty;
 using Kan.Ruleset.UI;
 
@@ -62,5 +66,11 @@ namespace Kan.Ruleset
         public override DifficultyCalculator CreateDifficultyCalculator(IWorkingBeatmap beatmap) => new KanDifficultyCalculator(RulesetInfo, beatmap);
 
         public override DrawableRuleset CreateDrawableRulesetWith(IBeatmap beatmap, IReadOnlyList<Mod>? mods = null) => new KanDrawableRuleset(this, beatmap, mods);
+
+        /// <summary>Local persistence for the instrument selection (client.realm).</summary>
+        public override IRulesetConfigManager? CreateConfig(SettingsStore? settings) => new KanRulesetConfigManager(settings, RulesetInfo);
+
+        /// <summary>The v0 instrument selector (category-tied, persisted).</summary>
+        public override RulesetSettingsSubsection? CreateSettings() => new KanSettingsSubsection(this);
     }
 }

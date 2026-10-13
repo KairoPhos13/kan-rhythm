@@ -72,9 +72,14 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       `Kan.Ruleset.Core` + thin per-instrument facades, one per
       `osu.Game.Rulesets.*.dll` assembly per the loader constraint) — needs
       owner sign-off before implementation
-- [ ] Instrument selection UI at play start (song select / play setup),
-      driving instrument-wise effects (kanfx pack presets), judgment profile
-      and helper visuals from one source of truth
+- [x] Instrument selection v0 (owner 2026-10-13): **category-tied selector**
+      (Category → Instrument dropdowns, `KanInstrumentCatalog`) + **local
+      persistence** via ruleset config (`client.realm` — remembered across
+      runs). Lives in Settings → Rulesets → kan! (plugin surface, zero fork
+      divergence) — 2026-10-13
+- [ ] Instrument selection at play start (song select / play setup
+      placement) + variant selector (ocarina types) + wiring the selection
+      to instrument-wise effects (kanfx packs) once the packs exist
 - [ ] Instrument pack schema v0: piano (universal) + ocarina variants
       (range/transposition profiles) per platform-architecture §5
 - [ ] Personalization menu for the instrument list (deferred by owner —
