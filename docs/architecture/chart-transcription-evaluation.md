@@ -247,6 +247,19 @@ default; the PyTorch/roformer-separation path is demoted to a fallback
 (it needed config-yaml surgery: `!!python/tuple` tags and a namespace
 bug — integration friction worth avoiding).
 
+
+**Vulkan VALIDATED on real hardware (2026-10-12, user-requested test):**
+`bs_roformer-cli` built with `GGML_VULKAN=ON` (Vulkan 1.4.363; needed the
+`spirv-headers` system package, installed by the user) processed the
+full 3:40 song in **43.6 s (~5x real time)** producing 6 stems, GPU
+kernel stable. vs CPU (multi-minute, OOM-killed in a parallel-build
+scenario). The 10-15 min level-creator budget is exceeded by an order of
+magnitude — the "fast Demucs now / quality rebuild later" tradeoff may
+be unnecessary when the GGUF+Vulkan path is this fast. Stems delivered
+as `roformer_stem0..5.wav` for ear comparison against Demucs outputs;
+stem-name mapping to be identified by listening (model zoo names differ
+from Demucs categories).
+
 ### Roadmap (decided)
 
 1. **Now:** Demucs 6s; per-instrument stem mapping in the pack data
