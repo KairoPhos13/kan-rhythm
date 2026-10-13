@@ -252,6 +252,12 @@ namespace Kan.Forge.Editor
 
         private void startDemux()
         {
+            if (!KanForgeNative.HasSeparator())
+            {
+                status("Demux needs the separator: install bs_roformer-cli or set KAN_ROFORMER_CLI (and KAN_ROFORMER_GGUF for the model).");
+                return;
+            }
+
             var queue = trackSet.DemuxQueue.ToList();
             if (queue.Count == 0)
             {
