@@ -142,6 +142,15 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       requirement) (2026-10-13)
 - [ ] Editor authors per instrument (shared taxonomy with the client per
       `game/docs/instrument-modes.md` §5)
+- [x] Track model (owner 2026-10-13): per-track **volume + mute**, importing
+      **individual tracks** (stems auto-register after separation; any user
+      audio file can join the set) and the final **render of one playable
+      track** (gains applied, muted excluded, peak-protected) installed as
+      the beatmap audio — `ForgeTrackSet` / `RenderMixAsync` /
+      `kan_forge_mix_tracks`, tested (2026-10-13)
+- [x] URL/YouTube policy (owner 2026-10-13): yt-dlp fetch is **developer-
+      build tooling only** (hidden outside dev builds / `KAN_DEV_TOOLS=1`);
+      the official flow is local files only — no claims exposure
 - [ ] NLE timeline UI (prompt §2.2): up to 6 stem tracks + source audio +      a video track (extend background visuals to VIDEO sources); volume/mute
       per channel; cut/move/delete on any track; the video trim use case
       (cutting intros/outros/ads from a YouTube recording); every edit drives
@@ -153,8 +162,9 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       fragments shown as proposals
 - [ ] Persist the draft into the level store (backend-data-model.md) +
       `.score` / MIDI / JSONL import/export (libkan interchange formats)
-- [ ] In-editor per-stem playback/enable toggles
-      (chart-transcription-evaluation.md §3d)
+- [ ] In-editor per-track **playback** toggles (the render-side volume/mute
+      exists; the timeline needs audition/playback per channel —
+      chart-transcription-evaluation.md §3d)
 - [ ] Environment polish (acceptance criterion 5): GPU/CPU automatic device
       + model auto-download UX; first-class error surfaces (missing model,
       missing bs_roformer, unsupported codec, zero resolved notes)

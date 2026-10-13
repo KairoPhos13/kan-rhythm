@@ -106,12 +106,47 @@ disable actions with a hint up front instead of failing halfway.
 - **Interchange (libkan):** chart text (`.score`), MIDI sketch, human log,
   JSONL fact stream — import/export targets, not the native format.
 - Source audio: the beatmap's audio track (materialised to a temp file for
-  the bridge) or a URL (yt-dlp fetch, "download" progress phase).
+  the bridge) or a URL (yt-dlp fetch, "download" progress phase — see §7 for
+  the policy).
 
-## 7. Remaining slices (mapped to the prompt's acceptance criteria)
+## 6b. Tracks & render (owner requirements, 2026-10-13)
+
+The editor works with a **track set** (`Kan.Forge.Tracks.ForgeTrackSet`):
+
+- **Every track has volume (0..2) and mute**; muted tracks are excluded from
+  the render entirely (they do not extend the rendered mix either — covered
+  by tests).
+- **Individual tracks can be added** when the user has them: generated stems
+  auto-register after separation (`bass/drums/guitar/other/piano/vocals`),
+  and the user can import any audio file as an additional track (own stems,
+  multitrack material, a reference take…).
+- **The final step renders one playable track** (`ForgeJobs.RenderMixAsync` →
+  `kan_forge_mix_tracks`): audible tracks are decoded (mono 48 kHz), summed
+  with their gains, peak-protected (scaled down instead of clipping) and
+  written as a single WAV — which is then installed as the beatmap's audio
+  track (`audio-render.wav` in the beatmap set), so playback uses exactly
+  what the editor heard.
+
+## 7. URL / YouTube policy (owner decision, 2026-10-13)
+
+The URL fetch path uses **yt-dlp**, which brings cookie handling, ToS and
+content-claim exposure. Policy of record:
+
+- **Developer-build tooling only:** the URL field is shown only in
+  development builds (or with `KAN_DEV_TOOLS=1`). It stays available for the
+  developer build — pragmatic convenience, accepted risk at the maintainer's
+  own machine.
+- **Not part of the official flow:** the shipped product works on **local
+  files** (beatmap audio, user-imported tracks). No yt-dlp dependency, no
+  download UX, nothing that can raise platform complaints or claims. (That
+  other products get away with embedded YouTube access is luck, not a
+  licence — we do not bet the product on it.)
+- `kan_forge_has_downloader()` lets the UI reflect this honestly.
+
+## 8. Remaining slices (mapped to the prompt's acceptance criteria)
 
 | Slice | Covers | Notes |
 |---|---|---|
-| 2. NLE timeline UI | criteria 2–3: up to 6 stem tracks + source + video track; cut/move/delete on any track; video trim (YouTube intros/outros/ads); edits propagate (propagation logic is done — this is UI + a timeline data model) | editor overlay on the osu! editor timeline where possible; `TranscriptionDraft` ops are the propagation engine |
+| 2. NLE timeline UI | criteria 2–3: up to 6 stem tracks + source + video track laid out in time; cut/move/delete on any track; video trim (YouTube intros/outros/ads); edits propagate | the track set (volume/mute/import) and the propagation engine are done — this is the timeline UI + a time-based track model; per-track volume/mute UI moves from the section into the track headers |
 | 3. Transcription editor UI + persistence | criterion 4: per-note pitch/timing/duration/technique editing, comparison metadata inspection ("unjudged" states), persisting the draft into the level store | `KanDraftNote` already models all fields |
-| 4. Environment polish | criterion 5: GPU/CPU auto device + model auto-download flows verified through the UI; per-stem playback/enable (chart-transcription-evaluation.md §3d) | mostly verification; the bridge already reports download progress |
+| 4. Environment polish | criterion 5: GPU/CPU auto device + model auto-download flows verified through the UI | mostly verification; the bridge already reports download progress |
