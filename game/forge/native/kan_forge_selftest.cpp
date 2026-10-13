@@ -46,6 +46,22 @@ bool write_wav(const std::string& path, const std::vector<float>& sig, int sr) {
     return true;
 }
 
+// Reader for the PCM16 mono WAV files written above (self-test round-trip).
+bool read_wav(const std::string& path, std::vector<float>& sig) {
+    std::FILE* f = std::fopen(path.c_str(), "rb");
+    if (f == nullptr) return false;
+    std::fseek(f, 0, SEEK_END);
+    const long size = std::ftell(f);
+    std::fseek(f, 44, SEEK_SET); // header of the files write_wav produces
+    for (long pos = 44; pos + 1 < size; pos += 2) {
+        int16_t pcm = 0;
+        if (std::fread(&pcm, 2, 1, f) != 1) break;
+        sig.push_back(float(pcm) / 32767.0f);
+    }
+    std::fclose(f);
+    return !sig.empty();
+}
+
 // Known input: C5 D5 E5 (500 ms each) + vibrato G5 — same shape as
 // tools/chart_scribe --selftest. Expected: at least 3 struck notes.
 std::vector<float> synth_melody(float sr) {
@@ -129,6 +145,50 @@ int main() {
         std::fprintf(stderr, "SELFTEST FAIL: capacity path wrong (status %d count %d)\n", int(st),
                      count);
         ++failures;
+    }
+
+    // 4. Mixdown: two identical tracks at gain 0.5 must sum back to the
+    //    original signal ("render a single track for playback").
+    const std::string wav_b = "kan_forge_selftest_b.wav";
+    const std::string mix_out = "kan_forge_selftest_mix.wav";
+    const std::vector<float> melody = synth_melody(sr);
+    if (!write_wav(wav_b, melody, int(sr))) {
+        std::fprintf(stderr, "SELFTEST FAIL: cannot write %s\n", wav_b.c_str());
+        return 1;
+    }
+    {
+        const char* paths[2] = {wav.c_str(), wav_b.c_str()};
+        const float gains[2] = {0.5f, 0.5f};
+        st = kan_forge_mix_tracks(paths, gains, 2, mix_out.c_str(), err, sizeof(err));
+        if (st != KAN_FORGE_OK) {
+            std::fprintf(stderr, "SELFTEST FAIL: mix status %d (%s)\n", int(st), err);
+            ++failures;
+        } else {
+            std::vector<float> got;
+            if (!read_wav(mix_out, got)) {
+                std::fprintf(stderr, "SELFTEST FAIL: cannot read mix output\n");
+                ++failures;
+            } else if (got.size() != melody.size()) {
+                std::fprintf(stderr, "SELFTEST FAIL: mix length %zu != %zu\n", got.size(),
+                             melody.size());
+                ++failures;
+            } else {
+                float peak_in = 0.0f, peak_out = 0.0f;
+                for (size_t i = 0; i < melody.size(); ++i) {
+                    peak_in = std::fabs(melody[i]) > peak_in ? std::fabs(melody[i]) : peak_in;
+                    peak_out = std::fabs(got[i]) > peak_out ? std::fabs(got[i]) : peak_out;
+                }
+                // PCM16 quantisation: allow 1% tolerance.
+                if (std::fabs(peak_out - peak_in) > 0.01f * (peak_in + 1e-3f)) {
+                    std::fprintf(stderr,
+                                 "SELFTEST FAIL: mix peak %.4f != source peak %.4f (gains 0.5+0.5)\n",
+                                 peak_out, peak_in);
+                    ++failures;
+                } else {
+                    std::printf("selftest: mix peak %.4f == source peak %.4f\n", peak_out, peak_in);
+                }
+            }
+        }
     }
 
     if (failures == 0) std::printf("kan_forge_selftest OK\n");

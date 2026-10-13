@@ -11,6 +11,7 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio.h"
 
+#include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
@@ -172,6 +173,81 @@ int32_t kan_forge_has_separator(void) {
 
 int32_t kan_forge_has_downloader(void) {
     return kan::find_audio_downloader().empty() ? 0 : 1;
+}
+
+namespace {
+
+// Minimal PCM16 mono WAV writer (48 kHz) — same format as the self-test.
+bool write_wav_pcm16(const std::string& path, const std::vector<float>& sig, int sr) {
+    std::FILE* f = std::fopen(path.c_str(), "wb");
+    if (f == nullptr) return false;
+    const uint32_t data_bytes = uint32_t(sig.size() * 2);
+    const uint32_t byte_rate = uint32_t(sr) * 2;
+    const uint16_t block_align = 2, bits = 16, format = 1, channels = 1;
+    std::fwrite("RIFF", 1, 4, f);
+    const uint32_t riff_size = 36 + data_bytes;
+    std::fwrite(&riff_size, 4, 1, f);
+    std::fwrite("WAVEfmt ", 1, 8, f);
+    const uint32_t fmt_size = 16;
+    std::fwrite(&fmt_size, 4, 1, f);
+    std::fwrite(&format, 2, 1, f);
+    std::fwrite(&channels, 2, 1, f);
+    const uint32_t sr_u = uint32_t(sr);
+    std::fwrite(&sr_u, 4, 1, f);
+    std::fwrite(&byte_rate, 4, 1, f);
+    std::fwrite(&block_align, 2, 1, f);
+    std::fwrite(&bits, 2, 1, f);
+    std::fwrite("data", 1, 4, f);
+    std::fwrite(&data_bytes, 4, 1, f);
+    for (float s : sig) {
+        float v = s < -1.0f ? -1.0f : (s > 1.0f ? 1.0f : s);
+        const int16_t pcm = int16_t(v * 32767.0f);
+        std::fwrite(&pcm, 2, 1, f);
+    }
+    std::fclose(f);
+    return true;
+}
+
+} // namespace
+
+kan_forge_status kan_forge_mix_tracks(const char* const* paths, const float* gains,
+                                      int32_t count, const char* out_wav,
+                                      char* err, int32_t err_cap) {
+    if (paths == nullptr || gains == nullptr || out_wav == nullptr || count <= 0) {
+        set_err(err, err_cap, "mix: missing inputs (need at least one track)");
+        return KAN_FORGE_ERR_ARGS;
+    }
+
+    std::vector<float> mix;
+    for (int32_t i = 0; i < count; ++i) {
+        if (paths[i] == nullptr) {
+            set_err(err, err_cap, "mix: null track path");
+            return KAN_FORGE_ERR_ARGS;
+        }
+        std::vector<float> sig;
+        if (!load_audio(paths[i], sig)) {
+            set_err(err, err_cap, "mix: cannot decode track (missing file or unsupported codec)");
+            return KAN_FORGE_ERR_DECODE;
+        }
+        if (sig.size() > mix.size()) mix.resize(sig.size(), 0.0f);
+        const float g = gains[i];
+        for (size_t s = 0; s < sig.size(); ++s) mix[s] += sig[s] * g;
+    }
+
+    // Peak protection: scale down instead of clipping (keeps the render
+    // playable without distortion artifacts).
+    float peak = 0.0f;
+    for (float s : mix) peak = std::fabs(s) > peak ? std::fabs(s) : peak;
+    if (peak > 0.99f) {
+        const float scale = 0.99f / peak;
+        for (float& s : mix) s *= scale;
+    }
+
+    if (!write_wav_pcm16(out_wav, mix, 48000)) {
+        set_err(err, err_cap, "mix: cannot write output file");
+        return KAN_FORGE_ERR_TRANSCRIBE;
+    }
+    return KAN_FORGE_OK;
 }
 
 } // extern "C"

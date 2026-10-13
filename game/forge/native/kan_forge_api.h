@@ -90,6 +90,17 @@ KAN_FORGE_API const char* kan_forge_version(void);
 KAN_FORGE_API int32_t kan_forge_has_separator(void);
 KAN_FORGE_API int32_t kan_forge_has_downloader(void);
 
+/* Render one playable track from the editor's track set: decode each input
+ * to mono 48 kHz, apply its gain (mute = gain 0 on the caller side), sum and
+ * write a single WAV. Output length covers the longest input; peak
+ * protection scales the mix down instead of clipping. This is the "render a
+ * single track for playback" step of the editor flow. */
+KAN_FORGE_API kan_forge_status kan_forge_mix_tracks(const char* const* paths,
+                                                    const float* gains,
+                                                    int32_t count,
+                                                    const char* out_wav,
+                                                    char* err, int32_t err_cap);
+
 #ifdef __cplusplus
 }
 #endif
