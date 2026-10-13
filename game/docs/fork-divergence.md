@@ -25,12 +25,14 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-12 | `816df139fd` | `2970c68` (branch `agent/game` on `github.com/KairoPhos13/kan`) | Phase 0 rebrand baseline (entries F-1…F-6) | green (0 warnings / 0 errors, verified on Linux) |
 | 2026-10-13 | `2970c68` | `e704f03` (branch `agent/game`) | owner direction: stock game modes + osu!stable legacy IPC removed (entries F-9/F-10) | green (0 warnings / 0 errors; run verified with only the kan! ruleset) |
 | 2026-10-13 | `e704f03` | `ec02860` (branch `agent/game`) | ruleset-provided "tracks" editor tab (entry F-11) | green (0 warnings / 0 errors; tab verified live) |
+| 2026-10-13 | `ec02860` | `e0c1cc9` (branch `agent/game`) | F-11 follow-up: tab presented as "track", second in the list | green (0 warnings / 0 errors) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
-> `2970c68`, `e704f03` and `ec02860` exist only in the local submodule object
-> store. **Before merging `agent/game` into `main`, the maintainer must push
-> them:** `git -C game/client push origin ec02860:refs/heads/agent/game`
+> `2970c68`, `e704f03`, `ec02860` and `e0c1cc9` exist only in the local
+> submodule object store. **Before merging `agent/game` into `main`, the
+> maintainer must push them:**
+> `git -C game/client push origin e0c1cc9:refs/heads/agent/game`
 > (then merge/fast-forward the fork's `master` as desired). Until then,
 > `git submodule update` works on this machine's shared object store only.
 
