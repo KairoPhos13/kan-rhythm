@@ -163,6 +163,14 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       2026-10-13): per-row waveform thumbnails (`kan_forge_analyze_track`);
       after separation, empty-looking stems are labelled and **moved to the
       end of the list** (still selectable) (2026-10-13)
+- [ ] **Needs from libkan (owner 2026-10-13): self-contained separation** —
+      the official flow must not require an installed separator: compile/
+      provision the GGUF RoFormer runtime (GGML, single stack) into libkan
+      so `kan::separate_stems` works with only the auto-downloaded model;
+      also `find_separator()` should probe the runtime (not just the model)
+      and failed runs must not report 100% progress. Spec:
+      `game/docs/editor-pipeline.md` §7b. Until then demux is developer
+      tooling (game-side pre-check is provisional)
 - [x] **"tracks" editor tab** (owner 2026-10-13): the track editor is a
       first-class editor tab next to setup/compose/design/timing/verify
       (fork F-11 generic hook `Ruleset.CreateTracksEditorScreen()`); the

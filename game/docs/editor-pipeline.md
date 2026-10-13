@@ -175,7 +175,7 @@ Verified live in QA (2026-10-13): track import via navigator, transcription
 of the reference, render → `audio-render.wav` set as beatmap audio; role
 semantics covered by `TrackRolesTest` / `MixdownRuleTest`.
 
-## 7. URL / YouTube policy (owner decision, 2026-10-13)
+## 7. URL / YouTube policy (owner direction, 2026-10-13)
 
 The URL fetch path uses **yt-dlp**, which brings cookie handling, ToS and
 content-claim exposure. Policy of record:
@@ -190,6 +190,32 @@ content-claim exposure. Policy of record:
   other products get away with embedded YouTube access is luck, not a
   licence — we do not bet the product on it.)
 - `kan_forge_has_downloader()` lets the UI reflect this honestly.
+
+## 7b. Needs from libkan — self-contained separation (owner, 2026-10-13)
+
+**The official flow must not ask the player to install a separator.** The
+single-stack decision (chart-transcription-evaluation.md §"SINGLE STACK")
+picked the **GGUF RoFormer runtime via GGML** precisely because one binary
+covers Vulkan/CPU/Metal with *no torch and zero extra dependencies* — so
+`kan::separate_stems` is expected to **be compiled to support the flow**:
+
+1. **Self-contained runtime:** either compile the GGML/GGUF RoFormer
+   inference into libkan (preferred — matches "compiled to support the
+   flow"), or provision/resolve the runner automatically alongside the
+   library. The model auto-download (`ensure_roformer_model`) already works
+   this way — the runtime is the missing half.
+2. **Honest probing:** `find_separator()` currently returns a separator
+   token when only the *model* exists, even if the runtime is missing —
+   downstream then fails with a misleading "no stems". It should probe both
+   (as the game-side pre-check does provisionally).
+3. **Progress truthfulness:** the CLI's progress reports reached 100%
+   while the run failed; failed runs should not report completion.
+
+The game lane (this component) consumes `kan::separate_stems` only. Its
+provisional CLI pre-check and the actionable error message in the demux
+button disappear once separation is self-contained in libkan. Until then
+demux is developer tooling (like the URL fetch): the model is handled
+automatically, the runner is not.
 
 ## 8. Remaining slices (mapped to the prompt's acceptance criteria)
 
