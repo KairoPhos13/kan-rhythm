@@ -331,6 +331,24 @@ and the remix math. Verified end-to-end after the cleanup.
 Open: 44.1 kHz resampling inside the adapter (models require it); CPU
 vs GPU timing measurement for no-GPU users (running).
 
+### Model acquisition flow (user decision, 2026-10-12)
+
+libkan's separation layer now ACQUIRES its model automatically: if no
+GGUF is found it downloads one to `models/`. Initially from community
+repos; eventually from OUR distribution (availability + compatibility
+control — the community GGUFs are unofficial conversions of an MIT ONNX
+upstream). Verified end-to-end in a clean directory (download ->
+separate -> stems).
+
+- Grades via `KAN_ROFORMER_GRADE`: **q8** (default, 179 MB, best
+  balance) | **f16** (334 MB, max quality) | **q4** (falls back to q8
+  until one exists — verified: no public q4, URL 404).
+- `KAN_MODEL_URL` overrides the source (the self-distribution switch);
+  `KAN_ROFORMER_GGUF` points at a local file (no download).
+- URL reality check (2026-10-12): q8 and f16 resolve (200), q4 does not.
+- Download via curl (wget fallback); model never lands in git.
+
+### Roadmap (decided)
 ### Roadmap (decided)
 ### Roadmap (decided)
 ### Roadmap (decided)

@@ -41,14 +41,67 @@ inline void fs_rename(const std::string& a, const std::string& b) {
 /// runtime — one path serves everyone and unused code does not
 /// accumulate. Locate the binary/model via KAN_ROFORMER_CLI /
 /// KAN_ROFORMER_GGUF (or PATH + models/6stem.gguf default).
+/// Model acquisition (user decision 2026-10-12): if the model is not
+/// found, download it automatically. Initially from the community
+/// official-ish repos; eventually from OUR distribution (availability +
+/// compatibility control) via KAN_MODEL_URL. One model, three grades:
+/// KAN_ROFORMER_GRADE = q8 (default, best balance) | f16 (max quality) |
+/// q4 (fastest CPU).
+inline std::string roformer_model_url(const std::string& grade) {
+    const char* url = std::getenv("KAN_MODEL_URL");
+    if (url != nullptr && *url != '\0') return url; // self-hosting wins
+    if (grade == "f16") {
+        return "https://huggingface.co/studio409/BSRoformer-SW-6Stem-GGUF"
+               "/resolve/main/bs_roformer_sw_6stem-F16.gguf";
+    }
+    // No public q4 exists yet (verified 404). Until WE host one
+    // (KAN_MODEL_URL), q4 falls back to the q8 grade below.
+    return "https://huggingface.co/FractalSurfer/BS-RoFormer-SW-6stem"
+           "/resolve/main/gguf/BS-RoFormer-SW-6stem-q8_0.gguf";
+}
+
+/// Find the GGUF model, downloading it to models/ if missing. "" on fail.
+inline std::string ensure_roformer_model() {
+    std::error_code ec;
+    const char* gguf = std::getenv("KAN_ROFORMER_GGUF");
+    if (gguf != nullptr && *gguf != '\0' && std::filesystem::exists(gguf, ec)) {
+        return gguf;
+    }
+    const char* grade_env = std::getenv("KAN_ROFORMER_GRADE");
+    std::string grade = (grade_env != nullptr && *grade_env != '\0')
+        ? grade_env : "q8";
+    if (grade == "q4" && std::getenv("KAN_MODEL_URL") == nullptr) {
+        std::printf("[model] no public q4 yet - using q8 (set KAN_MODEL_URL "
+                    "to host one)\n");
+        grade = "q8";
+    }
+    fs_create_all("models");
+    const std::string path = "models/6stem_" + grade + ".gguf";
+    if (std::filesystem::exists(path, ec)) return path;
+    const std::string url = roformer_model_url(grade);
+    std::printf("[model] downloading %s model...\n", grade.c_str());
+    std::string cmd = "curl -L --fail --progress-bar -o '" + path + "' '" + url + "'";
+    if (std::system("command -v curl > /dev/null 2>&1") != 0) {
+        cmd = "wget -q --show-progress -O '" + path + "' '" + url + "'";
+        if (std::system("command -v wget > /dev/null 2>&1") != 0) {
+            std::fprintf(stderr, "[model] need curl or wget to download\n");
+            return "";
+        }
+    }
+    if (std::system(cmd.c_str()) != 0 || !std::filesystem::exists(path, ec)) {
+        std::fprintf(stderr, "[model] download failed (set KAN_MODEL_URL "
+                             "or KAN_ROFORMER_GGUF)\n");
+        return "";
+    }
+    std::printf("[model] ready: %s\n", path.c_str());
+    return path;
+}
+
 inline std::string find_separator() {
     const char* cli = std::getenv("KAN_ROFORMER_CLI");
     const std::string bs = (cli != nullptr && *cli != '\0') ? cli : "bs_roformer-cli";
-    const char* gguf = std::getenv("KAN_ROFORMER_GGUF");
-    const std::string model = (gguf != nullptr && *gguf != '\0')
-        ? gguf : std::string("models/6stem.gguf");
-    std::error_code ec;
-    if (std::filesystem::exists(model, ec)) return "bsroformer:" + bs + ":" + model;
+    const std::string model = ensure_roformer_model();
+    if (!model.empty()) return "bsroformer:" + bs + ":" + model;
     return "";
 }
 
