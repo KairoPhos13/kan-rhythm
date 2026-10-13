@@ -89,25 +89,85 @@ purchase should be confirmed with un4seen when buying.
 | **A. Verify applicability** — written enquiry to un4seen describing the model (free game, voluntary donations, optional supporter cosmetics, no ads) asking whether the non-commercial permission applies, and whether supporter perks change the answer. Keep the reply on file. | Free | They may answer "licence required" | **Now — before any public release or donation collection** |
 | **B. Purchase one-time licence(s)** — Single Commercial, per platform | €950 (Linux/Windows/macOS ≈ €950 + 570 + 570 = **~€2090** with the 40% additional-platform reduction), plus add-on coverage as confirmed with un4seen | Low legally once purchased; recurring budget question is avoided (one-time) | If A fails, or as soon as `kan!supporter` ships paid perks |
 | **C. Replace the backend** — swap BASS out of osu!framework (miniaudio/SDL output; keep kanfx for consonance shift) | High engineering cost + framework-level fork divergence | Medium (latency/quality re-validation) | Only if A and B are both impossible |
+| **D. Clean-room drop-in replacement of the BASS API** ("kanplay") | ~2–4 weeks, contained C++ component | Low legally (see below); medium technically (latency re-validation) | Deferred by owner 2026-10-12 ("MVP first"); candidate as the permanent answer |
 
-## 6. Recommendation (2026-10-12)
+### Option D in detail — clean-room drop-in implementation (deferred)
+
+**Idea:** implement the *BASS C API surface ourselves* in a new component
+(e.g. `kanplay`, C-ABI, C++20 — a sibling of `libkan`/`kanfx`) built entirely
+from permissive parts, then make the client load **our** shared library
+instead of `libbass` — osu!framework needs no changes at all (the P/Invoke
+binding `ManagedBass` is MIT and names its native library in one constant;
+forking it and pointing that constant at `libkanplay` is mechanical). This
+permanently removes the un4seen dependency and its licence question.
+
+**Measured scope (2026-10-12, from the dependency graph):**
+
+| Surface | Size |
+|---|---|
+| Full ManagedBass binding (total BASS/BASSmix/BASSFX entry points) | 136 (98 core + 22 mixer + 16 FX) |
+| **Actually used by `ppy.osu.Framework`** (audited from its metadata) | **~25–30**: play/pause/stop, position & length, time↔byte conversion, channel attributes/flags, sync callbacks, sample (SFX) load/play, device init/info, file-procedure streaming, a small mixer subset, one tempo/rate FX subset |
+
+**Off-the-shelf permissive parts** (no new licence exposure):
+
+| Need | Part | Licence |
+|---|---|---|
+| mp3/ogg/wav/flac decoding | miniaudio decoders (dr_mp3, stb_vorbis, dr_wav, dr_flac) | MIT-0 / PD |
+| Device output | miniaudio (or SDL3 audio) | MIT-0 / Zlib |
+| Resampling / tempo / rate (BASS_FX subset) | Signalsmith — already in `kanfx` | MIT |
+| Mixing | own small mixer (needed for kanfx buses anyway) | ours |
+
+**Legal basis (why this is the cleanest option):** copyright protects
+un4seen's code, documentation text and trademarks — not the *functionality*
+or *interface shape* of the API (function names, signatures, struct layouts,
+constants, behavior).
+
+- EU: *SAS Institute v. World Programming* (CJEU) — functionality, languages
+  and formats are not copyrightable; only expression is.
+- US: *Oracle v. Google* (2021) — reusing an API's declaration structure was
+  fair use (and that with verbatim declarations; a from-scratch
+  reimplementation is a stronger case).
+- Interop rights exist as backup: EU Directive 2009/24/EC Art. 6
+  (decompilation for interoperability), US DMCA §1201(f).
+
+**Rules that keep it clean:**
+
+1. Implement from un4seen's **published docs + black-box behavior**; never
+   decompile `bass.dll` (that is the one EULA trap, and it is unnecessary).
+2. Write our **own declarations**; never copy `bass.h` text verbatim.
+3. **No trademarks**: the product is never called "BASS"; after forking the
+   MIT `ManagedBass` and renaming the import/library constants, the shipped
+   binary contains zero "BASS" strings and loads `libkanplay`.
+4. Standard practice: before the first *distribution* of the replacement,
+   a short IP-lawyer review of the naming/interop posture (~few hundred
+   euros) is cheap insurance. Precedent that ships this way: Wine, ReactOS,
+   Apache Harmony.
+
+**Status:** documented and deliberately **not started** (owner, 2026-10-12:
+"MVP first"). It remains the recommended long-term answer and the fallback
+if A fails and B is not funded; the decision trigger is unchanged (before
+first public download or first euro received).
+
+## 6. Recommendation (2026-10-12, updated with option D)
 
 1. **Do A immediately** (it costs nothing and can only clarify): contact
    un4seen via https://www.un4seen.com/ ("Contact") or the un4seen forum,
    describing the model above in writing, and archive the reply here.
-2. **Budget B as the expected outcome** if supporter perks ship in any paid
-   form: one-time €950/platform is affordable for a donation-funded project
-   and is the cleanest legal posture. Put it in the `donations/` transparency
-   plan as a project asset cost.
-3. **Do not do C now.** Keep the architecture C-ready instead: music/SFX
-   playback is the only BASS-dependent surface (§1), instrument capture and
-   judgment are already ours (miniaudio, MIT-0), and the consonance pitch
-   shift already lives in kanfx. A future swap stays contained to the
-   playback layer.
-4. **Hard gate (unchanged):** no donation-driven release ships until this
-   item is closed with either a written non-commercial confirmation from
-   un4seen or purchased licence(s) — per osu-integration.md §4. Until then
-   development builds stay non-public or non-monetised.
+2. **Budget B as the near-term fallback** if supporter perks ship in any
+   paid form before D is ready: one-time €950/platform is affordable for a
+   donation-funded project. Put it in the `donations/` transparency plan as
+   a project asset cost.
+3. **Do not do C** (framework-level audio rewrite). 
+4. **D is the preferred permanent answer** — clean-room drop-in, no licence
+   ever again, no engine divergence — but it is deliberately deferred until
+   after the MVP (owner decision 2026-10-12). Until then the architecture
+   stays C/D-ready: music/SFX playback is the only BASS-dependent surface
+   (§1), instrument capture and judgment are already ours (miniaudio,
+   MIT-0), and the consonance pitch shift already lives in kanfx.
+5. **Hard gate (unchanged):** no donation-driven release ships until this
+   item is closed with a written non-commercial confirmation from un4seen,
+   purchased licence(s), or the D replacement — per osu-integration.md §4.
+   Until then development builds stay non-public or non-monetised.
 
 ## 7. Sources
 
@@ -122,3 +182,13 @@ purchase should be confirmed with un4seen when buying.
   (2026-10-12) — exact BASS versions in use
 - `docs/adr/0010-osu-lazer-base-client.md` §5, `docs/architecture/osu-integration.md`
   §2/§4 — scope boundaries of this item
+- Option D measurements (2026-10-12): ManagedBass/ManagedBass.Mix/
+  ManagedBass.Fx binding entry-point counts and `ppy.osu.Framework`
+  2026.1005.0 metadata audit (dependency-graph inspection on the build
+  machine)
+- Option D legal basis: *SAS Institute Inc v World Programming Ltd*
+  (CJEU C-406/10) — functionality not copyrightable; *Google LLC v Oracle
+  America Inc*, 593 U.S. 1 (2021) — API declaration reuse fair use;
+  Directive 2009/24/EC Art. 6 (EU interop decompilation); 17 U.S.C.
+  §1201(f) (US interop exemption). Not legal advice — a distribution-time
+  review by an IP lawyer is part of option D's checklist.
