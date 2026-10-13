@@ -142,14 +142,17 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       requirement) (2026-10-13)
 - [ ] Editor authors per instrument (shared taxonomy with the client per
       `game/docs/instrument-modes.md` §5)
-- [x] **Merged media area** (owner 2026-10-13): creation flow lives inside
-      the stock Resources section (`KanMediaSection : ResourcesSection`) —
-      navigator-based track import (like background/video), **video provides
-      the audio** merge (extract from the container, visuals-only option),
-      per-action **track pickers** for demix and transcription (loaded
-      unmixed tracks), **mixdowns never re-demixed** (tested), volume/mute
-      per track, render single track → beatmap audio. Verified live in QA
-      (2026-10-13)
+- [x] **Unified track list with roles** (owner 2026-10-13): one load place
+      for audio + one for video (video audio joins the list on "video
+      provides the audio"); every track takes a role — **reference** (one,
+      optional; transcription runs on it automatically; future Mod Auto
+      plays to it), **accompaniment** (the render mixes them), **demux**
+      (queue). Demux results rejoin the list and are **never demuxable
+      again** (as aren't demuxed sources or mixdowns). **Nothing is
+      mandatory** — demux and transcription are independent optional steps.
+      Volume/mute per track; render → beatmap audio. Merged into the stock
+      Resources section (`KanMediaSection : ResourcesSection`). Verified in
+      QA + `TrackRolesTest`/`MixdownRuleTest` (2026-10-13)
 - [x] URL/YouTube policy (owner 2026-10-13): yt-dlp fetch is **developer-
       build tooling only** (hidden outside dev builds / `KAN_DEV_TOOLS=1`);
       the official flow is local files only — no claims exposure
