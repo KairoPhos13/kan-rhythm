@@ -260,6 +260,31 @@ as `roformer_stem0..5.wav` for ear comparison against Demucs outputs;
 stem-name mapping to be identified by listening (model zoo names differ
 from Demucs categories).
 
+### Decisions from the user's listening session (2026-10-12)
+
+- **Faithful recomposition (measured, not assumed):** the user verified
+  by ear that RoFormer stems recombine to the original mix "to the
+  millimeter" — an apparent level shift was a perception artifact. The
+  proposed per-stem gain calibration (least-squares fit to the reference
+  mix) is therefore NOT needed today; recorded as an optional capability
+  should some future model normalize its stems.
+- **Both backends stay (user decision):** RoFormer-GGUF/Vulkan is
+  clearly "the way" for quality (vocals/piano clean, defects cut ~90%,
+  even reconstructs noisy piano); **Demucs stays as the low-budget path
+  so everyone can participate.** Distribution strategy: torch =
+  training/preparation only; shipped inference = GGUF + Vulkan (bs_roformer-cli,
+  code MIT + model MIT — the first fully distributable combination).
+- **Official stem order (elicwhite/bs-roformer-sw-6stem-onnx, MIT):**
+  0:bass 1:drums 2:other 3:vocals 4:guitar 5:piano — user's ear agrees
+  (stem2 = winds/ocarina, stem3 = voice, stem5 = piano). `other` also
+  holds unclassified accompaniment (a plucked string instrument heard in
+  the sample song).
+- **Game editor options (user ideas, game-side):** per-stem volume to
+  taste; "enable the accompaniment stem only while the main instrument
+  is silent"; and optional removal of unclassified accompaniment while
+  keeping the rest.
+
+### Roadmap (decided)
 ### Roadmap (decided)
 
 1. **Now:** Demucs 6s; per-instrument stem mapping in the pack data
