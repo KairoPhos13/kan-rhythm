@@ -359,6 +359,13 @@ the API callback, demonstrating exactly what the game does. The internal
 scraping of external tools' `%` tokens is an implementation detail
 inside the layer — the game never reads stdout.
 
+
+**Device selection is automatic (closing question, 2026-10-13):** the
+runtime calls `ggml_backend_init_best()` — GPU (Vulkan) when available,
+CPU otherwise, from ONE binary — with `BSR_FORCE_CPU` as the manual
+escape hatch (e.g. a broken Vulkan driver). Users never configure
+devices; the mass-use policy holds by design.
+
 ### Roadmap (decided)
 ### Roadmap (decided)
 ### Roadmap (decided)
