@@ -37,6 +37,9 @@ instead (see [../docs/environment.md](../docs/environment.md) §4).
 | File | Content |
 |---|---|
 | `KanRuleset.cs` | ruleset metadata + plugin entry (name "kan!", tagline "You kan!") |
+| `Instruments/KanInstrument.cs` | instrument catalog: category ↔ instrument tie, display names (provisional taxonomy) |
+| `Configuration/KanRulesetSetting.cs`, `Configuration/KanRulesetConfigManager.cs` | persisted selection (client.realm — remembered across runs) |
+| `UI/KanSettingsSubsection.cs` | v0 instrument selector (category-tied dropdowns) in Settings → Rulesets → kan! |
 | `Objects/KanHitObject.cs` | placeholder hit object (start time only) |
 | `Objects/DrawableKanHitObject.cs` | empty drawable; placeholder auto-resolve (NOT judgment) |
 | `Beatmaps/KanBeatmapConverter.cs` | 1:1 timing-only conversion (placeholder) |
