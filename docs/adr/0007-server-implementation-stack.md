@@ -1,7 +1,6 @@
 # ADR-0007: Server implementation stack — TypeScript (NestJS) vs Go vs Rust
 
-- **Status:** Proposed (draft, design phase — ratify before Milestone 4
-  implementation starts)
+- **Status:** Accepted (2026-10-05, confirmed by project owner)
 - **Deciders:** server/ component maintainers (draft by Agent 6)
 - **Related:** [docs/architecture/backend-data-model.md](../architecture/backend-data-model.md)
   (§1.6 leaves the language open), [server/TODO.md](../../server/TODO.md)

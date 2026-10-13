@@ -25,9 +25,9 @@
 - [ ] ADR: native plugin ABI for custom DSP/visual nodes (deferred until
       data-driven packs prove insufficient)
 - [x] ADR: `kp` formula (weighted top-N + difficulty multiplier + dual-axis mix)
-      — `adr/0008-kp-formula.md` (proposed draft)
+      — `adr/0008-kp-formula.md` (accepted)
 - [x] ADR: server implementation stack (TypeScript vs Go vs Rust)
-      — `adr/0007-server-implementation-stack.md` (proposed draft)
+      — `adr/0007-server-implementation-stack.md` (accepted)
 - [ ] ADR: stem/transcription model choices (HTDemucs, Basic Pitch) — Milestone 3
 - [ ] ADR: donation provider selection — Milestone 4
 - [x] ADR-0010: osu!lazer base client (fork + ruleset) —

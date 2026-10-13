@@ -5,24 +5,34 @@ Implementation starts Milestone 4; spec/design work can start earlier.
 
 ## Design phase (can start now, in parallel)
 
-- [ ] ADR: implementation stack (TypeScript/NestJS vs Go vs Rust) with
-      hiring/contributor-ecosystem reasoning
-- [ ] **kp engine design (ADR-0012):** adopt the pp architecture from
-      `ppy/osu-tools` (MIT — difficulty attributes → performance calculation
-      → weighted top-N) as the reference implementation; adapt with the
+- [x] ADR: implementation stack (TypeScript/NestJS vs Go vs Rust) with
+      hiring/contributor-ecosystem reasoning —
+      [docs/adr/0007-server-implementation-stack.md](../docs/adr/0007-server-implementation-stack.md) (accepted)
+- [x] ADR: `kp` formula (osu!-pp analog: weighted top-N, difficulty
+      multiplier from chart features; dual-axis mix ratio timing vs cents) —
+      [docs/adr/0008-kp-formula.md](../docs/adr/0008-kp-formula.md) (accepted)
+- [x] ADR: ranked-status workflow & QA roles (kan!check pre-screen →
+      community review → ranked), osu! BN precedent —
+      [docs/adr/0009-ranked-status-qa-workflow.md](../docs/adr/0009-ranked-status-qa-workflow.md) (accepted)
+- [ ] **kp engine implementation (ADR-0008 + ADR-0012):** use the pp
+      architecture from `ppy/osu-tools` (MIT — difficulty attributes →
+      performance calculation → weighted top-N) as the reference
+      implementation; implement ADR-0008's formula on top of it with the
       dual-axis intonation component and per-instrument-family /
       per-input-method weighting; keep upstream headers + copyright for any
       adapted code
-- [ ] ADR: ranked-status workflow & QA roles (kan!check pre-screen →
-      community review → ranked), osu! BN precedent
-- [ ] OpenAPI v1 contract in `server/api/openapi.yaml` (auth, catalog,
+- [x] OpenAPI v1 contract in `server/api/openapi.yaml` (auth, catalog,
       scores, profiles, boards, billing webhooks) — contract-first rule
-- [ ] Full SQL schema as migration files from the backend-data-model sketch
+      (passes redocly + spectral lint; see `server/api/`)
+- [x] Full SQL schema as migration files from the backend-data-model sketch
       (users, credentials, entitlements, instrument_packs, songs,
       song_versions, charts, scores partitioned by hash(chart_id), replays,
       kp_stats, leaderboard_entries, cheat_verdicts, audit_events, donations)
-- [ ] Threat model: score spoofing, replay tampering,Sybil ranking farming,
-      webhook forgery; mitigations mapped to endpoints
+      — `server/migrations/` (validated on throwaway postgres:16-alpine;
+      see `server/migrations/README.md`)
+- [x] Threat model: score spoofing, replay tampering,Sybil ranking farming,
+      webhook forgery; mitigations mapped to endpoints —
+      [server/docs/threat-model.md](docs/threat-model.md)
 
 ## Implementation phase (Milestone 4)
 
