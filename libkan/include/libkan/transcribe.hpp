@@ -41,6 +41,60 @@ inline void fs_rename(const std::string& a, const std::string& b) {
 /// runtime — one path serves everyone and unused code does not
 /// accumulate. Locate the binary/model via KAN_ROFORMER_CLI /
 /// KAN_ROFORMER_GGUF (or PATH + models/6stem.gguf default).
+// ---- progress protocol (game-facing, user request 2026-10-12) ---------
+// The game shows a progress notice for downloads AND processing. Two
+// channels, same numbers:
+//   1. machine line on stdout:  PROGRESS <phase> <percent>   (subprocess)
+//   2. in-process callback:     set_progress(fn, user)
+// Phases: "download", "separate". Percent 0..100.
+using ProgressFn = void (*)(void* user, const char* phase, int percent);
+inline ProgressFn g_progress_fn = nullptr;
+inline void* g_progress_user = nullptr;
+inline void set_progress(ProgressFn f, void* u = nullptr) {
+    g_progress_fn = f;
+    g_progress_user = u;
+}
+inline void report_progress(const char* phase, int percent) {
+    if (percent < 0) percent = 0;
+    if (percent > 100) percent = 100;
+    if (g_progress_fn != nullptr) g_progress_fn(g_progress_user, phase, percent);
+    std::printf("PROGRESS %s %d\n", phase, percent);
+    std::fflush(stdout);
+}
+
+/// Run a command, scanning its output for "NN%" progress tokens and
+/// reporting them under `phase`. Returns true on exit code 0.
+inline bool run_with_progress(const std::string& cmd, const char* phase) {
+#ifdef _WIN32
+    FILE* p = _popen((cmd + " 2>&1").c_str(), "r");
+#else
+    FILE* p = popen((cmd + " 2>&1").c_str(), "r");
+#endif
+    if (p == nullptr) return false;
+    char buf[512];
+    int last = -1;
+    while (std::fgets(buf, int(sizeof(buf)), p) != nullptr) {
+        for (char* q = buf; *q != '\0'; ++q) {
+            if (*q != '%') continue;
+            char* st = q;
+            while (st > buf && ((st[-1] >= '0' && st[-1] <= '9') || st[-1] == '.')) --st;
+            if (st == q) continue;
+            const int pct = int(std::atof(st));
+            if (pct != last && pct >= 0 && pct <= 100) {
+                last = pct;
+                report_progress(phase, pct);
+            }
+        }
+    }
+#ifdef _WIN32
+    const int rc = _pclose(p);
+#else
+    const int rc = pclose(p);
+#endif
+    report_progress(phase, 100);
+    return rc == 0;
+}
+
 /// Model acquisition (user decision 2026-10-12): if the model is not
 /// found, download it automatically. Initially from the community
 /// official-ish repos; eventually from OUR distribution (availability +
@@ -88,7 +142,7 @@ inline std::string ensure_roformer_model() {
             return "";
         }
     }
-    if (std::system(cmd.c_str()) != 0 || !std::filesystem::exists(path, ec)) {
+    if (!run_with_progress(cmd, "download") || !std::filesystem::exists(path, ec)) {
         std::fprintf(stderr, "[model] download failed (set KAN_MODEL_URL "
                              "or KAN_ROFORMER_GGUF)\n");
         return "";
@@ -120,7 +174,7 @@ inline std::string separate_stems(const std::string& audio,
     const std::string stem_out = out_dir + "/roformer_out.wav";
     const std::string cmd = cli + " '" + gguf + "' '" + audio + "' '" + stem_out + "'";
     std::printf("[separate] %s\n", cmd.c_str());
-    if (std::system(cmd.c_str()) != 0) return "";
+    if (!run_with_progress(cmd, "separate")) return "";
     static const char* N[6] = {"bass", "drums", "other", "vocals", "guitar", "piano"};
     const std::string dir = out_dir + "/roformer";
     fs_create_all(dir);
