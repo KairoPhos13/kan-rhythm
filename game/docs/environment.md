@@ -117,6 +117,12 @@ Consequences (see also `game/docs/fork-divergence.md`):
   the file name carries the upstream prefix.
 - If the plugin fails to load, the client logs
   `An issue with ruleset "..." occurred` at error level.
+- Since fork entry F-9 (2026-10-13) the desktop client ships **only** the
+  kan! ruleset: the stock osu!/taiko/catch/mania rulesets are not built into
+  the output. After updating an old build folder, delete stale
+  `osu.Game.Rulesets.{Osu,Taiko,Catch,Mania}*` files there (or `dotnet
+  clean`) — the loader scans the startup directory and would otherwise pick
+  them up again.
 
 ## 5. Tests
 

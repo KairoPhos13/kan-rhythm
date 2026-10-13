@@ -58,6 +58,28 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
       `816df139fd` build (upstream/environment issue, not ours) and, if so,
       consider reporting upstream
 
+### Instrument modes & selection (owner direction 2026-10-12 — see
+`game/docs/instrument-modes.md`)
+
+- [x] Remove stock game modes (osu!standard/taiko/catch/mania) from the
+      client build + osu!stable legacy IPC — instruments own the mode slots
+      (fork deltas F-9/F-10, 2026-10-13; build green, run verified)
+- [ ] Instrument taxonomy v0 (owner scope: **piano** = universal "Keys"
+      profile, **ocarina** = "winds/others"; later bass, guitar, drums) —
+      resolve the open questions in `game/docs/instrument-modes.md` §6 when
+      the owner describes the next work item
+- [ ] Instrument-as-ruleset architecture (recommended: shared
+      `Kan.Ruleset.Core` + thin per-instrument facades, one per
+      `osu.Game.Rulesets.*.dll` assembly per the loader constraint) — needs
+      owner sign-off before implementation
+- [ ] Instrument selection UI at play start (song select / play setup),
+      driving instrument-wise effects (kanfx pack presets), judgment profile
+      and helper visuals from one source of truth
+- [ ] Instrument pack schema v0: piano (universal) + ocarina variants
+      (range/transposition profiles) per platform-architecture §5
+- [ ] Personalization menu for the instrument list (deferred by owner —
+      many instruments per category)
+
 ### Input & judgment core
 
 - [ ] C-ABI shim in `libkan/abi/`: fixed-size POD event queue (onset, pitch
@@ -102,6 +124,9 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
 
 ## Milestone 3 — kan!forge editor
 
+- [ ] Editor authors per instrument (shared taxonomy with the client per
+      `game/docs/instrument-modes.md` §5; owner developing the editor in
+      parallel — level generation is the editor's job)
 - [ ] Interactive spectrogram timeline @ 60 FPS (editor overlay on osu!
       editor framework where possible)
 - [ ] ONNX Runtime integration (local, async — never during gameplay):

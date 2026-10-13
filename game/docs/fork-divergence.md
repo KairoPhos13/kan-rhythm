@@ -23,12 +23,13 @@ Policy (rebase-ability first, ADR-0011 §4):
 |---|---|---|---|---|
 | 2026-10-12 | *(none — first wiring)* | `816df139fd` (upstream `ppy/osu` master) | fork created + submodule wired (previous session) | green |
 | 2026-10-12 | `816df139fd` | `2970c68` (branch `agent/game` on `github.com/KairoPhos13/kan`) | Phase 0 rebrand baseline (entries F-1…F-6) | green (0 warnings / 0 errors, verified on Linux) |
+| 2026-10-13 | `2970c68` | `e704f03` (branch `agent/game`) | owner direction: stock game modes + osu!stable legacy IPC removed (entries F-9/F-10) | green (0 warnings / 0 errors; run verified with only the kan! ruleset) |
 
-> **⚠ Push blocker (2026-10-12):** the build machine has **no GitHub
-> credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37` and
-> `2970c68` exist only in the local submodule object store. **Before merging
-> `agent/game` into `main`, the maintainer must push them:**
-> `git -C game/client push origin 2970c68:refs/heads/agent/game`
+> **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
+> credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
+> `2970c68` and `e704f03` exist only in the local submodule object store.
+> **Before merging `agent/game` into `main`, the maintainer must push them:**
+> `git -C game/client push origin e704f03:refs/heads/agent/game`
 > (then merge/fast-forward the fork's `master` as desired). Until then,
 > `git submodule update` works on this machine's shared object store only.
 
@@ -125,6 +126,40 @@ Policy (rebase-ability first, ADR-0011 §4):
 - **Merge-conflict cost:** none (no fork file touched).
 - **Upstream-PR:** none (could be a nice upstream feature: accept arbitrary
   ruleset assembly names).
+
+### F-9 — stock game modes removed from the desktop client
+
+- **What:** dropped the four `osu.Game.Rulesets.{Osu,Catch,Mania,Taiko}`
+  project references from `osu.Desktop/osu.Desktop.csproj`. The projects
+  stay in the fork repository (tests/tooling still use them); they are just
+  not built into or shipped with the desktop client. After this change the
+  client output contains only `osu.Game.Rulesets.Kan.dll` (note: stale
+  ruleset DLLs linger in an existing build output folder — `dotnet clean` or
+  delete them once).
+- **Why:** owner direction 2026-10-12: kan! has **no osu! game modes** —
+  the mode selector belongs to **instruments** (see the monorepo's
+  `game/docs/instrument-modes.md`). Also aligns with ADR-0011 ("not a
+  mod"): presenting osu!standard/taiko/catch/mania as playable modes was
+  pure upstream residue. `osu.Game` itself has zero compile-time
+  dependencies on the stock rulesets (verified before the change).
+- **Merge-conflict cost:** low (one ItemGroup in the desktop csproj;
+  upstream occasionally touches these lines when adding rulesets).
+- **Upstream-PR:** none (product-scope decision).
+
+### F-10 — osu!stable legacy IPC removed
+
+- **What:** deleted `osu.Desktop/LegacyIpc/` (4 files) and its wiring in
+  `osu.Desktop/Program.cs`.
+- **Why:** it exists solely to serve osu!stable clients (legacy difficulty
+  calculation over TCP port 45357) and hardcodes the stock legacy ruleset
+  IDs 0–3 (`OsuRuleset`/`TaikoRuleset`/`CatchRuleset`/`ManiaRuleset`) — the
+  only compile-time dependency of the desktop client on the stock modes.
+  kan! has no osu!stable legacy. Removed together with F-9 (owner direction
+  2026-10-12).
+- **Merge-conflict cost:** low-medium (deleting upstream files; these files
+  rarely change upstream — rebase conflict only if upstream edits them).
+- **Upstream-PR:** none (this is upstream functionality others may want; we
+  simply do not ship it).
 
 ## String sweep — remaining scope (deferred, game/TODO.md)
 
