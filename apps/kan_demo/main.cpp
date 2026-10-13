@@ -743,7 +743,15 @@ static void write_wav_local(const std::string& path, const std::vector<float>& s
     ma_encoder_uninit(&enc);
 }
 
+// Progress consumer via the API (what the game does): render to console.
+static void console_progress(void*, const char* phase, int percent) {
+    std::printf("\r[%s] %3d%%   ", phase, percent);
+    if (percent >= 100) std::printf("\n");
+    std::fflush(stdout);
+}
+
 int main(int argc, char** argv) {
+    kan::set_progress(console_progress); // API progress -> console
     const char* instrument_name = "ocarina";
     const char* expect_note = nullptr;
     const char* engine = "yin";

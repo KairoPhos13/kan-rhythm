@@ -65,10 +65,17 @@ inline void report_progress(const char* phase, int percent) {
 /// Run a command, scanning its output for "NN%" progress tokens and
 /// reporting them under `phase`. Returns true on exit code 0.
 inline bool run_with_progress(const std::string& cmd, const char* phase) {
+    // Force unbuffered child output (stdbuf) so NN% tokens arrive live:
+    // block-buffered children would flush their whole progress at exit and
+    // the game would only ever see 100%.
+    std::string full = cmd + " 2>&1";
+    if (std::system("command -v stdbuf > /dev/null 2>&1") == 0) {
+        full = "stdbuf -o0 -e0 " + full; // -o0: unbuffered (\r bars need it)
+    }
 #ifdef _WIN32
-    FILE* p = _popen((cmd + " 2>&1").c_str(), "r");
+    FILE* p = _popen(full.c_str(), "r");
 #else
-    FILE* p = popen((cmd + " 2>&1").c_str(), "r");
+    FILE* p = popen(full.c_str(), "r");
 #endif
     if (p == nullptr) return false;
     char buf[512];
@@ -276,13 +283,22 @@ inline std::vector<TranscribedNote> transcribe_audio(const float* sig, size_t n,
     };
 
     constexpr size_t kBlock = 128;
+    int last_pct = -1;
     for (size_t off = 0; off + kBlock <= n; off += kBlock) {
         desc.process_block(sig + off, kBlock);
         while (desc.finalize_due()) {}
         process_events();
+        if (n > 0) {
+            const int pct = int(100.0 * double(off) / double(n));
+            if (pct / 5 != last_pct / 5) {
+                last_pct = pct;
+                report_progress("transcribe", pct);
+            }
+        }
     }
     desc.flush();
     process_events();
+    report_progress("transcribe", 100);
 
     std::vector<TranscribedNote> notes;
     for (auto& r : out) {

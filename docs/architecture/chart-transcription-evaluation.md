@@ -348,6 +348,17 @@ separate -> stems).
 - URL reality check (2026-10-12): q8 and f16 resolve (200), q4 does not.
 - Download via curl (wget fallback); model never lands in git.
 
+
+**Progress is an API, not console output (user clarification, 2026-10-12):**
+the contractual surface is `kan::set_progress(fn, user)` — a method the
+game calls into (callback receives `phase` + `percent`). Phases:
+`download`, `separate`, `transcribe` (all three report). The
+`PROGRESS <phase> <pct>` stdout lines are a convenience channel (tools,
+subprocess integrations); kan_demo renders progress on console THROUGH
+the API callback, demonstrating exactly what the game does. The internal
+scraping of external tools' `%` tokens is an implementation detail
+inside the layer — the game never reads stdout.
+
 ### Roadmap (decided)
 ### Roadmap (decided)
 ### Roadmap (decided)
