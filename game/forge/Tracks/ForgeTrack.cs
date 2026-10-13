@@ -39,11 +39,20 @@ namespace Kan.Forge.Tracks
         /// <summary>The reference take (exactly one per track set).</summary>
         public bool IsReference;
 
+        /// <summary>
+        /// The level's base music (exactly one): the track the level is
+        /// created around — connected to the editor's Audio Track.
+        /// </summary>
+        public bool IsMusic;
+
         /// <summary>Selected for the beatmap-audio render (the mixdown).</summary>
         public bool IsAccompaniment;
 
         /// <summary>Queued for source separation (demux).</summary>
         public bool DemuxPending;
+
+        /// <summary>Whether any role is active on this track (used for selection highlighting).</summary>
+        public bool HasAnyRole => IsReference || IsMusic || IsAccompaniment || DemuxPending;
 
         /// <summary>
         /// Already demuxed, or produced by a demux — never demuxable again.
@@ -92,6 +101,7 @@ namespace Kan.Forge.Tracks
             Gain = Gain,
             Muted = Muted,
             IsReference = IsReference,
+            IsMusic = IsMusic,
             IsAccompaniment = IsAccompaniment,
             DemuxPending = DemuxPending,
             IsSeparated = IsSeparated,
@@ -110,6 +120,9 @@ namespace Kan.Forge.Tracks
 
         /// <summary>The reference take (exactly one), if chosen.</summary>
         public ForgeTrack? Reference => Tracks.FirstOrDefault(t => t.IsReference);
+
+        /// <summary>The level's base music (exactly one), if chosen.</summary>
+        public ForgeTrack? Music => Tracks.FirstOrDefault(t => t.IsMusic);
 
         /// <summary>The tracks selected for the beatmap-audio mixdown.</summary>
         public IEnumerable<ForgeTrack> Accompaniments => Tracks.Where(t => t.IsAccompaniment && !t.Muted);
@@ -135,6 +148,14 @@ namespace Kan.Forge.Tracks
             foreach (var t in Tracks)
                 t.IsReference = false;
             track.IsReference = true;
+        }
+
+        /// <summary>Promote one track to the level's base music (exactly one at a time).</summary>
+        public void SetMusic(ForgeTrack track)
+        {
+            foreach (var t in Tracks)
+                t.IsMusic = false;
+            track.IsMusic = true;
         }
 
         /// <summary>Clear the reference role (e.g. before removing the track).</summary>

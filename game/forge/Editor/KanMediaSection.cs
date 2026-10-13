@@ -10,6 +10,8 @@ using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Development;
 using osu.Framework.Graphics;
+using osu.Framework.Graphics.Containers;
+using osu.Framework.Graphics.Shapes;
 using osu.Framework.Localisation;
 using osu.Game.Beatmaps;
 using osu.Game.Graphics;
@@ -43,6 +45,7 @@ namespace Kan.Forge.Editor
         private FormCheckBox videoProvidesAudio = null!;
         private FormFileSelector trackSelector = null!;
         private OsuSpriteText statusText = null!;
+        private FillFlowContainer explorer = null!;
 
         private readonly ForgeTrackSet trackSet = ForgeTrackSession.Tracks;
         private readonly HashSet<string> extractedVideos = new();
@@ -69,7 +72,14 @@ namespace Kan.Forge.Editor
             statusText = new OsuSpriteText
             {
                 Font = OsuFont.GetFont(size: 11),
-                Text = @"Arrange, edit and use the tracks in the 'tracks' tab.",
+                Text = @"Arrange, edit and use the tracks in the 'track' tab.",
+            };
+            explorer = new FillFlowContainer
+            {
+                RelativeSizeAxes = Axes.X,
+                AutoSizeAxes = Axes.Y,
+                Direction = FillDirection.Vertical,
+                Spacing = new osuTK.Vector2(0, 6),
             };
 
             var added = new List<Drawable>
@@ -87,6 +97,13 @@ namespace Kan.Forge.Editor
                 },
                 trackSelector,
                 videoProvidesAudio,
+                new OsuSpriteText
+                {
+                    Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
+                    Text = @"The set (selected tracks highlighted)",
+                    Margin = new MarginPadding { Top = 12 },
+                },
+                explorer,
                 statusText,
             };
 
@@ -132,6 +149,7 @@ namespace Kan.Forge.Editor
         {
             if (--videoCheckCountdown > 0) return;
             videoCheckCountdown = 30;
+            rebuildExplorer();
 
             if (!videoProvidesAudio.Current.Value) return;
 
@@ -206,7 +224,7 @@ namespace Kan.Forge.Editor
             var track = trackSet.Import(Path.GetFileNameWithoutExtension(file.Name), file.FullName);
             track.IsMixdown = ForgeTrack.LooksLikeMixdown(file.Name);
             analyzeLater(track);
-            status($"Track '{file.Name}' imported ({trackSet.Tracks.Count} in the set).");
+            status($"Track '{file.Name}' imported.");
         }
 
         private void analyzeLater(ForgeTrack track)
@@ -215,6 +233,75 @@ namespace Kan.Forge.Editor
         private void status(string message)
         {
             Scheduler.Add(() => statusText.Text = message);
+        }
+
+        /// <summary>
+        /// The whole set as a compact explorer (owner 2026-10-13): every
+        /// track with its waveform as the row background and its roles as
+        /// badges — selected tracks highlighted, never just a count.
+        /// </summary>
+        private void rebuildExplorer()
+        {
+            explorer.Clear();
+
+            if (trackSet.Tracks.Count == 0)
+            {
+                explorer.Add(new OsuSpriteText
+                {
+                    Font = OsuFont.GetFont(size: 10),
+                    Alpha = 0.7f,
+                    Text = @"no resources yet — import audio above (the video's audio joins automatically)",
+                });
+                return;
+            }
+
+            foreach (var track in trackSet.Tracks)
+                explorer.Add(new ExplorerRow(track));
+        }
+
+        /// <summary>Compact read-only row: waveform background + name + role badges.</summary>
+        private partial class ExplorerRow : Container
+        {
+            public ExplorerRow(ForgeTrack track)
+            {
+                RelativeSizeAxes = Axes.X;
+                Height = 34;
+                CornerRadius = 5;
+                Masking = true;
+
+                var badges = new List<string>();
+                if (track.IsMusic) badges.Add(@"music");
+                if (track.IsReference) badges.Add(@"reference");
+                if (track.IsAccompaniment) badges.Add(@"accompaniment");
+                if (track.DemuxPending) badges.Add(@"demux");
+                if (track.IsSeparated) badges.Add(@"separated");
+                if (track.IsMixdown) badges.Add(@"mixdown");
+                if (track.LikelyEmpty) badges.Add(@"⚠ empty?");
+
+                Children = new Drawable[]
+                {
+                    new Box
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Colour = track.HasAnyRole
+                            ? new Colour4(0.25f, 0.55f, 0.5f, 0.35f)
+                            : new Colour4(0, 0, 0, 0.25f),
+                    },
+                    new WaveformPreview(track)
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Alpha = 0.25f,
+                    },
+                    new OsuSpriteText
+                    {
+                        Text = badges.Count > 0 ? $"{track.Name}   ·   {string.Join(" · ", badges)}" : track.Name,
+                        Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                        Anchor = Anchor.CentreLeft,
+                        Origin = Anchor.CentreLeft,
+                        Margin = new MarginPadding { Left = 8 },
+                    },
+                };
+            }
         }
     }
 }

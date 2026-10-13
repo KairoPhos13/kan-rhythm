@@ -117,9 +117,16 @@ Two surfaces, one rule set (owner requirements 2026-10-13):
 (multiple, via the same navigator pattern as background/video), plus the
 stock rows for video and images. With "video provides the audio" on, the
 video's audio joins the track list automatically (as an accompaniment).
-Nothing else anywhere asks for a path: the **tracks tab** (a first-class
-editor tab next to setup/compose/design/timing/verify — fork F-11) only
-*selects and arranges* the resources imported or created there.
+Nothing else anywhere asks for a path: the **track** tab (a first-class
+editor tab, second after setup — fork F-11) only *selects and arranges* the
+resources imported or created there.
+
+Roles on each track (owner 2026-10-13): **music** (exactly one — the level's
+base track, *connected to the editor's Audio Track*; no second import
+surface), **reference** (one — the take transcription uses), **accompaniment**
+(many — what the render mixes), **demux** (queue). Role-bearing tracks are
+highlighted, and the whole set is shown as a list with each track's waveform
+as the row background (never just a count).
 
 - **One place to load tracks, one place for video.** The "Add audio track"
   navigator is the single entry point for audio (pick repeatedly for

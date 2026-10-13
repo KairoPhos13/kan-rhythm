@@ -169,7 +169,21 @@ namespace Kan.Forge.Editor
             }
 
             foreach (var track in trackSet.Tracks)
-                trackFlow.Add(new TrackRow(trackSet, track, removeTrack, onRoleChanged, createEditedTrack));
+                trackFlow.Add(new TrackRow(trackSet, track, removeTrack, onRoleChanged, createEditedTrack, connectMusic));
+        }
+
+        /// <summary>
+        /// The "music" role connects the track to the editor's Audio Track
+        /// (the stock row in Resources): the selected track becomes the
+        /// beatmap's audio — the music the level is created around (owner
+        /// 2026-10-13: no second import surface; the row reflects the role).
+        /// </summary>
+        private void connectMusic(ForgeTrack track)
+        {
+            string? applied = applyAsBeatmapAudio(track.Path);
+            status(applied != null
+                ? $"'{track.Name}' is now the Audio Track (the level's music)."
+                : $"Could not connect '{track.Name}' to the Audio Track.");
         }
 
         /// <summary>Refresh the list (called by the import surface).</summary>
@@ -336,17 +350,20 @@ namespace Kan.Forge.Editor
                 ex => status($"Render failed: {ex.Message}"));
         }
 
-        private string? applyAsBeatmapAudio(string wavPath)
+        private string? applyAsBeatmapAudio(string sourcePath)
         {
             try
             {
                 var set = working.Value.BeatmapSetInfo;
 
                 string name = @"audio-render.wav";
-                for (int i = 1; set.Files.Any(f => f.Filename == name); i++)
-                    name = $@"audio-render-{i}.wav";
+                if (!ForgeTrack.LooksLikeMixdown(sourcePath))
+                    name = Path.GetFileName(sourcePath);
 
-                using (var stream = File.OpenRead(wavPath))
+                for (int i = 1; set.Files.Any(f => f.Filename == name); i++)
+                    name = Path.GetFileNameWithoutExtension(name) + $"-{i}" + Path.GetExtension(name);
+
+                using (var stream = File.OpenRead(sourcePath))
                     beatmaps.AddFile(set, stream, name);
 
                 working.Value.BeatmapInfo.Metadata.AudioFile = name;
@@ -354,7 +371,7 @@ namespace Kan.Forge.Editor
             }
             catch (Exception e)
             {
-                status($"Could not set the rendered track as beatmap audio: {e.Message}");
+                status($"Could not set the beatmap audio: {e.Message}");
                 return null;
             }
         }
@@ -414,16 +431,17 @@ namespace Kan.Forge.Editor
         /// One row of the unified track list: waveform, roles (reference /
         /// accompaniment / demux), volume, mute, the track editor, remove.
         /// </summary>
-        private partial class TrackRow : FillFlowContainer
+        private partial class TrackRow : Container
         {
             public TrackRow(ForgeTrackSet set, ForgeTrack track, Action<ForgeTrack> onRemove,
                             Action onRoleChanged,
-                            Action<ForgeTrack, string, string, string, KanForgeEditMode> onCreateEdited)
+                            Action<ForgeTrack, string, string, string, KanForgeEditMode> onCreateEdited,
+                            Action<ForgeTrack> onMusicSelected)
             {
                 RelativeSizeAxes = Axes.X;
                 AutoSizeAxes = Axes.Y;
-                Direction = FillDirection.Vertical;
-                Spacing = new osuTK.Vector2(0, 4);
+                CornerRadius = 6;
+                Masking = true;
 
                 var gain = new BindableNumber<float>(track.Gain)
                 {
@@ -433,6 +451,7 @@ namespace Kan.Forge.Editor
                 };
                 var muted = new BindableBool(track.Muted);
                 var reference = new BindableBool(track.IsReference);
+                var music = new BindableBool(track.IsMusic);
                 var accomp = new BindableBool(track.IsAccompaniment);
                 var demux = new BindableBool(track.DemuxPending);
 
@@ -444,6 +463,18 @@ namespace Kan.Forge.Editor
                         set.SetReference(track);
                     else
                         track.IsReference = false;
+
+                    onRoleChanged();
+                });
+                music.BindValueChanged(v =>
+                {
+                    if (v.NewValue)
+                    {
+                        set.SetMusic(track);
+                        onMusicSelected(track);
+                    }
+                    else
+                        track.IsMusic = false;
 
                     onRoleChanged();
                 });
@@ -473,19 +504,24 @@ namespace Kan.Forge.Editor
                     Caption = @"to (s)",
                 };
 
-                var children = new List<Drawable>
+                var content = new FillFlowContainer
                 {
-                    new OsuSpriteText
-                    {
-                        Text = track.Name,
-                        Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
-                    },
-                    new WaveformPreview(track),
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y,
+                    Direction = FillDirection.Vertical,
+                    Spacing = new osuTK.Vector2(0, 4),
+                    Padding = new MarginPadding(10),
                 };
+
+                content.Add(new OsuSpriteText
+                {
+                    Text = track.Name,
+                    Font = OsuFont.GetFont(size: 15, weight: FontWeight.Bold),
+                });
 
                 if (track.LikelyEmpty)
                 {
-                    children.Add(new OsuSpriteText
+                    content.Add(new OsuSpriteText
                     {
                         Font = OsuFont.GetFont(size: 10),
                         Colour = new Colour4(1.0f, 0.75f, 0.25f, 1),
@@ -493,7 +529,7 @@ namespace Kan.Forge.Editor
                     });
                 }
 
-                children.AddRange(new Drawable[]
+                content.AddRange(new Drawable[]
                 {
                     new FormCheckBox
                     {
@@ -506,6 +542,11 @@ namespace Kan.Forge.Editor
                     {
                         Caption = @"reference (the take to transcribe)",
                         Current = reference,
+                    },
+                    new FormCheckBox
+                    {
+                        Caption = @"music (the level's base track)",
+                        Current = music,
                     },
                     new FormCheckBox
                     {
@@ -566,56 +607,24 @@ namespace Kan.Forge.Editor
                     },
                 });
 
-                Children = children.ToArray();
-            }
-        }
-
-        /// <summary>
-        /// Waveform preview of a track: one bar per analysis bucket — the
-        /// user sees the activity before selecting anything. Dimmed when the
-        /// analysis found no meaningful audio.
-        /// </summary>
-        private partial class WaveformPreview : CompositeDrawable
-        {
-            public WaveformPreview(ForgeTrack track)
-            {
-                RelativeSizeAxes = Axes.X;
-                Height = 32;
-
-                var peaks = track.Peaks;
-
-                if (peaks == null)
+                Children = new Drawable[]
                 {
-                    AddInternal(new OsuSpriteText
+                    // Selection highlight: role-bearing rows stand out.
+                    new Box
                     {
-                        Text = @"analysing…",
-                        Font = OsuFont.GetFont(size: 9),
-                        Alpha = 0.6f,
-                        Anchor = Anchor.CentreLeft,
-                        Origin = Anchor.CentreLeft,
-                    });
-                    return;
-                }
-
-                Colour4 colour = track.LikelyEmpty
-                    ? new Colour4(0.6f, 0.6f, 0.6f, 0.35f)
-                    : new Colour4(1, 1, 1, 0.75f);
-
-                for (int i = 0; i < peaks.Length; i++)
-                {
-                    AddInternal(new Box
+                        RelativeSizeAxes = Axes.Both,
+                        Colour = track.HasAnyRole
+                            ? new Colour4(0.25f, 0.55f, 0.5f, 0.35f)
+                            : new Colour4(0, 0, 0, 0.25f),
+                    },
+                    // The waveform as the row's visual background.
+                    new WaveformPreview(track)
                     {
-                        RelativeSizeAxes = Axes.X,
-                        RelativePositionAxes = Axes.Both,
-                        Anchor = Anchor.Centre,
-                        Origin = Anchor.Centre,
-                        X = i / (float)peaks.Length,
-                        Width = 0.85f / peaks.Length,
-                        Y = 0,
-                        Height = MathF.Max(1.5f, peaks[i] * 30),
-                        Colour = colour,
-                    });
-                }
+                        RelativeSizeAxes = Axes.Both,
+                        Alpha = 0.18f,
+                    },
+                    content,
+                };
             }
         }
 
