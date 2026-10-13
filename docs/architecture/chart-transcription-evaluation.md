@@ -196,6 +196,33 @@ tells you the quality ceiling. Search was unavailable at writing
 (stars/leaderboard positions are from prior knowledge: verify before
 adoption).
 
+### Verified license reality (2026-10-12, HF + GitHub API checks)
+
+The MIT story is more nuanced than the table's code column suggests:
+
+- **Architecture code:** `lucidrains/BS-RoFormer` = **MIT** (Phil Wang,
+  2023) — verified from LICENSE.
+- **Community weights (HuggingFace):** `pcunwa/Mel-Band-Roformer-Inst`,
+  `empz/mel_band_roformers`, `becruily/mel-band-roformer-karaoke` —
+  **license UNSPECIFIED** (no README, no card metadata).
+  `noblebarkrr/all_models_for_mel_band_roformer` (the big collection:
+  dereverb, denoise, karaoke...) declares **GPL-3.0**.
+- **Channel count is per-checkpoint, not architectural:** karaoke models
+  = 2 stems (vocals/instrumental); the `Inst` config inspected declares
+  `num_stems: 1, target_instrument: other`; full instrument models in the
+  ecosystem go up to ~6 (drums/bass/guitar/piano/strings/vocals). **No
+  checkpoint has a wind/ocarina class.**
+- **Leaderboards:** Music Demixing Challenges (MDX'21/'23, AIcrowd) with
+  SDR tables, SiSEC MUS campaign, and community benchmark tables (e.g.
+  ZFTurbo's SOTA list) [verify — search outage].
+
+**Consequence for mass use (decided):** RoFormer-class models are an
+OPTIONAL enthusiast layer (`KAN_SEPARATOR`) until each checkpoint's
+provenance is cleared in `LICENSES.md` — MIT code + unspecified/GPL
+weights cannot ship as a default in a mass-use product. Quality is
+genuinely higher, so testing on our ocarina case is still worthwhile:
+the test measures quality, the license gate governs distribution.
+
 ### Roadmap (decided)
 
 1. **Now:** Demucs 6s; per-instrument stem mapping in the pack data
