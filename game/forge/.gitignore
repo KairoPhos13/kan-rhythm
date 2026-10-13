@@ -1,0 +1,6 @@
+# dotnet build outputs
+bin/
+obj/
+
+# CMake output of the native bridge
+native/build/
