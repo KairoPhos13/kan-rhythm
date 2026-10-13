@@ -3,8 +3,10 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Threading;
 using osu.Framework.Graphics;
+using osu.Framework.Graphics.Containers;
 using osu.Framework.Logging;
 using osu.Game.Beatmaps;
 using osu.Game.Configuration;
@@ -12,10 +14,13 @@ using osu.Game.Overlays.Settings;
 using osu.Game.Rulesets.Configuration;
 using osu.Game.Rulesets.Difficulty;
 using osu.Game.Rulesets.Mods;
+using osu.Game.Rulesets.Scoring.Legacy;
 using osu.Game.Rulesets.UI;
+using osu.Game.Screens.Edit.Setup;
 using Kan.Ruleset.Beatmaps;
 using Kan.Ruleset.Configuration;
 using Kan.Ruleset.Difficulty;
+using Kan.Ruleset.Legacy;
 using Kan.Ruleset.UI;
 using Kan.Forge.Editor;
 
@@ -34,8 +39,21 @@ namespace Kan.Ruleset
     /// <c>Ruleset</c> resolves to our own namespace and shadows the upstream
     /// type. Same for <c>osu.Game.Rulesets.RulesetInfo</c> where ambiguous.
     /// </remarks>
-    public class KanRuleset : osu.Game.Rulesets.Ruleset
+    public class KanRuleset : osu.Game.Rulesets.Ruleset, osu.Game.Rulesets.ILegacyRuleset
     {
+        /// <summary>
+        /// kan! claims legacy ruleset ID 0 (osu!standard) so legacy `.osu`/
+        /// `.osz` content stays importable and convertible into kan! charts
+        /// (osu-integration.md §3). QA finding 2026-10-13: without a loaded
+        /// ruleset claiming the legacy ID, the beatmap decoder rejects every
+        /// legacy beatmap ("Rulest is not available locally.") — which became
+        /// visible when the stock modes left the client (fork F-9). Taiko/
+        /// catch/mania (legacy IDs 1–3) are intentionally unclaimed for now.
+        /// </summary>
+        public int LegacyID => 0;
+
+        public ILegacyScoreSimulator CreateLegacyScoreSimulator() => new KanLegacyScoreSimulator();
+
         /// <summary>Product tagline (ADR-0011), shown by the placeholder screen and the about screen.</summary>
         public const string TAGLINE = @"You kan!";
 
@@ -76,14 +94,39 @@ namespace Kan.Ruleset
         public override RulesetSettingsSubsection? CreateSettings() => new KanSettingsSubsection(this);
 
         /// <summary>
-        /// kan!forge level-creation panel (prompt §2.1) in the editor's
-        /// entry/setup window — stems &amp; transcription with progress.
+        /// kan!forge level-creation flow (prompt §2.1) **merged into** the
+        /// editor's stock Resources section (owner requirement 2026-10-13:
+        /// minimize the seams — one organic media area). The stock rows
+        /// (audio / background / video navigators) are untouched; the kan!
+        /// pipeline continues below them (KanMediaSection).
+        ///
+        /// Mirrors the upstream default composition of
+        /// <c>Ruleset.CreateEditorSetupSections</c> with ResourcesSection
+        /// swapped for its kan! subclass — review when upstream changes that
+        /// default list.
         /// </summary>
-        public override IEnumerable<Drawable> CreateEditorSetupSections()
-        {
-            var sections = new List<Drawable>(base.CreateEditorSetupSections());
-            sections.Insert(0, new KanCreationSection());
-            return sections;
-        }
+        public override IEnumerable<Drawable> CreateEditorSetupSections() =>
+        [
+            new MetadataSection(),
+            new DifficultySection(),
+            new FillFlowContainer
+            {
+                AutoSizeAxes = Axes.Y,
+                Direction = FillDirection.Vertical,
+                Spacing = new osuTK.Vector2(25),
+                Children = new Drawable[]
+                {
+                    new KanMediaSection
+                    {
+                        RelativeSizeAxes = Axes.X,
+                    },
+                    new ColoursSection
+                    {
+                        RelativeSizeAxes = Axes.X,
+                    },
+                },
+            },
+            new DesignSection(),
+        ];
     }
 }
