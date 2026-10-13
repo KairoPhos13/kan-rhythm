@@ -177,15 +177,24 @@ levels. Record this when choosing stems per instrument pack.
 **Full project comparison** (search was unavailable; sources marked
 [verify] for license/quality checks before adoption):
 
-| project / model family | what it separates | strengths | limitations | role for us |
-|---|---|---|---|---|
-| **Demucs / htdemucs_6s** (Meta, MIT) | drums, bass, vocals, guitar, piano, other | robust, easy, CPU+GPU | fixed 6 categories; winds -> `other` | **adopted** (default) |
-| **UVR** model zoo (MDX-Net, VR archs) | per-model: vocals, karaoke, instrumental, some instrument-specific (violin/guitar models) [verify] | best-in-class specialized models; CLI usable | model zoo licensing varies; heavy | via `KAN_SEPARATOR` for specialized splits |
-| **Mel-RoFormer / BS-RoFormer** (ZFTurbo impls) | per-model; instrument-HQ variants [verify] | current leaderboard SOTA | torch, big models | preferred for guitar/piano/violin splits |
-| **MDX23 / Bandit** (competition models) [verify] | instrument stems | strong instrument separation | research code, mixed licenses | radar |
-| **Cassette-type zero-shot** (Sony) [verify] | arbitrary instrument by TEXT query | "any instrument" dream | young, quality varies | radar — the future of arbitrary names |
-| Spleeter / Open-Unmix | 2-5 fixed stems | light / research | dated quality | rejected |
-| **Score-informed extraction (OURS)** | exactly the instrument the chart names | deterministic, no AI deps, uses our pitch facts as the mask | best for monophonic leads over accompaniment | **build (our differentiator)** |
+| project | separates | license | community adoption | bleeding edge (vs SOTA) | role |
+|---|---|---|---|---|---|
+| **Demucs / htdemucs_6s** (Meta) | 6 fixed categories | **MIT** | very high — de facto standard for years (~10k+ stars, used everywhere) | htdemucs was SOTA ~2022-23; **still strong but RoFormer models have edged past it** on recent benchmarks | **adopted** (default: robust + permissive) |
+| **UVR** (model zoo: MDX-Net/VR/RoFormer) | per-model: vocals, karaoke, instrument-specific | code MIT [verify]; **model zoo mixed** [verify] | **highest** in the practical scene (~30k+ stars; the karaoke/transcriber standard) | the PLATFORM tracks SOTA — hosts competition-winning models | via `KAN_SEPARATOR` for specialized splits |
+| **Mel/BS-RoFormer** (ZFTurbo impls.) | instrument-HQ variants, vocals | code MIT [verify]; **training-data-derived models vary** [verify] | high and rising in the separation community (MDX competition lineage) | **current top of leaderboards** for instrument/vocal splits [verify] | preferred for guitar/piano/violin splits |
+| **MDX23 / Bandit** (competition models, Microsoft lineage) | instrument stems | mixed / research [verify] | moderate (research code, competition circles) | competition-grade SOTA at their release; RoFormer now rivals | radar |
+| **Cassette-type zero-shot** (Sony) | ANY instrument by text query | research [verify] | small (young research) | **unique capability** (zero-shot names), raw quality below specialized models | the future of arbitrary names |
+| Spleeter (Deezer) | 2/4/5 fixed | **MIT** | historically huge (~10k+), **declining/aged** | outdated (2019-era quality) | rejected |
+| Open-Unmix (SIGSEP) | 4 fixed | **MIT** | moderate (research) | dated | rejected |
+| **Score-informed extraction (OURS)** | exactly the chart's instrument | **project's own** | n/a (ours) | not a blind-separator competitor: **uniquely exact when the chart exists** (deterministic, zero AI deps) | **build (differentiator)** |
+
+Reading guide: for MASS use the license column decides distribution (MIT
+rows can ship; model-zoo/data-derived weights need per-model review —
+the weak-label rule also applies to model provenance). Adoption tells you
+how battle-tested the tool is on real-world messy audio; bleeding-edge
+tells you the quality ceiling. Search was unavailable at writing
+(stars/leaderboard positions are from prior knowledge: verify before
+adoption).
 
 ### Roadmap (decided)
 
