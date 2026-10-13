@@ -166,6 +166,45 @@ https://download.pytorch.org/whl/rocm6.x`). Wheel availability for the
 Python version (3.14 here) is the compatibility risk — CPU works
 regardless, and the auto-device probe means users never think about it.
 
+## 3d. Instrument-specific separation — can we section other instruments?
+
+**User field calibration (2026-10-12, by ear on the sample song):**
+ocarina lead lands in `other` (clean); `vocals` holds the human voice
+with the ocarina attenuated ~-30 dB (bleed); `sin other` = piano + voice
+(+ a little ocarina bleed) = the usable karaoke backing for ocarina
+levels. Record this when choosing stems per instrument pack.
+
+**Full project comparison** (search was unavailable; sources marked
+[verify] for license/quality checks before adoption):
+
+| project / model family | what it separates | strengths | limitations | role for us |
+|---|---|---|---|---|
+| **Demucs / htdemucs_6s** (Meta, MIT) | drums, bass, vocals, guitar, piano, other | robust, easy, CPU+GPU | fixed 6 categories; winds -> `other` | **adopted** (default) |
+| **UVR** model zoo (MDX-Net, VR archs) | per-model: vocals, karaoke, instrumental, some instrument-specific (violin/guitar models) [verify] | best-in-class specialized models; CLI usable | model zoo licensing varies; heavy | via `KAN_SEPARATOR` for specialized splits |
+| **Mel-RoFormer / BS-RoFormer** (ZFTurbo impls) | per-model; instrument-HQ variants [verify] | current leaderboard SOTA | torch, big models | preferred for guitar/piano/violin splits |
+| **MDX23 / Bandit** (competition models) [verify] | instrument stems | strong instrument separation | research code, mixed licenses | radar |
+| **Cassette-type zero-shot** (Sony) [verify] | arbitrary instrument by TEXT query | "any instrument" dream | young, quality varies | radar — the future of arbitrary names |
+| Spleeter / Open-Unmix | 2-5 fixed stems | light / research | dated quality | rejected |
+| **Score-informed extraction (OURS)** | exactly the instrument the chart names | deterministic, no AI deps, uses our pitch facts as the mask | best for monophonic leads over accompaniment | **build (our differentiator)** |
+
+### Roadmap (decided)
+
+1. **Now:** Demucs 6s; per-instrument stem mapping in the pack data
+   (ocarina/flute -> `other`; piano -> `piano`; ...), calibrated by ear
+   per instrument pack.
+2. **Next:** `KAN_SEPARATOR` adapters for RoFormer/MDX instrument models
+   (guitar, piano, violin splits) — optional layers per the mass-use
+   policy.
+3. **Our own path (unique):** *score-informed extraction* — once the
+   chart exists (our transcription!), build a time-frequency mask from
+   the transcribed pitch tracks and resynthesize the target instrument.
+   Deterministic, zero AI dependencies, and it separates EXACTLY the
+   instrument the level is for (the mash/bleed problems we measured
+   become the mask's job). Best fit for winds/monophonic leads.
+4. **Later:** custom-trained separation per instrument pack (fine-tune on
+   our own controlled recordings — the InstrumentProfile concept extends
+   to separation), and zero-shot text-query models when mature.
+
 ## 4. Named TODOs
 
 1. `tools/chart_scribe` (Layer 1): blind facts -> chart text with
@@ -176,5 +215,8 @@ regardless, and the auto-device probe means users never think about it.
 3. Layer-2 proposer adapter (Basic Pitch first) emitting draft rows with
    a `propose` marker for the human.
 4. Editor UX is out of scope here (authoring tool is a separate track).
+5. Score-informed extraction (s3d roadmap item 3): TF mask from our
+   pitch facts -> deterministic target-instrument stems.
+6. KAN_SEPARATOR adapters for RoFormer/MDX instrument models.
 5. chart_scribe duration serialization: bias-corrected duration + raw
    end + `end_faded` columns (see s3b).
