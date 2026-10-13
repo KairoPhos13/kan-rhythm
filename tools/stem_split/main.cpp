@@ -159,8 +159,8 @@ int main(int argc, char** argv) {
         const std::string sep = kan::find_separator();
         if (sep.empty()) {
             std::fprintf(stderr,
-                "[ERROR] no separator (Demucs). Install with: "
-                "pip install --user --break-system-packages demucs\n");
+                "[ERROR] no separator backend. Needs bs_roformer-cli + a\n"
+                "                GGUF model (KAN_ROFORMER_CLI / KAN_ROFORMER_GGUF).\n");
             return 1;
         }
         const std::string dir = kan::separate_stems(src, out_dir, "6");

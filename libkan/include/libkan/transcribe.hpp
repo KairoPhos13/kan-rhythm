@@ -34,85 +34,52 @@ inline void fs_rename(const std::string& a, const std::string& b) {
     std::filesystem::rename(a, b, ec);
 }
 
-/// ---- Layer 0: source separation (stem extraction) --------------------
-/// Find a music source separator (Demucs: MIT, htdemucs_6s gives
-/// drums/bass/vocals/guitar/piano/other). Empty = none installed.
+/// ---- Layer 0: source separation (single stack: GGUF + Vulkan) --------
+/// One backend, chosen deliberately (user decision 2026-10-12): the GGUF
+/// RoFormer runtime. GGML backends cover Vulkan (GPU), CPU (low-budget
+/// machines) and Metal (macOS) in the SAME binary with NO torch at
+/// runtime — one path serves everyone and unused code does not
+/// accumulate. Locate the binary/model via KAN_ROFORMER_CLI /
+/// KAN_ROFORMER_GGUF (or PATH + models/6stem.gguf default).
 inline std::string find_separator() {
-    // User override first (mass-use policy: plug any separator without
-    // recompiling, e.g. a lighter ONNX-based one).
-    const char* custom = std::getenv("KAN_SEPARATOR");
-    if (custom != nullptr && *custom != '\0') return custom;
-    // Preferred: bs_roformer-cli (GGUF/GGML — CPU or Vulkan GPU, no torch
-    // at runtime; MIT code + MIT models). KAN_ROFORMER_GGUF points at the
-    // model; KAN_ROFORMER_CLI at the binary if not on PATH.
-    const char* gguf = std::getenv("KAN_ROFORMER_GGUF");
     const char* cli = std::getenv("KAN_ROFORMER_CLI");
     const std::string bs = (cli != nullptr && *cli != '\0') ? cli : "bs_roformer-cli";
-    if (gguf != nullptr && *gguf != '\0'
-        && std::system((bs + " --help > /dev/null 2>&1").c_str()) == 0) {
-        return "bsroformer:" + bs + ":" + gguf;
-    }
-    // Low-budget fallback: Demucs (torch).
-    if (std::system("command -v demucs > /dev/null 2>&1") == 0) return "demucs";
-    if (std::system("python3 -m demucs --help > /dev/null 2>&1") == 0) {
-        return "python3 -m demucs";
-    }
+    const char* gguf = std::getenv("KAN_ROFORMER_GGUF");
+    const std::string model = (gguf != nullptr && *gguf != '\0')
+        ? gguf : std::string("models/6stem.gguf");
+    std::error_code ec;
+    if (std::filesystem::exists(model, ec)) return "bsroformer:" + bs + ":" + model;
     return "";
 }
 
-/// Best device automatically (mass-use policy: GPU when the user has one
-/// — CUDA or ROCm, both expose as "cuda" to torch — CPU otherwise; the
-/// user never configures devices).
-inline std::string best_separator_device() {
-    if (std::system("python3 -c \"import torch,sys;sys.exit(0 if torch.cuda.is_available() else 1)\" > /dev/null 2>&1") == 0) {
-        return "cuda";
-    }
-    return "cpu";
-}
-
-/// Run the separator: produces <out_dir>/<model>/<basename>/{stem}.wav.
-/// `stems` selects the model: "6" = htdemucs_6s (default), "4" = htdemucs.
-/// Returns the directory holding the stem wavs ("" on failure).
+/// Run the separator: produces <out_dir>/{bass,drums,guitar,other,piano,
+/// vocals}.wav (official stem order normalized). Empty on failure.
 inline std::string separate_stems(const std::string& audio,
                                   const std::string& out_dir,
                                   const std::string& stems = "6") {
+    (void)stems;
     const std::string sep = find_separator();
     if (sep.empty()) return "";
-    if (sep.rfind("bsroformer:", 0) == 0) {
-        // bs_roformer-cli backend (GGUF; Vulkan or CPU). Outputs stem_N.wav
-        // in official order: 0:bass 1:drums 2:other 3:vocals 4:guitar 5:piano.
-        const size_t c1 = sep.find(':', 11);
-        const std::string cli = sep.substr(11, c1 - 11);
-        const std::string gguf = sep.substr(c1 + 1);
-        fs_create_all(out_dir);
-        const std::string stem_out = out_dir + "/roformer_out.wav";
-        const std::string cmd = cli + " '" + gguf + "' '" + audio + "' '" + stem_out + "'";
-        std::printf("[separate] %s\n", cmd.c_str());
-        if (std::system(cmd.c_str()) != 0) return "";
-        // Normalize to the Demucs-like layout the callers expect.
-        static const char* N[6] = {"bass", "drums", "other", "vocals", "guitar", "piano"};
-        const std::string dir = out_dir + "/roformer";
-        fs_create_all(dir);
-        bool any = false;
-        for (int i = 0; i < 6; ++i) {
-            const std::string src = out_dir + "/roformer_out_stem_" + std::to_string(i) + ".wav";
-            if (fs_exists(src)) {
-                fs_rename(src, dir + "/" + N[i] + ".wav");
-                any = true;
-            }
-        }
-        return any ? dir : std::string("");
-    }
-    const std::string model = (stems == "4") ? "htdemucs" : "htdemucs_6s";
-    const std::string cmd = sep + " -n " + model + " -d " + best_separator_device()
-                          + " -o '" + out_dir + "' '" + audio + "'";
+    const size_t c1 = sep.find(':', 11);
+    const std::string cli = sep.substr(11, c1 - 11);
+    const std::string gguf = sep.substr(c1 + 1);
+    fs_create_all(out_dir);
+    const std::string stem_out = out_dir + "/roformer_out.wav";
+    const std::string cmd = cli + " '" + gguf + "' '" + audio + "' '" + stem_out + "'";
     std::printf("[separate] %s\n", cmd.c_str());
     if (std::system(cmd.c_str()) != 0) return "";
-    const size_t slash = audio.find_last_of("/\\");
-    std::string base = (slash == std::string::npos) ? audio : audio.substr(slash + 1);
-    const size_t dot = base.find_last_of('.');
-    if (dot != std::string::npos) base = base.substr(0, dot);
-    return out_dir + "/" + model + "/" + base;
+    static const char* N[6] = {"bass", "drums", "other", "vocals", "guitar", "piano"};
+    const std::string dir = out_dir + "/roformer";
+    fs_create_all(dir);
+    bool any = false;
+    for (int i = 0; i < 6; ++i) {
+        const std::string src = out_dir + "/roformer_out_stem_" + std::to_string(i) + ".wav";
+        if (fs_exists(src)) {
+            fs_rename(src, dir + "/" + N[i] + ".wav");
+            any = true;
+        }
+    }
+    return any ? dir : std::string("");
 }
 
 /// Find a usable audio downloader for URLs (yt-dlp on PATH, user install,

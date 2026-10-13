@@ -307,6 +307,31 @@ mass-use story is complete (both backends torch-free).
 Remaining adapter gap: input resampling to 44.1 kHz inside the
 bs_roformer path (models require it; our pipeline uses 48 k).
 
+### SINGLE STACK decision (user, 2026-10-12): Vulkan/GGUF is the only path
+
+**Decision:** one separation backend — the GGUF RoFormer runtime
+(bs_roformer-cli via GGML). **Rationale (the question was "is Vulkan
+supported enough to be the only path?"): YES, and better than needed —
+the same binary covers Vulkan (GPU), CPU (low-budget machines) and
+Metal (macOS) with NO torch at runtime and zero extra dependencies, so
+the "keep Demucs for participation" reason dissolves: participation is
+inherent to the single stack. Torch remains a TRAINING-ONLY tool.
+
+**What this removes (code that no longer earns its place):**
+- Demucs detection/invocation branches (Demucs stays in the comparison
+  table above as EVALUATION HISTORY, not as code)
+- the torch GPU/CUDA device probe
+- the generic KAN_SEPARATOR override (YAGNI under a single-stack policy)
+- the planned demucs.cpp/Vulkan evaluation (moot)
+
+**What survives:** `KAN_ROFORMER_CLI` / `KAN_ROFORMER_GGUF` (locate the
+binary and model), the Demucs-compatible stem layout (normalized names),
+and the remix math. Verified end-to-end after the cleanup.
+
+Open: 44.1 kHz resampling inside the adapter (models require it); CPU
+vs GPU timing measurement for no-GPU users (running).
+
+### Roadmap (decided)
 ### Roadmap (decided)
 ### Roadmap (decided)
 ### Roadmap (decided)

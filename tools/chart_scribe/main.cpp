@@ -142,9 +142,9 @@ int main(int argc, char** argv) {
     if (!stem_name.empty()) {
         const std::string dir = kan::separate_stems(audio, out + "_stems", "6");
         if (dir.empty()) {
-            std::fprintf(stderr, "[ERROR] separation failed (is Demucs "
-                                 "installed? pip install --user "
-                                 "--break-system-packages demucs)\n");
+            std::fprintf(stderr, "[ERROR] separation failed (needs "
+                                 "bs_roformer-cli + GGUF model: "
+                                 "KAN_ROFORMER_CLI / KAN_ROFORMER_GGUF)\n");
             return 1;
         }
         audio = dir + "/" + stem_name + ".wav";
