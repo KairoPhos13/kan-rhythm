@@ -3,35 +3,42 @@
 
 using System;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
+using osu.Framework.Development;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Colour;
 using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
 using osu.Framework.Localisation;
 using osu.Game.Beatmaps;
+using osu.Game.Database;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Graphics.UserInterfaceV2;
+using osu.Game.Screens.Edit;
 using osu.Game.Screens.Edit.Setup;
 using Kan.Forge.Pipeline;
+using Kan.Forge.Tracks;
 using Kan.Forge.Transcription;
 
 namespace Kan.Forge.Editor
 {
     /// <summary>
     /// The level-creation panel of the KAN editor entry window (prompt §2.1):
-    /// source-audio pipeline actions — "Separate audio stems" and "Generate
-    /// transcription" — each running in the background with a live progress
-    /// bar driven by the libkan progress API, while the user keeps filling the
-    /// form. Registered by the kan! ruleset through
-    /// <c>Ruleset.CreateEditorSetupSections()</c> (plugin surface, zero fork
-    /// divergence).
+    /// "Separate audio stems" and "Generate transcription" run in the
+    /// background with live progress bars driven by the libkan progress API,
+    /// while the user keeps filling the form. The generated stems (or any
+    /// individual tracks the user imports) become editor **tracks** with
+    /// per-track volume and mute (owner requirements 2026-10-13), and the
+    /// final step **renders one playable track** into the beatmap's audio.
     ///
-    /// Source audio: the beatmap's audio track, or a URL override (fetched via
-    /// the bridge's download path, "download" progress phase).
+    /// Source audio: the beatmap's audio track, or a URL override. The URL
+    /// path uses yt-dlp and is **developer-build tooling only** — it is not
+    /// part of the official flow (see game/docs/editor-pipeline.md §7 for the
+    /// policy).
     /// </summary>
     public partial class KanCreationSection : SetupSection
     {
@@ -40,49 +47,105 @@ namespace Kan.Forge.Editor
         [Resolved]
         private IBindable<WorkingBeatmap> working { get; set; } = null!;
 
-        private FormTextBox sourceUrlBox = null!;
+        [Resolved]
+        private BeatmapManager beatmaps { get; set; } = null!;
+
+        private FormTextBox? sourceUrlBox;
         private FormButton separateButton = null!;
         private FormButton transcribeButton = null!;
         private KanProgressBar separateProgress = null!;
         private KanProgressBar transcribeProgress = null!;
         private OsuSpriteText statusText = null!;
 
+        private readonly ForgeTrackSet trackSet = new();
+        private FillFlowContainer trackFlow = null!;
+        private FormTextBox addTrackPathBox = null!;
+        private FormButton renderButton = null!;
+
+        private static bool devToolsEnabled
+            => DebugUtils.IsDebugBuild
+               || !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(@"KAN_DEV_TOOLS"));
+
         [BackgroundDependencyLoader]
         private void load()
         {
-            Children = new Drawable[]
+            var content = new System.Collections.Generic.List<Drawable>();
+
+            if (devToolsEnabled)
             {
-                sourceUrlBox = new FormTextBox
+                content.Add(sourceUrlBox = new FormTextBox
                 {
-                    Caption = @"Source audio (URL, optional)",
-                    PlaceholderText = @"https://… — leave empty to use the beatmap's audio",
-                },
-                separateButton = new FormButton
+                    Caption = @"Source audio URL (developer tooling)",
+                    PlaceholderText = @"https://… — fetched via yt-dlp; not part of the official flow",
+                });
+            }
+            else
+            {
+                content.Add(new OsuSpriteText
                 {
-                    Caption = @"Separate audio stems",
-                    ButtonText = @"run",
-                    Action = startSeparation,
-                },
-                separateProgress = new KanProgressBar(),
-                transcribeButton = new FormButton
-                {
-                    Caption = @"Generate transcription",
-                    ButtonText = @"run",
-                    Action = startTranscription,
-                },
-                transcribeProgress = new KanProgressBar(),
-                statusText = new OsuSpriteText
-                {
-                    Font = OsuFont.GetFont(size: 12),
-                    Text = @"Ready.",
-                },
-            };
+                    Font = OsuFont.GetFont(size: 11),
+                    Text = @"Source audio: the beatmap's audio track (local files only in this build).",
+                });
+            }
+
+            content.Add(separateButton = new FormButton
+            {
+                Caption = @"Separate audio stems",
+                ButtonText = @"run",
+                Action = startSeparation,
+            });
+            content.Add(separateProgress = new KanProgressBar());
+            content.Add(transcribeButton = new FormButton
+            {
+                Caption = @"Generate transcription",
+                ButtonText = @"run",
+                Action = startTranscription,
+            });
+            content.Add(transcribeProgress = new KanProgressBar());
+
+            content.Add(new OsuSpriteText
+            {
+                Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
+                Text = @"Tracks",
+                Margin = new MarginPadding { Top = 10 },
+            });
+            content.Add(trackFlow = new FillFlowContainer
+            {
+                RelativeSizeAxes = Axes.X,
+                AutoSizeAxes = Axes.Y,
+                Direction = FillDirection.Vertical,
+                Spacing = new osuTK.Vector2(0, 6),
+            });
+            content.Add(addTrackPathBox = new FormTextBox
+            {
+                Caption = @"Add individual track (audio file path)",
+                PlaceholderText = @"/path/to/your/track.wav",
+            });
+            content.Add(new FormButton
+            {
+                Caption = @"Import track",
+                ButtonText = @"add",
+                Action = importTrack,
+            });
+            content.Add(renderButton = new FormButton
+            {
+                Caption = @"Render single track (mixdown to beatmap audio)",
+                ButtonText = @"render",
+                Action = startRender,
+            });
+            content.Add(statusText = new OsuSpriteText
+            {
+                Font = OsuFont.GetFont(size: 12),
+                Text = @"Ready.",
+            });
+
+            Children = content.ToArray();
         }
 
-        /// <summary>The source audio: URL override, else the beatmap audio materialised to a temp file.</summary>
+        /// <summary>The source audio: URL override (dev tooling), else the beatmap audio.</summary>
         private string? resolveSourceAudio()
         {
-            string url = sourceUrlBox.Current.Value?.Trim() ?? string.Empty;
+            string url = sourceUrlBox?.Current.Value?.Trim() ?? string.Empty;
             if (url.Length > 0) return url;
 
             string? audioFile = Beatmap.BeatmapInfo.Metadata.AudioFile;
@@ -111,7 +174,7 @@ namespace Kan.Forge.Editor
             string? source = resolveSourceAudio();
             if (source == null)
             {
-                status("No source audio: set the beatmap audio or paste a URL.");
+                status("No source audio: set the beatmap audio" + (devToolsEnabled ? " or paste a URL." : "."));
                 return;
             }
 
@@ -134,8 +197,106 @@ namespace Kan.Forge.Editor
                 return await ForgeJobs.SeparateStemsAsync(path, outDir, report(separateProgress), Scheduler);
             },
             separateProgress,
-            stemDir => status($"Stems ready in {stemDir}"),
+            stemDir =>
+            {
+                int added = registerStems(stemDir);
+                status($"Stems ready in {stemDir} — {added} tracks added.");
+            },
             ex => status($"Separation failed: {ex.Message}"));
+        }
+
+        /// <summary>Register the generated stems as editor tracks (volume/mute per channel).</summary>
+        private int registerStems(string stemDir)
+        {
+            if (!Directory.Exists(stemDir)) return 0;
+
+            int added = 0;
+            foreach (string file in Directory.EnumerateFiles(stemDir, "*.wav").OrderBy(f => f))
+            {
+                trackSet.Import(Path.GetFileNameWithoutExtension(file), file);
+                added++;
+            }
+
+            if (added > 0) Scheduler.Add(rebuildTrackRows);
+            return added;
+        }
+
+        private void importTrack()
+        {
+            string path = addTrackPathBox.Current.Value?.Trim() ?? string.Empty;
+            if (path.Length == 0 || !File.Exists(path))
+            {
+                status("Import: give the path of an existing audio file.");
+                return;
+            }
+
+            trackSet.Import(Path.GetFileNameWithoutExtension(path), path);
+            addTrackPathBox.Current.Value = string.Empty;
+            rebuildTrackRows();
+            status($"Track '{Path.GetFileName(path)}' added ({trackSet.Tracks.Count} in the set).");
+        }
+
+        private void removeTrack(ForgeTrack track)
+        {
+            trackSet.Remove(track);
+            rebuildTrackRows();
+        }
+
+        private void rebuildTrackRows()
+        {
+            trackFlow.Clear();
+            foreach (var track in trackSet.Tracks)
+                trackFlow.Add(new TrackRow(track, removeTrack));
+        }
+
+        private void startRender()
+        {
+            var audible = trackSet.Audible.ToList();
+            if (audible.Count == 0)
+            {
+                status("Render: no audible tracks — add tracks or unmute some.");
+                return;
+            }
+
+            setBusy(true);
+            string outWav = Path.Combine(Path.GetTempPath(), "kan-forge",
+                                         "render-" + Guid.NewGuid().ToString("N")[..8] + ".wav");
+            Directory.CreateDirectory(Path.GetDirectoryName(outWav)!);
+
+            runJob(async () => await ForgeJobs.RenderMixAsync(audible, outWav, null, Scheduler),
+                transcribeProgress,
+                path =>
+                {
+                    string? applied = applyAsBeatmapAudio(path);
+                    status(applied != null
+                        ? $"Rendered {audible.Count} tracks → {applied} (now the beatmap audio)."
+                        : $"Rendered {audible.Count} tracks → {path} (could not set it as beatmap audio).");
+                },
+                ex => status($"Render failed: {ex.Message}"));
+        }
+
+        /// <summary>Add the rendered mix to the beatmap set and make it the audio track.</summary>
+        private string? applyAsBeatmapAudio(string wavPath)
+        {
+            try
+            {
+                var set = working.Value.BeatmapSetInfo;
+
+                string name = @"audio-render.wav";
+                for (int i = 1; set.Files.Any(f => f.Filename == name); i++)
+                    name = $@"audio-render-{i}.wav";
+
+                using (var stream = File.OpenRead(wavPath))
+                    beatmaps.AddFile(set, stream, name);
+
+                working.Value.BeatmapInfo.Metadata.AudioFile = name;
+                return name;
+            }
+            catch (Exception e)
+            {
+                status($"Could not set the rendered track as beatmap audio: {e.Message}");
+                return null;
+            }
         }
 
         private void startTranscription()
@@ -143,7 +304,7 @@ namespace Kan.Forge.Editor
             string? source = resolveSourceAudio();
             if (source == null)
             {
-                status("No source audio: set the beatmap audio or paste a URL.");
+                status("No source audio: set the beatmap audio" + (devToolsEnabled ? " or paste a URL." : "."));
                 return;
             }
 
@@ -196,6 +357,7 @@ namespace Kan.Forge.Editor
         {
             separateButton.Enabled.Value = !busy;
             transcribeButton.Enabled.Value = !busy;
+            renderButton.Enabled.Value = !busy;
         }
 
         private void status(string message)
@@ -216,6 +378,54 @@ namespace Kan.Forge.Editor
                 if (n.Midi < 0) unresolved++;
 
             return $"{draft.Notes.Count} notes ({unresolved} unresolved pitch)";
+        }
+
+        /// <summary>One editor track: name, volume, mute, remove.</summary>
+        private partial class TrackRow : FillFlowContainer
+        {
+            public TrackRow(ForgeTrack track, Action<ForgeTrack> onRemove)
+            {
+                RelativeSizeAxes = Axes.X;
+                AutoSizeAxes = Axes.Y;
+                Direction = FillDirection.Vertical;
+                Spacing = new osuTK.Vector2(0, 4);
+
+                var gain = new BindableNumber<float>(track.Gain)
+                {
+                    MinValue = 0,
+                    MaxValue = 2,
+                    Precision = 0.05f,
+                };
+                var muted = new BindableBool(track.Muted);
+
+                gain.BindValueChanged(v => track.Gain = v.NewValue);
+                muted.BindValueChanged(v => track.Muted = v.NewValue);
+
+                Children = new Drawable[]
+                {
+                    new OsuSpriteText
+                    {
+                        Text = track.Name,
+                        Font = OsuFont.GetFont(size: 13, weight: FontWeight.Bold),
+                    },
+                    new FormSliderBar<float>
+                    {
+                        Caption = @"volume",
+                        Current = gain,
+                        KeyboardStep = 0.05f,
+                    },
+                    new FormCheckBox
+                    {
+                        Caption = @"mute",
+                        Current = muted,
+                    },
+                    new FormButton
+                    {
+                        ButtonText = $@"remove '{track.Name}'",
+                        Action = () => onRemove(track),
+                    },
+                };
+            }
         }
 
         /// <summary>Determinate progress bar with a phase caption.</summary>

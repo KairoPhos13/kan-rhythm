@@ -2,11 +2,14 @@
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using osu.Framework.Threading;
 using Kan.Forge.Native;
+using Kan.Forge.Tracks;
 using Kan.Forge.Transcription;
 
 namespace Kan.Forge.Pipeline
@@ -165,6 +168,32 @@ namespace Kan.Forge.Pipeline
 
                 draft.Sort();
                 return draft;
+            }, onProgress, uiScheduler);
+
+        /// <summary>
+        /// Render one playable track from the track set (the editor's final
+        /// "render a single track for playback" step): audible tracks are
+        /// mixed with their gains into a single WAV.
+        /// </summary>
+        public static Task<string> RenderMixAsync(IEnumerable<ForgeTrack> tracks, string outWav,
+                                                  Action<ForgeProgress>? onProgress = null,
+                                                  Scheduler? uiScheduler = null)
+            => ForgeJobRunner.RunAsync(sink =>
+            {
+                // Muted tracks are excluded from the render entirely (they
+                // must not extend the rendered mix either).
+                var list = tracks.Where(t => !t.Muted).ToList();
+                if (list.Count == 0)
+                    throw new ForgeException("render: no audible tracks — unmute or add tracks first");
+
+                var paths = list.Select(t => t.Path).ToArray();
+                var gains = list.Select(t => t.Gain).ToArray();
+
+                var err = new byte[err_cap];
+                KanForgeStatus st = KanForgeNative.MixTracks(paths, gains, list.Count, outWav, err, err_cap);
+                if (st != KanForgeStatus.Ok)
+                    throw new ForgeException(KanForgeNative.ErrMessage(err));
+                return outWav;
             }, onProgress, uiScheduler);
     }
 }

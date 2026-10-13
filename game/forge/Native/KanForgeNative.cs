@@ -77,6 +77,11 @@ namespace Kan.Forge.Native
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_has_downloader", CallingConvention = CallingConvention.Cdecl)]
         public static extern bool HasDownloader();
 
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_mix_tracks", CallingConvention = CallingConvention.Cdecl)]
+        public static extern KanForgeStatus MixTracks([In, MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPStr)] string[] paths,
+                                                     float[] gains, int count, string outWav,
+                                                     byte[] err, int errCap);
+
         public static string Version()
         {
             IntPtr ptr = versionPtr();
