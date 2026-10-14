@@ -682,3 +682,18 @@ exactly the calibration layer (T1) target. Named next-phase items:
 4. Answers given: Vulkan is a GPU API (no "Vulkan on CPU"; CPU
    acceleration = SIMD); -march=native = compile for this CPU's
    instruction set.
+
+## Self-contained separation landed (spec game/docs/editor-pipeline.md s7b)
+
+- `libkan_roformer` compiles the GGUF RoFormer runtime (BSRoformer.cpp +
+  GGML, MIT) INTO libkan (FetchContent; `KAN_ENABLE_ROFORMER`, default
+  ON). Verified: in-process separation of a clip produced the 6 official
+  stems with no installed separator.
+- `find_separator()` probes the RUNTIME first (`runtime:<model>`), not
+  just the model; external CLI demoted to developer-tooling fallback.
+- Progress honesty: failed runs never report 100% (fixed in both paths).
+- Runtime input conditioning: linear resample to 44.1 kHz + mono->stereo.
+- Build battles (documented for future porters): ggml's
+  option(BUILD_SHARED_LIBS) clashed with KISSFFT_STATIC -> static forced
+  at root before any FetchContent; bsr default branch has no 'main' tag;
+  dr_wav headers live in bsr/third_party (SYSTEM include).
