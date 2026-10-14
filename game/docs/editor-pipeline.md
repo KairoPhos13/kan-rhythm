@@ -25,6 +25,19 @@ The official separation flow must not require an installed separator:
 Status: verified end-to-end (clip separation in-process, 6 stems in
 official order; failure semantics covered by code + review).
 
+
+### §7b.1 Device correctness guard (2026-10-14)
+
+A ggml-vulkan q8_0 bug (wrong integer dot-product matmul on RADV NAVI21)
+produced silently wrong stems. Hardened so this can never lock in:
+
+- int-dot path disabled by default before ggml init (override respected);
+- **one-time CPU/GPU parity gate** (>= 30 dB SNR on content stems) with
+  automatic CPU fallback — a broken GPU path cannot ship stems;
+- pinned ggml/BSRoformer commits (update only with the parity test green
+  on real hardware);
+- upstream report: docs/porting/ggml-vulkan-int-dot-product.md.
+
 Until §7b landed, demux was developer tooling and the game-side
 pre-check was provisional — both are now superseded by the in-process
 runtime.

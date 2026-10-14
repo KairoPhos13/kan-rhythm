@@ -697,3 +697,32 @@ exactly the calibration layer (T1) target. Named next-phase items:
   option(BUILD_SHARED_LIBS) clashed with KISSFFT_STATIC -> static forced
   at root before any FetchContent; bsr default branch has no 'main' tag;
   dr_wav headers live in bsr/third_party (SYSTEM include).
+
+## ggml-vulkan q8_0 bug: hardened so it cannot lock in (2026-10-14)
+
+The game-side report (q8_0 integer dot product wrong on AMD RX 6800 /
+RADV NAVI21: silent stem leakage; correct on CPU and on GPU with int-dot
+disabled; F16 GPU correct) drove four fixes:
+
+1. **Safe by default:** `GGML_VK_DISABLE_INTEGER_DOT_PRODUCT=1` set in
+   the runtime before ggml Vulkan init (user override respected).
+2. **Parity gate (the lock-in killer):** `roformer_device_parity_ok()`
+   separates a built-in probe on the default device and on CPU; content
+   stems must match at >= 30 dB SNR, else the session falls back to CPU.
+   Marker cached per (model, build, backend tag); rebuilds re-probe.
+   Verified on the affected hardware class: Vulkan0 vs CPU = 59.5 dB.
+3. **Pinned deps:** ggml 3612c0af + BSRoformer a7b9625 (GIT_TAG SHAs);
+   updates require the parity test green on real hardware.
+4. **Upstream report drafted** (docs/porting/ggml-vulkan-int-dot-product.md).
+
+Also fixed en route: the runtime's ggml was building WITHOUT Vulkan
+(a vacuous CPU-vs-CPU parity passed at 120 dB — caught by reading the
+probe log, not the result: "Using backend: CPU" twice). GGML_VULKAN is
+now forced ON and the marker records the backend tag (v3) so a
+CPU-only build can never validate a Vulkan build.
+
+Unit tests (libkan_runtime_test): SNR math + optional full parity
+(KAN_ROFORMER_PARITY=1). 23/23 ctest green.
+
+Side findings from the report acknowledged as follow-ups: runtime reads
+WAV only (decode first; error message says so), basic linear resampler.
