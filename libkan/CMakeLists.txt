@@ -127,3 +127,48 @@ endif()
 add_executable(libkan_score_error_test tests/score_error_test.cpp)
 target_include_directories(libkan_score_error_test PRIVATE include)
 add_test(NAME score_error COMMAND libkan_score_error_test)
+
+# ---- In-process GGUF RoFormer separation runtime (single stack) ----
+# Official separation flow is self-contained (docs/implementation/
+# kan-editor-agent-prompt.md, game/docs/editor-pipeline.md s7b): no
+# installed separator binary — only the auto-downloaded GGUF model.
+# Third-party code (BSRoformer.cpp + GGML, both MIT) compiles INTO
+# libkan_roformer; consumers get it automatically via libkan.
+option(KAN_ENABLE_ROFORMER "Compile the GGUF RoFormer runtime into libkan" ON)
+if(KAN_ENABLE_ROFORMER)
+    include(FetchContent)
+    # Static everywhere (repo style): ggml's option(BUILD_SHARED_LIBS) would
+    # otherwise cache ON and conflict with KISSFFT_STATIC later in the run.
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "static libraries" FORCE)
+    FetchContent_Declare(ggml
+        GIT_REPOSITORY https://github.com/ggerganov/ggml.git
+        GIT_TAG master GIT_SHALLOW TRUE)
+    FetchContent_MakeAvailable(ggml)
+    FetchContent_Declare(bsroformer
+        GIT_REPOSITORY https://github.com/chenmozhijin/BSRoformer.cpp.git
+        GIT_SHALLOW TRUE
+        SOURCE_SUBDIR _skip) # its own CMake needs GGML_DIR; we compile sources
+    FetchContent_MakeAvailable(bsroformer)
+
+    set(BSR ${bsroformer_SOURCE_DIR})
+    add_library(libkan_roformer STATIC
+        src/roformer_runtime.cpp
+        ${BSR}/src/inference.cpp
+        ${BSR}/src/model.cpp
+        ${BSR}/src/audio.cpp
+        ${BSR}/src/utils.cpp)
+    target_include_directories(libkan_roformer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+    target_include_directories(libkan_roformer SYSTEM PRIVATE ${BSR}/include)
+    target_include_directories(libkan_roformer PRIVATE ${BSR}/src)
+    target_include_directories(libkan_roformer SYSTEM PRIVATE ${BSR}/third_party)
+    target_link_libraries(libkan_roformer PUBLIC ggml)
+    target_compile_features(libkan_roformer PUBLIC cxx_std_17)
+    target_compile_definitions(libkan_roformer PUBLIC KAN_HAVE_ROFORMER_RUNTIME=1)
+    # Third-party sources must not pollute the -Wall -Wextra clean rule.
+    set_source_files_properties(${BSR}/src/inference.cpp ${BSR}/src/model.cpp
+        ${BSR}/src/audio.cpp ${BSR}/src/utils.cpp
+        PROPERTIES COMPILE_OPTIONS "-w")
+    find_package(Threads REQUIRED)
+    target_link_libraries(libkan_roformer PUBLIC Threads::Threads)
+    target_link_libraries(libkan INTERFACE libkan_roformer)
+endif()

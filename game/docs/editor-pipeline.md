@@ -191,31 +191,30 @@ content-claim exposure. Policy of record:
   licence — we do not bet the product on it.)
 - `kan_forge_has_downloader()` lets the UI reflect this honestly.
 
-## 7b. Needs from libkan — self-contained separation (owner, 2026-10-13)
+## 7b. Self-contained separation (DONE, 2026-10-13 — libkan lane)
 
-**The official flow must not ask the player to install a separator.** The
-single-stack decision (chart-transcription-evaluation.md §"SINGLE STACK")
-picked the **GGUF RoFormer runtime via GGML** precisely because one binary
-covers Vulkan/CPU/Metal with *no torch and zero extra dependencies* — so
-`kan::separate_stems` is expected to **be compiled to support the flow**:
+**The official flow never asks the player to install a separator.** The
+requirement of this component (owner 2026-10-13: "libkan handles not having
+the model and is compiled to support the flow") was delivered by the libkan
+lane as:
 
-1. **Self-contained runtime:** either compile the GGML/GGUF RoFormer
-   inference into libkan (preferred — matches "compiled to support the
-   flow"), or provision/resolve the runner automatically alongside the
-   library. The model auto-download (`ensure_roformer_model`) already works
-   this way — the runtime is the missing half.
-2. **Honest probing:** `find_separator()` currently returns a separator
-   token when only the *model* exists, even if the runtime is missing —
-   downstream then fails with a misleading "no stems". It should probe both
-   (as the game-side pre-check does provisionally).
-3. **Progress truthfulness:** the CLI's progress reports reached 100%
-   while the run failed; failed runs should not report completion.
+1. **Runtime compiled into libkan.** `libkan_roformer` (CMake option
+   `KAN_ENABLE_ROFORMER`, default ON) compiles the GGUF RoFormer runtime
+   (BSRoformer.cpp + GGML, both MIT) into the library. `kan::separate_stems`
+   works in-process with only the auto-downloaded GGUF model.
+2. **`find_separator()` probes the RUNTIME**, not just the model: it
+   returns `runtime:<model>` when the compiled runtime is present and the
+   model is available (auto-downloaded). The external `bs_roformer-cli`
+   remains as DEVELOPER TOOLING fallback only (provisional).
+3. **Progress honesty:** a failed run never reports 100% (neither the
+   in-process path nor the process path).
+4. **Input conditioning in the runtime:** any WAV sample rate is linearly
+   resampled to the model rate (44.1 kHz); mono is duplicated to stereo.
 
-The game lane (this component) consumes `kan::separate_stems` only. Its
-provisional CLI pre-check and the actionable error message in the demux
-button disappear once separation is self-contained in libkan. Until then
-demux is developer tooling (like the URL fetch): the model is handled
-automatically, the runner is not.
+Status: verified end-to-end (clip separation in-process, 6 stems in
+official order; failure semantics covered by code + review). The
+game-side CLI pre-check that stood in until then is removed — the bridge
+trusts `find_separator()`'s honest probe.
 
 ## 8. Remaining slices (mapped to the prompt's acceptance criteria)
 

@@ -7,6 +7,9 @@
 // `end_faded` preserved for the editor. The facts are measurements, not
 // verdicts — a transcribed chart is a DRAFT for human review.
 #include "libkan/note_stream.hpp"
+#ifdef KAN_HAVE_ROFORMER_RUNTIME
+#include "libkan/roformer_runtime.hpp"
+#endif
 #include "libkan/instrument_profile.hpp"
 
 #include <algorithm>
@@ -98,7 +101,7 @@ inline bool run_with_progress(const std::string& cmd, const char* phase) {
 #else
     const int rc = pclose(p);
 #endif
-    report_progress(phase, 100);
+    if (rc == 0) report_progress(phase, 100); // failure never reports 100
     return rc == 0;
 }
 
@@ -159,6 +162,17 @@ inline std::string ensure_roformer_model() {
 }
 
 inline std::string find_separator() {
+#ifdef KAN_HAVE_ROFORMER_RUNTIME
+    // Official flow (editor-pipeline s7b): the runtime is compiled in —
+    // probe the RUNTIME, not just the model. No installed separator needed.
+    {
+        const std::string model = ensure_roformer_model();
+        if (!model.empty() && roformer_runtime_available()) {
+            return "runtime:" + model;
+        }
+    }
+#endif
+    // Developer tooling fallback (external CLI — provisional per s7b).
     const char* cli = std::getenv("KAN_ROFORMER_CLI");
     const std::string bs = (cli != nullptr && *cli != '\0') ? cli : "bs_roformer-cli";
     const std::string model = ensure_roformer_model();
@@ -174,6 +188,21 @@ inline std::string separate_stems(const std::string& audio,
     (void)stems;
     const std::string sep = find_separator();
     if (sep.empty()) return "";
+    if (sep.rfind("runtime:", 0) == 0) {
+#ifdef KAN_HAVE_ROFORMER_RUNTIME
+        const std::string model = sep.substr(8);
+        const std::string dir = out_dir + "/roformer";
+        fs_create_all(dir);
+        std::printf("[separate] in-process runtime: %s\n", model.c_str());
+        const bool okrun = roformer_separate_wav(
+            audio, dir, model, [](float p) {
+                report_progress("separate", int(p * 100.0f + 0.5f));
+            });
+        return okrun ? dir : std::string("");
+#else
+        return "";
+#endif
+    }
     const size_t c1 = sep.find(':', 11);
     const std::string cli = sep.substr(11, c1 - 11);
     const std::string gguf = sep.substr(c1 + 1);

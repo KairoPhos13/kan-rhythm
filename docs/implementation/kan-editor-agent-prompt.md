@@ -42,7 +42,9 @@ Header-only core (`libkan/include/libkan/`), C++20. Key APIs:
   anchor), bias-corrected duration (+ raw end + `end_faded`), pitch
   center + cents, dynamics dB, vibrato rate/depth.
 - `kan::separate_stems(audio, out_dir) -> stem_dir` — source separation
-  (single stack: bs_roformer-cli + GGUF). Produces stems named
+  (single stack: IN-PROCESS GGUF runtime compiled into libkan via
+  `libkan_roformer` — no installed separator; see game/docs/editor-pipeline.md
+  s7b. Any WAV rate accepted; progress via the same contract). Produces stems named
   `bass/drums/guitar/other/piano/vocals.wav` (official order). Models
   auto-download to `models/` (`KAN_ROFORMER_GRADE`: q8 default, f16,
   q4; `KAN_MODEL_URL` switches to our own distribution later).

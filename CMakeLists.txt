@@ -17,6 +17,11 @@ else()
     add_compile_options(-O3 -march=native -Wall -Wextra)
 endif()
 
+# Static everywhere (repo style). Forced before any FetchContent: ggml's
+# option(BUILD_SHARED_LIBS) caches ON otherwise and conflicts with
+# KISSFFT_STATIC on reconfigure.
+set(BUILD_SHARED_LIBS OFF CACHE BOOL "static libraries" FORCE)
+
 include(FetchContent)
 
 # Automatic download of miniaudio (MIT-0)
