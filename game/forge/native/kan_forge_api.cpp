@@ -129,6 +129,19 @@ kan_forge_status kan_forge_separate_stems(const char* audio_path, const char* ou
         if (!ec) setenv("KAN_ROFORMER_GGUF", abs.string().c_str(), 1);
     }
 
+    // Device-correctness gate visibility (editor-pipeline s7b.1): the first
+    // run after a runtime change compares GPU vs CPU once (the CPU half is
+    // heavy). Give it its own progress phase so the UI never shows a frozen
+    // bar — and state the verdict (GPU ok / CPU fallback) out loud.
+    if (sep.rfind("runtime:", 0) == 0) {
+#ifdef KAN_HAVE_ROFORMER_RUNTIME
+        kan::report_progress("device check", 0);
+        std::string why;
+        const bool parity_ok = kan::roformer_device_parity_ok(sep.substr(8), &why);
+        kan::report_progress(parity_ok ? "device check (GPU ok)" : "device check failed (CPU fallback)", 100);
+#endif
+    }
+
     const std::string dir = kan::separate_stems(audio_path, out_dir, "6");
     if (dir.empty()) {
         set_err(err, err_cap,
@@ -326,10 +339,18 @@ kan_forge_status kan_forge_analyze_track(const char* audio_path, float* peaks, i
 kan_forge_status kan_forge_mix_tracks(const char* const* paths, const float* gains,
                                       int32_t count, const char* out_wav,
                                       char* err, int32_t err_cap) {
+    return kan_forge_mix_tracks_at(paths, gains, nullptr, count, out_wav, err, err_cap);
+}
+
+kan_forge_status kan_forge_mix_tracks_at(const char* const* paths, const float* gains,
+                                         const double* offsets_ms, int32_t count,
+                                         const char* out_wav, char* err, int32_t err_cap) {
     if (paths == nullptr || gains == nullptr || out_wav == nullptr || count <= 0) {
         set_err(err, err_cap, "mix: missing inputs (need at least one track)");
         return KAN_FORGE_ERR_ARGS;
     }
+
+    constexpr double sample_rate = 48000.0;
 
     std::vector<float> mix;
     for (int32_t i = 0; i < count; ++i) {
@@ -337,14 +358,20 @@ kan_forge_status kan_forge_mix_tracks(const char* const* paths, const float* gai
             set_err(err, err_cap, "mix: null track path");
             return KAN_FORGE_ERR_ARGS;
         }
+        const double off_ms = offsets_ms != nullptr ? offsets_ms[i] : 0.0;
+        if (!(off_ms >= 0.0)) {  // also rejects NaN
+            set_err(err, err_cap, "mix: track offsets must be >= 0 ms");
+            return KAN_FORGE_ERR_ARGS;
+        }
         std::vector<float> sig;
         if (!load_audio(paths[i], sig)) {
             set_err(err, err_cap, "mix: cannot decode track (missing file or unsupported codec)");
             return KAN_FORGE_ERR_DECODE;
         }
-        if (sig.size() > mix.size()) mix.resize(sig.size(), 0.0f);
+        const size_t start = size_t(std::llround(off_ms * 0.001 * sample_rate));
+        if (start + sig.size() > mix.size()) mix.resize(start + sig.size(), 0.0f);
         const float g = gains[i];
-        for (size_t s = 0; s < sig.size(); ++s) mix[s] += sig[s] * g;
+        for (size_t s = 0; s < sig.size(); ++s) mix[start + s] += sig[s] * g;
     }
 
     // Peak protection: scale down instead of clipping (keeps the render
@@ -356,7 +383,7 @@ kan_forge_status kan_forge_mix_tracks(const char* const* paths, const float* gai
         for (float& s : mix) s *= scale;
     }
 
-    if (!write_wav_pcm16(out_wav, mix, 48000)) {
+    if (!write_wav_pcm16(out_wav, mix, int(sample_rate))) {
         set_err(err, err_cap, "mix: cannot write output file");
         return KAN_FORGE_ERR_TRANSCRIBE;
     }

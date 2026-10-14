@@ -229,6 +229,24 @@ Validation follow-ups (game lane, 2026-10-13):
   silently dropped before, freezing the bar at 0%).
 
 
+### §7b.2 Performance of the parity gate (needs from libkan, 2026-10-14)
+
+The gate is correct and stays ("a broken GPU path cannot ship stems" — the
+owner demand). What a user experiences on the first run after a runtime
+change is a **silent, CPU-heavy one-time probe**, which reads like a
+GPU→CPU regression even though measured runs are 2 s on GPU (RX 6800,
+parity 60.1 dB). The game side now reports the gate as its own progress
+phase with its verdict ("device check (GPU ok)" / "… (CPU fallback)").
+Two perf asks for the libkan lane:
+
+1. **Marker keying:** the `<model>.device-parity` marker embeds
+   `__DATE__ __TIME__` of `roformer_runtime.cpp`, so every recompile of
+   that file re-runs the probe. Key it on (model, backend tag, ggml
+   version/commit) instead — rebuilds of unrelated code should not pay it.
+2. **Probe cost & visibility:** the CPU reference pass on q8_0 is the slow
+   half. A shorter probe clip (or subsampled SNR) would shrink it; a
+   progress callback during the probe would make it honest from inside.
+
 ### §7b.1 Device correctness guard (2026-10-14)
 
 A ggml-vulkan q8_0 bug (wrong integer dot-product matmul on RADV NAVI21)
