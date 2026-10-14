@@ -16,6 +16,11 @@ project(kan_forge_native LANGUAGES C CXX)
 
 enable_testing()
 
+# Defaults (game/Makefile drives these; keep builds reproducible without flags).
+if(NOT CMAKE_BUILD_TYPE)
+    set(CMAKE_BUILD_TYPE Release)
+endif()
+
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -34,6 +39,23 @@ FetchContent_MakeAvailable(miniaudio)
 # libkan (C++20, header-only core) + its compiled RoFormer separation
 # runtime (KAN_ENABLE_ROFORMER, default ON — the self-contained separation
 # of editor-pipeline §7b). Consumers get everything via the libkan target.
+#
+# ggml backend: build the Vulkan backend so the runtime's
+# `ggml_backend_init_best()` takes the GPU when present (single stack:
+# Vulkan/GPU, CPU fallback — chart-transcription-evaluation.md). BSR_FORCE_CPU
+# stays as the runtime escape hatch. FORCE wins over stale cache values from
+# CPU-only configure runs; the monorepo root build should follow suit
+# (tracked as a libkan-lane note).
+if(NOT DEFINED KAN_DISABLE_VULKAN)
+    find_package(Vulkan QUIET)
+    find_program(KAN_GLSLC glslc)
+    if(Vulkan_FOUND AND KAN_GLSLC)
+        set(GGML_VULKAN ON CACHE BOOL "ggml Vulkan backend (GPU inference)" FORCE)
+    else()
+        message(STATUS "kan_forge_native: Vulkan tools not found — RoFormer runs on CPU")
+    endif()
+endif()
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../libkan libkan_build)
 
 add_library(kan_forge_native SHARED kan_forge_api.cpp)

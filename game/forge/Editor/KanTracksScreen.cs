@@ -293,7 +293,8 @@ namespace Kan.Forge.Editor
                                              "stems-" + Guid.NewGuid().ToString("N")[..8]);
 
                 Scheduler.Add(() => demuxProgress.Set(0, $"demux {track.Name}"));
-                ForgeJobs.SeparateStemsAsync(track.Path, outDir).GetAwaiter().GetResult();
+                ForgeJobs.SeparateStemsAsync(track.Path, outDir, report(demuxProgress), Scheduler)
+                         .GetAwaiter().GetResult();
 
                 // The source has been demuxed (never again), and the results
                 // join the list as separated tracks (any role except demux).

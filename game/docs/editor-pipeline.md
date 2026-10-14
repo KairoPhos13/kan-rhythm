@@ -216,6 +216,18 @@ official order; failure semantics covered by code + review). The
 game-side CLI pre-check that stood in until then is removed — the bridge
 trusts `find_separator()`'s honest probe.
 
+Validation follow-ups (game lane, 2026-10-13):
+
+- **GPU:** `ggml_backend_init_best()` picks the GPU automatically, but the
+  backend must be *built* — the game's bridge build enables `GGML_VULKAN`
+  (with a CPU fallback when Vulkan tools are absent; `BSR_FORCE_CPU` is the
+  runtime escape hatch). **Note for the libkan lane:** the monorepo root
+  build still compiles ggml CPU-only — defaulting `GGML_VULKAN` ON there
+  (when Vulkan is available) would give every consumer the GPU path.
+- **Progress:** the runtime forwards per-chunk fractions correctly; the
+  game side now passes its progress sink into the separation job (it was
+  silently dropped before, freezing the bar at 0%).
+
 ## 8. Remaining slices (mapped to the prompt's acceptance criteria)
 
 | Slice | Covers | Notes |
