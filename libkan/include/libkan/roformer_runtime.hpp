@@ -7,11 +7,23 @@
 // Thread-safety: one Inference instance per call (not pooled).
 #include <functional>
 #include <string>
+#include <vector>
 
 namespace kan {
 
 /// True when the runtime is compiled in and can run (device init works).
 bool roformer_runtime_available();
+
+/// SNR in dB between reference and test signals (120 = identical).
+double roformer_snr_db(const std::vector<float>& ref,
+                       const std::vector<float>& test);
+
+/// One-time CPU/GPU parity gate (device correctness guard): separates a
+/// built-in probe on the default device and on CPU; content stems must
+/// match at >= 30 dB SNR. Cached per (model, build); rebuilds re-probe.
+/// A failure means the caller must fall back to CPU.
+bool roformer_device_parity_ok(const std::string& model_path,
+                               std::string* detail = nullptr);
 
 /// Model requirements exposed to the acquisition layer (44.1 kHz models).
 int roformer_sample_rate();

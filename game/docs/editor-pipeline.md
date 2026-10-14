@@ -228,6 +228,19 @@ Validation follow-ups (game lane, 2026-10-13):
   game side now passes its progress sink into the separation job (it was
   silently dropped before, freezing the bar at 0%).
 
+
+### §7b.1 Device correctness guard (2026-10-14)
+
+A ggml-vulkan q8_0 bug (wrong integer dot-product matmul on RADV NAVI21)
+produced silently wrong stems. Hardened so this can never lock in:
+
+- int-dot path disabled by default before ggml init (override respected);
+- **one-time CPU/GPU parity gate** (>= 30 dB SNR on content stems) with
+  automatic CPU fallback — a broken GPU path cannot ship stems;
+- pinned ggml/BSRoformer commits (update only with the parity test green
+  on real hardware);
+- upstream report: docs/porting/ggml-vulkan-int-dot-product.md.
+
 ## 8. Remaining slices (mapped to the prompt's acceptance criteria)
 
 | Slice | Covers | Notes |

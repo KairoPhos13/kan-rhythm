@@ -140,13 +140,20 @@ if(KAN_ENABLE_ROFORMER)
     # Static everywhere (repo style): ggml's option(BUILD_SHARED_LIBS) would
     # otherwise cache ON and conflict with KISSFFT_STATIC later in the run.
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "static libraries" FORCE)
+    # GPU backend ON: the shipped runtime separates on Vulkan when
+    # available (device selection is automatic; CPU fallback inherent).
+    set(GGML_VULKAN ON CACHE BOOL "ggml: Vulkan backend" FORCE)
+    # PINNED: the Vulkan backend is correctness-critical (ggml-vulkan q8_0
+    # integer dot product produced wrong stems on RADV NAVI21 at
+    # 3612c0af). Update only WITH the parity test (libkan_runtime_test,
+    # KAN_ROFORMER_PARITY=1) green on real hardware.
     FetchContent_Declare(ggml
         GIT_REPOSITORY https://github.com/ggerganov/ggml.git
-        GIT_TAG master GIT_SHALLOW TRUE)
+        GIT_TAG 3612c0af93f2cfc8f048295300a61187723b12ae GIT_SHALLOW FALSE)
     FetchContent_MakeAvailable(ggml)
     FetchContent_Declare(bsroformer
         GIT_REPOSITORY https://github.com/chenmozhijin/BSRoformer.cpp.git
-        GIT_SHALLOW TRUE
+        GIT_TAG a7b9625f0f4146cacf3c46080d1139833cd4d4c2 GIT_SHALLOW FALSE
         SOURCE_SUBDIR _skip) # its own CMake needs GGML_DIR; we compile sources
     FetchContent_MakeAvailable(bsroformer)
 
@@ -170,5 +177,13 @@ if(KAN_ENABLE_ROFORMER)
         PROPERTIES COMPILE_OPTIONS "-w")
     find_package(Threads REQUIRED)
     target_link_libraries(libkan_roformer PUBLIC Threads::Threads)
+    if(TARGET ggml-vulkan)
+        target_compile_definitions(libkan_roformer PRIVATE KAN_GGML_HAS_VULKAN=1)
+    endif()
     target_link_libraries(libkan INTERFACE libkan_roformer)
+    if(KAN_BUILD_TESTS)
+        add_executable(libkan_runtime_test tests/runtime_test.cpp)
+        target_link_libraries(libkan_runtime_test PRIVATE libkan_roformer)
+        add_test(NAME roformer_runtime COMMAND libkan_runtime_test)
+    endif()
 endif()
