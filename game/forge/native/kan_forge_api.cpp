@@ -107,43 +107,32 @@ kan_forge_status kan_forge_separate_stems(const char* audio_path, const char* ou
         set_err(err, err_cap, "separate: missing audio path or output directory");
         return KAN_FORGE_ERR_ARGS;
     }
+
+    // libkan (since its self-contained separation, 2026-10-13) probes its
+    // compiled RoFormer runtime honestly: "runtime:<model>". The
+    // "bsroformer:<cli>:<model>" token is the developer-tooling fallback.
     const std::string sep = kan::find_separator();
     if (sep.empty()) {
         set_err(err, err_cap,
-                "separate: no separator backend — install bs_roformer-cli and/or set "
-                "KAN_ROFORMER_CLI / KAN_ROFORMER_GGUF");
+                "separate: no separator runtime — expected the compiled RoFormer runtime "
+                "(libkan KAN_ENABLE_ROFORMER) with its auto-downloaded model");
         return KAN_FORGE_ERR_SEPARATOR;
     }
 
-    // The token is "bsroformer:<cli>:<model>" (libkan find_separator).
-    const size_t c1 = sep.find(':', 11);
-    const std::string cli = sep.substr(11, c1 - 11);
-    const std::string model = sep.substr(c1 + 1);
-
-    // Honest pre-checks: find_separator() only verifies the model, so a
-    // missing CLI used to surface as a misleading "no stems" error.
-    {
-        const std::string probe = "command -v '" + cli + "' > /dev/null 2>&1";
-        if (std::system(probe.c_str()) != 0) {
-            set_err(err, err_cap,
-                    "separate: separator CLI not found on PATH — install bs_roformer-cli "
-                    "or set KAN_ROFORMER_CLI to its full path");
-            return KAN_FORGE_ERR_SEPARATOR;
-        }
-    }
-
-    // Make the model path absolute: libkan resolves it relative to the
-    // process working directory, which differs between tools and the game.
-    {
+    if (sep.rfind("runtime:", 0) != 0) {
+        // Developer-tooling fallback: absolutise the model path (libkan
+        // resolves it against the process working directory) so the CLI
+        // invocation is stable regardless of where the game was launched.
+        const size_t c1 = sep.find(':', 11);
         std::error_code ec;
-        auto abs = std::filesystem::absolute(model, ec);
+        auto abs = std::filesystem::absolute(sep.substr(c1 + 1), ec);
         if (!ec) setenv("KAN_ROFORMER_GGUF", abs.string().c_str(), 1);
     }
 
     const std::string dir = kan::separate_stems(audio_path, out_dir, "6");
     if (dir.empty()) {
         set_err(err, err_cap,
-                "separate: separation produced no stems — check the separator output above "
+                "separate: separation produced no stems — see the log above "
                 "(the model or the input may be invalid)");
         return KAN_FORGE_ERR_SEPARATOR;
     }
@@ -197,12 +186,9 @@ const char* kan_forge_version(void) {
 }
 
 int32_t kan_forge_has_separator(void) {
-    const std::string sep = kan::find_separator();
-    if (sep.empty()) return 0;
-    const size_t c1 = sep.find(':', 11);
-    const std::string cli = sep.substr(11, c1 - 11);
-    const std::string probe = "command -v '" + cli + "' > /dev/null 2>&1";
-    return std::system(probe.c_str()) == 0 ? 1 : 0;
+    // libkan's probe is honest since its self-contained separation
+    // (2026-10-13): it checks the compiled runtime and the model.
+    return kan::find_separator().empty() ? 0 : 1;
 }
 
 int32_t kan_forge_has_downloader(void) {

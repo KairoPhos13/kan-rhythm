@@ -254,7 +254,7 @@ namespace Kan.Forge.Editor
         {
             if (!KanForgeNative.HasSeparator())
             {
-                status("Demux needs the separator: install bs_roformer-cli or set KAN_ROFORMER_CLI (and KAN_ROFORMER_GGUF for the model).");
+                status("Demux is unavailable in this build: the compiled RoFormer runtime (libkan) is missing.");
                 return;
             }
 

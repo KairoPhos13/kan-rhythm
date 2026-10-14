@@ -31,14 +31,14 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(miniaudio)
 
-# libkan is header-only (C++20).
-add_library(kan_libkan_headers INTERFACE)
-target_include_directories(kan_libkan_headers INTERFACE
-    ${CMAKE_CURRENT_SOURCE_DIR}/../../../libkan/include)
+# libkan (C++20, header-only core) + its compiled RoFormer separation
+# runtime (KAN_ENABLE_ROFORMER, default ON — the self-contained separation
+# of editor-pipeline §7b). Consumers get everything via the libkan target.
+add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../libkan libkan_build)
 
 add_library(kan_forge_native SHARED kan_forge_api.cpp)
 target_include_directories(kan_forge_native PRIVATE ${miniaudio_SOURCE_DIR})
-target_link_libraries(kan_forge_native PRIVATE kan_libkan_headers)
+target_link_libraries(kan_forge_native PRIVATE libkan)
 target_compile_options(kan_forge_native PRIVATE -Wall -Wextra)
 if(UNIX AND NOT APPLE)
     target_link_libraries(kan_forge_native PRIVATE pthread m dl)
