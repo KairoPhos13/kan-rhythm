@@ -74,8 +74,10 @@ namespace Kan.Ruleset.UI
         private readonly NoteView[] views = new NoteView[note_pool];
         private readonly Circle[] dots = new Circle[trail_pool];
 
-        private Box nowLine = null!;
-        private Circle nowGlow = null!;
+        private KanNowLine nowLine = null!;
+
+        /// <summary>The note held at its pitch this frame (it burns at the line), or -1.</summary>
+        private int holding = -1;
 
         private double lo = 60, hi = 84; // shown pitch range (smoothed)
         private int firstVisible;
@@ -112,31 +114,10 @@ namespace Kan.Ruleset.UI
             InternalChildren = new Drawable[]
             {
                 lines,
-                nowGlow = new Circle
-                {
-                    RelativePositionAxes = Axes.X,
-                    X = now_fraction,
-                    RelativeSizeAxes = Axes.Y,
-                    Height = 1.2f,
-                    Width = 28,
-                    Anchor = Anchor.CentreLeft,
-                    Origin = Anchor.Centre,
-                    Colour = Color4.White,
-                    Blending = BlendingParameters.Additive,
-                    Alpha = 0.05f,
-                },
-                nowLine = new Box
-                {
-                    RelativePositionAxes = Axes.X,
-                    X = now_fraction,
-                    RelativeSizeAxes = Axes.Y,
-                    Width = 3,
-                    Origin = Anchor.TopCentre,
-                    Colour = Color4.White,
-                    Alpha = 0.7f,
-                },
                 noteLayer,
                 trailLayer,
+                // Above the notes: a hit's impact lands on its note.
+                nowLine = new KanNowLine(now_fraction, great_colour),
                 feedbackLayer,
             };
 
@@ -170,8 +151,9 @@ namespace Kan.Ruleset.UI
             drawNotes(now);
             drawTrail(now);
 
-            // The line glows with the music's bloom.
-            nowGlow.Alpha = (float)(0.03 + 0.09 * state.Bloom);
+            // The line glows with the music's bloom, and burns with a held note.
+            nowLine.Bloom = state.Bloom;
+            nowLine.Holding(holding >= 0 ? yAt(notes[holding].Midi) : null, holding >= 0 ? colourOf(state.Verdicts[holding]) : Color4.White, now);
         }
 
         /// <summary>The range follows the next few seconds of music, eased so it never jumps.</summary>
@@ -235,6 +217,8 @@ namespace Kan.Ruleset.UI
         /// <summary>A hit note fills while the player holds its pitch.</summary>
         private void trackHolding(double now)
         {
+            holding = -1;
+
             if (state.TrailCount == 0) return;
 
             var latest = state.TrailAt(0);
@@ -246,7 +230,12 @@ namespace Kan.Ruleset.UI
                 if (now > n.EndMs || state.Verdicts[i] is not { } v || v.Result == LiveResult.Miss) continue;
 
                 if (n.PitchUnknown || Math.Abs(latest.Midi - n.Midi) < 0.6)
+                {
                     heldUntil[i] = Math.Min(now, n.EndMs);
+
+                    // A short note's hit is its reward; burning is for sustains.
+                    if (n.DurationMs >= 250 && now - n.StartTime > 120) holding = i;
+                }
             }
         }
 
@@ -362,10 +351,17 @@ namespace Kan.Ruleset.UI
                  .FadeOut(700, Easing.InQuad)
                  .Expire();
 
-            // Every judgement is seen at the line: a miss flashes it red.
-            nowLine.FlashColour(v.Result == LiveResult.Miss ? miss_feedback_colour : colour, v.Result == LiveResult.Miss ? 450 : 300, Easing.OutQuint);
-            nowGlow.FadeTo(v.Result == LiveResult.Miss ? 0.45f : 0.3f, 40).Then().FadeTo(0.08f, 400);
+            // Every judgement lands on the line: an impact for a hit, a red jolt for a miss.
+            nowLine.Judged(v.Result, yAt(n.Midi), colour, state.Streak);
         }
+
+        private static Color4 colourOf(LiveVerdict? v) => v?.Result switch
+        {
+            LiveResult.Great => great_colour,
+            LiveResult.Ok => ok_colour,
+            LiveResult.Meh => meh_colour,
+            _ => trail_on,
+        };
 
         protected override void Dispose(bool isDisposing)
         {

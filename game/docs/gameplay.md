@@ -135,9 +135,18 @@ isolated instance: ~1 ms apart after two corrections at the start).
 - **Bloom:** playing well opens the music. The level audio goes through a
   low-pass filter that lifts with the bloom (fully open near the top);
   a miss is heard at once: the music muffles hard (towards 200 Hz) and drops
-  in volume, recovering over ~0.9 s; the line flashes red. The background brightens
+  in volume, recovering over ~0.9 s. The background brightens
   with it. Real stem layering (the band joins in) needs the stems in the
   level: a later step.
+- **The now line is the reward** (`KanNowLine`, owner 2026-10-15: "one
+  of our best resources to feed the dopamine loop"). A hit lands on it: a
+  ring and sparks burst where the note met the line, with a white flash
+  for a great (14 / 8 / 4 sparks for great / ok / meh), and the line kicks
+  wider in the hit's colour. A streak heats the line: wider, golden, a
+  wider soft glow (fully hot at 32). Milestones (10, 25, 50, 75, 100, …)
+  send a shockwave across the staff and "25 in a row" low on the line.
+  A sustain held at its pitch burns at the line and sheds sparks. A miss
+  cools it at once: red, a short shake, dull sparks falling.
 - Everything is drawn from fixed pools, so any length of score costs the
   same per frame.
 
