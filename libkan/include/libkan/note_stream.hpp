@@ -635,7 +635,10 @@ public:
         for (size_t i = 0; i < n; ++i) acc += double(samples[i]) * double(samples[i]);
         block_strength_ = n > 0 ? float(std::sqrt(acc / double(n))) : 0.0f;
         if (detector_.process_onset_block(samples, n)) {
-            open_strike(sample_pos_ + n); // block-quantized
+            // A level re-articulation just opened this attack's record (the
+            // detector often fires late on a soft wind attack): not a second note.
+            const bool duplicate = level_strike_ && sample_pos_ + n < last_strike_sample_ + articulation_guard_samples();
+            if (!duplicate) open_strike(sample_pos_ + n); // block-quantized
         }
         const size_t mask = history_.size() - 1;
         for (size_t off = 0; off < n; ++off) {
@@ -818,8 +821,12 @@ private:
 
     /// A strike (or the opening of the very first record): one record per
     /// struck candidate, or one blind record when no candidates.
-    void open_strike(uint64_t onset_sample) noexcept {
+    /// `rearticulated`: opened by a level dip (tonguing) on a mono profile —
+    /// a new note by construction, never an extension of the held one.
+    void open_strike(uint64_t onset_sample, bool rearticulated = false) noexcept {
         const float onset_ms = 1000.0f * float(onset_sample) / sr_;
+        last_strike_sample_ = onset_sample;
+        level_strike_ = rearticulated;
 
         // Window discipline: this strike ends the measurement epoch of
         // every earlier group (no window may contain the new attack).
@@ -834,11 +841,11 @@ private:
         //        record opens (flagged RESTRIKE);
         //   - below that -> the held note is EXTENDED (a retrigger-like
         //        event on a sustain): no new record, the old one continues.
-        bool restrike = false;
+        bool restrike = rearticulated;
         bool defer_repeat = false;
         float held_rms = 0.0f;
         uint32_t held_id = 0;
-        if (profile_.max_simultaneous_notes <= 1) {
+        if (profile_.max_simultaneous_notes <= 1 && !rearticulated) {
             Record* live = nullptr;
             for (auto& n : records_) {
                 if (n.live) { live = &n; break; }
@@ -989,6 +996,8 @@ private:
             if (n.rms_count < kRmsSeriesMax) n.rms_series[n.rms_count++] = rms;
         }
 
+        track_articulation(rms, t_ms);
+
         // Mix readings per live group leader: stability, vibrato trajectory,
         // legato transitions (all bookkeeping on the bucket grid).
         for (auto& g : groups_) {
@@ -998,7 +1007,7 @@ private:
             const float since = t_ms - lead->onset_ms;
             if (since >= profile_.blanking_ms && since + 0.5f >= float(lead->next_reading_ms)) {
                 take_reading(*lead, t_ms);
-                lead->next_reading_ms += 50;
+                lead->next_reading_ms += size_t(profile_.reading_interval_ms);
                 if (profile_.accepts_legato_boundaries && profile_.max_simultaneous_notes <= 1
                     && g.live_records == 1 && !g.have_cands) {
                     check_transition(*lead, g, t_ms);
@@ -1079,6 +1088,91 @@ private:
         }
     }
 
+    // ---- articulation by level (mono profiles that rearticulate) ----------
+    // Winds articulate with the air: a tongued note is a short dip of the
+    // sound that comes back, a breath is a longer silence. The level line
+    // (10 ms buckets) shows both plainly, often with no attack transient for
+    // the onset detector to find. Profile data: rearticulates_by_level.
+
+    /// A low longer than this is a release (the note ended), not a tongued dip.
+    static constexpr float kArticulationGapMs = 90.0f;
+    /// Attack ramp of a new record before its level is trusted as reference.
+    static constexpr float kArticulationSettleMs = 40.0f;
+
+    /// Below this bucket RMS (about -56 dBFS) nothing is taken for a note.
+    static constexpr float kArticulationMinRms = 0.0015f;
+
+    size_t articulation_guard_samples() const noexcept { return size_t(0.06f * sr_); }
+
+    void track_articulation(float rms, float t_ms) noexcept {
+        if (!profile_.rearticulates_by_level || profile_.max_simultaneous_notes > 1) return;
+
+        Record* live = nullptr;
+        for (auto& n : records_) {
+            if (n.live) { live = &n; break; }
+        }
+        if (live == nullptr) {
+            art_record_ = 0;
+            art_low_since_ms_ = -1.0f;
+            // Out of silence: the sound rising well above the room level opens a
+            // note at the start of the rise (a breath attack has no transient).
+            if (art_rise_start_sample_ == 0 && rms > 2.0f * art_quiet_ && rms > kArticulationMinRms)
+                art_rise_start_sample_ = sample_pos_ - std::min<uint64_t>(sample_pos_, bucket_samples_);
+            if (art_rise_start_sample_ != 0 && rms > 4.0f * art_quiet_ && rms > 2.0f * kArticulationMinRms) {
+                const uint64_t at = art_rise_start_sample_;
+                art_rise_start_sample_ = 0;
+                if (at >= last_strike_sample_ + articulation_guard_samples()) open_strike(at, true);
+                return;
+            }
+            if (rms <= 2.0f * art_quiet_ || art_quiet_ <= 0.0f) {
+                art_rise_start_sample_ = 0;
+                // The room level: follows quiet buckets only (fast down, slow up).
+                art_quiet_ = art_quiet_ <= 0.0f ? rms : rms < art_quiet_ ? rms : art_quiet_ + 0.05f * (rms - art_quiet_);
+            }
+            return;
+        }
+        art_rise_start_sample_ = 0;
+        if (live->id != art_record_) { // a new note: its own reference level
+            art_record_ = live->id;
+            art_level_ = rms;
+            art_low_since_ms_ = -1.0f;
+        }
+        if (t_ms - live->onset_ms < kArticulationSettleMs) {
+            art_level_ = std::max(art_level_, rms);
+            return;
+        }
+
+        const float release = std::pow(10.0f, -profile_.end_drop_db / 20.0f);
+        if (rms < release * art_level_) {
+            if (art_low_since_ms_ < 0.0f) {
+                art_low_since_ms_ = t_ms - 1000.0f * float(bucket_samples_) / sr_;
+                art_low_min_ = rms;
+                art_low_min_sample_ = sample_pos_;
+            } else if (rms < art_low_min_) {
+                art_low_min_ = rms;
+                art_low_min_sample_ = sample_pos_;
+            }
+            if (t_ms - art_low_since_ms_ >= kArticulationGapMs) {
+                close_record(*live, art_low_since_ms_); // the release
+                art_record_ = 0;
+                art_low_since_ms_ = -1.0f;
+            }
+            return;
+        }
+
+        if (art_low_since_ms_ >= 0.0f) {
+            // Back within the gap: the note was re-articulated at the bottom of
+            // the dip — unless the onset detector already opened it.
+            art_low_since_ms_ = -1.0f;
+            const uint64_t at = art_low_min_sample_ - std::min<uint64_t>(art_low_min_sample_, bucket_samples_ / 2);
+            if (at >= last_strike_sample_ + articulation_guard_samples()) open_strike(at, true);
+            return;
+        }
+
+        // Sustained: follow the note's own level (winds swell and fade).
+        art_level_ += 0.15f * (rms - art_level_);
+    }
+
     Record* find_record(uint32_t id) noexcept {
         for (auto& n : records_) {
             if (n.id == id) return &n;
@@ -1116,12 +1210,16 @@ private:
     void check_transition(Record& n, Group& g, float t_ms) noexcept {
         const float rel = n.prev_dev;
         if (std::fabs(rel) > kTransitionStepCents) {
-            if (n.shift_start_ms < 0.0f) n.shift_start_ms = t_ms;
+            // The reading's window ends at t_ms; the step lies inside it: date
+            // it at the window's centre (not at its end, ~21 ms late).
+            if (n.shift_start_ms < 0.0f)
+                n.shift_start_ms = std::max(n.onset_ms + profile_.blanking_ms,
+                                            t_ms - 500.0f * float(kReadingWindow) / sr_);
         } else if (std::fabs(rel) < kTransitionResetCents) {
             n.shift_start_ms = -1.0f;
         }
         if (n.shift_start_ms >= 0.0f
-            && t_ms - n.shift_start_ms >= kTransitionHoldMs) {
+            && t_ms - n.shift_start_ms >= profile_.transition_hold_ms) {
             const uint64_t at = uint64_t(double(n.shift_start_ms) * double(sr_) / 1000.0);
             // Close the old record at the shift, open the transition record.
             close_record(n, n.shift_start_ms);
@@ -1595,6 +1693,15 @@ private:
     size_t hist_pos_ = 0;
     size_t hist_fill_ = 0;
     uint64_t sample_pos_ = 0;
+    uint64_t last_strike_sample_ = 0;
+    bool level_strike_ = false;     ///< the last strike came from a level dip
+    uint32_t art_record_ = 0;       ///< the record art_level_ belongs to
+    float art_level_ = 0.0f;        ///< its sustained level (bucket RMS)
+    float art_low_since_ms_ = -1.0f;
+    float art_low_min_ = 0.0f;
+    uint64_t art_low_min_sample_ = 0;
+    float art_quiet_ = 0.0f;              ///< room level between notes (bucket RMS)
+    uint64_t art_rise_start_sample_ = 0;  ///< where the sound began to rise (0 = not rising)
 
     size_t fit_count_ = 0;
     double fit_micros_ = 0.0;

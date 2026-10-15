@@ -91,8 +91,34 @@ Each entry: **what** the property is, **why** (the measured evidence),
   twin notes, and parallel record chains that never closed (a real
   ocarina take had 617 notes, 442 overlapping and 56 running to the end
   of the file; after the fix, 353 notes and none of either).
-- **Re-check.** `libkan_note_stream_test` re-strike fixture and fixture 13
-  (wind phrases: no record open when the next opens, no twins).
+- **Articulation by level (profile `rearticulates_by_level`, winds).**
+  Winds articulate with the air, often with no attack transient for the
+  onset detector (I1, unchanged). On the 10 ms level line:
+  - a dip below the release level (`end_drop_db`) that comes back within
+    90 ms is a tongued note: a new record at the bottom of the dip;
+  - a longer low is the release: the note ends where the level dropped;
+  - a rise well above the room level out of silence opens a note at the
+    start of the rise.
+
+  A detector strike within 60 ms of a level strike is the same attack.
+  Slurs use `reading_interval_ms` (wind: 20) and `transition_hold_ms`
+  (wind: 80; was 250 for every profile), dated at the reading window's
+  centre.
+
+  Synthetic wind phrases (fixture 14), before → after:
+  - slurred steps 21 % → 98 %;
+  - tongued repeats 0 % → 98 %;
+  - tongued changes 12 % → 100 %;
+  - after a breath 54 % → 100 %;
+  - extra notes 88 → 0 (330 written);
+  - median lateness +32 → +3 ms.
+
+  Real ocarina take against the owner's corrected score: F1 (±50 ms +
+  pitch) 37.6 % → 57.0 %. Transcription is 25.2 s → 19.4 s for 220 s of
+  audio (I11).
+- **Re-check.** `libkan_note_stream_test` re-strike fixture, fixture 13
+  (wind phrases: no record open when the next opens, no twins) and
+  fixture 14 (wind articulation recall and timing).
 
 ### I6 — Similarity alone is not evidence of correctness; cents must gate
 
