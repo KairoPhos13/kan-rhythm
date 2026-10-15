@@ -11,6 +11,9 @@ detection pipeline that decouples rhythm from pitch.
 - **Harmonic path (~10–30 ms):** score-informed pitch confirmation
   (bounded NSDF matcher ±2 semitones), monophonic pitch (lightweight YIN,
   or Cycfi Q BACF via `libkan_bacf`) and note/cents reporting vs A4 = 440 Hz
+- **Neural transcription (offline):** Basic Pitch (Spotify, Apache-2.0)
+  ported to plain C++ with its weights compiled in (`basic_pitch.hpp`,
+  `transcribe_audio_neural`); see [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)
 - **Lock-free SPSC ring buffer** for audio-thread → consumer-thread transport
   (zero allocations, zero locks)
 
@@ -25,7 +28,10 @@ libkan/
 │   ├── pitch_shift.hpp         Backing-track pitch shift (Signalsmith Stretch, MIT) via libkan_stretch
 │   ├── dsp_detector.hpp        HybridDetector: onset + stage-2 blanking + YIN pitch
 │   ├── bacf_detector.hpp       Score-informed Cycfi Q BACF detector (needs libkan_bacf)
-│   └── bounded_pitch.hpp       Bounded-lag NSDF matcher: fast ±2-semitone confirmation
+│   ├── bounded_pitch.hpp       Bounded-lag NSDF matcher: fast ±2-semitone confirmation
+│   └── basic_pitch.hpp         Neural transcription (Basic Pitch port, offline)
+├── src/basic_pitch.cpp         The port; weights in src/basic_pitch_weights.inc
+├── tools/basic_pitch_export.py Regenerates the weights from Basic Pitch's nmp.onnx
 ├── tests/
 │   ├── dsp_test.cpp            Offline test (synthesized detuned A4)
 │   ├── precondition_test.cpp   Offline test (synthetic noise / thumps)

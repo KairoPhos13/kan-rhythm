@@ -124,6 +124,25 @@ if(KAN_BUILD_TESTS)
         add_test(NAME libkan_bacf_bench COMMAND libkan_bacf_bench)
     endif()
 endif()
+# ---- Neural transcription: Basic Pitch (Spotify AB, Apache-2.0) ----
+# Owner decision 2026-10-15: a trained transcriber for the editor's
+# starting score and, later, the judge's "is this note sounding?". The
+# network runs in plain C++ (src/basic_pitch.cpp); its weights are
+# compiled in (src/basic_pitch_weights.inc, tools/basic_pitch_export.py).
+# Licence and notice: libkan/THIRD_PARTY_NOTICES.md.
+find_package(Threads REQUIRED)
+add_library(libkan_basic_pitch STATIC src/basic_pitch.cpp)
+target_include_directories(libkan_basic_pitch PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_compile_features(libkan_basic_pitch PUBLIC cxx_std_20)
+target_compile_definitions(libkan_basic_pitch PUBLIC KAN_HAVE_BASIC_PITCH=1)
+target_link_libraries(libkan_basic_pitch PUBLIC Threads::Threads)
+target_link_libraries(libkan INTERFACE libkan_basic_pitch)
+if(KAN_BUILD_TESTS)
+    add_executable(libkan_basic_pitch_test tests/basic_pitch_test.cpp)
+    target_link_libraries(libkan_basic_pitch_test PRIVATE libkan_basic_pitch)
+    add_test(NAME libkan_basic_pitch_test COMMAND libkan_basic_pitch_test)
+endif()
+
 add_executable(libkan_score_error_test tests/score_error_test.cpp)
 target_include_directories(libkan_score_error_test PRIVATE include)
 add_test(NAME score_error COMMAND libkan_score_error_test)
