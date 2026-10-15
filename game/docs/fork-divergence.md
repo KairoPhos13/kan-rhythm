@@ -26,6 +26,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-13 | `2970c68` | `e704f03` (branch `agent/game`) | owner direction: stock game modes + osu!stable legacy IPC removed (entries F-9/F-10) | green (0 warnings / 0 errors; run verified with only the kan! ruleset) |
 | 2026-10-13 | `e704f03` | `ec02860` (branch `agent/game`) | ruleset-provided "tracks" editor tab (entry F-11) | green (0 warnings / 0 errors; tab verified live) |
 | 2026-10-13 | `ec02860` | `e0c1cc9` (branch `agent/game`) | F-11 follow-up: tab presented as "track", second in the list | green (0 warnings / 0 errors) |
+| 2026-10-15 | `e0c1cc9` | `ca49bab` (branch `agent/game`) | `110dedc` F-12 summary timeline, `391afc1` F-11 follow-up (timing before compose), `b33c540` F-13 compose screen, `ca49bab` F-14 hit-object-less gameplay clock | green (0 warnings / 0 errors; editor and gameplay verified) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -175,10 +176,61 @@ Policy (rebase-ability first, ADR-0011 §4):
   editor tab next to setup/compose/design/timing/verify. ADR-0010 §2
   explicitly allows first-class kan!forge screens; the hook itself is
   generic and upstream-shaped.
-- **Merge-conflict cost:** low — one enum member, one virtual, two small
-  touch points in `Editor.cs`.
+- **Follow-up (owner 2026-10-14):** `Timing` moved before `Compose` in
+  the enum, which orders the tabs: setup, track, timing, compose, design,
+  verify. Aligning the beat grid to each section first saves problems
+  when composing. Mode values are only kept in memory (`EditorState`), and
+  shortcuts select tabs by name, so nothing stored depends on the order.
+- **Merge-conflict cost:** low — one enum member (plus the moved `Timing`
+  member), one virtual, two small touch points in `Editor.cs`.
 - **Upstream-PR:** candidate ("ruleset-provided editor screens") once the
   shape settles; not yet offered.
+
+### F-12 — editor summary timeline follows the editor clock's length
+
+- **What:** `TimelinePart.updateRelativeChildSize()` (bottom-bar summary
+  timeline: progress marker, breaks, bookmarks, kiai, control points,
+  preview time) reads `EditorClock.TrackLength` instead of
+  `beatmap.Value.Track.Length`. One line, plus a comment.
+- **Why:** owner direction 2026-10-14. While the track tab is open, the
+  editor clock runs on a silent track spanning the whole set
+  (`EditorClock.ChangeSource`, public API). The time display and seeking
+  already follow the clock, but the summary timeline kept the beatmap
+  track's scale: the marker ran out after 1 s while playback continued. For
+  every stock tab the value is identical, because the clock's source *is* the
+  beatmap track, with the same 60 s fallback while loading.
+- **Merge-conflict cost:** very low — one line in one method.
+- **Upstream-PR:** candidate (consistency fix: the summary timeline should
+  scale with the clock it displays); not yet offered.
+
+### F-13 — ruleset-provided "compose" editor screen
+
+- **What:** `Ruleset.CreateComposeEditorScreen()` virtual (returns null →
+  the stock `ComposeScreen`); `Editor`: the compose case asks the ruleset
+  first, and the timestamp-selection hand-off only queries a
+  `HitObjectComposer` when the stock `ComposeScreen` is showing.
+- **Why:** owner direction 2026-10-14 — kan!'s compose tab is the
+  transcription/score editor (piano roll: notes with pitch, duration,
+  intensity and style, spectrogram, mic section recording). osu!'s
+  `HitObjectComposer` is built around placing objects on a playfield; the
+  kan! screen lives in plugin code (`Kan.Forge.Editor.KanComposeScreen`),
+  like the track tab (F-11).
+- **Merge-conflict cost:** low — one virtual, one line in the mode switch,
+  one guard.
+- **Upstream-PR:** candidate together with F-11 ("ruleset-provided editor
+  screens").
+
+### F-14 — gameplay clock with a hit-object-less source beatmap
+
+- **What:** `MasterGameplayClockContainer.findEarliestStartTime` reads the
+  first hit object's time with `FirstOrDefault()` (0 when there is none)
+  instead of `First()`.
+- **Why:** gameplay MVP (owner 2026-10-14). A kan! level keeps its notes in
+  its score file (`kan.score.json`); the ruleset's converter turns them into
+  hit objects, but the *source* beatmap that this method reads may have
+  none, which threw "Sequence contains no elements" on entering the level.
+- **Merge-conflict cost:** trivial — one line.
+- **Upstream-PR:** candidate (harmless robustness fix).
 
 ## String sweep — remaining scope (deferred, game/TODO.md)
 

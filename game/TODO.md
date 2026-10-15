@@ -90,8 +90,13 @@ Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
 - [ ] C-ABI shim in `libkan/abi/`: fixed-size POD event queue (onset, pitch
       sample, technique findings), atomic parameter handles, no per-frame
       allocations across the boundary
-- [ ] C# P/Invoke wrapper (`kan.ruleset.audio`) consuming live onset events;
-      measure end-to-end input→event latency (must preserve M1 gates)
+- [x] Live description through the bridge (`kan_forge_live_*`, same
+      describer as offline; selftest: live == offline onsets) and a C#
+      session on a worker thread (`Kan.Forge.Play.LiveSession`) — 2026-10-14
+- [ ] Measure end-to-end input→event latency (must preserve M1 gates)
+- [x] MVP judgment (`Kan.Forge.Play.LiveJudge`): timing + the right note,
+      waits for the pitch; no game over — see docs/gameplay.md
+- [ ] Sustain, articulation and intonation scoring (shown, not judged yet)
 - [ ] Dual-axis judgment on top of osu!'s judgment infrastructure:
       instant attack (300/GREAT/MISS) + delayed pitch validation visual
       (~+30 ms: keep glowing vs fail morph)

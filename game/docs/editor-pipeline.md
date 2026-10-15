@@ -109,6 +109,28 @@ disable actions with a hint up front instead of failing halfway.
   the bridge) or a URL (yt-dlp fetch, "download" progress phase — see §7 for
   the policy).
 
+## 6a. Glossary (naming convention, owner 2026-10-14)
+
+Use these words everywhere — UI, code, docs, saved files:
+
+| Term | Meaning |
+|---|---|
+| **set** | all tracks of a level (`ForgeTrackSet`), saved with the level |
+| **companion** (role, many) | plays under the player during the level (`IsCompanion`) |
+| **level audio** | the beatmap's single audio file (osu!'s "Audio Track") = the mix of the companion tracks, as heard, cut to its start/end (`AudioStartMs/AudioEndMs`). Re-rendered automatically when the companion mix changed (leaving the track tab, saving, closing the Resources picker); there is no manual render button. A file is still needed: gameplay and the other tabs play one audio file |
+| **reference** (role, one) | the full performance: what gets transcribed, and what the future demo/auto plays together with the companion |
+| **demux** | an action (separate into stems), picked in its card — not a role |
+| **start / starts at** | where the audible part of a track starts on the set's timeline (`TimelineStartMs` = `OffsetMs` + `ClipStartMs`). It never goes before 0:00; the trimmed-away start may (so a left-trimmed track can slide left) |
+| **volume** | in dB, silence (−60) to **+20 dB** (`ForgeTrack.MAX_GAIN` = ×10); preview amplifies above 0 dB with a gain stage on the track's mixer |
+| **Mix the companion** | the view about the final track: it opens hearing the **level audio** (only companion tracks, within its start/end; banner + "hear every track" switch). Solo is hidden there |
+| **start and end of a track** | its side trims (`ClipStartMs/ClipEndMs`): drag the sides, or use the bar in its edit panel |
+| **mute** | part of the mix: a muted track is left out of the level audio too (saved, undoable) |
+| **solo** | only for listening: "hear only this" (click), Ctrl+click adds tracks; not saved. A track is never muted and soloed at once (soloing unmutes it, muting drops its solo); each row says why it is silent (*muted*, *silent: solo*); **clear solo** in the toolbar |
+| **edits** | pending, heard live, saved only as a NEW track: **keep this** (all kept parts stay, the rest is muted, timing preserved), **silence this**, **trim to this**, low cut / high cut |
+
+There is no "music", "song" or "accompaniment" role any more; sets saved
+with those names load as companion (`ForgeSetFile` legacy aliases).
+
 ## 6b. Media & tracks: import in Resources, arrange in the tracks tab
 
 Two surfaces, one rule set (owner requirements 2026-10-13):
@@ -174,6 +196,236 @@ as the row background (never just a count).
 Verified live in QA (2026-10-13): track import via navigator, transcription
 of the reference, render → `audio-render.wav` set as beatmap audio; role
 semantics covered by `TrackRolesTest` / `MixdownRuleTest`.
+
+### 6b.1 Cover credits (owner 2026-10-14)
+
+Setup → **Cover credits**, right under Metadata (`KanCreditsSection`, added
+through the ruleset's setup-section list — no fork edit). Levels are often
+built on covers people record for the love of it, sometimes together; the
+song's artist stays in osu!'s metadata, and this credits the performers:
+where the cover was published, each performer's name, what they did and
+their links (channel, social networks, support pages), plus an optional
+message of thanks. Stored as `kan.credits.json` in the level's files
+(`Score/KanCredits`), written when a box is committed or shortly after a
+change; an empty form writes nothing. Links are opened only as http(s),
+through the game's external-link warning, and each link's button names its
+site (YouTube, Instagram, Ko-fi…) so typos show. Showing the credits to
+players (song select / results) is a later slice.
+
+### 6c. UI anatomy (presentation layer, 2026-10-13)
+
+Pure presentation over the model above. The shared vocabulary lives in
+`forge/Editor/ForgeUi.cs`, so both surfaces read as one program:
+
+- **Role chips** (`RoleChip`): music · reference · accompaniment · demux,
+  each with a fixed icon and colour. A chip is filled when its role is active,
+  outlined when it is not, and faded with a tooltip when unavailable (demux on
+  separated or mixdown material). The long explanations live in tooltips.
+- **Selection highlight:** a track with any role gets a frame, a side bar and
+  a waveform tint in its primary role's colour (first active role, in role
+  order).
+- **Waveform strip** (`WaveformPreview`): mirrored bars (sqrt scale), a
+  pulsing skeleton while analysing, an optional time axis (the duration is
+  read from the file headers and cached by path), the editor playhead, and a
+  draggable range bound to the same `EditRange` as the typed seconds boxes.
+  It is shaped to become a timeline cell for the coming temporal-segments
+  milestone.
+- **Resources:** the kan! rows sit in the stock flow, right after the video
+  row: *Video provides the audio* (with a live line describing its effect),
+  then *Audio Track*, a read-only row that shows the track with the music
+  chip and the beatmap file it plays as, then *Audio tracks* (the only audio
+  navigator), then *The set* (compact explorer rows). The stock audio chooser
+  stays hidden (reflection guard unchanged).
+- **track tab** (`KanTracksScreen`): same canvas as the setup tab. Each
+  `KanTrackRow` shows, collapsed, the header (name, duration, tags, mute,
+  edit, ✕), the waveform strip and the chips. **edit** (or a click on the
+  waveform) unfolds the volume slider and the range editor:
+  1. range → 2. name → 3. keep / silence / trim.
+- **Actions** (`KanActionCard`): one card per optional action. Each card
+  says live what it will use, shows its own progress (per track for demux,
+  indeterminate for render), and keeps its last outcome. Outcomes are also
+  posted to the game's notification overlay, which keeps the history. A card
+  is never disabled for a missing selection; running it explains what to
+  select instead.
+- **✕** asks once (click again within 3 s); removing never deletes files.
+
+### 6d. The set's timeline (owner 2026-10-14)
+
+Every track can be moved in time freely: `ForgeTrack.OffsetMs` (≥ 0) is where
+it starts. The set spans `max(start + length)`.
+
+- **Hearing it:** on the track tab, the editor's own play bar plays the set.
+  `SetMonitor` points the editor clock at a silent track as long as the span
+  (`EditorClock.ChangeSource`, no fork edit). It resizes as tracks move and
+  hands the level music back when you leave the tab. Each track plays on its
+  own mixer at its start, following volume, mute and **solo** live. Preview
+  volume caps at 100%; the render applies the full 0–2 gain.
+- **Lanes:** each row's track is a clip on one shared time scale (the span
+  plus room to move). Drag the clip to move it (10 ms snap), or type
+  *starts at (s)*. Click anywhere to jump there. In edit mode, dragging
+  selects a range instead.
+- **Render:** `kan_forge_mix_tracks_at` places every input at its offset
+  (`kan_forge_mix_tracks` = all at 0). Covered by the native selftest
+  (placement at 500 ms, negative offsets refused) and `RenderMixTest`.
+- **Edits keep their place:** keep and silence results keep the source's
+  start; trim results start at source start + range start
+  (`ForgeTrack.OffsetAfterEdit`, `TrackTimelineTest`). Demux stems share
+  their source's start.
+- **Music on other tabs:** the level's audio file has no offset, so a music
+  track that starts later is connected as a copy rendered with leading
+  silence. Leaving the track tab re-aligns it if it moved, unless a render is
+  now the level's audio.
+
+### 6e. Editing tools of the track tab (owner 2026-10-14)
+
+- **Hear before saving:** each track keeps *pending edits*
+  (`ForgeTrack.Edits` / `TrackEdits`): range operations (keep /
+  silence / trim, in the track's own time) and a low-cut and high-cut filter.
+  Playback applies them live: ranges gate the volume, and the filters are
+  `AudioFilter` biquads on the track's mixer. Silenced parts are shaded on the
+  waveform. **Save as new track** renders them: keeps and silences through
+  `kan_forge_edit_track` first, then one trim to the trims' common span, then
+  the filters via BASS (`MediaAudioExtractor.TryFilterToWav`, the same BQF
+  as the preview: owner decision to render filters in-game). The source is
+  never modified. Its edits are cleared and it is muted, so the mix still
+  sounds like the preview, and one undo brings everything back. Tests:
+  `TrackEditsTest`.
+- **Undo/redo:** `ForgeSetHistory`, the tab's own history (Ctrl+Z / Ctrl+Y;
+  the beatmap's undo is untouched). It covers roles, volume, mute, start,
+  pending edits, removals, saves and demux stems. Tracks imported in
+  Resources are never removed by an undo.
+- **Saving the set with the level:** `ForgeSetFile` (JSON) in the level's
+  work folder (`<game data>/kan-forge/<beatmap set id>/set.json`). It is
+  saved automatically about a second after any change, plus the toolbar
+  **save** button / Ctrl+S, which also saves the level. Every derived file
+  (stems, edits, renders, video audio) lives in the same folder instead of
+  the system temp directory. The last transcription is saved too, and its
+  notes are drawn on the lane of the track it came from. Placing notes *into
+  the level* waits on the ruleset's note model (`KanHitObject` is a Phase 0
+  placeholder).
+- **Lanes:** the compose tab's detailed waveform (`WaveformGraph`, colored
+  by low/mid/high content), a shared zoom (Ctrl+wheel, toolbar zoom in /
+  zoom out / fit), Shift+wheel to pan, and the view follows the playhead
+  while playing.
+- **Trim from the sides** (`ForgeTrack.ClipStartMs/ClipEndMs`, file time):
+  drag a track's sides in a lane; drag back out to restore. The audio never
+  moves, so trimming hides what's outside the window. The file's full extent
+  stays faint behind the clip. Playback, the span, the render (clipped tracks
+  are trimmed natively, then placed at start + clip start) and **save as new
+  track** (the window becomes one more trim) all follow it.
+- **Mix the companion** view: a mixing desk (per track: in the song =
+  companion role, fader 0–200 %, meter, solo/mute; master: preview the level audio, master meter, render). **Level audio start and end**
+  (`ForgeTrackSet.AudioStartMs/AudioEndMs`): handles, start/end at the
+  playhead, final length shown. The preview plays only that window, and the
+  render trims the mix to it.
+- **Picking tracks for actions:** the Demux card has a checklist, the
+  Transcribe card a pick-one list (same flags as the chips).
+- **Robustness:** demux stems are built and analysed on the worker but only
+  added to the set on the update thread. A file that can't be decoded shows
+  "can't read" instead of "analysing" forever (`ForgeTrack.AnalysisFailed`),
+  and a moved or deleted file shows "file missing".
+
+### 6f. The compose tab: the score editor (owner 2026-10-14)
+
+The **score** is what gameplay judges: each note's timing, pitch (MIDI +
+cents), duration, intensity and playing style (normal / legato / staccato
+/ accent, vibrato). It is the data that drives the game's feedback loop.
+
+- **Where it lives:** `kan.score.json` inside the level's files
+  (`Kan.Forge.Score.KanScore`, versioned), so it travels with the level.
+  The osu!-format file can't hold pitch or duration (kan! claims legacy
+  ruleset ID 0). It is written on save, when leaving the tab and on editor
+  exit, and autosaved to the level's work folder; on opening, the newer copy
+  wins (`ScoreSession`). Gameplay reads it once the judging core exists.
+- **Screen:** `Kan.Forge.Editor.Compose.KanComposeScreen`, shown in place of
+  osu!'s ComposeScreen through `Ruleset.CreateComposeEditorScreen()` (fork
+  F-13). Tab split: **compose** = the score; **timing** = osu!'s tempo grid,
+  which compose snaps to; **design** = feedback/effects, later.
+- **Piano roll:** time × pitch over the timing tab's beats and bars. Select /
+  draw tools, rubber-band selection, group moves in time and pitch (the
+  group keeps its shape), resize by the right edge, snap to the grid with
+  Shift for free placement, arrows to nudge, inspector for the selection,
+  undo/redo (`ScoreHistory`). Times are on the **level audio's** timeline,
+  so a transcription is placed at reference start − level audio start.
+- **Listening:** the editor clock plays the level audio (the companion);
+  toggles silence the companion and play the reference in sync
+  (`ComposeMonitor`, reusing the track tab's channels). The track tab's
+  mute and solo apply only in the track tab (owner 2026-10-14): in compose
+  the reference toggle alone decides; the track's edits, trims and gain
+  still apply.
+  **Notes** (`P`, owner 2026-10-14: someone composing by ear may only have
+  the accompaniment): the score itself is heard. `Score/ScoreSynth` renders
+  each note as a soft tone (fundamental + 2 quiet harmonics, 8 ms attack,
+  45 ms release, loudness from intensity, unknown pitches left out, tanh
+  soft limit) into a 22.05 kHz WAV in the work folder, off the UI and
+  audio threads, 400 ms after the last edit. It plays on its own channel at
+  the level-audio time; the previous render is deleted when the new one
+  replaces it.
+  A channel's first start could drop its seek and play from 0 (the
+  reference, the first time it was switched on): `ChannelSync` seeks again
+  after starting, and it never takes an offset larger than a buffer as the
+  channel's steady offset. A channel that far off is put back in place.
+- **Spectrogram:** `Kan.Forge.Media.PitchSpectrogram` (FFT 8192 / hop 1024,
+  folded to one bin per semitone, 60 dB range; tested with known tones) per
+  source, drawn behind the notes in its role colour (companion blue,
+  reference yellow, notes pink), following the toggles.
+- **Pitch-range filter:** keep e.g. G4–A8 (`KanScore.KeepRange`); the removed
+  notes are listed by pitch to add back.
+- **Sections:** set at the playhead or from the selected notes, then
+  **record with the mic** (BASS capture via `MicRecorder`, preallocated
+  buffer, 1.5 s pre-roll, mic-delay compensation) or **re-transcribe from the
+  reference** (the section cut natively, then transcribed). Both replace only
+  the notes inside the section (`KanScore.ReplaceSection`, undoable) and
+  leave them selected for adjusting.
+- **Instrument:** one per level (`ForgeTrackSession.Instrument`, saved in
+  set.json), picked in the Transcribe card or the section tools; it selects
+  the transcriber's profile family. Until 2026-10-14 the track tab always
+  transcribed with the keyboard profile: on an ocarina reference that gave
+  258 notes, 161 without a pitch (dropped → "~97"); the ocarina profile gives
+  609. The bridge (`profile_for`) also **opens the pitch range** to A0–C8
+  for every family (owner: many ocarina sizes; wrong notes are deleted by
+  hand): 617 notes. libkan's presets are unchanged.
+- **Unknown pitch:** a note heard without a resolved pitch is kept (its
+  timing is real), given its nearest neighbour's pitch, drawn grey with "?"
+  (`ScoreNote.PitchUnknown`); setting its pitch clears the mark. `U`
+  selects them all.
+- **Cleaning a transcription** (`KanScore.FromDraft`, measured on the
+  ocarina reference 2026-10-14). The transcriber is deterministic (same file
+  and instrument → same notes; runs never accumulate). The note counts the
+  owner saw grow, ~97 → ~350 → ~650, came from the fixes above: profile,
+  unknown pitches kept, open range. Two transcriber artefacts are cleaned
+  when a score starts from a transcription:
+  - **Open notes:** a note with no release (it runs to the end of the
+    audio; 60 of 617) ends where the next note starts. On one-note-at-a-time
+    instruments (`IsMonophonic`: ocarina, flute, recorder, wind/bowed)
+    every note ends no later than the next onset.
+  - **Repeats:** one sound reported twice (`KanScore.FindRepeats`): a note
+    starting within 30 ms of another with the same pitch, or of any note on
+    a monophonic instrument. Seen: 45 byte-identical twins, 177 pairs in all.
+    The copy with a known pitch, then the longer one, stays. On polyphonic
+    instruments other pitches (chords) and unknown pitches stay. The
+    ocarina reference starts with 468 notes instead of 617. For scores made
+    before this: **remove repeats** (toolbar, `Shift+U`), undoable.
+  The draft itself stays raw, so the validation export's
+  `transcription (automatic).mid` shows what the transcriber really said.
+- **Grid:** pick a family (straight / triplets / other), then one of its
+  divisions; `G` / `Shift+G` cycle them.
+- **Keys:** listed in `ShortcutsPanel` (`K` or the "keys" button); the
+  osu editor's own Space/C, X, Z, V and arrow seeks keep working.
+- **Timing** (`Tracks/ForgeTiming`, kan-forge/timing.json, for gameplay too):
+  **mic delay** = the play-along round trip (speakers + player + mic +
+  transcriber), measured by `MicCalibrationPanel` (4 count-in + 8 clicks,
+  median lateness of the transcribed onsets, `MicCalibration.Estimate`,
+  trusted with ≥ 2/3 answers and spread ≤ 40 ms); applied to section
+  recordings. **Transcriber delay** = the transcriber's lateness on a file;
+  applied to every transcription and, when changed, shifts the whole score
+  by the difference (undoable).
+- **Validation export:** "export MIDI" writes a folder with the reference
+  audio, `score (corrected).mid` (ground truth; unknown-pitch notes left
+  out), `transcription (automatic).mid` and `about.txt` — both MIDI files in
+  the reference file's own time (`Score/MidiExport`, SMF format 0, PPQ 960,
+  velocity = intensity; read back by `tools/dataset_bench`'s reader within
+  one tick).
 
 ## 7. URL / YouTube policy (owner direction, 2026-10-13)
 
@@ -246,6 +498,44 @@ Two perf asks for the libkan lane:
 2. **Probe cost & visibility:** the CPU reference pass on q8_0 is the slow
    half. A shorter probe clip (or subsampled SNR) would shrink it; a
    progress callback during the probe would make it honest from inside.
+
+### §7b.3 Transcriber artefacts (needs from libkan, 2026-10-14)
+
+**Status 2026-10-15:** items 1–2 are fixed in libkan (`main` 2b114bc:
+one record at a time on mono profiles). The slur, tonguing and breath
+articulation (3e6ca04) raises the ocarina F1 from 37.6 % to 57.0 %. Both
+are merged into agent/game; see [transcription-quality.md](transcription-quality.md).
+The game-side cleanups (`FindRepeats`, `endOpenNotes`) stay: drafts made
+before the fix still carry the artefacts, and on new ones they find
+nothing to do.
+
+Measured on an ocarina reference with `transcribe_audio` through the bridge
+(open range A0–C8, deterministic over runs). The game cleans both up (§6f),
+but the source is in libkan:
+
+1. **Duplicate notes:** the ocarina profile reports one sound under two
+   note ids: 45 byte-identical twins (same onset, end, MIDI, cents,
+   dynamics) and more same-pitch pairs within 30 ms (177 pairs in all of
+   617 notes). The keyboard profile on the same file gives none. The cause
+   is probably two Hit events for one onset in `NoteDescriber`'s monophonic
+   path.
+2. **Unterminated notes:** 60 notes are closed only by `flush()`, with
+   the end of the file as their end (minutes long, `end_faded` not set). A
+   note should close at the next onset (monophonic), or be flagged
+   `end_faded` when only the flush ends it.
+3. **Expected (candidate) mode, measured 2026-10-15** with
+   `kan_forge_bench` (details: [transcription-quality.md](transcription-quality.md)).
+   Per note it confirms the right pitch better than blind mode (72.7 % vs
+   65.5 %) and rejects ±1–2 semitones. But:
+   - legato changes don't consume the pending expectation;
+   - a pending expectation can't be replaced;
+   - monophonic deferral creates the record without its expectation
+     (only 7.8 % bound);
+   - an expectation one octave below the played note is accepted 74 % of
+     the time.
+
+   Streamed as a game uses it, only 10.6 % of notes are confirmed, so
+   gameplay stays blind until these are addressed.
 
 ### §7b.1 Device correctness guard (2026-10-14)
 
