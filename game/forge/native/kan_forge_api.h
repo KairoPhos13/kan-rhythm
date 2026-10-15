@@ -82,6 +82,19 @@ KAN_FORGE_API kan_forge_status kan_forge_transcribe_file(const char* audio_path,
                                                          int32_t* out_count,
                                                          char* err, int32_t err_cap);
 
+/* The same, choosing the transcriber: "describer" (libkan's note
+ * describer, what kan_forge_transcribe_file runs) or "neural" (Basic
+ * Pitch, libkan basic_pitch.hpp; owner 2026-10-15). Neural notes carry
+ * onset, end, pitch and cents; dyn_db, vibrato, end_faded and transition
+ * are not measured (defaults). Unknown engine: KAN_FORGE_ERR_ARGS. */
+KAN_FORGE_API kan_forge_status kan_forge_transcribe_file_with(const char* audio_path,
+                                                              const char* profile,
+                                                              const char* engine,
+                                                              kan_forge_note* out,
+                                                              int32_t cap,
+                                                              int32_t* out_count,
+                                                              char* err, int32_t err_cap);
+
 /* Library version string (for diagnostics). */
 KAN_FORGE_API const char* kan_forge_version(void);
 
@@ -100,6 +113,17 @@ KAN_FORGE_API kan_forge_status kan_forge_mix_tracks(const char* const* paths,
                                                     int32_t count,
                                                     const char* out_wav,
                                                     char* err, int32_t err_cap);
+
+/* Same as kan_forge_mix_tracks, with each input placed on a shared timeline
+ * (owner 2026-10-14: tracks can be moved in time). offsets_ms[i] >= 0 is
+ * where input i starts; NULL offsets = every input at 0. The output covers
+ * max(offset + length). */
+KAN_FORGE_API kan_forge_status kan_forge_mix_tracks_at(const char* const* paths,
+                                                       const float* gains,
+                                                       const double* offsets_ms,
+                                                       int32_t count,
+                                                       const char* out_wav,
+                                                       char* err, int32_t err_cap);
 
 /* Track editor (non-destructive: the source is never modified — each edit
  * produces a NEW track the caller adds to its list under a user-chosen
@@ -128,6 +152,66 @@ KAN_FORGE_API kan_forge_status kan_forge_analyze_track(const char* audio_path,
                                                        float* peaks, int32_t bucket_count,
                                                        float* out_peak, float* out_rms,
                                                        char* err, int32_t err_cap);
+
+/* ---- Live description (gameplay) ---------------------------------------
+ * The same libkan describer as kan_forge_transcribe_file, fed block by block
+ * as audio arrives (microphone or a file played in real time), so live and
+ * offline give the same notes. Measurements only: the game pairs them with
+ * the score and judges (libkan describes, the game judges).
+ *
+ * Threading: one session is driven from ONE consumer thread (never the
+ * audio callback: process does the describer's measurement work). open and
+ * close are setup calls; process does not allocate. */
+typedef struct kan_forge_live kan_forge_live;
+
+typedef enum kan_forge_live_kind {
+    KAN_FORGE_LIVE_HIT = 0,   /* a note started: onset_ms */
+    KAN_FORGE_LIVE_PITCH = 1, /* the note's pitch: midi + cents, stage */
+    KAN_FORGE_LIVE_CLOSE = 2, /* the note ended: end_ms */
+    KAN_FORGE_LIVE_FRAME = 3, /* continuous pitch reading every 10 ms:
+                                 midi (fractional, 0 = no pitch) + level */
+    KAN_FORGE_LIVE_CANDIDATE = 4 /* an expected note measured at its attack
+                                    (see kan_forge_live_expect): midi = the
+                                    expectation, cents = refined deviation,
+                                    presence, similarity, flags */
+} kan_forge_live_kind;
+
+typedef struct kan_forge_live_event {
+    uint32_t note_id;  /* the note this fact is about (0 for frames) */
+    int32_t kind;      /* kan_forge_live_kind */
+    int32_t stage;     /* pitch: 0 provisional, 1 final, 2 unresolved */
+    float t_ms;        /* stream time of the fact (ms since the first sample) */
+    float onset_ms;    /* hit: the onset */
+    float midi;        /* pitch: note number; frame: fractional pitch */
+    float cents;       /* pitch: deviation from midi */
+    float end_ms;      /* close: the end */
+    float level;       /* frame: RMS 0..1 */
+    float presence;    /* candidate: how much of the energy the expected note explains, 0..1 */
+    float similarity;  /* candidate: fit of the whole expectation to the sound, 0..1 */
+    uint32_t flags;    /* libkan NoteFlags (audio facts, never verdicts) */
+    uint32_t group;    /* hit/candidate: the attack (strike group) the fact belongs to —
+                          links a candidate measurement to its attack even when
+                          libkan files it under no record (monophonic deferral) */
+} kan_forge_live_event;
+
+/* sample_rate: the rate of the samples passed to process. NULL on failure. */
+KAN_FORGE_API kan_forge_live* kan_forge_live_open(const char* profile, float sample_rate);
+
+/* Feed n mono samples; writes up to cap events and returns how many. Events
+ * beyond cap are dropped (pass >= 256 slots per 4800 samples). */
+KAN_FORGE_API int32_t kan_forge_live_process(kan_forge_live* live, const float* samples,
+                                             int32_t n, kan_forge_live_event* out,
+                                             int32_t cap);
+
+/* Expectation for the NEXT attack (libkan candidate mode): the note(s) the
+ * score expects. The describer then measures those pitches at the attack
+ * (CANDIDATE facts, and the record's pitch refined around them) instead of
+ * searching blind. A hypothesis, never a verdict: a different note played
+ * shows as low presence/similarity or an unresolved pitch. Returns 1 when
+ * set, 0 when a previous expectation is still waiting for its attack. */
+KAN_FORGE_API int32_t kan_forge_live_expect(kan_forge_live* live, const float* midis, int32_t count);
+
+KAN_FORGE_API void kan_forge_live_close(kan_forge_live* live);
 
 #ifdef __cplusplus
 }

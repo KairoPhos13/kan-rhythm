@@ -5,7 +5,9 @@
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 #include "kan_forge_api.h"
 
+#include <algorithm>
 #include <cmath>
+#include <cstdlib>
 #include <cstdio>
 #include <cstdint>
 #include <string>
@@ -191,6 +193,48 @@ int main() {
         }
     }
 
+    // 4b. Mixdown on a timeline: one track placed at 500 ms must come out
+    //     as 500 ms of silence followed by the unchanged signal.
+    {
+        const std::string placed = "kan_forge_selftest_mix_at.wav";
+        const char* paths[1] = {wav_b.c_str()};
+        const float gains[1] = {1.0f};
+        const double offsets[1] = {500.0};
+        st = kan_forge_mix_tracks_at(paths, gains, offsets, 1, placed.c_str(), err, sizeof(err));
+        const size_t lead = size_t(0.5 * sr);
+        std::vector<float> got;
+        if (st != KAN_FORGE_OK) {
+            std::fprintf(stderr, "SELFTEST FAIL: mix_at status %d (%s)\n", int(st), err);
+            ++failures;
+        } else if (!read_wav(placed, got) || got.size() != lead + melody.size()) {
+            std::fprintf(stderr, "SELFTEST FAIL: mix_at length %zu != %zu\n", got.size(),
+                         lead + melody.size());
+            ++failures;
+        } else {
+            float lead_peak = 0.0f, err_max = 0.0f;
+            for (size_t i = 0; i < lead; ++i)
+                lead_peak = std::fabs(got[i]) > lead_peak ? std::fabs(got[i]) : lead_peak;
+            for (size_t i = 0; i < melody.size(); ++i) {
+                const float d = std::fabs(got[lead + i] - melody[i]);
+                err_max = d > err_max ? d : err_max;
+            }
+            // PCM16 quantisation tolerance.
+            if (lead_peak > 1e-4f || err_max > 2e-3f) {
+                std::fprintf(stderr, "SELFTEST FAIL: mix_at lead peak %.5f, max error %.5f\n",
+                             lead_peak, err_max);
+                ++failures;
+            } else {
+                std::printf("selftest: mix_at places the track at 500 ms (max error %.5f)\n", err_max);
+            }
+        }
+
+        const double bad[1] = {-1.0};
+        if (kan_forge_mix_tracks_at(paths, gains, bad, 1, placed.c_str(), err, sizeof(err)) != KAN_FORGE_ERR_ARGS) {
+            std::fprintf(stderr, "SELFTEST FAIL: mix_at accepted a negative offset\n");
+            ++failures;
+        }
+    }
+
     // 5. Track editor: KEEP / MUTE / TRIM on known audio.
     {
         const std::string edited = "kan_forge_selftest_edit.wav";
@@ -261,6 +305,108 @@ int main() {
             std::fprintf(stderr, "SELFTEST FAIL: silence not empty (peak %.6f rms %.6f)\n", peak, rms);
             ++failures;
         }
+    }
+
+    // N. Live description: the melody fed in 10 ms chunks (as a microphone
+    //    delivers it) gives the same onsets and pitches as the offline
+    //    transcription of the same file, and a continuous pitch reading.
+    {
+        std::vector<float> sig;
+        read_wav(wav, sig);
+        std::vector<kan_forge_note> offline(256);
+        int32_t off_count = 0;
+        kan_forge_transcribe_file(wav.c_str(), "keyboard", offline.data(), int32_t(offline.size()),
+                                  &off_count, err, sizeof(err));
+
+        kan_forge_live* live = kan_forge_live_open("keyboard", sr);
+        if (live == nullptr) {
+            std::fprintf(stderr, "SELFTEST FAIL: live open\n");
+            ++failures;
+        } else {
+            std::vector<kan_forge_live_event> ev(512);
+            std::vector<float> hits;
+            std::vector<int> finals;
+            float frame_mid_note = 0.0f; // the reading during C5 (300..800 ms)
+            int frames = 0;
+            for (size_t at = 0; at < sig.size(); at += 480) {
+                const int32_t n = int32_t(std::min<size_t>(480, sig.size() - at));
+                const int32_t got = kan_forge_live_process(live, sig.data() + at, n, ev.data(), int32_t(ev.size()));
+                for (int32_t k = 0; k < got; ++k) {
+                    const kan_forge_live_event& e = ev[size_t(k)];
+                    if (e.kind == KAN_FORGE_LIVE_HIT) hits.push_back(e.onset_ms);
+                    if (e.kind == KAN_FORGE_LIVE_PITCH && e.stage == 1) finals.push_back(int(e.midi + 0.5f));
+                    if (e.kind == KAN_FORGE_LIVE_FRAME) {
+                        ++frames;
+                        if (e.t_ms > 545.0f && e.t_ms < 555.0f) frame_mid_note = e.midi;
+                    }
+                }
+            }
+            kan_forge_live_close(live);
+
+            bool same = int32_t(hits.size()) == off_count;
+            for (size_t i = 0; same && i < hits.size(); ++i)
+                same = std::fabs(hits[i] - offline[i].onset_ms) < 0.01f;
+            if (!same) {
+                std::fprintf(stderr, "SELFTEST FAIL: live onsets (%zu) differ from offline (%d)\n",
+                             hits.size(), off_count);
+                ++failures;
+            }
+            if (finals.empty() || finals[0] != offline[0].midi) {
+                std::fprintf(stderr, "SELFTEST FAIL: live final pitch %d, offline %d\n",
+                             finals.empty() ? -1 : finals[0], offline[0].midi);
+                ++failures;
+            }
+            if (std::fabs(frame_mid_note - 72.0f) > 0.3f) {
+                std::fprintf(stderr, "SELFTEST FAIL: live pitch reading %.2f during C5, expected ~72\n",
+                             frame_mid_note);
+                ++failures;
+            }
+            const int expected_frames = int(sig.size() / 480);
+            if (std::abs(frames - expected_frames) > 1) {
+                std::fprintf(stderr, "SELFTEST FAIL: %d pitch readings, expected %d (one per 10 ms)\n",
+                             frames, expected_frames);
+                ++failures;
+            }
+            std::printf("selftest: live %zu onsets (offline %d), C5 reading %.2f, %d readings\n",
+                        hits.size(), off_count, frame_mid_note, frames);
+        }
+    }
+
+    // N+1. Expected mode: the score's next note as a hypothesis. On the C5
+    //      attack (300 ms) the right expectation is measured as present and a
+    //      wrong one (D5, +2 semitones) is not — measurement, never verdict.
+    {
+        std::vector<float> sig;
+        read_wav(wav, sig);
+        auto measure = [&](float expect_midi, float& similarity) {
+            kan_forge_live* live = kan_forge_live_open("keyboard", sr);
+            if (live == nullptr) return false;
+            std::vector<kan_forge_live_event> ev(512);
+            bool armed = false, measured = false;
+            for (size_t at = 0; at < size_t(0.9f * sr) && !measured; at += 480) {
+                if (!armed && at >= size_t(0.2f * sr)) armed = kan_forge_live_expect(live, &expect_midi, 1) == 1;
+                const int32_t got = kan_forge_live_process(live, sig.data() + at, 480, ev.data(), int32_t(ev.size()));
+                for (int32_t k = 0; k < got; ++k) {
+                    if (ev[size_t(k)].kind == KAN_FORGE_LIVE_CANDIDATE) {
+                        similarity = ev[size_t(k)].similarity;
+                        measured = true;
+                        break;
+                    }
+                }
+            }
+            kan_forge_live_close(live);
+            return measured;
+        };
+
+        float right = 0.0f, wrong = 1.0f;
+        const bool got_right = measure(72.0f, right);
+        const bool got_wrong = measure(74.0f, wrong);
+        if (!got_right || !got_wrong || right < 0.8f || wrong >= 0.4f) {
+            std::fprintf(stderr, "SELFTEST FAIL: expected mode similarity right %.2f (want >= 0.8), wrong %.2f (want < 0.4)\n",
+                         right, wrong);
+            ++failures;
+        }
+        std::printf("selftest: expected mode similarity — right C5 %.2f, wrong D5 %.2f\n", right, wrong);
     }
 
     if (failures == 0) std::printf("kan_forge_selftest OK\n");

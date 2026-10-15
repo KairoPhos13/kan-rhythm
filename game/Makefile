@@ -3,7 +3,7 @@
 #
 # Everything the client build needs is defaulted here — no flags to remember:
 #
-#   make            # everything: native bridge + C# (forge, ruleset, deploy)
+#   make            # everything: native bridge + C# (forge, game client, ruleset, deploy)
 #   make test       # native self-test + C# suite
 #   make run        # launch the client (pass ARGS=path/to/file.osz)
 #   make clean      # remove build outputs
@@ -30,9 +30,9 @@ NATIVE_BUILD := $(NATIVE_DIR)/build
 RULESET_DIR := ruleset
 CLIENT_OUT := client/osu.Desktop/bin/$(BUILD_TYPE)/net10.0
 
-.PHONY: all native forge ruleset deploy test test-native test-csharp run clean
+.PHONY: all native forge client ruleset deploy test test-native test-csharp run clean
 
-all: native forge ruleset deploy
+all: native forge client ruleset deploy
 
 # --- native C-ABI bridge (libkan + RoFormer runtime + miniaudio) -----------
 native:
@@ -43,7 +43,13 @@ native:
 forge:
 	cd forge && $(DOTNET) build -c $(BUILD_TYPE)
 
-ruleset: forge
+# The game client itself: fork changes (game/client, fork-divergence.md) only
+# reach the executable's folder through this build — the plugin deploy below
+# copies kan files only.
+client:
+	cd client/osu.Desktop && $(DOTNET) build -c $(BUILD_TYPE)
+
+ruleset: forge client
 	cd $(RULESET_DIR) && $(DOTNET) build -c $(BUILD_TYPE)
 
 # The ruleset build copies Kan.Forge.dll / osu.Game.Rulesets.Kan.dll /

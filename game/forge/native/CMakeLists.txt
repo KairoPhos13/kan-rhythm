@@ -75,3 +75,11 @@ target_include_directories(kan_forge_selftest PRIVATE ${miniaudio_SOURCE_DIR})
 target_link_libraries(kan_forge_selftest PRIVATE kan_forge_native)
 target_compile_options(kan_forge_selftest PRIVATE -Wall -Wextra)
 add_test(NAME kan_forge_selftest COMMAND kan_forge_selftest)
+
+# Detection quality against ground truth (validation exports of the compose
+# tab): blind transcription, expected mode and decoys — through this bridge,
+# exactly as the game calls it. Not a test: a measurement tool
+# (game/docs/transcription-quality.md).
+add_executable(kan_forge_bench kan_forge_bench.cpp)
+target_compile_options(kan_forge_bench PRIVATE -Wall -Wextra)
+target_link_libraries(kan_forge_bench PRIVATE kan_forge_native)

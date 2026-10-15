@@ -49,15 +49,22 @@ bool load_audio(const char* path, std::vector<float>& sig) {
 }
 
 kan::InstrumentProfile profile_for(const char* name) {
-    // Same mapping as tools/chart_scribe (families per I10).
+    // Same family mapping as tools/chart_scribe (families per I10).
+    kan::InstrumentProfile p = kan::InstrumentProfile::keyboard();
     if (name != nullptr) {
         const std::string n(name);
         if (n == "ocarina" || n == "flute" || n == "recorder" || n == "wind_bowed")
-            return kan::InstrumentProfile::wind_bowed();
-        if (n == "guitar" || n == "plucked")
-            return kan::InstrumentProfile::plucked();
+            p = kan::InstrumentProfile::wind_bowed();
+        else if (n == "guitar" || n == "plucked")
+            p = kan::InstrumentProfile::plucked();
     }
-    return kan::InstrumentProfile::keyboard();
+
+    // Open pitch range in the editor (owner 2026-10-14): one name covers
+    // many sizes (bass to sopranino ocarinas), so the family keeps only
+    // its attack/legato behaviour; wrong notes are deleted by hand later.
+    p.min_freq_hz = 27.0f;    // A0
+    p.max_freq_hz = 4300.0f;  // C8
+    return p;
 }
 
 } // namespace
@@ -156,11 +163,24 @@ kan_forge_status kan_forge_transcribe_file(const char* audio_path, const char* p
                                            kan_forge_note* out, int32_t cap,
                                            int32_t* out_count,
                                            char* err, int32_t err_cap) {
+    return kan_forge_transcribe_file_with(audio_path, profile, "describer", out, cap, out_count, err, err_cap);
+}
+
+kan_forge_status kan_forge_transcribe_file_with(const char* audio_path, const char* profile,
+                                                const char* engine,
+                                                kan_forge_note* out, int32_t cap,
+                                                int32_t* out_count,
+                                                char* err, int32_t err_cap) {
     if (audio_path == nullptr || out_count == nullptr) {
         set_err(err, err_cap, "transcribe: missing audio path or out_count");
         return KAN_FORGE_ERR_ARGS;
     }
     *out_count = 0;
+    const std::string which = engine != nullptr ? engine : "describer";
+    if (which != "describer" && which != "neural") {
+        set_err(err, err_cap, "transcribe: unknown engine (describer | neural)");
+        return KAN_FORGE_ERR_ARGS;
+    }
 
     std::vector<float> sig;
     if (!load_audio(audio_path, sig)) {
@@ -168,8 +188,9 @@ kan_forge_status kan_forge_transcribe_file(const char* audio_path, const char* p
         return KAN_FORGE_ERR_DECODE;
     }
 
-    const std::vector<kan::TranscribedNote> notes =
-        kan::transcribe_audio(sig.data(), sig.size(), 48000.0f, profile_for(profile));
+    const std::vector<kan::TranscribedNote> notes = which == "neural"
+        ? kan::transcribe_audio_neural(sig.data(), sig.size(), 48000.0f, profile_for(profile))
+        : kan::transcribe_audio(sig.data(), sig.size(), 48000.0f, profile_for(profile));
 
     *out_count = int32_t(notes.size());
     if (out == nullptr || cap < int32_t(notes.size())) {
@@ -389,5 +410,163 @@ kan_forge_status kan_forge_mix_tracks_at(const char* const* paths, const float* 
     }
     return KAN_FORGE_OK;
 }
+
+} // extern "C"
+
+// ---- Live description ------------------------------------------------------
+// The describer exactly as transcribe_audio drives it (128-sample blocks,
+// measurements drained after each block), plus a 10 ms pitch reading of the
+// latest 2048 samples for the gameplay trail. All buffers are allocated in
+// open; process only copies and measures.
+
+struct kan_forge_live {
+    static constexpr size_t kBlock = 128;
+    static constexpr size_t kWindow = 2048;
+
+    kan::NoteDescriber desc;
+    kan::NoteEventStream stream{1024};
+    kan::HybridDetector pitch;
+    float sr;
+    size_t frame_hop;
+
+    std::vector<float> pending = std::vector<float>(kBlock);
+    size_t pending_n = 0;
+    std::vector<float> window = std::vector<float>(kWindow, 0.0f); // ring
+    size_t window_pos = 0;
+    std::vector<float> ordered = std::vector<float>(kWindow);
+    std::vector<float> scratch = std::vector<float>(kWindow);
+    uint64_t samples = 0;
+    size_t since_frame = 0;
+
+    kan_forge_live(const kan::InstrumentProfile& profile, float sample_rate)
+        : desc(sample_rate, profile), pitch(sample_rate), sr(sample_rate),
+          frame_hop(size_t(sample_rate / 100.0f)) {
+        desc.subscribe(stream);
+        pitch.set_profile(profile);
+    }
+};
+
+namespace {
+
+void live_drain(kan_forge_live* live, kan_forge_live_event* out, int32_t cap, int32_t& count) {
+    kan::NoteEvent batch[64];
+    for (;;) {
+        const size_t got = live->stream.pop(batch, 64);
+        if (got == 0) break;
+        for (size_t k = 0; k < got; ++k) {
+            const kan::NoteEvent& e = batch[k];
+            kan_forge_live_event d{};
+            d.note_id = e.note_id;
+            d.t_ms = e.t_ms;
+            d.flags = e.flags;
+            switch (e.kind) {
+            case kan::NoteKind::Hit:
+                d.kind = KAN_FORGE_LIVE_HIT;
+                d.onset_ms = e.u.hit.onset_ms;
+                d.midi = e.u.hit.midi;
+                d.group = e.u.hit.strike_group;
+                break;
+            case kan::NoteKind::Pitch:
+                d.kind = KAN_FORGE_LIVE_PITCH;
+                d.stage = int32_t(e.stage);
+                d.midi = e.u.pitch.midi;
+                d.cents = e.u.pitch.cents;
+                break;
+            case kan::NoteKind::Close:
+                d.kind = KAN_FORGE_LIVE_CLOSE;
+                d.end_ms = e.u.close.end_ms;
+                break;
+            case kan::NoteKind::Content:
+                // Class statements are always Mono/Polyphonic; Unknown marks a
+                // candidate measurement (make_content_candidate leaves it unset).
+                if (e.klass != kan::ContentClass::Unknown) continue;
+                d.kind = KAN_FORGE_LIVE_CANDIDATE;
+                d.midi = e.u.candidate.midi;
+                d.cents = e.u.candidate.cents;
+                d.presence = e.u.candidate.presence;
+                d.similarity = e.u.candidate.similarity;
+                d.group = e.u.candidate.strike_group;
+                break;
+            default:
+                continue; // content/expression facts: not used live yet
+            }
+            if (count < cap) out[count++] = d;
+        }
+    }
+}
+
+void live_frame(kan_forge_live* live, kan_forge_live_event* out, int32_t cap, int32_t& count) {
+    const size_t n = kan_forge_live::kWindow;
+    for (size_t i = 0; i < n; ++i)
+        live->ordered[i] = live->window[(live->window_pos + i) % n];
+
+    double acc = 0.0;
+    for (size_t i = n - live->frame_hop; i < n; ++i) acc += double(live->ordered[i]) * live->ordered[i];
+
+    const kan::PitchEstimate est =
+        live->pitch.detect_pitch_into(live->ordered.data(), n, live->scratch.data(), live->scratch.size());
+
+    kan_forge_live_event d{};
+    d.kind = KAN_FORGE_LIVE_FRAME;
+    d.t_ms = float(double(live->samples) * 1000.0 / live->sr);
+    d.midi = est.valid ? est.midi + est.cents_offset / 100.0f : 0.0f;
+    d.level = float(std::sqrt(acc / double(live->frame_hop)));
+    if (count < cap) out[count++] = d;
+}
+
+} // namespace
+
+extern "C" {
+
+kan_forge_live* kan_forge_live_open(const char* profile, float sample_rate) {
+    if (sample_rate < 8000.0f) return nullptr;
+    try {
+        return new kan_forge_live(profile_for(profile), sample_rate);
+    } catch (...) {
+        return nullptr;
+    }
+}
+
+int32_t kan_forge_live_process(kan_forge_live* live, const float* samples, int32_t n,
+                               kan_forge_live_event* out, int32_t cap) {
+    if (live == nullptr || samples == nullptr || n <= 0) return 0;
+    int32_t count = 0;
+    const size_t wn = kan_forge_live::kWindow;
+
+    for (int32_t i = 0; i < n; ++i) {
+        const float s = samples[i];
+        live->pending[live->pending_n++] = s;
+        live->window[live->window_pos] = s;
+        live->window_pos = (live->window_pos + 1) % wn;
+        ++live->samples;
+
+        if (live->pending_n == kan_forge_live::kBlock) {
+            live->desc.process_block(live->pending.data(), kan_forge_live::kBlock);
+            while (live->desc.finalize_due()) {}
+            live->pending_n = 0;
+            live_drain(live, out, cap, count);
+        }
+
+        if (++live->since_frame >= live->frame_hop) {
+            live->since_frame = 0;
+            live_frame(live, out, cap, count);
+        }
+    }
+    return count;
+}
+
+int32_t kan_forge_live_expect(kan_forge_live* live, const float* midis, int32_t count) {
+    if (live == nullptr || midis == nullptr || count <= 0) return 0;
+    kan::NoteDescriber::CandidateSet set{};
+    set.note_id = 0; // the next attack
+    set.count = uint8_t(std::min<int32_t>(count, int32_t(kan::NoteDescriber::kMaxCandidates)));
+    for (uint8_t k = 0; k < set.count; ++k) {
+        set.entries[k].midi = midis[k];
+        set.entries[k].struck = 1;
+    }
+    return live->desc.set_candidates(set) ? 1 : 0;
+}
+
+void kan_forge_live_close(kan_forge_live* live) { delete live; }
 
 } // extern "C"
