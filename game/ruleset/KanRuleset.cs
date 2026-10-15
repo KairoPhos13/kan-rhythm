@@ -85,6 +85,12 @@ namespace Kan.Ruleset
 
         public override DifficultyCalculator CreateDifficultyCalculator(IWorkingBeatmap beatmap) => new KanDifficultyCalculator(RulesetInfo, beatmap);
 
+        /// <summary>The music note icon; loading it also lets the converter read level files (<see cref="KanLevelFiles"/>).</summary>
+        public override Drawable CreateIcon() => new KanRulesetIcon();
+
+        /// <summary>No game over (owner 2026-10-14): misses are felt in the music, the level goes on.</summary>
+        public override osu.Game.Rulesets.Scoring.HealthProcessor CreateHealthProcessor(double drainStartTime) => new Kan.Ruleset.Scoring.KanHealthProcessor(drainStartTime);
+
         public override DrawableRuleset CreateDrawableRulesetWith(IBeatmap beatmap, IReadOnlyList<Mod>? mods = null) => new KanDrawableRuleset(this, beatmap, mods);
 
         /// <summary>Local persistence for the instrument selection (client.realm).</summary>
@@ -107,7 +113,24 @@ namespace Kan.Ruleset
         /// </summary>
         public override IEnumerable<Drawable> CreateEditorSetupSections() =>
         [
-            new MetadataSection(),
+            // Cover credits right under the song's metadata (owner 2026-10-14).
+            new FillFlowContainer
+            {
+                AutoSizeAxes = Axes.Y,
+                Direction = FillDirection.Vertical,
+                Spacing = new osuTK.Vector2(25),
+                Children = new Drawable[]
+                {
+                    new MetadataSection
+                    {
+                        RelativeSizeAxes = Axes.X,
+                    },
+                    new Kan.Forge.Editor.KanCreditsSection
+                    {
+                        RelativeSizeAxes = Axes.X,
+                    },
+                },
+            },
             new DifficultySection(),
             new FillFlowContainer
             {
@@ -136,5 +159,8 @@ namespace Kan.Ruleset
         /// setup/compose/design/timing/verify).
         /// </summary>
         public override osu.Game.Screens.Edit.EditorScreen? CreateTracksEditorScreen() => new KanTracksScreen();
+
+        /// <summary>The compose tab is kan!'s score editor (fork F-13, owner 2026-10-14).</summary>
+        public override osu.Game.Screens.Edit.EditorScreen? CreateComposeEditorScreen() => new Kan.Forge.Editor.Compose.KanComposeScreen();
     }
 }

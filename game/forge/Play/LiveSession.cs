@@ -1,0 +1,272 @@
+// Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
+// See the LICENCE file in the kan-rhythm repository root for full licence text.
+
+using System;
+using System.Collections.Concurrent;
+using System.Runtime.InteropServices;
+using System.Threading;
+using ManagedBass;
+using Kan.Forge.Media;
+using Kan.Forge.Native;
+
+namespace Kan.Forge.Play
+{
+    /// <summary>Where live audio comes from: the microphone, or a file played in real time.</summary>
+    public interface ILiveSource : IDisposable
+    {
+        int SampleRate { get; }
+
+        bool Start(out string error);
+
+        /// <summary>Copy the samples that arrived since the last call (up to the array's length).</summary>
+        int Read(float[] into);
+    }
+
+    /// <summary>
+    /// The default microphone through BASS. The capture callback only copies
+    /// into a ring allocated up front (one producer, one consumer: no locks,
+    /// no allocation on the audio side).
+    /// </summary>
+    public sealed class MicSource : ILiveSource
+    {
+        public const int SAMPLE_RATE = 48000;
+        private const int ring_size = 1 << 18; // 5.4 s: far more than the consumer ever lags
+
+        private readonly float[] ring = new float[ring_size];
+        private readonly RecordProcedure procedure;
+        private long written;
+        private long read;
+        private int handle;
+
+        public MicSource()
+        {
+            procedure = onData; // kept alive while recording (the native side holds it)
+        }
+
+        public int SampleRate => SAMPLE_RATE;
+
+        public bool Start(out string error)
+        {
+            error = string.Empty;
+            MediaAudioExtractor.EnsureBass();
+
+            if (!Bass.RecordInit() && Bass.LastError != Errors.Already)
+            {
+                error = $"no microphone could be opened ({Bass.LastError})";
+                return false;
+            }
+
+            handle = Bass.RecordStart(SAMPLE_RATE, 1, BassFlags.Float, 10, procedure, IntPtr.Zero);
+
+            if (handle == 0)
+            {
+                error = $"the microphone could not start ({Bass.LastError})";
+                return false;
+            }
+
+            return true;
+        }
+
+        public int Read(float[] into)
+        {
+            long available = Interlocked.Read(ref written) - read;
+            if (available > ring_size) read += available - ring_size; // fell behind: skip ahead
+
+            int count = (int)Math.Min(into.Length, Interlocked.Read(ref written) - read);
+
+            for (int i = 0; i < count; i++)
+                into[i] = ring[(int)((read + i) & (ring_size - 1))];
+
+            read += count;
+            return count;
+        }
+
+        private bool onData(int recording, IntPtr data, int length, IntPtr user)
+        {
+            int samples = length / sizeof(float);
+            long at = written;
+            int first = (int)Math.Min(samples, ring_size - (at & (ring_size - 1)));
+
+            Marshal.Copy(data, ring, (int)(at & (ring_size - 1)), first);
+            if (samples > first)
+                Marshal.Copy(data + first * sizeof(float), ring, 0, samples - first);
+
+            Interlocked.Exchange(ref written, at + samples);
+            return true;
+        }
+
+        public void Dispose()
+        {
+            if (handle == 0) return;
+
+            Bass.ChannelStop(handle);
+            handle = 0;
+        }
+    }
+
+    /// <summary>
+    /// A recording played as if it were the microphone (testing without one,
+    /// KAN_LIVE_INPUT=path): it advances with the game's clock, so a take of
+    /// the reference plays the level by itself.
+    /// </summary>
+    public sealed class FileSource : ILiveSource
+    {
+        private readonly string path;
+        private readonly Func<double> elapsedMs;
+        private float[] samples = Array.Empty<float>();
+        private int fed;
+
+        /// <param name="elapsedMs">Milliseconds of the file that should have been heard by now.</param>
+        public FileSource(string path, Func<double> elapsedMs)
+        {
+            this.path = path;
+            this.elapsedMs = elapsedMs;
+        }
+
+        public int SampleRate { get; private set; } = 48000;
+
+        public bool Start(out string error)
+        {
+            error = string.Empty;
+            var decoded = PitchSpectrogram.DecodeMono(path, out int rate);
+
+            if (decoded == null)
+            {
+                error = $"the live input file could not be read ({path})";
+                return false;
+            }
+
+            samples = decoded;
+            SampleRate = rate;
+            return true;
+        }
+
+        public int Read(float[] into)
+        {
+            int due = (int)Math.Clamp(elapsedMs() / 1000 * SampleRate, 0, samples.Length);
+            int count = Math.Min(into.Length, due - fed);
+            if (count <= 0) return 0;
+
+            Array.Copy(samples, fed, into, 0, count);
+            fed += count;
+            return count;
+        }
+
+        public void Dispose()
+        {
+        }
+    }
+
+    /// <summary>
+    /// Live description of what the player plays: a source's samples go
+    /// through libkan's describer (kan_forge_live) on a worker thread, and its
+    /// facts come out on <see cref="TryTake"/> for the game thread. Fact times
+    /// are milliseconds since the session started listening.
+    /// </summary>
+    public sealed class LiveSession : IDisposable
+    {
+        private const int chunk = 480; // 10 ms at 48 kHz
+
+        private readonly ILiveSource source;
+        private readonly string instrument;
+        private readonly ConcurrentQueue<KanForgeLiveEvent> facts = new ConcurrentQueue<KanForgeLiveEvent>();
+        private Thread? worker;
+        private volatile bool running;
+
+        public LiveSession(ILiveSource source, string instrument)
+        {
+            this.source = source;
+            this.instrument = instrument;
+        }
+
+        /// <summary>Why the session is not listening (empty while it is).</summary>
+        public string Error { get; private set; } = string.Empty;
+
+        public bool Start()
+        {
+            if (!source.Start(out string error))
+            {
+                Error = error;
+                return false;
+            }
+
+            IntPtr live;
+
+            try
+            {
+                live = KanForgeNative.LiveOpen(instrument, source.SampleRate);
+            }
+            catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+            {
+                Error = "the note detector is not available in this build";
+                source.Dispose();
+                return false;
+            }
+
+            if (live == IntPtr.Zero)
+            {
+                Error = "the note detector could not start";
+                source.Dispose();
+                return false;
+            }
+
+            running = true;
+            worker = new Thread(() => run(live)) { IsBackground = true, Name = @"kan live describer" };
+            worker.Start();
+            return true;
+        }
+
+        public bool TryTake(out KanForgeLiveEvent fact) => facts.TryDequeue(out fact);
+
+        private void run(IntPtr live)
+        {
+            var samples = new float[chunk * 10];
+            var events = new KanForgeLiveEvent[1024];
+
+            try
+            {
+                while (running)
+                {
+                    int got = source.Read(samples);
+
+                    if (got == 0)
+                    {
+                        Thread.Sleep(4);
+                        continue;
+                    }
+
+                    // The describer measures in its own blocks; hand it 10 ms at a time.
+                    for (int at = 0; at < got; at += chunk)
+                    {
+                        int n = Math.Min(chunk, got - at);
+                        int count = KanForgeNative.LiveProcess(live, at == 0 ? samples : slice(samples, at, n), n, events, events.Length);
+
+                        for (int i = 0; i < count; i++)
+                            facts.Enqueue(events[i]);
+                    }
+                }
+            }
+            finally
+            {
+                KanForgeNative.LiveClose(live);
+            }
+        }
+
+        private float[]? sliceBuffer;
+
+        private float[] slice(float[] samples, int at, int n)
+        {
+            sliceBuffer ??= new float[chunk];
+            Array.Copy(samples, at, sliceBuffer, 0, n);
+            return sliceBuffer;
+        }
+
+        public void Dispose()
+        {
+            running = false;
+            worker?.Join(500);
+            worker = null;
+            source.Dispose();
+        }
+    }
+}

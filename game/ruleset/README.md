@@ -1,13 +1,15 @@
-# game/ruleset/ — the kan! ruleset plugin (Phase 0 skeleton)
+# game/ruleset/ — the kan! ruleset plugin
 
 The kan! game mode, compiled **against** the osu!lazer fork (`../client/`)
 and loaded at runtime by the fork's ruleset plugin loader — never built
 inside the fork tree (ADR-0010, [osu-integration.md](../../docs/architecture/osu-integration.md)).
 
-**Status:** Phase 0 skeleton. It proves the plugin path and shows a
-placeholder screen; there is no gameplay yet. The real work (dual-axis
-judgment, highway, instrument helpers) is listed in
-[../TODO.md](../TODO.md) under "Input & judgment core".
+**Status:** gameplay MVP (2026-10-14, [../docs/gameplay.md](../docs/gameplay.md)):
+a level plays its score (`kan.score.json`), the microphone is described live
+by libkan through the bridge, the game judges each note (timing + the right
+note) and draws the living staff. Remaining judgment work (sustain and
+technique scoring, latency budget) is in [../TODO.md](../TODO.md) under
+"Input & judgment core".
 
 ## Naming constraints (read before renaming anything)
 
@@ -40,8 +42,13 @@ instead (see [../docs/environment.md](../docs/environment.md) §4).
 | `Instruments/KanInstrument.cs` | instrument catalog: category ↔ instrument tie, display names (provisional taxonomy) |
 | `Configuration/KanRulesetSetting.cs`, `Configuration/KanRulesetConfigManager.cs` | persisted selection (client.realm — remembered across runs) |
 | `UI/KanSettingsSubsection.cs` | v0 instrument selector (category-tied dropdowns) in Settings → Rulesets → kan! |
-| `Objects/KanHitObject.cs` | placeholder hit object (start time only) |
-| `Objects/DrawableKanHitObject.cs` | empty drawable; placeholder auto-resolve (NOT judgment) |
-| `Beatmaps/KanBeatmapConverter.cs` | 1:1 timing-only conversion (placeholder) |
+| `Objects/KanHitObject.cs` | one score note (pitch, duration, style) + judgement and hit windows |
+| `Objects/DrawableKanHitObject.cs` | judging side of a note: asks the live judge, applies the result (draws nothing) |
+| `Beatmaps/KanBeatmapConverter.cs` | the level's score → hit objects; timing-only placeholders without a score |
+| `Beatmaps/KanLevelFiles.cs` | reads the score from the level (or the editor's newer autosave); the ruleset icon hands it the game storage |
 | `Difficulty/KanDifficultyCalculator.cs` | zero-skill placeholder |
-| `UI/KanDrawableRuleset.cs`, `UI/KanPlayfield.cs` | placeholder screen |
+| `UI/KanDrawableRuleset.cs` | drawable ruleset + input manager (replay recording; no key bindings) |
+| `UI/KanPlayState.cs` | live session, judge, pitch trail, bloom; one log line per play |
+| `UI/KanPlayfield.cs`, `UI/KanStaff.cs` | background + the living staff; the bloom's low-pass on the music |
+| `Scoring/KanHealthProcessor.cs` | no game over |
+| `Dev/KanDevPlay.cs` | developer tooling (env vars): play a level unattended, recording as input, screenshots |

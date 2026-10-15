@@ -1,33 +1,52 @@
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
+using osu.Framework.Allocation;
 using osu.Game.Rulesets.Objects.Drawables;
+using osu.Game.Rulesets.Scoring;
+using Kan.Forge.Play;
+using Kan.Ruleset.UI;
 
 namespace Kan.Ruleset.Objects
 {
     /// <summary>
-    /// Drawable representation of <see cref="KanHitObject"/> — intentionally
-    /// empty in Phase 0 (the placeholder screen is drawn by
-    /// <see cref="UI.KanPlayfield"/>).
+    /// The judging side of one score note. It draws nothing — the staff
+    /// (<see cref="KanStaff"/>) draws every note — it asks the live judge for
+    /// a verdict each frame and applies it as the game's result.
     /// </summary>
     public partial class DrawableKanHitObject : DrawableHitObject<KanHitObject>
     {
+        [Resolved(CanBeNull = true)]
+        private KanPlayState? state { get; set; }
+
         public DrawableKanHitObject(KanHitObject hitObject)
             : base(hitObject)
         {
         }
 
-        /// <summary>
-        /// PHASE 0 PLACEHOLDER — NOT JUDGMENT. The real dual-axis judgment
-        /// (instant attack + delayed intonation validation, see game/TODO.md
-        /// "Input & judgment core") replaces this in Phase 1. Until then every
-        /// object auto-resolves at its end time so the placeholder mode
-        /// completes cleanly without player input.
-        /// </summary>
         protected override void CheckForResult(bool userTriggered, double timeOffset)
         {
-            if (timeOffset >= 0)
-                ApplyMaxResult();
+            // A level without a score: timing-only placeholders resolve by themselves.
+            if (!HitObject.HasScore || state == null)
+            {
+                if (timeOffset >= 0)
+                    ApplyMaxResult();
+                return;
+            }
+
+            var verdict = state.Judge.Judge(HitObject.StartTime, HitObject.Midi, HitObject.PitchUnknown, Time.Current,
+                legato: HitObject.Articulation == Kan.Forge.Score.Articulation.Legato);
+            if (verdict is not { } v) return;
+
+            ApplyResult(v.Result switch
+            {
+                LiveResult.Great => HitResult.Great,
+                LiveResult.Ok => HitResult.Ok,
+                LiveResult.Meh => HitResult.Meh,
+                _ => HitResult.Miss,
+            });
+
+            state.Report(HitObject, v);
         }
     }
 }
