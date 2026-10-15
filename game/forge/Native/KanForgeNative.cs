@@ -58,6 +58,28 @@ namespace Kan.Forge.Native
         Trim = 2,
     }
 
+    /// <summary>One live fact (kan_forge_live_event): measurements only, the game judges.</summary>
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KanForgeLiveEvent
+    {
+        public uint NoteId;
+        public int Kind;
+        public int Stage;
+        public float TMs;
+        public float OnsetMs;
+        public float Midi;
+        public float Cents;
+        public float EndMs;
+        public float Level;
+        public float Presence;
+        public float Similarity;
+        public uint Flags;
+        public uint Group;
+
+        public const int HIT = 0, PITCH = 1, CLOSE = 2, FRAME = 3, CANDIDATE = 4;
+        public const int PROVISIONAL = 0, FINAL = 1, UNRESOLVED = 2;
+    }
+
     /// <summary>
     /// P/Invoke surface of libkan_forge_native — the thin adapter that keeps
     /// libkan invocation out of the rest of the game code (minimal fork
@@ -71,15 +93,29 @@ namespace Kan.Forge.Native
         public static extern void SetProgress(KanForgeProgressFn? fn, IntPtr user);
 
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_fetch_audio", CallingConvention = CallingConvention.Cdecl)]
-        public static extern KanForgeStatus FetchAudio(string url, string outWav, byte[] err, int errCap);
+        public static extern KanForgeStatus FetchAudio(string url, string outWav, [Out] byte[] err, int errCap);
 
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_separate_stems", CallingConvention = CallingConvention.Cdecl)]
-        public static extern KanForgeStatus SeparateStems(string audioPath, string outDir, byte[] err, int errCap);
+        public static extern KanForgeStatus SeparateStems(string audioPath, string outDir, [Out] byte[] err, int errCap);
 
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_transcribe_file", CallingConvention = CallingConvention.Cdecl)]
         public static extern KanForgeStatus TranscribeFile(string audioPath, string profile,
-                                                          KanForgeNote[] outNotes, int cap,
-                                                          out int outCount, byte[] err, int errCap);
+                                                          // [In, Out]: the native side writes the notes; without it the
+                                                          // marshaller does not copy them back (every note read as 0).
+                                                          [In, Out] KanForgeNote[] outNotes, int cap,
+                                                          out int outCount, [Out] byte[] err, int errCap);
+
+        /// <summary>
+        /// Like <see cref="TranscribeFile"/>, choosing the transcriber: <see cref="ENGINE_NEURAL"/>
+        /// (Basic Pitch, owner 2026-10-15) or <see cref="ENGINE_DESCRIBER"/> (the live describer).
+        /// </summary>
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_transcribe_file_with", CallingConvention = CallingConvention.Cdecl)]
+        public static extern KanForgeStatus TranscribeFileWith(string audioPath, string profile, string engine,
+                                                              [In, Out] KanForgeNote[] outNotes, int cap,
+                                                              out int outCount, [Out] byte[] err, int errCap);
+
+        public const string ENGINE_NEURAL = @"neural";
+        public const string ENGINE_DESCRIBER = @"describer";
 
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_version", CallingConvention = CallingConvention.Cdecl)]
         private static extern IntPtr versionPtr();
@@ -93,17 +129,34 @@ namespace Kan.Forge.Native
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_mix_tracks", CallingConvention = CallingConvention.Cdecl)]
         public static extern KanForgeStatus MixTracks([In, MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPStr)] string[] paths,
                                                      float[] gains, int count, string outWav,
-                                                     byte[] err, int errCap);
+                                                     [Out] byte[] err, int errCap);
+
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_mix_tracks_at", CallingConvention = CallingConvention.Cdecl)]
+        public static extern KanForgeStatus MixTracksAt([In, MarshalAs(UnmanagedType.LPArray, ArraySubType = UnmanagedType.LPStr)] string[] paths,
+                                                       float[] gains, double[] offsetsMs, int count, string outWav,
+                                                       [Out] byte[] err, int errCap);
 
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_edit_track", CallingConvention = CallingConvention.Cdecl)]
         public static extern KanForgeStatus EditTrack(string audioPath, float startMs, float endMs,
-                                                     int mode, string outWav, byte[] err, int errCap);
+                                                     int mode, string outWav, [Out] byte[] err, int errCap);
 
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_analyze_track", CallingConvention = CallingConvention.Cdecl)]
         public static extern KanForgeStatus AnalyzeTrack(string audioPath,
                                                         [Out] float[] peaks, int bucketCount,
                                                         out float outPeak, out float outRms,
-                                                        byte[] err, int errCap);
+                                                        [Out] byte[] err, int errCap);
+
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_live_open", CallingConvention = CallingConvention.Cdecl)]
+        public static extern IntPtr LiveOpen(string profile, float sampleRate);
+
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_live_process", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int LiveProcess(IntPtr live, [In] float[] samples, int count, [Out] KanForgeLiveEvent[] events, int cap);
+
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_live_expect", CallingConvention = CallingConvention.Cdecl)]
+        public static extern int LiveExpect(IntPtr live, [In] float[] midis, int count);
+
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_live_close", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void LiveClose(IntPtr live);
 
         public static string Version()
         {

@@ -62,7 +62,7 @@ namespace Kan.Forge.Tests
             var quiet = set.Import("quiet", "/tmp/quiet.wav");
             var b = set.Import("b", "/tmp/b.wav");
 
-            quiet.LikelyEmpty = true;
+            quiet!.LikelyEmpty = true;
 
             set.OrderByMeaning();
 
@@ -87,6 +87,21 @@ namespace Kan.Forge.Tests
             Assert.That(silent.Peaks, Is.Not.Null);
             Assert.That(silent.Peaks!.Max(), Is.EqualTo(0.0f));
             Assert.That(silent.LikelyEmpty, Is.True, "a silent stem is labelled, not hidden");
+        }
+
+        [Test]
+        public void TestUndecodableTrackIsMarkedFailedNotEmpty()
+        {
+            string path = Path.Combine(Path.GetTempPath(), "kan-forge-tests", "not-audio-" + Guid.NewGuid().ToString("N")[..8] + ".wav");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            File.WriteAllText(path, "this is not audio");
+
+            var track = new ForgeTrack("broken", path);
+            TrackAnalysis.Analyze(track);
+
+            Assert.That(track.AnalysisFailed, Is.True, "a failed analysis is visible, not an endless wait");
+            Assert.That(track.Peaks, Is.Null);
+            Assert.That(track.LikelyEmpty, Is.False, "an unanalysed track stays unjudged (never flagged empty)");
         }
     }
 }

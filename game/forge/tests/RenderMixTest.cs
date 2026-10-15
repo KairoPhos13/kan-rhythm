@@ -103,6 +103,94 @@ namespace Kan.Forge.Tests
         }
 
         [Test]
+        public async Task TestMixPlacesTracksOnTheTimeline()
+        {
+            string a = writeSine("a", 0.2f, 0.4f);
+            string b = writeSine("b", 0.2f, 0.4f);
+            string outWav = Path.Combine(Path.GetDirectoryName(a)!, "mix-at-out.wav");
+
+            var tracks = new List<ForgeTrack>
+            {
+                new ForgeTrack("a", a),
+                new ForgeTrack("b", b) { OffsetMs = 500 },
+            };
+
+            await ForgeJobs.RenderMixAsync(tracks, outWav);
+
+            var (length, peak) = readWav(outWav);
+
+            // b starts at 0.5 s: the mix spans max(start + length) = 0.7 s.
+            Assert.That(length, Is.EqualTo((int)(0.7f * sample_rate)).Within(32),
+                        "the render covers the moved track's end");
+
+            // The tracks don't overlap in time, so nothing sums: still 0.4.
+            Assert.That(peak, Is.EqualTo(0.4f).Within(0.02f),
+                        "moved tracks are not stacked on the others");
+        }
+
+        [Test]
+        public async Task TestMixPlaysOnlyTheTrimmedPart()
+        {
+            string a = writeSine("a", 1.0f, 0.4f);
+            string outWav = Path.Combine(Path.GetDirectoryName(a)!, "mix-clip-out.wav");
+
+            // Plays file time [0.2 s, 0.5 s) and the track starts at 1 s:
+            // the trimmed audio stays in place, i.e. at [1.2 s, 1.5 s).
+            var tracks = new List<ForgeTrack>
+            {
+                new ForgeTrack("a", a) { OffsetMs = 1000, ClipStartMs = 200, ClipEndMs = 500 },
+            };
+
+            await ForgeJobs.RenderMixAsync(tracks, outWav);
+
+            var (length, peak) = readWav(outWav);
+            Assert.That(length, Is.EqualTo((int)(1.5f * sample_rate)).Within(32), "the render ends where the trimmed part ends");
+            Assert.That(peak, Is.EqualTo(0.4f).Within(0.02f));
+            Assert.That(Directory.GetFiles(Path.GetDirectoryName(outWav)!, "prep-*.wav"), Is.Empty, "temporary clips are cleaned up");
+        }
+
+        [Test]
+        public async Task TestTrackRendersAsHeard()
+        {
+            // 1 s tone; keep [0.1, 0.2) and [0.6, 0.7), trim the sides to
+            // [0.05, 0.9): the saved file is 0.85 s long, starts 0.05 s later,
+            // and is silent between the kept parts.
+            string a = writeSine("heard", 1.0f, 0.4f);
+            string outWav = Path.Combine(Path.GetDirectoryName(a)!, "heard-out.wav");
+
+            var track = new ForgeTrack("heard", a) { OffsetMs = 1000, ClipStartMs = 50, ClipEndMs = 900 };
+            track.Edits.Ranges.Add(new PendingRange(Kan.Forge.Native.KanForgeEditMode.Keep, 100, 200));
+            track.Edits.Ranges.Add(new PendingRange(Kan.Forge.Native.KanForgeEditMode.Keep, 600, 700));
+
+            double start = await ForgeJobs.RenderTrackAsync(track, outWav);
+
+            Assert.That(start, Is.EqualTo(1050), "the result starts where its audio sits on the timeline");
+
+            var (length, peak) = readWav(outWav);
+            Assert.That(length, Is.EqualTo((int)(0.85f * sample_rate)).Within(48));
+            Assert.That(peak, Is.EqualTo(0.4f).Within(0.02f));
+            Assert.That(peakBetween(outWav, 0.20f, 0.50f), Is.LessThan(0.001f), "between the kept parts is silent");
+            Assert.That(peakBetween(outWav, 0.06f, 0.14f), Is.GreaterThan(0.3f), "the first kept part is heard");
+            Assert.That(peakBetween(outWav, 0.56f, 0.64f), Is.GreaterThan(0.3f), "the second kept part is heard too");
+        }
+
+        /// <summary>Peak of a mono PCM16 WAV between two times (seconds).</summary>
+        private static float peakBetween(string path, float from, float to)
+        {
+            var bytes = File.ReadAllBytes(path);
+            float peak = 0;
+
+            for (int i = (int)(from * sample_rate); i < (int)(to * sample_rate); i++)
+            {
+                int at = 44 + i * 2;
+                if (at + 1 >= bytes.Length) break;
+                peak = Math.Max(peak, Math.Abs(BitConverter.ToInt16(bytes, at) / 32767f));
+            }
+
+            return peak;
+        }
+
+        [Test]
         public void TestEmptyTrackSetIsAFriendlyError()
         {
             var ex = Assert.ThrowsAsync<ForgeException>(async ()

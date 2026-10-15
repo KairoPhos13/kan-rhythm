@@ -42,7 +42,14 @@ namespace Kan.Forge.Tracks
                                                             out float peak, out float rms,
                                                             err, err.Length);
             if (st != KanForgeStatus.Ok)
-                return; // unanalysed tracks stay unjudged (I2): no flag, no preview
+            {
+                // Unanalysed tracks stay unjudged (I2): no "empty" flag, no
+                // preview — but the failure is visible, not an endless wait.
+                track.AnalysisFailed = true;
+                return;
+            }
+
+            track.AnalysisFailed = false;
 
             track.Peaks = peaks;
             track.PeakLevel = peak;

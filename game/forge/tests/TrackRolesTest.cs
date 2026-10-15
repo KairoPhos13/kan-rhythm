@@ -20,8 +20,8 @@ namespace Kan.Forge.Tests
         public void TestReferenceIsExclusive()
         {
             var set = new ForgeTrackSet();
-            var a = set.Import("a", "/tmp/a.wav");
-            var b = set.Import("b", "/tmp/b.wav");
+            var a = set.Import("a", "/tmp/a.wav")!;
+            var b = set.Import("b", "/tmp/b.wav")!;
 
             set.SetReference(a);
             Assert.That(set.Reference, Is.SameAs(a));
@@ -36,29 +36,29 @@ namespace Kan.Forge.Tests
         }
 
         [Test]
-        public void TestAccompanimentsFeedTheRender()
+        public void TestCompanionsMakeTheLevelAudio()
         {
             var set = new ForgeTrackSet();
-            var lead = set.Import("lead", "/tmp/lead.wav");
-            var pads = set.Import("pads", "/tmp/pads.wav");
-            var drums = set.Import("drums", "/tmp/drums.wav");
+            var lead = set.Import("lead", "/tmp/lead.wav")!;
+            var pads = set.Import("pads", "/tmp/pads.wav")!;
+            var drums = set.Import("drums", "/tmp/drums.wav")!;
 
-            lead.IsAccompaniment = false;
-            pads.IsAccompaniment = true;
-            drums.IsAccompaniment = true;
+            lead.IsCompanion = false;
+            pads.IsCompanion = true;
+            drums.IsCompanion = true;
             drums.Muted = true;
 
-            Assert.That(set.Accompaniments.Select(t => t.Name), Is.EqualTo(new[] { "pads" }),
-                        "the render mixes the accompaniment selection, minus muted tracks");
+            Assert.That(set.Companions.Select(t => t.Name), Is.EqualTo(new[] { "pads" }),
+                        "the level audio mixes the companion tracks, minus muted ones");
         }
 
         [Test]
         public void TestSeparatedAndMixdownTracksCannotBeDemuxedAgain()
         {
             var set = new ForgeTrackSet();
-            var source = set.Import("source", "/tmp/source.wav");
-            var stem = set.Import("stem", "/tmp/roformer/bass.wav");
-            var mix = set.Import("mix", "/tmp/audio-render.wav");
+            var source = set.Import("source", "/tmp/source.wav")!;
+            var stem = set.Import("stem", "/tmp/roformer/bass.wav")!;
+            var mix = set.Import("mix", "/tmp/audio-render.wav")!;
 
             stem.IsSeparated = true;
             mix.IsMixdown = ForgeTrack.LooksLikeMixdown(mix.Path);
@@ -97,14 +97,14 @@ namespace Kan.Forge.Tests
         public void TestDemuxResultsCanTakeOtherRoles()
         {
             var set = new ForgeTrackSet();
-            var stem = set.Import("bass", "/tmp/roformer/bass.wav");
+            var stem = set.Import("bass", "/tmp/roformer/bass.wav")!;
             stem.IsSeparated = true;
 
             set.SetReference(stem);
-            stem.IsAccompaniment = true;
+            stem.IsCompanion = true;
 
             Assert.That(set.Reference, Is.SameAs(stem), "stems can be the reference");
-            Assert.That(set.Accompaniments.Contains(stem), Is.True, "stems can be accompaniments");
+            Assert.That(set.Companions.Contains(stem), Is.True, "stems can be companions");
         }
     }
 }

@@ -1,0 +1,169 @@
+// Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
+// See the LICENCE file in the kan-rhythm repository root for full licence text.
+
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text.Json;
+using osu.Framework.Bindables;
+
+namespace Kan.Forge.Tracks
+{
+    /// <summary>
+    /// The player's timing corrections (owner 2026-10-14), shared by every
+    /// level and kept for gameplay, which will judge microphone input with
+    /// the same numbers:
+    /// <list type="bullet">
+    /// <item><b>Mic delay</b> — the full round trip of playing along: the
+    /// speakers' delay, the microphone's, and the transcriber's reaction.
+    /// Measured with the calibration tool; applied to notes recorded with the
+    /// mic.</item>
+    /// <item><b>Transcriber delay</b> — how late the transcriber places notes
+    /// in an audio file (slow attacks are recognised after they start);
+    /// applied to every note transcribed from a file.</item>
+    /// </list>
+    /// Stored in kan-forge/timing.json.
+    /// </summary>
+    public static class ForgeTiming
+    {
+        public static readonly BindableDouble MIC_DELAY_MS = new BindableDouble { MinValue = -300, MaxValue = 600, Precision = 1 };
+
+        public static readonly BindableDouble TRANSCRIBER_DELAY_MS = new BindableDouble { MinValue = -200, MaxValue = 300, Precision = 1 };
+
+        /// <summary>When the mic delay was last measured, and with which instrument (empty = never).</summary>
+        public static DateTime MicCalibratedAtUtc { get; private set; }
+
+        public static string MicCalibratedInstrument { get; private set; } = string.Empty;
+
+        private static string? path;
+        private static bool loading;
+
+        private class Document
+        {
+            public double MicDelayMs { get; set; }
+
+            public DateTime MicCalibratedAtUtc { get; set; }
+
+            public string MicCalibratedInstrument { get; set; } = string.Empty;
+
+            public double TranscriberDelayMs { get; set; }
+        }
+
+        static ForgeTiming()
+        {
+            MIC_DELAY_MS.BindValueChanged(_ => save());
+            TRANSCRIBER_DELAY_MS.BindValueChanged(_ => save());
+        }
+
+        /// <summary>Read the saved values (once per storage folder).</summary>
+        public static void Load(string forgeRoot)
+        {
+            string file = Path.Combine(forgeRoot, @"timing.json");
+            if (file == path) return;
+
+            path = file;
+            loading = true;
+
+            try
+            {
+                var doc = File.Exists(file) ? JsonSerializer.Deserialize<Document>(File.ReadAllText(file)) : null;
+                MIC_DELAY_MS.Value = doc?.MicDelayMs ?? 0;
+                TRANSCRIBER_DELAY_MS.Value = doc?.TranscriberDelayMs ?? 0;
+                MicCalibratedAtUtc = doc?.MicCalibratedAtUtc ?? default;
+                MicCalibratedInstrument = doc?.MicCalibratedInstrument ?? string.Empty;
+            }
+            catch (Exception)
+            {
+                // A damaged file: start from zero (it is rewritten on the next change).
+            }
+            finally
+            {
+                loading = false;
+            }
+        }
+
+        /// <summary>Keep a calibration's result.</summary>
+        public static void SetCalibratedMicDelay(double ms, string instrument)
+        {
+            MicCalibratedAtUtc = DateTime.UtcNow;
+            MicCalibratedInstrument = instrument;
+            MIC_DELAY_MS.Value = Math.Round(ms);
+            save();
+        }
+
+        private static void save()
+        {
+            if (loading || path == null) return;
+
+            try
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                string tmp = path + @".tmp";
+                File.WriteAllText(tmp, JsonSerializer.Serialize(new Document
+                {
+                    MicDelayMs = MIC_DELAY_MS.Value,
+                    MicCalibratedAtUtc = MicCalibratedAtUtc,
+                    MicCalibratedInstrument = MicCalibratedInstrument,
+                    TranscriberDelayMs = TRANSCRIBER_DELAY_MS.Value,
+                }, new JsonSerializerOptions { WriteIndented = true }));
+                File.Move(tmp, path, true);
+            }
+            catch (Exception)
+            {
+                // Not fatal: the values still apply for this session.
+            }
+        }
+    }
+
+    /// <summary>
+    /// Mic delay from a calibration take: clicks the player played along to,
+    /// and the note starts heard in the recording (both on the same clock).
+    /// </summary>
+    public static class MicCalibration
+    {
+        /// <summary>A note this far before its click is still taken as an answer to it (anticipation).</summary>
+        public const double EARLY_MS = 120;
+
+        public readonly record struct Result(double DelayMs, double SpreadMs, int Matched, int Clicks)
+        {
+            /// <summary>Enough answers, consistent enough to trust.</summary>
+            public bool Reliable => Matched >= Math.Max(4, Clicks * 2 / 3) && SpreadMs <= 40;
+        }
+
+        /// <summary>
+        /// For each click, the first note start from <see cref="EARLY_MS"/>
+        /// before it up to most of the way to the next click; the delay is the
+        /// median lateness, the spread its median absolute deviation (a few
+        /// missed or doubled notes don't move it).
+        /// </summary>
+        public static Result Estimate(IReadOnlyList<double> clicksMs, IReadOnlyList<double> onsetsMs)
+        {
+            var onsets = onsetsMs.OrderBy(o => o).ToList();
+            var lateness = new List<double>();
+
+            for (int i = 0; i < clicksMs.Count; i++)
+            {
+                double click = clicksMs[i];
+                double interval = i + 1 < clicksMs.Count ? clicksMs[i + 1] - click : (i > 0 ? click - clicksMs[i - 1] : 1000);
+                double from = click - EARLY_MS, to = click + interval * 0.75;
+
+                double? first = onsets.Cast<double?>().FirstOrDefault(o => o >= from && o < to);
+                if (first != null) lateness.Add(first.Value - click);
+            }
+
+            if (lateness.Count == 0) return new Result(0, double.PositiveInfinity, 0, clicksMs.Count);
+
+            double median = Median(lateness);
+            double spread = Median(lateness.Select(l => Math.Abs(l - median)).ToList());
+            return new Result(median, spread, lateness.Count, clicksMs.Count);
+        }
+
+        public static double Median(IReadOnlyList<double> values)
+        {
+            var s = values.OrderBy(v => v).ToList();
+            int n = s.Count;
+            return n % 2 == 1 ? s[n / 2] : (s[n / 2 - 1] + s[n / 2]) / 2;
+        }
+    }
+}
