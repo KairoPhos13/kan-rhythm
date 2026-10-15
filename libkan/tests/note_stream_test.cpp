@@ -22,6 +22,7 @@
 //  12. bend fact — a glide is claimed as bend_c, disambiguated from vibrato
 #include "libkan/note_stream.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -770,6 +771,155 @@ void fixture_11_restrike_vs_extension() {
     }
 }
 
+
+// ---------------------------------------------------------------------------
+/// One written note of a synthetic wind phrase (the exact truth).
+struct WindNote {
+    float t, d, midi, amp;
+    bool tongued, breath; ///< articulated with the tongue / after a breath
+};
+
+/// A wind phrase as an ocarina is played: slurred steps (no gap), tongued
+/// notes and repeats (a 20 ms fade before, a 30 ms soft attack), breaths,
+/// vibrato, room noise. Deterministic (own LCG: the same signal on every
+/// standard library); `truth` receives the written notes.
+std::vector<float> wind_phrase(uint32_t seed, int notes, std::vector<WindNote>* truth = nullptr) {
+    uint32_t rng = seed;
+    auto uniform = [&rng]() {
+        rng = rng * 1664525u + 1013904223u;
+        return float(rng >> 8) / 16777216.0f;
+    };
+    std::vector<WindNote> segs;
+    float t = 0.3f;
+    int midi = 81;
+    bool breath = true;
+    for (int i = 0; i < notes; ++i) {
+        const float d = 0.15f + 0.35f * uniform();
+        const bool repeat = uniform() < 0.3f;
+        const int step = repeat ? 0 : int(uniform() * 5.0f) - 2;
+        midi = std::min(88, std::max(74, midi + step));
+        segs.push_back({t, d, float(midi), 0.5f + 0.4f * uniform(), repeat || uniform() < 0.4f, breath});
+        t += d;
+        breath = false;
+        if (uniform() < 0.1f) {
+            t += 0.3f;
+            breath = true;
+        }
+    }
+    std::vector<float> sig(size_t((t + 1.0f) * kSr), 0.0f);
+    double phase = 0.0;
+    for (size_t k = 0; k < segs.size(); ++k) {
+        const WindNote& sg = segs[k];
+        const bool gap = k + 1 < segs.size() && (segs[k + 1].tongued || segs[k + 1].breath);
+        const size_t at = size_t(sg.t * kSr), n = size_t(sg.d * kSr);
+        for (size_t i = 0; i < n && at + i < sig.size(); ++i) {
+            const float tt = float(i) / kSr;
+            const float vib = 0.3f * std::sin(2.0f * float(M_PI) * 5.5f * tt) * std::min(1.0f, tt * 3.0f);
+            const float f = 440.0f * std::pow(2.0f, (sg.midi - 69.0f + 0.3f * vib) / 12.0f);
+            phase += 2.0 * M_PI * double(f) / kSr;
+            const float env = (sg.tongued || sg.breath) ? std::min(1.0f, tt / 0.03f) : 1.0f; // soft attack
+            const float tail = gap ? std::min(1.0f, float(n - i) / (0.02f * kSr)) : 1.0f;     // fade before a gap
+            const float v = float(std::sin(phase) + 0.12 * std::sin(2.0 * phase) + 0.05 * std::sin(3.0 * phase));
+            sig[at + i] = sg.amp * env * tail * 0.4f * v;
+        }
+    }
+    add_noise_floor(sig, 0.004f, seed ^ 0x5bd1e995u);
+    if (truth != nullptr) *truth = segs;
+    return sig;
+}
+
+void fixture_13_mono_one_record_at_a_time() {
+    std::printf("fixture 13: monophonic — one record at a time, no twins (wind phrases)\n");
+    // Real ocarina take 2026-10-15: a re-strike closed only the first live
+    // record; a second one kept its pending legato shift, and each of the two
+    // opened the same transition -> identical twin notes, records running in
+    // parallel (442 overlaps over 617 notes).
+    for (uint32_t seed : {11u, 23u, 47u, 89u}) {
+        Harness h;
+        run(wind_phrase(seed, 60), mono_profile(), {}, 1, h);
+
+        std::vector<uint32_t> open;
+        int overlaps = 0, twins = 0;
+        float last_onset = -1.0f, last_midi = -1.0f;
+        for (const auto& e : h.events) {
+            if (e.kind == kan::NoteKind::Close) {
+                open.erase(std::remove(open.begin(), open.end(), e.note_id), open.end());
+            } else if (e.kind == kan::NoteKind::Hit) {
+                overlaps += int(open.size());
+                if (std::fabs(e.u.hit.onset_ms - last_onset) < 1.0f && std::fabs(e.u.hit.midi - last_midi) < 0.5f) ++twins;
+                last_onset = e.u.hit.onset_ms;
+                last_midi = e.u.hit.midi;
+                open.push_back(e.note_id);
+            }
+        }
+        char what[128];
+        std::snprintf(what, sizeof(what), "seed %u: every earlier record is closed when a new one opens (%d still open)", seed, overlaps);
+        check(overlaps == 0, what);
+        std::snprintf(what, sizeof(what), "seed %u: no twin records (%d)", seed, twins);
+        check(twins == 0, what);
+    }
+}
+
+
+void fixture_14_wind_articulation() {
+    std::printf("fixture 14: wind articulation — slurs, tongued notes and repeats, breaths\n");
+    // Before 2026-10-15 a wind profile found 0 % of tongued repeats (no
+    // attack transient, no pitch change), 28 % of slurred steps (a new
+    // pitch had to hold 250 ms, read every 50 ms) and lost whole phrases
+    // after a breath; onsets came 60-240 ms late.
+    const char* names[4] = {"slurred step", "tongued repeat", "tongued change", "after a breath"};
+    int total[4] = {0}, right[4] = {0}, extra = 0, truth_notes = 0;
+    std::vector<float> lateness;
+    for (uint32_t seed : {11u, 23u, 47u, 89u, 101u, 131u}) {
+        std::vector<WindNote> truth;
+        const auto sig = wind_phrase(seed, 60, &truth);
+        Harness h;
+        run(sig, mono_profile(), {}, 1, h);
+
+        // Records: onset + final pitch.
+        struct Rec { uint32_t id; float onset; float midi; bool used; };
+        std::vector<Rec> recs;
+        for (const auto& e : h.events) {
+            if (e.kind == kan::NoteKind::Hit) recs.push_back({e.note_id, e.u.hit.onset_ms, -1.0f, false});
+        }
+        for (auto& r : recs) {
+            const kan::NoteEvent* f = find_pitch(h, r.id, kan::PitchStage::Final);
+            if (f != nullptr && f->u.pitch.hz > 0.0f) r.midi = f->u.pitch.midi;
+        }
+
+        for (size_t k = 0; k < truth.size(); ++k) {
+            const WindNote& w = truth[k];
+            const bool same = k > 0 && truth[k - 1].midi == w.midi;
+            if (!w.tongued && !w.breath && same) continue; // a slur to the same pitch is one note
+            const int kind = w.breath ? 3 : !w.tongued ? 0 : same ? 1 : 2;
+            ++total[kind];
+            ++truth_notes;
+            Rec* best = nullptr;
+            for (auto& r : recs) {
+                const float d = std::fabs(r.onset - w.t * 1000.0f);
+                if (!r.used && d <= 50.0f && (best == nullptr || d < std::fabs(best->onset - w.t * 1000.0f))) best = &r;
+            }
+            if (best == nullptr) continue;
+            best->used = true;
+            lateness.push_back(best->onset - w.t * 1000.0f);
+            if (std::fabs(best->midi - w.midi) < 0.5f) ++right[kind];
+        }
+        for (const auto& r : recs) extra += !r.used;
+    }
+
+    char what[160];
+    for (int k = 0; k < 4; ++k) {
+        std::snprintf(what, sizeof(what), "%s: %d of %d found on time (±50 ms) with the right pitch", names[k], right[k], total[k]);
+        check(right[k] * 100 >= total[k] * 95, what);
+    }
+    std::snprintf(what, sizeof(what), "no invented notes: %d extra for %d written", extra, truth_notes);
+    check(extra * 100 <= truth_notes * 2, what);
+    std::sort(lateness.begin(), lateness.end());
+    const float median = lateness.empty() ? 1e9f : lateness[lateness.size() / 2];
+    std::snprintf(what, sizeof(what), "onsets on time: median %+.0f ms", median);
+    check(std::fabs(median) <= 30.0f, what);
+}
+
 } // namespace
 
 int main() {
@@ -786,6 +936,8 @@ int main() {
     fixture_10_vibrato_center();
     fixture_12_bend_fact();
     fixture_11_restrike_vs_extension();
+    fixture_13_mono_one_record_at_a_time();
+    fixture_14_wind_articulation();
     std::printf("%s\n", g_pass ? "ALL PASS" : "FAILURES");
     return g_pass ? 0 : 1;
 }

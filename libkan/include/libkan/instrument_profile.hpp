@@ -75,6 +75,23 @@ struct InstrumentProfile {
     /// here only through their profile, never through code.
     bool accepts_legato_boundaries = false;
 
+    /// Cadence of the pitch readings that track a sounding note (ms): the
+    /// vibrato trajectory and the legato boundaries are measured on them.
+    float reading_interval_ms = 50.0f;
+
+    /// A legato pitch change opens its record once the new pitch has held
+    /// this long (ms) — long enough that a vibrato swing (which returns) is
+    /// not taken for a step (which stays). Fast slurred passages need it
+    /// short: a 16th note at 100 bpm lasts 150 ms.
+    float transition_hold_ms = 250.0f;
+
+    /// Articulation by level on one-note-at-a-time instruments (tonguing,
+    /// bow changes, breaths): a brief dip of the sound below the release
+    /// level that comes back opens a new record at the dip; a longer one
+    /// ends the note at its release. Winds articulate this way — often with
+    /// no attack transient for the onset detector to find.
+    bool rearticulates_by_level = false;
+
     /// Acceptance band for intonation evaluation (+/- cents around the
     /// written/expected pitch): real instruments record with systematic
     /// detune (measured up to ~50 c on field takes). The game judges the
@@ -157,6 +174,9 @@ struct InstrumentProfile {
         p.attack_ramp_ms = 30.0f;
         p.max_simultaneous_notes = 1; // one air column / one bow
         p.accepts_legato_boundaries = true; // slurs / transition notes
+        p.reading_interval_ms = 20.0f;     // slurred runs: boundaries to ~20 ms
+        p.transition_hold_ms = 80.0f;      // vibrato returns within ~90 ms; steps stay
+        p.rearticulates_by_level = true;   // tonguing dips, breaths
         p.intonation_band_cents = 60.0f;
         p.pitch_search_cents = 60.0f;  // no inharmonic bass: flat band
         p.pitch_search_cents_low = 60.0f;
