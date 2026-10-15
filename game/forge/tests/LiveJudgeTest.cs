@@ -84,12 +84,28 @@ namespace Kan.Forge.Tests
 
             var unclear = judge.Judge(1000, 72, false, 1210)!.Value;
             Assert.That(unclear.Reason, Is.EqualTo(LiveReason.PitchUnclear));
-            Assert.That(unclear.Result, Is.EqualTo(LiveResult.Ok), "on time, but the pitch could not be told: at most ok");
+            Assert.That(unclear.Result, Is.EqualTo(LiveResult.Meh), "on time, but the pitch could not be told: at most meh");
 
             // The score does not know this note's pitch: any note on time counts.
             judge.Heard(2, 2000);
             judge.Pitch(2, 60, 0, final: true);
             Assert.That(judge.Judge(2000, 72, true, 2010)!.Value.Result, Is.EqualTo(LiveResult.Great));
+        }
+
+        [Test]
+        public void HasHeardTellsTheWaitModeANoteWasPlayed()
+        {
+            var judge = new LiveJudge();
+            Assert.That(judge.HasHeard(1000, 72, false), Is.False);
+
+            judge.Heard(1, 990);
+            judge.Pitch(1, 71, 0, final: true);
+            Assert.That(judge.HasHeard(1000, 72, false), Is.False, "another note");
+
+            judge.Heard(2, 1010);
+            judge.Pitch(2, 72, 0, final: false);
+            Assert.That(judge.HasHeard(1000, 72, false), Is.True);
+            Assert.That(judge.HasHeard(1500, 72, false), Is.False, "too far");
         }
 
         [Test]

@@ -44,7 +44,8 @@ but it does not work streamed yet and accepts octave-below expectations
   that has the note's pitch. Great ≤ 70 ms, ok ≤ 130 ms, meh ≤ 200 ms.
 - The pitch arrives after the onset (provisional ~45 ms, final ~200 ms),
   so a note waits up to 300 ms past its window for it.
-- A heard note whose pitch can't be told counts as at most "ok". A score
+- A heard note whose pitch can't be told counts as at most "meh" (owner
+  2026-10-15: noise must not pass for playing well). A score
   note with an unknown pitch accepts any note on time.
 - Each played note answers one score note: a repeated note needs its own
   attack.
@@ -58,10 +59,44 @@ but it does not work streamed yet and accepts octave-below expectations
   note.
 - **Out of time with only a provisional pitch:** the miss says which
   note was played ("F5 — play G5").
-- Misses never end the level (`KanHealthProcessor`).
+- Misses drain health and an empty bar fails the level, as in osu!
+  (owner 2026-10-15; it was no-fail before). "No fail" and "wait for me"
+  keep it going.
 - **Known limit:** osu! stamps a result with the time it is applied, so the
   results screen's timing graph includes the pitch wait. Our verdict's
   `OffsetMs` is the real offset; it drives the in-game feedback.
+
+## Mods (owner 2026-10-15)
+
+Mods that need nothing from the level editor:
+
+| mod | what it does in kan! |
+|---|---|
+| Easy / Hard Rock | timing windows ×1.4 / ×0.7 (`LiveJudge.WindowScale`) |
+| No Fail, Sudden Death, Perfect | as in osu! |
+| Half Time / Daycore, Double Time / Nightcore | the level slower or faster, same notes (pitch kept): practise at 75 % or 90 % |
+| Hidden | notes fade out on the way to the line (gone 300 ms before it) |
+| Wait for me (WT) | the level stops at each note until it is played (it keeps listening from the HUD, since osu! updates nothing inside a stopped ruleset); score ×0.1, cannot fail |
+| Auto / Cinema | a perfect performance, played as a replay |
+| Muted | as in osu! |
+
+Not applicable: Relax, Auto Pilot, Spun Out (no cursor or spinners).
+Later: Flashlight (needs its own shader), Score V2.
+
+Rate mods: the player's sound arrives in real time and the level runs at
+the rate, so a fact's level time is `anchor + (stream − waited − mic
+delay) × rate`.
+
+## Replays
+
+A kan! replay holds what the judge heard, not keys (`KanReplayFrame`):
+each heard onset, pitch and pitch reading, stamped with the level time it
+reached the judge and its own delay. A replay (and autoplay) feeds those
+facts to the same judge instead of listening to the microphone, so it
+gives the same verdicts. Legacy `.osr` encoding: the button field holds
+kind × 100000 + delay, the coordinates hold the values. Verified: a full
+recorded play and its replay from the saved score gave the same 325
+verdicts (offsets within 1 ms, from whole-ms frame times).
 
 ## The screen (`KanStaff`, `KanPlayfield`)
 
@@ -80,7 +115,8 @@ but it does not work streamed yet and accepts octave-below expectations
   flat ↓", "pitch unclear", "F5 — play G5", "not heard".
 - **Bloom:** playing well opens the music. The level audio goes through a
   low-pass filter that lifts with the bloom (fully open near the top);
-  misses close it a little and it never stops. The background brightens
+  a miss is heard at once: the music muffles hard (towards 200 Hz) and drops
+  in volume, recovering over ~0.9 s; the line flashes red. The background brightens
   with it. Real stem layering (the band joins in) needs the stems in the
   level: a later step.
 - Everything is drawn from fixed pools, so any length of score costs the
@@ -96,6 +132,14 @@ but it does not work streamed yet and accepts octave-below expectations
 | `KAN_LIVE_INPUT=<wav>` | a recording plays the part of the microphone, paced by the game clock |
 | `KAN_LIVE_INPUT_OFFSET_MS=<ms>` | where that recording starts on the level's timeline |
 | `KAN_DEV_SCREENSHOTS=20,45` | screenshots that many seconds into the level |
+| `KAN_LIVE_INPUT_REALTIME=1` | the recording plays in real time, like a player (rate and wait modes) |
+| `KAN_DEV_MODS=HT,NF` | play with those mods; `AT` plays through a replay player |
+| `KAN_DEV_SCREEN=select` / `replay` | open song select on the level / play back its newest local score |
+
+A dev run never opens the microphone: without `KAN_LIVE_INPUT` it listens
+to nothing. The test instance needs its own `/tmp` (mount namespace):
+.NET's single-instance socket lives at `/tmp/CoreFxPipe_osu-framework-osu-lazer`,
+so with only `unshare -n` it hands over to the user's running game.
 
 Run it on a virtual display with its own data folder, so it touches neither
 the user's screen nor their game: headless weston, `XDG_DATA_HOME` pointing

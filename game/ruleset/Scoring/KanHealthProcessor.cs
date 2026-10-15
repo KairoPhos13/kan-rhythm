@@ -1,14 +1,15 @@
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
-using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.Scoring;
 
 namespace Kan.Ruleset.Scoring
 {
     /// <summary>
-    /// No game over by default (owner 2026-10-14: memorable and repeatable,
-    /// not frustrating): a miss is felt in the music, it never ends the level.
+    /// Health as in osu!: misses drain it and an empty bar ends the level
+    /// (owner 2026-10-15: "the player doesn't lose by playing wrong" — it was
+    /// no-fail before, 2026-10-14). The "no fail" and "wait for me" mods keep
+    /// the level going.
     /// </summary>
     public partial class KanHealthProcessor : DrainingHealthProcessor
     {
@@ -16,7 +17,5 @@ namespace Kan.Ruleset.Scoring
             : base(drainStartTime)
         {
         }
-
-        protected override bool CheckDefaultFailCondition(JudgementResult result) => false;
     }
 }

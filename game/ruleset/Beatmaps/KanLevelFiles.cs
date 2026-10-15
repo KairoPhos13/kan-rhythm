@@ -80,8 +80,10 @@ namespace Kan.Ruleset.Beatmaps
     {
         public KanRulesetIcon()
         {
-            AutoSizeAxes = Axes.Both;
-            InternalChild = new SpriteIcon { Icon = FontAwesome.Solid.Music, Size = new osuTK.Vector2(20) };
+            // Sized by whoever shows it (toolbar, song select set panels set
+            // Size), like a stock ruleset icon: no auto-size, the glyph fills it.
+            Size = new osuTK.Vector2(20);
+            InternalChild = new SpriteIcon { Icon = FontAwesome.Solid.Music, RelativeSizeAxes = Axes.Both };
         }
 
         [BackgroundDependencyLoader(true)]

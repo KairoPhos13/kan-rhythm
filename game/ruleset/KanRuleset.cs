@@ -79,7 +79,33 @@ namespace Kan.Ruleset
         /// </summary>
         public override string RulesetAPIVersionSupported => CURRENT_RULESET_API_VERSION;
 
-        public override IEnumerable<Mod> GetModsFor(ModType type) => Array.Empty<Mod>();
+        /// <summary>Mods that need nothing from the level editor (owner 2026-10-15).</summary>
+        public override IEnumerable<Mod> GetModsFor(ModType type) => type switch
+        {
+            ModType.DifficultyReduction => new Mod[]
+            {
+                new Kan.Ruleset.Mods.KanModEasy(),
+                new Kan.Ruleset.Mods.KanModNoFail(),
+                new MultiMod(new Kan.Ruleset.Mods.KanModHalfTime(), new Kan.Ruleset.Mods.KanModDaycore()),
+                new Kan.Ruleset.Mods.KanModWait(),
+            },
+            ModType.DifficultyIncrease => new Mod[]
+            {
+                new Kan.Ruleset.Mods.KanModHardRock(),
+                new MultiMod(new Kan.Ruleset.Mods.KanModSuddenDeath(), new Kan.Ruleset.Mods.KanModPerfect()),
+                new MultiMod(new Kan.Ruleset.Mods.KanModDoubleTime(), new Kan.Ruleset.Mods.KanModNightcore()),
+                new Kan.Ruleset.Mods.KanModHidden(),
+            },
+            ModType.Automation => new Mod[] { new MultiMod(new Kan.Ruleset.Mods.KanModAutoplay(), new Kan.Ruleset.Mods.KanModCinema()) },
+            ModType.Fun => new Mod[] { new Kan.Ruleset.Mods.KanModMuted() },
+            _ => Array.Empty<Mod>(),
+        };
+
+        public override osu.Game.Rulesets.Scoring.ScoreMultiplierCalculator CreateScoreMultiplierCalculator(osu.Game.Rulesets.Scoring.ScoreMultiplierContext context)
+            => new Kan.Ruleset.Mods.KanScoreMultiplierCalculator(context);
+
+        /// <summary>Replays hold what the judge heard (<see cref="Kan.Ruleset.Replays.KanReplayFrame"/>).</summary>
+        public override osu.Game.Rulesets.Replays.Types.IConvertibleReplayFrame CreateConvertibleReplayFrame() => new Kan.Ruleset.Replays.KanReplayFrame();
 
         public override IBeatmapConverter CreateBeatmapConverter(IBeatmap beatmap) => new KanBeatmapConverter(beatmap, this);
 
@@ -88,7 +114,7 @@ namespace Kan.Ruleset
         /// <summary>The music note icon; loading it also lets the converter read level files (<see cref="KanLevelFiles"/>).</summary>
         public override Drawable CreateIcon() => new KanRulesetIcon();
 
-        /// <summary>No game over (owner 2026-10-14): misses are felt in the music, the level goes on.</summary>
+        /// <summary>Misses cost health and an empty bar ends the level (owner 2026-10-15); "no fail" and "wait for me" keep it going.</summary>
         public override osu.Game.Rulesets.Scoring.HealthProcessor CreateHealthProcessor(double drainStartTime) => new Kan.Ruleset.Scoring.KanHealthProcessor(drainStartTime);
 
         public override DrawableRuleset CreateDrawableRulesetWith(IBeatmap beatmap, IReadOnlyList<Mod>? mods = null) => new KanDrawableRuleset(this, beatmap, mods);

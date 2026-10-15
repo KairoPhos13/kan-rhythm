@@ -5,12 +5,17 @@ using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Input;
 using osu.Framework.Input.Bindings;
+using osu.Framework.Input.StateChanges;
 using osu.Game.Beatmaps;
+using osu.Game.Input.Handlers;
+using osu.Game.Replays;
+using osu.Game.Scoring;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Rulesets.UI;
 using Kan.Ruleset.Beatmaps;
 using Kan.Ruleset.Objects;
+using Kan.Ruleset.Replays;
 
 namespace Kan.Ruleset.UI
 {
@@ -23,13 +28,35 @@ namespace Kan.Ruleset.UI
     {
         private readonly KanPlayState state;
 
+        public KanPlayState State => state;
+
         public KanDrawableRuleset(osu.Game.Rulesets.Ruleset ruleset, IBeatmap beatmap, IReadOnlyList<Mod>? mods = null)
             : base(ruleset, beatmap, mods)
         {
             var notes = Beatmap.HitObjects.Where(h => h.HasScore).OrderBy(h => h.Index).ToList();
             string instrument = notes.Count > 0 ? KanLevelFiles.LoadScore(beatmap.BeatmapInfo.BeatmapSet)?.Instrument ?? @"keyboard" : @"keyboard";
-            state = new KanPlayState(notes, instrument);
+            state = new KanPlayState(notes, instrument)
+            {
+                WaitForPlayer = Mods.Any(m => m is Kan.Ruleset.Mods.KanModWait),
+                HideNotes = Mods.Any(m => m is Kan.Ruleset.Mods.KanModHidden),
+                ReplaySource = () => ReplayScore?.Replay,
+            };
         }
+
+        protected override void LoadComplete()
+        {
+            base.LoadComplete();
+
+            // Easy / hard rock: wider or stricter timing windows.
+            if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModEasy)) state.Judge.WindowScale = 1.4;
+            if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModHardRock)) state.Judge.WindowScale = 0.7;
+        }
+
+        /// <summary>A play records what the judge heard (<see cref="KanReplayRecorder"/>).</summary>
+        protected override ReplayRecorder CreateReplayRecorder(Score score) => state.Recorder = new KanReplayRecorder(score);
+
+        /// <summary>A replay (or autoplay) is heard from its frames, not the microphone.</summary>
+        protected override ReplayInputHandler CreateReplayInputHandler(Replay replay) => new KanReplayInputHandler(replay);
 
         public override DrawableHitObject<KanHitObject> CreateDrawableRepresentation(KanHitObject h) => new DrawableKanHitObject(h);
 

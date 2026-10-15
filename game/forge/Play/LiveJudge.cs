@@ -49,6 +49,13 @@ namespace Kan.Forge.Play
         public const double OK_MS = 130;
         public const double MEH_MS = 200;
 
+        /// <summary>Scales the timing windows: easier above 1 ("easy"), stricter below ("hard rock").</summary>
+        public double WindowScale { get; set; } = 1;
+
+        private double great => GREAT_MS * WindowScale;
+        private double ok => OK_MS * WindowScale;
+        private double meh => MEH_MS * WindowScale;
+
         /// <summary>How long after the window a note waits for a heard onset's pitch.</summary>
         public const double PITCH_WAIT_MS = 300;
 
@@ -113,6 +120,22 @@ namespace Kan.Forge.Play
         }
 
         /// <summary>
+        /// Whether a played note that would answer this score note has been heard
+        /// (unclaimed, within the window, with its pitch). For the wait mode:
+        /// a note already played on time needs no waiting.
+        /// </summary>
+        public bool HasHeard(double startMs, int midi, bool anyPitch)
+        {
+            foreach (var p in played)
+            {
+                if (!p.Claimed && Math.Abs(p.TimeMs - startMs) <= meh && (anyPitch || p.Midi == midi))
+                    return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
         /// Judge the score note starting at <paramref name="startMs"/>, or null
         /// while it cannot be decided yet. <paramref name="anyPitch"/>: the score
         /// itself does not know the pitch (the transcriber could not tell).
@@ -126,7 +149,7 @@ namespace Kan.Forge.Play
 
             foreach (var p in played)
             {
-                if (p.Claimed || Math.Abs(p.TimeMs - startMs) > MEH_MS) continue;
+                if (p.Claimed || Math.Abs(p.TimeMs - startMs) > meh) continue;
 
                 bool known = p.Midi != null;
 
@@ -155,8 +178,8 @@ namespace Kan.Forge.Play
             if (!anyPitch && nowMs >= startMs + LEGATO_TO_MS && reachedPitch(startMs, midi, mustArrive: !legato) is { } reachedMs)
                 return grade(reachedMs - startMs, LiveReason.Played, midi, 0);
 
-            bool windowOpen = nowMs <= startMs + MEH_MS;
-            bool canWait = nowMs <= startMs + MEH_MS + PITCH_WAIT_MS;
+            bool windowOpen = nowMs <= startMs + meh;
+            bool canWait = nowMs <= startMs + meh + PITCH_WAIT_MS;
 
             if (windowOpen || (waiting && canWait))
                 return null;
@@ -210,23 +233,24 @@ namespace Kan.Forge.Play
             return first!.Value <= startMs - LEGATO_FROM_MS + 10 ? startMs : first.Value;
         }
 
-        private static LiveVerdict claim(Played p, double startMs, LiveReason reason)
+        private LiveVerdict claim(Played p, double startMs, LiveReason reason)
         {
             p.Claimed = true;
             return grade(p.TimeMs - startMs, reason, p.Midi, p.Cents);
         }
 
-        private static LiveVerdict grade(double offset, LiveReason reason, int? playedMidi, float cents)
+        private LiveVerdict grade(double offset, LiveReason reason, int? playedMidi, float cents)
         {
             double distance = Math.Abs(offset);
 
-            var result = distance <= GREAT_MS ? LiveResult.Great
-                : distance <= OK_MS ? LiveResult.Ok
+            var result = distance <= great ? LiveResult.Great
+                : distance <= ok ? LiveResult.Ok
                 : LiveResult.Meh;
 
-            // Heard but not understood: credit the timing, not more than "ok".
-            if (reason == LiveReason.PitchUnclear && result == LiveResult.Great)
-                result = LiveResult.Ok;
+            // Heard but not understood: credit the timing, not more than "meh"
+            // (owner 2026-10-15: noise must not pass for playing well).
+            if (reason == LiveReason.PitchUnclear && result != LiveResult.Miss)
+                result = LiveResult.Meh;
 
             return new LiveVerdict(result, reason, offset, playedMidi, cents);
         }

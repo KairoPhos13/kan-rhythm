@@ -4,6 +4,7 @@
 using System;
 using osu.Framework.Allocation;
 using osu.Framework.Audio;
+using osu.Framework.Bindables;
 using osu.Framework.Extensions.Color4Extensions;
 using osu.Framework.Graphics;
 using osu.Framework.Graphics.Colour;
@@ -11,9 +12,11 @@ using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
 using osu.Framework.Utils;
 using osu.Game.Audio.Effects;
+using osu.Game.Beatmaps;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osu.Game.Rulesets.UI;
+using Kan.Forge.Play;
 using osuTK.Graphics;
 
 namespace Kan.Ruleset.UI
@@ -22,7 +25,9 @@ namespace Kan.Ruleset.UI
     /// The kan! playfield (gameplay MVP, owner 2026-10-14): the living staff
     /// over a background that brightens as the music blooms. The music is the
     /// reward: playing well opens the level audio up (a low-pass filter that
-    /// lifts with the bloom); misses close it a little, it never stops.
+    /// lifts with the bloom). A miss is heard at once (owner 2026-10-15: "when
+    /// you fail at osu the song starts sounding horrible"): the music muffles
+    /// hard and drops in volume for a moment, then recovers to the bloom.
     /// Levels without a score show the placeholder.
     /// </summary>
     public partial class KanPlayfield : Playfield
@@ -38,6 +43,16 @@ namespace Kan.Ruleset.UI
         private Box background = null!;
         private OsuSpriteText status = null!;
         private AudioFilter? bloomFilter;
+
+        /// <summary>A miss just happened: 1, fading to 0 over <see cref="miss_recovery_ms"/>.</summary>
+        private double missDip;
+
+        private const double miss_recovery_ms = 900;
+
+        private readonly BindableDouble missVolume = new BindableDouble(1);
+
+        [Resolved]
+        private IBindable<WorkingBeatmap> beatmap { get; set; } = null!;
 
         public KanPlayfield(KanPlayState state)
         {
@@ -72,6 +87,18 @@ namespace Kan.Ruleset.UI
             });
 
             state.Status.BindValueChanged(s => status.Text = s.NewValue, true);
+            state.Judged += onJudged;
+        }
+
+        protected override void LoadComplete()
+        {
+            base.LoadComplete();
+            beatmap.Value.Track.AddAdjustment(AdjustableProperty.Volume, missVolume);
+        }
+
+        private void onJudged(int index, LiveVerdict verdict)
+        {
+            if (verdict.Result == LiveResult.Miss) missDip = 1;
         }
 
         protected override void Update()
@@ -83,10 +110,24 @@ namespace Kan.Ruleset.UI
             double bloom = state.Bloom;
             background.Colour = ColourInfo.GradientVertical(Interpolation.ValueAt(bloom, dark, bright, 0, 1), dark);
 
+            missDip = Math.Max(0, missDip - Time.Elapsed / miss_recovery_ms);
+            double dip = missDip * missDip; // sharp at once, easing back
+
             // Fully open near the top of the bloom; otherwise the higher frequencies come in with it.
-            bloomFilter.Cutoff = bloom >= 0.97
+            // A miss pulls it down hard (towards 200 Hz) and ducks the volume.
+            double open = bloom >= 0.97 && dip == 0 ? 1 : Math.Max(0, bloom - dip * 1.2);
+            bloomFilter.Cutoff = open >= 1
                 ? AudioFilter.MAX_LOWPASS_CUTOFF
-                : (int)(muffled_hz * Math.Pow((double)AudioFilter.MAX_LOWPASS_CUTOFF / muffled_hz, bloom));
+                : (int)Math.Max(200, muffled_hz * Math.Pow((double)AudioFilter.MAX_LOWPASS_CUTOFF / muffled_hz, open));
+            missVolume.Value = 1 - 0.45 * dip;
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            state.Judged -= onJudged;
+            if (beatmap.Value?.TrackLoaded == true)
+                beatmap.Value.Track.RemoveAdjustment(AdjustableProperty.Volume, missVolume);
+            base.Dispose(isDisposing);
         }
 
         private static Drawable placeholder() => new FillFlowContainer

@@ -48,6 +48,9 @@ namespace Kan.Ruleset.UI
         private static readonly Color4 ok_colour = Color4Extensions.FromHex(@"7cdb8a");
         private static readonly Color4 meh_colour = Color4Extensions.FromHex(@"66b3ff");
         private static readonly Color4 miss_colour = Color4Extensions.FromHex(@"6b5560");
+
+        /// <summary>Feedback for a miss: clearly red (the dim <see cref="miss_colour"/> marks notes already missed).</summary>
+        private static readonly Color4 miss_feedback_colour = Color4Extensions.FromHex(@"ff5a6e");
         private static readonly Color4 trail_on = Color4Extensions.FromHex(@"b7ffcf");
         private static readonly Color4 trail_off = Color4Extensions.FromHex(@"ffffff");
 
@@ -264,7 +267,12 @@ namespace Kan.Ruleset.UI
                 if (n.EndMs < from) continue;
 
                 var previous = i > 0 ? notes[i - 1] : null;
-                views[used++].Show(n, state.Verdicts[i], heldUntil[i], previous, now, this);
+                var view = views[used++];
+                view.Show(n, state.Verdicts[i], heldUntil[i], previous, now, this);
+
+                // "Hidden": a note fades out on its way to the line (gone 300 ms before it).
+                if (state.HideNotes && state.Verdicts[i] == null)
+                    view.Alpha = (float)Math.Clamp((n.StartTime - now - 300) / 500, 0, 1);
             }
 
             for (int i = used; i < note_pool; i++)
@@ -321,12 +329,12 @@ namespace Kan.Ruleset.UI
             {
                 case LiveReason.NotHeard:
                     text = @"not heard";
-                    colour = miss_colour.Lighten(0.6f);
+                    colour = miss_feedback_colour;
                     break;
 
                 case LiveReason.WrongNote:
                     text = v.PlayedMidi is int played ? $"{NoteName(played)} — play {NoteName(n.Midi)}" : @"another note";
-                    colour = miss_colour.Lighten(0.8f);
+                    colour = miss_feedback_colour;
                     break;
 
                 default:
@@ -354,11 +362,9 @@ namespace Kan.Ruleset.UI
                  .FadeOut(700, Easing.InQuad)
                  .Expire();
 
-            if (v.Result != LiveResult.Miss)
-            {
-                nowLine.FlashColour(colour, 300, Easing.OutQuint);
-                nowGlow.FadeTo(0.3f, 40).Then().FadeTo(0.08f, 400);
-            }
+            // Every judgement is seen at the line: a miss flashes it red.
+            nowLine.FlashColour(v.Result == LiveResult.Miss ? miss_feedback_colour : colour, v.Result == LiveResult.Miss ? 450 : 300, Easing.OutQuint);
+            nowGlow.FadeTo(v.Result == LiveResult.Miss ? 0.45f : 0.3f, 40).Then().FadeTo(0.08f, 400);
         }
 
         protected override void Dispose(bool isDisposing)
