@@ -98,8 +98,16 @@ namespace Kan.Ruleset.Beatmaps
                 devPlayStarted = true;
                 host.UpdateThread.Scheduler.Add(() => game.Add(new Dev.KanDevPlay()));
             }
+
+            // The level's part in the song select preview (game-wide, like the above).
+            if (!previewStarted && game != null && host != null)
+            {
+                previewStarted = true;
+                host.UpdateThread.Scheduler.Add(() => game.Add(new Kan.Forge.Play.LevelPreview(KanLevelFiles.LoadScore, () => KanLevelFiles.ForgeRoot)));
+            }
         }
 
         private static bool devPlayStarted;
+        private static bool previewStarted;
     }
 }

@@ -33,6 +33,19 @@ namespace Kan.Forge.Editor
         private double startedAt = double.NegativeInfinity;
         private double? baseline;
 
+        /// <summary>
+        /// The offset the channel should keep, when known instead of measured:
+        /// 0 when following another playing channel (its position runs the
+        /// same buffer ahead), so a late start is corrected rather than kept.
+        /// </summary>
+        public double? ExpectedOffsetMs;
+
+        /// <summary>With a known offset, tighter: two channels of one song a beat apart sound wrong.</summary>
+        private const double expected_drift_ms = 15;
+
+        /// <summary>How far ahead to seek so the channel lands in place (a seek takes effect a moment late); learned.</summary>
+        private double seekLeadMs;
+
         /// <summary>Corrections made (each is audible) — for diagnostics.</summary>
         public int Resyncs { get; private set; }
 
@@ -62,9 +75,10 @@ namespace Kan.Forge.Editor
                 // Seek again once started: a channel's first start can drop a seek
                 // made while it was stopped and play from 0 (owner 2026-10-14: the
                 // reference began at its start the first time it was switched on).
-                track.Seek(positionMs);
+                double lead = ExpectedOffsetMs != null ? seekLeadMs : 0;
+                track.Seek(positionMs + lead);
                 track.Start();
-                track.Seek(positionMs);
+                track.Seek(positionMs + lead);
                 startedAt = nowMs;
                 baseline = null;
                 return;
@@ -85,15 +99,21 @@ namespace Kan.Forge.Editor
                 return;
             }
 
-            baseline ??= offset;
+            baseline ??= ExpectedOffsetMs ?? offset;
 
             double drift = Math.Abs(offset - baseline.Value);
 
             // A big jump is the user seeking the timeline: follow it at once.
             // Smaller drift is corrected, but never more than twice a second.
-            if (drift > seek_jump_ms || (drift > max_drift_ms && nowMs - startedAt > min_interval_ms))
+            double tolerance = ExpectedOffsetMs != null ? expected_drift_ms : max_drift_ms;
+
+            if (drift > seek_jump_ms || (drift > tolerance && nowMs - startedAt > min_interval_ms))
             {
-                track.Seek(positionMs + baseline.Value);
+                // A channel that lands late again is seeked further ahead next time.
+                if (ExpectedOffsetMs != null && drift <= seek_jump_ms)
+                    seekLeadMs = Math.Clamp(seekLeadMs + baseline.Value - offset, -150, 150);
+
+                track.Seek(positionMs + baseline.Value + (ExpectedOffsetMs != null ? seekLeadMs : 0));
                 startedAt = nowMs;
                 Resyncs++;
             }

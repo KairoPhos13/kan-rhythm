@@ -98,6 +98,25 @@ kind × 100000 + delay, the coordinates hold the values. Verified: a full
 recorded play and its replay from the saved score gave the same 325
 verdicts (offsets within 1 ms, from whole-ms frame times).
 
+## Song select preview (owner 2026-10-15)
+
+The level audio is the companion only, which alone is "too abstract" as a
+preview. `Kan.Forge.Play.LevelPreview` (a game-wide component started by
+the ruleset icon) adds the part the player will play, on its own channel,
+while song select or the loading screen after it shows a kan! level:
+
+- the **reference** take when it is on this computer (the level's
+  author has it: `kan-forge/<set>/set.json`), placed, trimmed, filtered
+  and muted as in the editor — it sounds best;
+- otherwise the level's **notes** as plain tones (`ScoreSynth`, rendered
+  in memory, a little under the companion).
+
+It follows the preview's position, fades and rate mods (Half Time plays
+the part at 75 % too). Both channels report positions the same way, so
+`ChannelSync.ExpectedOffsetMs = 0` corrects a late start instead of
+keeping it as an offset, and learns the seek latency (measured in the
+isolated instance: ~1 ms apart after two corrections at the start).
+
 ## The screen (`KanStaff`, `KanPlayfield`)
 
 - **Living staff:** time runs right to left onto a fixed "now" line, and

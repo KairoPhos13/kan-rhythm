@@ -39,5 +39,36 @@ namespace Kan.Forge.Tests
             Assert.That(track.CurrentTime, Is.EqualTo(60_300).Within(100));
             Assert.That(sync.TakeResyncs(), Is.EqualTo(1));
         }
+
+        [Test]
+        public void AChannelsOwnSteadyOffsetIsKept()
+        {
+            var track = new TrackVirtual(200_000);
+            var sync = new ChannelSync();
+
+            sync.Update(track, 60_000, true, 0);
+            track.Seek(track.CurrentTime - 85); // its buffer: a steady offset, not drift
+            sync.Update(track, track.CurrentTime + 85, true, 600);
+
+            Assert.That(sync.TakeResyncs(), Is.EqualTo(0));
+        }
+
+        [Test]
+        public void ALateStartIsCorrectedWhenTheOffsetIsKnown()
+        {
+            // The song select preview follows another playing channel: both report
+            // positions the same way, so 85 ms behind is late, not a buffer
+            // (measured 2026-10-15 with the reference against the level audio).
+            var track = new TrackVirtual(200_000);
+            var sync = new ChannelSync { ExpectedOffsetMs = 0 };
+
+            sync.Update(track, 60_000, true, 0);
+            track.Seek(track.CurrentTime - 85);
+            double position = track.CurrentTime + 85;
+            sync.Update(track, position, true, 600);
+
+            Assert.That(sync.TakeResyncs(), Is.EqualTo(1));
+            Assert.That(track.CurrentTime, Is.GreaterThanOrEqualTo(position - 5));
+        }
     }
 }

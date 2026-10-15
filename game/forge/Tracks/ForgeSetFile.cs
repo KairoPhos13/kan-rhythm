@@ -22,6 +22,9 @@ namespace Kan.Forge.Tracks
     {
         public const int VERSION = 1;
 
+        /// <summary>The set's file in the level's kan-forge folder.</summary>
+        public const string FILE_NAME = @"set.json";
+
         private static readonly JsonSerializerOptions options = new JsonSerializerOptions
         {
             IncludeFields = true,

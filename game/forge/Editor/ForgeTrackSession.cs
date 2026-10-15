@@ -75,7 +75,7 @@ namespace Kan.Forge.Editor
         public static string NewWorkPath(string prefix, string extension = @".wav")
             => WorkPath($"{prefix}-{Guid.NewGuid().ToString("N")[..8]}{extension}");
 
-        private static string setFile => Path.Combine(WorkDir, @"set.json");
+        private static string setFile => Path.Combine(WorkDir, ForgeSetFile.FILE_NAME);
 
         /// <summary>
         /// Switch to a level's set: save the current one, then load the

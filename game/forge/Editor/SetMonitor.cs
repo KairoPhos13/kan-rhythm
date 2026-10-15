@@ -581,9 +581,18 @@ namespace Kan.Forge.Editor
             {
                 if (!File.Exists(track.Path)) return null;
 
-                var mixer = audio.CreateAudioMixer($"kan-forge:{track.Name}");
-                var store = audio.GetTrackStore(new AbsoluteFileStore(), mixer);
-                var t = store.Get(track.Path);
+                return open(audio, track.Name, new AbsoluteFileStore(), track.Path);
+            }
+
+            /// <summary>A channel playing audio held in memory (a rendered WAV).</summary>
+            public static Channel? Open(AudioManager audio, string name, byte[] audioFile)
+                => open(audio, name, new MemoryFileStore(name, audioFile), name);
+
+            private static Channel? open(AudioManager audio, string name, IResourceStore<byte[]> files, string path)
+            {
+                var mixer = audio.CreateAudioMixer($"kan-forge:{name}");
+                var store = audio.GetTrackStore(files, mixer);
+                var t = store.Get(path);
 
                 if (t == null)
                 {
@@ -620,6 +629,31 @@ namespace Kan.Forge.Editor
             public Stream GetStream(string name) => File.Exists(name) ? File.OpenRead(name) : null!;
 
             public IEnumerable<string> GetAvailableResources() => Array.Empty<string>();
+
+            public void Dispose()
+            {
+            }
+        }
+
+        /// <summary>Resource store over one file held in memory.</summary>
+        private sealed class MemoryFileStore : IResourceStore<byte[]>
+        {
+            private readonly string name;
+            private readonly byte[] data;
+
+            public MemoryFileStore(string name, byte[] data)
+            {
+                this.name = name;
+                this.data = data;
+            }
+
+            public byte[] Get(string n) => n == name ? data : null!;
+
+            public Task<byte[]> GetAsync(string n, CancellationToken cancellationToken = default) => Task.FromResult(Get(n));
+
+            public Stream GetStream(string n) => n == name ? new MemoryStream(data, false) : null!;
+
+            public IEnumerable<string> GetAvailableResources() => new[] { name };
 
             public void Dispose()
             {

@@ -202,7 +202,13 @@ namespace Kan.Forge.Media
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
             using var f = File.Create(path);
-            using var w = new BinaryWriter(f);
+            WriteWav(f, samples, frames, channels, sampleRate);
+        }
+
+        /// <summary>16-bit PCM WAV into a stream (left open).</summary>
+        public static void WriteWav(Stream stream, float[] samples, int frames, int channels, int sampleRate)
+        {
+            using var w = new BinaryWriter(stream, System.Text.Encoding.UTF8, leaveOpen: true);
 
             int dataBytes = frames * channels * 2;
             w.Write("RIFF"u8.ToArray());
