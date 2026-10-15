@@ -780,6 +780,19 @@ private:
         }
     }
 
+    /// One note at a time (profile data, I10): a record that opens ends every
+    /// other sounding record at its onset. A held note cannot outlive the
+    /// next one, and its pending legato shift must not fire later — on a wind
+    /// profile two live records each opened the same transition, emitting
+    /// identical twin notes (2026-10-15, real ocarina take).
+    void end_others_if_mono(const Record& opened) noexcept {
+        if (profile_.max_simultaneous_notes > 1) return;
+        for (auto& n : records_) {
+            if (!n.live || &n == &opened) continue;
+            close_record(n, std::max(n.onset_ms, opened.onset_ms));
+        }
+    }
+
     Record* alloc_record() noexcept {
         for (auto& n : records_) {
             if (!n.live) return &n;
@@ -923,6 +936,7 @@ private:
             if (g->leader == 0) g->leader = rec->id;
             ++g->live_records;
             last_note_id_ = rec->id;
+            end_others_if_mono(*rec);
             emit(note_event::make_hit(rec->id, g->id, onset_ms, onset_ms,
                                       block_strength_, rec->hypothesis_midi,
                                       restrike ? kFlagRestrike : kFlagNone));
@@ -955,6 +969,7 @@ private:
         ++g->live_records;
         last_note_id_ = rec->id;
         (void)midi;
+        end_others_if_mono(*rec);
         emit(note_event::make_hit(rec->id, g->id, t_ms, t_ms, block_strength_,
                                   midi, kFlagTransition));
     }
@@ -1048,6 +1063,7 @@ private:
             g.leader = rec->id;
             ++g.live_records;
             last_note_id_ = rec->id;
+            end_others_if_mono(*rec);
             emit(note_event::make_hit(rec->id, g.id, g.strike_ms, g.strike_ms,
                                       block_strength_, 0.0f, kFlagRestrike));
         }
@@ -1224,6 +1240,7 @@ private:
             g.owners[k] = rec->id;
             ++g.live_records;
             last_note_id_ = rec->id;
+            end_others_if_mono(*rec);
             emit(note_event::make_hit(rec->id, g.id, rec->onset_ms, rec->onset_ms,
                                       block_strength_, g.midis[k], kFlagRestrike));
         }

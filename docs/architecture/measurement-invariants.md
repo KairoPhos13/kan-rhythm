@@ -83,7 +83,16 @@ Each entry: **what** the property is, **why** (the measured evidence),
   energy can (validated on fixture 11 and real repeats).
 - **Breaks.** Timing-based heuristics merge repeated notes or split held
   ones; the game would see phantom misses.
-- **Re-check.** `libkan_note_stream_test` re-strike fixture.
+- **One record at a time on mono profiles.** When `max_simultaneous_notes`
+  is 1, any record that opens (strike, deferred re-strike, transition)
+  ends every other live record at its onset. Before this (2026-10-15), a
+  re-strike closed only the first live record. A second record kept its
+  pending legato shift, and both opened the same transition: identical
+  twin notes, and parallel record chains that never closed (a real
+  ocarina take had 617 notes, 442 overlapping and 56 running to the end
+  of the file; after the fix, 353 notes and none of either).
+- **Re-check.** `libkan_note_stream_test` re-strike fixture and fixture 13
+  (wind phrases: no record open when the next opens, no twins).
 
 ### I6 — Similarity alone is not evidence of correctness; cents must gate
 

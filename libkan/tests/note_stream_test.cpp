@@ -22,6 +22,7 @@
 //  12. bend fact — a glide is claimed as bend_c, disambiguated from vibrato
 #include "libkan/note_stream.hpp"
 
+#include <algorithm>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -770,6 +771,81 @@ void fixture_11_restrike_vs_extension() {
     }
 }
 
+
+// ---------------------------------------------------------------------------
+/// A wind phrase as an ocarina is played: legato steps, re-tongued repeats
+/// (a tiny gap, a soft attack), vibrato, a breath now and then, room noise.
+/// Deterministic (own LCG: the same signal on every standard library).
+std::vector<float> wind_phrase(uint32_t seed, int notes) {
+    uint32_t rng = seed;
+    auto uniform = [&rng]() {
+        rng = rng * 1664525u + 1013904223u;
+        return float(rng >> 8) / 16777216.0f;
+    };
+    struct Seg { float t, d, midi, amp; bool tongued; };
+    std::vector<Seg> segs;
+    float t = 0.3f;
+    int midi = 81;
+    for (int i = 0; i < notes; ++i) {
+        const float d = 0.15f + 0.35f * uniform();
+        const bool repeat = uniform() < 0.3f;
+        const int step = repeat ? 0 : int(uniform() * 5.0f) - 2;
+        midi = std::min(88, std::max(74, midi + step));
+        segs.push_back({t, d, float(midi), 0.5f + 0.4f * uniform(), repeat || uniform() < 0.4f});
+        t += d;
+        if (uniform() < 0.1f) t += 0.3f; // a breath
+    }
+    std::vector<float> sig(size_t((t + 1.0f) * kSr), 0.0f);
+    double phase = 0.0;
+    for (const auto& sg : segs) {
+        const size_t at = size_t(sg.t * kSr), n = size_t(sg.d * kSr);
+        for (size_t i = 0; i < n && at + i < sig.size(); ++i) {
+            const float tt = float(i) / kSr;
+            const float vib = 0.3f * std::sin(2.0f * float(M_PI) * 5.5f * tt) * std::min(1.0f, tt * 3.0f);
+            const float f = 440.0f * std::pow(2.0f, (sg.midi - 69.0f + 0.3f * vib) / 12.0f);
+            phase += 2.0 * M_PI * double(f) / kSr;
+            const float env = sg.tongued ? std::min(1.0f, tt / 0.03f) : 1.0f; // soft tongued attack
+            const float tail = std::min(1.0f, float(n - i) / (0.02f * kSr));  // gap before the next
+            const float v = float(std::sin(phase) + 0.12 * std::sin(2.0 * phase) + 0.05 * std::sin(3.0 * phase));
+            sig[at + i] = sg.amp * env * tail * 0.4f * v;
+        }
+    }
+    add_noise_floor(sig, 0.004f, seed ^ 0x5bd1e995u);
+    return sig;
+}
+
+void fixture_13_mono_one_record_at_a_time() {
+    std::printf("fixture 13: monophonic — one record at a time, no twins (wind phrases)\n");
+    // Real ocarina take 2026-10-15: a re-strike closed only the first live
+    // record; a second one kept its pending legato shift, and each of the two
+    // opened the same transition -> identical twin notes, records running in
+    // parallel (442 overlaps over 617 notes).
+    for (uint32_t seed : {11u, 23u, 47u, 89u}) {
+        Harness h;
+        run(wind_phrase(seed, 60), mono_profile(), {}, 1, h);
+
+        std::vector<uint32_t> open;
+        int overlaps = 0, twins = 0;
+        float last_onset = -1.0f, last_midi = -1.0f;
+        for (const auto& e : h.events) {
+            if (e.kind == kan::NoteKind::Close) {
+                open.erase(std::remove(open.begin(), open.end(), e.note_id), open.end());
+            } else if (e.kind == kan::NoteKind::Hit) {
+                overlaps += int(open.size());
+                if (std::fabs(e.u.hit.onset_ms - last_onset) < 1.0f && std::fabs(e.u.hit.midi - last_midi) < 0.5f) ++twins;
+                last_onset = e.u.hit.onset_ms;
+                last_midi = e.u.hit.midi;
+                open.push_back(e.note_id);
+            }
+        }
+        char what[128];
+        std::snprintf(what, sizeof(what), "seed %u: every earlier record is closed when a new one opens (%d still open)", seed, overlaps);
+        check(overlaps == 0, what);
+        std::snprintf(what, sizeof(what), "seed %u: no twin records (%d)", seed, twins);
+        check(twins == 0, what);
+    }
+}
+
 } // namespace
 
 int main() {
@@ -786,6 +862,7 @@ int main() {
     fixture_10_vibrato_center();
     fixture_12_bend_fact();
     fixture_11_restrike_vs_extension();
+    fixture_13_mono_one_record_at_a_time();
     std::printf("%s\n", g_pass ? "ALL PASS" : "FAILURES");
     return g_pass ? 0 : 1;
 }
