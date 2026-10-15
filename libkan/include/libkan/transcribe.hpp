@@ -11,6 +11,9 @@
 #include "libkan/roformer_runtime.hpp"
 #endif
 #include "libkan/instrument_profile.hpp"
+#ifdef KAN_HAVE_BASIC_PITCH
+#include "libkan/basic_pitch.hpp"
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -346,6 +349,38 @@ inline std::vector<TranscribedNote> transcribe_audio(const float* sig, size_t n,
     });
     return notes;
 }
+
+#ifdef KAN_HAVE_BASIC_PITCH
+/// Neural transcription (Basic Pitch, owner decision 2026-10-15) into the
+/// same chart draft records as transcribe_audio. The profile bounds the
+/// range and says whether the instrument plays one note at a time
+/// (`max_simultaneous_notes == 1`: harmonics reported as notes are
+/// dropped). Ends are the model's note ends: no release bias to correct.
+/// `dyn_db`, vibrato and `transition` are not measured here.
+inline std::vector<TranscribedNote> transcribe_audio_neural(const float* sig, size_t n, float sr,
+                                                            const InstrumentProfile& profile) {
+    report_progress("transcribe", 0);
+    const basic_pitch::Posteriorgrams post = basic_pitch::infer(sig, n, sr);
+    report_progress("transcribe", 90);
+    auto hz_to_midi = [](float hz) { return int(std::lround(69.0 + 12.0 * std::log2(double(hz) / 440.0))); };
+    basic_pitch::NoteOptions opt;
+    opt.monophonic = profile.max_simultaneous_notes == 1;
+    opt.min_midi = hz_to_midi(profile.min_freq_hz);
+    opt.max_midi = hz_to_midi(profile.max_freq_hz);
+    std::vector<TranscribedNote> notes;
+    for (const basic_pitch::Note& b : basic_pitch::notes(post, opt)) {
+        TranscribedNote t;
+        t.onset_ms = float(b.start_s * 1000.0);
+        t.end_ms = float(b.end_s * 1000.0);
+        t.dur_ms = t.end_ms - t.onset_ms;
+        t.midi = b.midi;
+        t.cents = b.cents;
+        notes.push_back(t);
+    }
+    report_progress("transcribe", 100);
+    return notes;
+}
+#endif
 
 /// Musical note name ("C5") for a MIDI number.
 inline std::string note_name(int midi) {
