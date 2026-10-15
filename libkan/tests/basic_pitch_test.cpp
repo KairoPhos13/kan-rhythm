@@ -168,17 +168,19 @@ int main() {
               "deterministic across thread counts");
     }
 
-    // The resampler keeps a 1 kHz sine (level and frequency) from 44.1 to 22.05 kHz.
-    {
-        std::vector<float> s(44100);
-        for (size_t i = 0; i < s.size(); ++i) s[i] = float(0.5 * std::sin(2.0 * kPi * 1000.0 * double(i) / 44100.0));
-        const std::vector<float> r = bp::resample(s.data(), s.size(), 44100.0, 22050.0);
+    // The resampler keeps a 1 kHz sine (level and frequency) from 44.1 and
+    // 48 kHz (147/320 phases) and from a non-integer rate down to 22.05 kHz.
+    for (const double from : {44100.0, 48000.0, 44100.5}) {
+        std::vector<float> s(static_cast<size_t>(from));
+        for (size_t i = 0; i < s.size(); ++i) s[i] = float(0.5 * std::sin(2.0 * kPi * 1000.0 * double(i) / from));
+        const std::vector<float> r = bp::resample(s.data(), s.size(), from, 22050.0);
         double err = 0.0;
         for (size_t i = 1000; i + 1000 < r.size(); ++i) {
             err = std::max(err, std::fabs(r[i] - 0.5 * std::sin(2.0 * kPi * 1000.0 * double(i) / 22050.0)));
         }
-        std::printf("  resampled sine: %zu samples, worst error %.1e\n", r.size(), err);
-        check(r.size() == 22050 && err < 2e-3, "resampler keeps a 1 kHz sine");
+        std::printf("  resampled sine from %.1f Hz: %zu samples, worst error %.1e\n", from, r.size(), err);
+        check(r.size() == size_t(std::floor(double(s.size()) * 22050.0 / from)) && err < 2e-3,
+              "resampler keeps a 1 kHz sine");
     }
 
     std::printf("%s\n", g_pass ? "PASS" : "FAIL");

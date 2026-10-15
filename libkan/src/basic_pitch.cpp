@@ -10,6 +10,7 @@
 #include <cstdint>
 #include <queue>
 #include <thread>
+#include <utility>
 
 namespace kan::basic_pitch {
 namespace {
@@ -251,26 +252,63 @@ void infer_window(const float* window, float* note, float* onset, float* contour
 std::vector<float> resample(const float* audio, size_t n, double from_rate, double to_rate) {
     if (n == 0) return {};
     if (from_rate == to_rate) return std::vector<float>(audio, audio + n);
+    // Blackman-windowed sinc, 32 zero crossings each side, cut at 97 % of
+    // the lower Nyquist. Output sample j sits at input position j / ratio.
     const double ratio = to_rate / from_rate;
     const double cutoff = std::min(1.0, ratio) * 0.97;  // of the input Nyquist
     constexpr double kZeroCrossings = 32.0;
     const double half = kZeroCrossings / cutoff;        // input samples each side
+    constexpr double kPi = 3.14159265358979323846;
+    auto kernel = [&](double d) {
+        if (std::fabs(d) > half) return 0.0;
+        const double u = cutoff * d;
+        const double sinc = u == 0.0 ? 1.0 : std::sin(kPi * u) / (kPi * u);
+        return cutoff * sinc * (0.42 + 0.5 * std::cos(kPi * d / half) + 0.08 * std::cos(2.0 * kPi * d / half));
+    };
     const size_t out_n = size_t(std::floor(double(n) * ratio));
     std::vector<float> out(out_n);
-    constexpr double kPi = 3.14159265358979323846;
-    for (size_t j = 0; j < out_n; ++j) {
-        const double x = double(j) / ratio;
-        const long k0 = long(std::ceil(x - half));
-        const long k1 = long(std::floor(x + half));
-        double acc = 0.0;
-        for (long k = std::max(0L, k0); k <= std::min(long(n) - 1, k1); ++k) {
-            const double d = x - double(k);
-            const double u = cutoff * d;
-            const double sinc = u == 0.0 ? 1.0 : std::sin(kPi * u) / (kPi * u);
-            const double w = 0.42 + 0.5 * std::cos(kPi * d / half) + 0.08 * std::cos(2.0 * kPi * d / half);  // Blackman
-            acc += double(audio[k]) * cutoff * sinc * w;
+    const long taps = 2 * long(std::floor(half)) + 2;  // input samples a output sample can reach
+    const long reach = taps / 2;
+
+    // Integer rates (the usual case: 44.1 / 48 kHz): the position's fraction
+    // repeats every `up` outputs, so each phase's weights are computed once.
+    const long from_i = std::lround(from_rate), to_i = std::lround(to_rate);
+    long g = from_i, r = to_i;
+    while (r != 0) g = std::exchange(r, g % r);
+    const long up = g > 0 ? to_i / g : 0, down = g > 0 ? from_i / g : 0;
+    const bool integral = double(from_i) == from_rate && double(to_i) == to_rate && up > 0 && up <= 4096;
+
+    std::vector<float> padded(size_t(reach), 0.0f);
+    padded.insert(padded.end(), audio, audio + n);
+    padded.resize(padded.size() + size_t(reach) + 1, 0.0f);
+
+    std::vector<float> table;
+    if (integral) {
+        table.resize(size_t(up) * size_t(taps));
+        for (long p = 0; p < up; ++p) {
+            const double frac = double(p) / double(up);
+            for (long i = 0; i < taps; ++i) table[size_t(p * taps + i)] = float(kernel(frac + double(reach - 1 - i)));
         }
-        out[j] = float(acc);
+    }
+    std::vector<float> weights(static_cast<size_t>(taps));
+    for (size_t j = 0; j < out_n; ++j) {
+        long base;
+        const float* w;
+        if (integral) {
+            const long pos = long(j) * down;
+            base = pos / up;
+            w = table.data() + size_t((pos % up) * taps);
+        } else {
+            const double x = double(j) / ratio;
+            base = long(std::floor(x));
+            for (long i = 0; i < taps; ++i) weights[size_t(i)] = float(kernel(x - double(base) + double(reach - 1 - i)));
+            w = weights.data();
+        }
+        // Input k = base - reach + 1 + i, stored at padded[k + reach].
+        const float* in = padded.data() + (base + 1);
+        float acc = 0.0f;
+        for (long i = 0; i < taps; ++i) acc += in[i] * w[i];
+        out[j] = acc;
     }
     return out;
 }
