@@ -103,6 +103,14 @@ namespace Kan.Forge.Design
         /// <summary>How much playing well brightens the screen: 0 = off, 1 = normal, 2 = double.</summary>
         public float Glow { get; set; } = 1;
 
+        /// <summary>
+        /// How much of the level's picture or video shows through behind the
+        /// staff: 0 = none (the palette's background), 1 = all of it (owner
+        /// 2026-10-15: "I added a picture, it doesn't show"). Playing well and
+        /// rests show a little more of it.
+        /// </summary>
+        public float Picture { get; set; } = 0.6f;
+
         /// <summary>Show each section's name as it starts.</summary>
         public bool ShowSectionNames { get; set; } = true;
 
@@ -132,6 +140,7 @@ namespace Kan.Forge.Design
             Palette = Palette,
             Sparkle = Sparkle,
             Glow = Glow,
+            Picture = Picture,
             ShowSectionNames = ShowSectionNames,
             Sections = Sections.Select(s => s.Clone()).ToList(),
             Generated = Generated,

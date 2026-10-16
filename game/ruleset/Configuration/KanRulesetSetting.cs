@@ -10,7 +10,21 @@ namespace Kan.Ruleset.Configuration
     /// </summary>
     public enum KanRulesetSetting
     {
-        SelectedCategory,
-        SelectedInstrument,
+        /// <summary>The player's instrument: a transcription profile ("ocarina", "keyboard"…), what the game listens for.</summary>
+        PlayerInstrument,
+
+        /// <summary>The lowest and highest notes the player's instrument plays (MIDI).</summary>
+        RangeLowest,
+
+        RangeHighest,
+
+        /// <summary>How big the staff draws (notes, names, the line): 1 = sized for a 900-pixel-high screen, scaled to the real one.</summary>
+        NoteSize,
+
+        /// <summary>How notes are named on screen (<see cref="Kan.Ruleset.UI.KanNoteNames"/>).</summary>
+        NoteNames,
+
+        /// <summary>Each note in its own colour (C red, D orange…), whatever the palette.</summary>
+        ColourByNote,
     }
 }

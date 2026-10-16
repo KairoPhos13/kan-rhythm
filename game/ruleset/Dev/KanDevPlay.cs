@@ -32,7 +32,7 @@ namespace Kan.Ruleset.Dev
     /// player goes through; owner 2026-10-15: it crashed there).
     /// KAN_DEV_MODS="HT,NF" plays with those mods (acronyms);
     /// KAN_DEV_SCREEN=replay plays back the level's newest local score;
-    /// KAN_DEV_SCREEN=design opens the editor on its design tab;
+    /// KAN_DEV_SCREEN=design / setup opens the editor on that tab;
     /// KAN_DEV_PAUSE=12 pauses 12 s in and continues 2 s later.
     /// </summary>
     public partial class KanDevPlay : Component
@@ -63,6 +63,9 @@ namespace Kan.Ruleset.Dev
 
         [Resolved]
         private RulesetStore rulesets { get; set; } = null!;
+
+        [Resolved]
+        private osu.Game.Rulesets.IRulesetConfigCache configs { get; set; } = null!;
 
 
         public static bool Enabled => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(PLAY_ENV));
@@ -100,6 +103,36 @@ namespace Kan.Ruleset.Dev
             if (acronyms.Length > 0)
                 Logger.Log($"kan! dev play: mods {string.Join(",", mods.Value.Select(m => m.Acronym))}", level: LogLevel.Important);
 
+            // KAN_DEV_NOTATION=solfege,colour: the notation settings.
+            string notation = Environment.GetEnvironmentVariable(@"KAN_DEV_NOTATION") ?? string.Empty;
+
+            if (notation.Length > 0 && configs.GetConfigFor(instance) is Kan.Ruleset.Configuration.KanRulesetConfigManager kanConfig)
+            {
+                if (notation.Contains(@"solfege")) kanConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.NoteNames, Kan.Ruleset.UI.KanNoteNames.Solfege);
+                kanConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.ColourByNote, notation.Contains(@"colour"));
+            }
+
+            // KAN_DEV_INSTRUMENT=guitar:40-64: the player's instrument and range.
+            string[] player = (Environment.GetEnvironmentVariable(@"KAN_DEV_INSTRUMENT") ?? string.Empty).Split(':', '-');
+
+            if (player.Length == 3 && configs.GetConfigFor(instance) is Kan.Ruleset.Configuration.KanRulesetConfigManager playerConfig
+                && int.TryParse(player[1], out int low) && int.TryParse(player[2], out int high))
+            {
+                playerConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.PlayerInstrument, player[0]);
+                playerConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.RangeLowest, low);
+                playerConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.RangeHighest, high);
+            }
+
+            // KAN_DEV_PRACTICE=2-3: the practice mod's sections.
+            string[] range = (Environment.GetEnvironmentVariable(@"KAN_DEV_PRACTICE") ?? string.Empty).Split('-');
+
+            if (range.Length == 2 && mods.Value.OfType<Kan.Ruleset.Mods.KanModPractice>().FirstOrDefault() is { } practice
+                && int.TryParse(range[0], out int from) && int.TryParse(range[1], out int to))
+            {
+                practice.FromSection.Value = from;
+                practice.ToSection.Value = to;
+            }
+
             if (Environment.GetEnvironmentVariable(SCREEN_ENV) == @"replay")
             {
                 var score = realm.Run(r => r.All<osu.Game.Scoring.ScoreInfo>().AsEnumerable()
@@ -117,7 +150,7 @@ namespace Kan.Ruleset.Dev
                 return;
             }
 
-            if (Environment.GetEnvironmentVariable(SCREEN_ENV) == @"design")
+            if (Environment.GetEnvironmentVariable(SCREEN_ENV) is @"design" or @"setup")
             {
                 // The editor on its design tab (the level's design, owner 2026-10-15).
                 game.PerformFromScreen(s => s.Push(new osu.Game.Screens.Edit.EditorLoader()), new[] { typeof(MainMenu) });
@@ -129,6 +162,38 @@ namespace Kan.Ruleset.Dev
             if (Environment.GetEnvironmentVariable(SCREEN_ENV) == @"select")
             {
                 game.PerformFromScreen(s => s.Push(new SoloSongSelect()), new[] { typeof(MainMenu) });
+
+                // KAN_DEV_SCROLL=mods: the selected mods' settings controls, shown on screen (for screenshots).
+                if (Environment.GetEnvironmentVariable(@"KAN_DEV_SCROLL") == @"mods")
+                {
+                    Scheduler.AddDelayed(() =>
+                    {
+                        var controls = mods.Value.SelectMany(m => osu.Game.Configuration.SettingSourceExtensions.CreateSettingsControls(m)).ToArray();
+                        game.Add(new osu.Framework.Graphics.Containers.Container
+                        {
+                            Anchor = Anchor.Centre,
+                            Origin = Anchor.Centre,
+                            Width = 420,
+                            AutoSizeAxes = osu.Framework.Graphics.Axes.Y,
+                            Masking = true,
+                            CornerRadius = 8,
+                            Children = new Drawable[]
+                            {
+                                new osu.Framework.Graphics.Shapes.Box { RelativeSizeAxes = osu.Framework.Graphics.Axes.Both, Colour = osuTK.Graphics.Color4.Black, Alpha = 0.85f },
+                                new osu.Framework.Graphics.Containers.FillFlowContainer
+                                {
+                                    RelativeSizeAxes = osu.Framework.Graphics.Axes.X,
+                                    AutoSizeAxes = osu.Framework.Graphics.Axes.Y,
+                                    Direction = osu.Framework.Graphics.Containers.FillDirection.Vertical,
+                                    Padding = new osu.Framework.Graphics.MarginPadding(10),
+                                    Children = controls,
+                                },
+                            },
+                        });
+                        Logger.Log($"kan! dev play: showing {controls.Length} mod settings", level: LogLevel.Important);
+                    }, 4000);
+                }
+
                 Scheduler.AddDelayed(() => Logger.Log(@"kan! dev play: song select still open after 15 s", level: LogLevel.Important), 15000);
             }
             else if (mods.Value.OfType<osu.Game.Rulesets.Mods.ICreateReplayData>().FirstOrDefault() is { } auto)
@@ -178,8 +243,19 @@ namespace Kan.Ruleset.Dev
         {
             if (game.ScreenStack.CurrentScreen is osu.Game.Screens.Edit.Editor editor && editor.IsLoaded)
             {
-                editor.Mode.Value = osu.Game.Screens.Edit.EditorScreenMode.Design;
-                Logger.Log(@"kan! dev play: editor on the design tab", level: LogLevel.Important);
+                bool setup = Environment.GetEnvironmentVariable(SCREEN_ENV) == @"setup";
+                editor.Mode.Value = setup ? osu.Game.Screens.Edit.EditorScreenMode.SongSetup : osu.Game.Screens.Edit.EditorScreenMode.Design;
+                Logger.Log($"kan! dev play: editor on the {(setup ? "setup" : "design")} tab", level: LogLevel.Important);
+
+                // KAN_DEV_SCROLL=credits: bring that setup section into view (for screenshots).
+                if (setup && Environment.GetEnvironmentVariable(@"KAN_DEV_SCROLL") == @"credits")
+                {
+                    Scheduler.AddDelayed(() =>
+                    {
+                        var section = editor.ChildrenOfType<Kan.Forge.Editor.KanCreditsSection>().FirstOrDefault();
+                        section?.FindClosestParent<osu.Game.Graphics.Containers.OsuScrollContainer>()?.ScrollIntoView(section);
+                    }, 1500);
+                }
                 return;
             }
 

@@ -34,6 +34,9 @@ namespace Kan.Forge.Editor
     {
         private const double save_delay_ms = 800;
 
+        /// <summary>A form text box's height (caption + value).</summary>
+        private const float link_row_height = 50;
+
         public override LocalisableString Title => @"Cover credits";
 
         [Resolved]
@@ -253,9 +256,12 @@ namespace Kan.Forge.Editor
                     {
                         box = textBox(caption, hint, link, @"https://…"),
                         Empty(),
+                        // A fixed height, the text box's: sized relative to an auto-sized row
+                        // it grew without bound and covered the section (2026-10-15).
                         open = new ForgeButton(FontAwesome.Solid.ExternalLinkAlt, @"open")
                         {
-                            RelativeSizeAxes = Axes.Both,
+                            RelativeSizeAxes = Axes.X,
+                            Height = link_row_height,
                             TooltipText = @"Open the link in the browser to check it",
                         },
                     },

@@ -125,9 +125,13 @@ namespace Kan.Ruleset.Beatmaps
         }
 
         [BackgroundDependencyLoader(true)]
-        private void load(Storage? storage, osu.Game.OsuGame? game, GameHost? host)
+        private void load(Storage? storage, osu.Game.OsuGame? game, GameHost? host, osu.Game.Rulesets.IRulesetConfigCache? configs)
         {
             if (storage != null) KanLevelFiles.Init(storage, game);
+
+            // The player's instrument and range, known from here on (the drawable ruleset fits levels with it).
+            if (configs?.GetConfigFor(new KanRuleset()) is Kan.Ruleset.Configuration.KanRulesetConfigManager config)
+                Kan.Ruleset.Configuration.KanPlayer.Bind(config);
 
             // Developer tooling (inert unless its environment variable is set). It
             // lives on the game itself: the toolbar holding this icon may be hidden.

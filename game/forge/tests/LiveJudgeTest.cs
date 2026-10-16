@@ -13,17 +13,21 @@ namespace Kan.Forge.Tests
         [Test]
         public void TimingDecidesTheResultOfTheRightNote()
         {
+            // osu!mania's steps over kan!'s windows: perfect 35, great 70, good 100, ok 130, meh 200 ms.
             var judge = new LiveJudge();
-            judge.Heard(1, 1030);
-            judge.Pitch(1, 72, 12, final: false);
-            judge.Heard(2, 2100);
-            judge.Pitch(2, 74, 0, final: true);
-            judge.Heard(3, 3180);
-            judge.Pitch(3, 76, 0, final: true);
+            double[] offsets = { 30, 60, 95, 120, 180 };
+            var expected = new[] { LiveResult.Perfect, LiveResult.Great, LiveResult.Good, LiveResult.Ok, LiveResult.Meh };
 
-            Assert.That(judge.Judge(1000, 72, false, 1100), Is.EqualTo(new LiveVerdict(LiveResult.Great, LiveReason.Played, 30, 72, 12)));
-            Assert.That(judge.Judge(2000, 74, false, 2200)!.Value.Result, Is.EqualTo(LiveResult.Ok));
-            Assert.That(judge.Judge(3000, 76, false, 3200)!.Value.Result, Is.EqualTo(LiveResult.Meh));
+            for (int i = 0; i < offsets.Length; i++)
+            {
+                judge.Heard((uint)i + 1, 1000 * (i + 1) + offsets[i]);
+                judge.Pitch((uint)i + 1, 72 + i, i == 0 ? 12 : 0, final: i != 0);
+            }
+
+            Assert.That(judge.Judge(1000, 72, false, 1100), Is.EqualTo(new LiveVerdict(LiveResult.Perfect, LiveReason.Played, 30, 72, 12)));
+
+            for (int i = 1; i < offsets.Length; i++)
+                Assert.That(judge.Judge(1000 * (i + 1), 72 + i, false, 1000 * (i + 1) + 300)!.Value.Result, Is.EqualTo(expected[i]), $"{offsets[i]} ms");
         }
 
         [Test]
@@ -35,7 +39,7 @@ namespace Kan.Forge.Tests
             Assert.That(judge.Judge(1000, 72, false, 1250), Is.Null, "heard, pitch not known yet: wait");
 
             judge.Pitch(1, 72, -8, final: true);
-            Assert.That(judge.Judge(1000, 72, false, 1260)!.Value.Result, Is.EqualTo(LiveResult.Great));
+            Assert.That(judge.Judge(1000, 72, false, 1260)!.Value.Result, Is.EqualTo(LiveResult.Perfect));
         }
 
         [Test]
@@ -71,7 +75,7 @@ namespace Kan.Forge.Tests
             judge.Heard(1, 1000);
             judge.Pitch(1, 72, 0, final: true);
 
-            Assert.That(judge.Judge(1000, 72, false, 1100)!.Value.Result, Is.EqualTo(LiveResult.Great));
+            Assert.That(judge.Judge(1000, 72, false, 1100)!.Value.Result, Is.EqualTo(LiveResult.Perfect));
             Assert.That(judge.Judge(1120, 72, false, 1330)!.Value.Reason, Is.EqualTo(LiveReason.NotHeard), "a repeated note needs its own attack");
         }
 
@@ -89,7 +93,7 @@ namespace Kan.Forge.Tests
             // The score does not know this note's pitch: any note on time counts.
             judge.Heard(2, 2000);
             judge.Pitch(2, 60, 0, final: true);
-            Assert.That(judge.Judge(2000, 72, true, 2010)!.Value.Result, Is.EqualTo(LiveResult.Great));
+            Assert.That(judge.Judge(2000, 72, true, 2010)!.Value.Result, Is.EqualTo(LiveResult.Perfect));
         }
 
         [Test]
@@ -121,7 +125,7 @@ namespace Kan.Forge.Tests
             }
 
             Assert.That(judge(50).Result, Is.EqualTo(LiveResult.Miss), "normal: the next note up");
-            Assert.That(judge(75).Result, Is.EqualTo(LiveResult.Great), "easy: still C5");
+            Assert.That(judge(75).Result, Is.EqualTo(LiveResult.Perfect), "easy: still C5");
 
             var easy = new LiveJudge { PitchToleranceCents = 75 };
             Assert.That(easy.Matches(72.74f, 72), Is.True);
@@ -155,16 +159,16 @@ namespace Kan.Forge.Tests
             Assert.That(judge.Judge(1000, 83, false, 1100, legato: true), Is.Null, "not enough of the slur heard yet");
 
             var slur = judge.Judge(1000, 83, false, 1160, legato: true)!.Value;
-            Assert.That(slur.Result, Is.EqualTo(LiveResult.Great));
+            Assert.That(slur.Result, Is.EqualTo(LiveResult.Perfect));
             Assert.That(slur.OffsetMs, Is.EqualTo(20).Within(0.01));
 
             // A note that needs an attack: the pitch arriving at its start counts too
             // (an attack too soft to mark an onset)…
-            Assert.That(judge.Judge(1000, 83, false, 1210)!.Value.Result, Is.EqualTo(LiveResult.Great));
+            Assert.That(judge.Judge(1000, 83, false, 1210)!.Value.Result, Is.EqualTo(LiveResult.Perfect));
 
             // …but a note held over from before does not: a repeated note needs its own attack.
             Assert.That(judge.Judge(1200, 83, false, 1410)!.Value.Reason, Is.EqualTo(LiveReason.NotHeard));
-            Assert.That(judge.Judge(1200, 83, false, 1410, legato: true)!.Value.Result, Is.EqualTo(LiveResult.Great), "tied: no attack expected");
+            Assert.That(judge.Judge(1200, 83, false, 1410, legato: true)!.Value.Result, Is.EqualTo(LiveResult.Perfect), "tied: no attack expected");
 
             // Nor a legato note whose pitch never came.
             Assert.That(judge.Judge(1000, 86, false, 1210, legato: true)!.Value.Result, Is.EqualTo(LiveResult.Miss));

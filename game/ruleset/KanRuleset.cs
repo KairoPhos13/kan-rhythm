@@ -71,6 +71,20 @@ namespace Kan.Ruleset
 
         public override string ShortName => @"kan";
 
+        /// <summary>
+        /// The grades a note can get: osu!mania's steps (owner 2026-10-15).
+        /// Only these are listed in the results.
+        /// </summary>
+        public override IEnumerable<osu.Game.Rulesets.Scoring.HitResult> GetValidHitResults() => new[]
+        {
+            osu.Game.Rulesets.Scoring.HitResult.Perfect,
+            osu.Game.Rulesets.Scoring.HitResult.Great,
+            osu.Game.Rulesets.Scoring.HitResult.Good,
+            osu.Game.Rulesets.Scoring.HitResult.Ok,
+            osu.Game.Rulesets.Scoring.HitResult.Meh,
+            osu.Game.Rulesets.Scoring.HitResult.Miss,
+        };
+
         public override string PlayingVerb => @"Playing";
 
         /// <summary>
@@ -88,6 +102,7 @@ namespace Kan.Ruleset
                 new Kan.Ruleset.Mods.KanModNoFail(),
                 new MultiMod(new Kan.Ruleset.Mods.KanModHalfTime(), new Kan.Ruleset.Mods.KanModDaycore()),
                 new Kan.Ruleset.Mods.KanModWait(),
+                new Kan.Ruleset.Mods.KanModPractice(),
             },
             ModType.DifficultyIncrease => new Mod[]
             {
@@ -157,7 +172,24 @@ namespace Kan.Ruleset
                     },
                 },
             },
-            new DifficultySection(),
+            new FillFlowContainer
+            {
+                AutoSizeAxes = Axes.Y,
+                Direction = FillDirection.Vertical,
+                Spacing = new osuTK.Vector2(25),
+                Children = new Drawable[]
+                {
+                    // What the level is played on (owner 2026-10-15), first thing on the right.
+                    new Kan.Forge.Editor.KanInstrumentSection
+                    {
+                        RelativeSizeAxes = Axes.X,
+                    },
+                    new DifficultySection
+                    {
+                        RelativeSizeAxes = Axes.X,
+                    },
+                },
+            },
             new FillFlowContainer
             {
                 AutoSizeAxes = Axes.Y,
@@ -188,6 +220,10 @@ namespace Kan.Ruleset
 
         /// <summary>The compose tab is kan!'s score editor (fork F-13, owner 2026-10-14).</summary>
         public override osu.Game.Screens.Edit.EditorScreen? CreateComposeEditorScreen() => new Kan.Forge.Editor.Compose.KanComposeScreen();
+
+        /// <summary>The player loader's "Notation" group (fork F-16): note names, colours, size.</summary>
+        public override IEnumerable<osu.Game.Screens.Play.PlayerSettings.PlayerSettingsGroup> CreatePlayerLoaderSettings()
+            => new osu.Game.Screens.Play.PlayerSettings.PlayerSettingsGroup[] { new KanNotationSettings() };
 
         /// <summary>kan!'s design tab (fork F-15): sections, rests, climaxes, palette and effects.</summary>
         public override osu.Game.Screens.Edit.EditorScreen? CreateDesignEditorScreen() => new Kan.Forge.Editor.Design.KanDesignScreen();

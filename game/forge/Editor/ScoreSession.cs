@@ -47,6 +47,14 @@ namespace Kan.Forge.Editor
 
             savedToLevel = inLevel?.ContentKey();
 
+            // One instrument per level, and the score file is what travels with
+            // it: a level with a score says what it is played on; a new score
+            // takes the choice made so far in this computer's work folder.
+            if (inLevel != null || autosaved != null)
+                ForgeTrackSession.Instrument = Score.Instrument;
+            else
+                Score.Instrument = ForgeTrackSession.Instrument;
+
             // Before the 2026-10-14 transcription fix, notes crossed into C# as
             // zeros: C-1 at 0 ms with the minimum length. No real note looks
             // like that — drop them so the score can start over.

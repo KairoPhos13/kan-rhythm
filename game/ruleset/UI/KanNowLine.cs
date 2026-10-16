@@ -185,7 +185,9 @@ namespace Kan.Ruleset.UI
 
             float power = result switch
             {
+                LiveResult.Perfect => 1.15f,
                 LiveResult.Great => 1f,
+                LiveResult.Good => 0.8f,
                 LiveResult.Ok => 0.65f,
                 _ => 0.4f,
             };
@@ -205,14 +207,16 @@ namespace Kan.Ruleset.UI
             glow.FadeTo(restingGlowAlpha, 450, Easing.OutQuint).FadeColour(restingColour, 450);
 
             if (scene.Sparkle > 0)
-                bursts[nextBurst++ % burst_pool].Fire(y, colour, power * Math.Min(1.5f, scene.Sparkle), result == LiveResult.Great);
+                bursts[nextBurst++ % burst_pool].Fire(y, colour, power * Math.Min(1.5f, scene.Sparkle), result is LiveResult.Perfect or LiveResult.Great);
 
             // The design sets how much it sparkles (a climax adds half again).
             float sparkle = scene.Sparkle;
 
             int count = (int)MathF.Round(sparkle * result switch
             {
+                LiveResult.Perfect => 18,
                 LiveResult.Great => 14,
+                LiveResult.Good => 10,
                 LiveResult.Ok => 8,
                 _ => 4,
             });

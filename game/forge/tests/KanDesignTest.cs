@@ -116,6 +116,23 @@ namespace Kan.Forge.Tests
         }
 
         [Test]
+        public void EveryPaletteIsComplete()
+        {
+            Assert.That(KanPalette.Presets.Select(p => p.Name).Distinct().Count(), Is.EqualTo(KanPalette.Presets.Count), "names are unique");
+
+            foreach (var p in KanPalette.Presets)
+            {
+                foreach (string hex in new[] { p.Note, p.NoteLight, p.BackgroundDark, p.BackgroundLit, p.Trail, p.Hot, p.Climax })
+                    Assert.That(System.Text.RegularExpressions.Regex.IsMatch(hex, "^[0-9a-f]{6}$"), Is.True, $"{p.Name}: {hex}");
+
+                // The staff's light lines and names need a dark background.
+                int r = System.Convert.ToInt32(p.BackgroundDark[..2], 16), g = System.Convert.ToInt32(p.BackgroundDark[2..4], 16), b = System.Convert.ToInt32(p.BackgroundDark[4..], 16);
+                Assert.That((r + g + b) / 3, Is.LessThan(64), $"{p.Name}: dark background");
+                Assert.That(KanPalette.Get(p.Name), Is.SameAs(p));
+            }
+        }
+
+        [Test]
         public void SurvivesTheFile()
         {
             var design = AutoDesign.Generate(run(5000, 30000, 500).ToList(), 40000, @"ocean");

@@ -30,6 +30,9 @@ namespace Kan.Ruleset.UI
 
         public KanPlayState State => state;
 
+        /// <summary>How the level was fitted to the player's instrument range.</summary>
+        public Kan.Forge.Play.RangeFit.Fit Fit { get; }
+
         public KanDrawableRuleset(osu.Game.Rulesets.Ruleset ruleset, IBeatmap beatmap, IReadOnlyList<Mod>? mods = null)
             : base(ruleset, beatmap, mods)
         {
@@ -41,6 +44,21 @@ namespace Kan.Ruleset.UI
 
             osu.Framework.Logging.Logger.Log($"kan! design ({(design.Generated ? "generated" : "the level's")}, {design.Palette}): "
                                              + string.Join(@", ", design.Sections.Select(s => $"{s.DisplayName}{(s.Climax ? "*" : "")} {s.StartMs / 1000:0.0}-{s.EndMs / 1000:0.0}s")));
+
+            // Any level on any instrument: the notes move by the octave that fits the
+            // player's range, the rest fold in; the game shows and expects them so.
+            Fit = Kan.Ruleset.Configuration.KanPlayer.FitOf(notes.Where(n => !n.PitchUnknown).Select(n => n.Midi).ToList());
+
+            if (Fit.Changes)
+            {
+                foreach (var n in notes)
+                    n.Midi = Kan.Ruleset.Configuration.KanPlayer.Apply(n.Midi, Fit);
+
+                osu.Framework.Logging.Logger.Log($"kan!: fitted to the player's range: {Kan.Ruleset.Configuration.KanPlayer.Describe(Fit)}");
+            }
+
+            // Listen for what the player plays (their instrument), else what the level is written for.
+            instrument = Kan.Ruleset.Configuration.KanPlayer.Instrument ?? instrument;
 
             state = new KanPlayState(notes, instrument)
             {
@@ -56,6 +74,16 @@ namespace Kan.Ruleset.UI
             base.LoadComplete();
 
             // Easy / hard rock: wider or stricter timing windows.
+            // Say once how the level was fitted to the player's instrument.
+            if (Fit.Changes && Kan.Ruleset.Configuration.KanPlayer.Describe(Fit) is { } fitted)
+            {
+                state.Status.Value = $"For your instrument: {fitted.ToLowerInvariant()}.";
+                Scheduler.AddDelayed(() =>
+                {
+                    if (state.Status.Value.StartsWith(@"For your instrument", System.StringComparison.Ordinal)) state.Status.Value = string.Empty;
+                }, 6000);
+            }
+
             // Easy also forgives intonation: up to 75 cents off still counts as the note.
             if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModEasy))
             {

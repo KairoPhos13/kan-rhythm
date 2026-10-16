@@ -427,6 +427,16 @@ cents), duration, intensity and playing style (normal / legato / staccato
   velocity = intensity; read back by `tools/dataset_bench`'s reader within
   one tick).
 
+### 6f.1 The level's instrument (owner 2026-10-15)
+
+Setup → **Instrument** ("played on"), top of the right column: what the
+level is played on — it tells the game how to listen (one note at a time
+or several) and the transcriber what to listen for. It is stored in the
+level's score file (`KanScore.Instrument`, saved a moment after a change),
+so it travels with the level; the track and compose tabs show the same
+choice. On opening, a level with a score sets the work folder's choice;
+a new score takes the work folder's.
+
 ### 6g. The design tab: the level's look (owner 2026-10-15, fork F-15)
 
 The design (`Kan.Forge.Design.KanDesign`, file `kan.design.json` in the
@@ -439,8 +449,11 @@ the score) says how the level looks and rewards, stretch by stretch:
   background glows from below with the music's low end); for rests, what
   the screen shows (the music as light then 3-2-1 / the music as light /
   calm and empty); a palette of their own.
-- **The level:** palette (five presets: sakura, ocean, ember, forest,
-  aurora; grade colours are the same in all), sparkle 0–2, glow 0–2,
+- **The level:** palette (thirteen presets: sakura, ocean, ember,
+  forest, aurora, and — owner 2026-10-15 — holy (white and gold), space,
+  neon, cowboy, cyberpunk, solarpunk, happy, nature; grade colours are
+  the same in all, backgrounds stay dark enough for the staff to read —
+  unit-tested), sparkle 0–2, glow 0–2,
   section names on/off.
 - **Automatic design** (`AutoDesign`, unit-tested): silences of 3.5 s or
   more are breaks (before the first note the intro, after the last the

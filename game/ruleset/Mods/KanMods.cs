@@ -128,6 +128,7 @@ namespace Kan.Ruleset.Mods
             : base(context)
         {
             Single<KanModWait>(0.02); // owner 2026-10-15: passing a level this way is almost symbolic
+            Single<KanModPractice>(0); // practice: no score at all
             Single<KanModNoFail>(0.5);
             Single<KanModHalfTime>(m => m.SpeedChange.Value);
             Single<KanModDaycore>(m => m.SpeedChange.Value);

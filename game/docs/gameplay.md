@@ -62,6 +62,18 @@ but it does not work streamed yet and accepts octave-below expectations
 - Misses drain health and an empty bar fails the level, as in osu!
   (owner 2026-10-15; it was no-fail before). "No fail" and "wait for me"
   keep it going.
+- **Grades: osu!mania's steps** (owner 2026-10-15: "chaining perfects is
+  the vice"): perfect ±35, great ±70, good ±100, ok ±130, meh ±200 ms —
+  great/ok/meh kept their bounds, perfect and good split them; wider than
+  osu!'s because an acoustic attack is detected within ~20–30 ms. The
+  results list only these (`KanRuleset.GetValidHitResults`). Words at the
+  line: "perfect", "great", "good · early", … Only the attack is judged
+  (timing and pitch); how long a note is held is not, so long notes at
+  Half Time never need a full breath.
+- **A perfect is heard:** `KanPerfectChime` rings a small bell
+  (`ChimeSynth`, unit-tested) at the note just played, an octave up (at
+  most C7) — the melody's own note, so it never clashes; game samples, so
+  the effects volume governs it.
 - **Known limit:** osu! stamps a result with the time it is applied, so the
   results screen's timing graph includes the pitch wait. Our verdict's
   `OffsetMs` is the real offset; it drives the in-game feedback.
@@ -82,6 +94,33 @@ Mods that need nothing from the level editor:
 
 Not applicable: Relax, Auto Pilot, Spun Out (no cursor or spinners).
 Later: Flashlight (needs its own shader), Score V2.
+
+### Any level on any instrument (owner 2026-10-15)
+
+The player's instrument (Settings → kan! → My instrument: a transcription
+profile, with the lowest and highest notes it plays — sensible defaults
+per instrument, adjustable) decides how the game listens (one note at a
+time, or several) and the range a level must fit: the level moves by
+the octave that keeps the most notes in range (`RangeFit`, unit-tested;
+no move on a tie with staying put), and a note still outside folds in by
+octaves. The staff shows, and the judge expects, the fitted notes. The
+player loader's "Instrument & notation" group says it before playing
+("Your instrument: guitar (E2–E4). This level: C5–D6 — plays 2 octaves
+lower."), and the play says it once at its start. The level's own
+instrument (Setup) says what it was written for. Known limit: a replay
+plays back with the fit of the instrument set when it is watched.
+
+### Practice (owner 2026-10-15)
+
+Scored play keeps the genre's rule — earn the hard part by getting there
+— and practice is apart from it, as in other music games: the Practice
+mod (PR, score ×0, cannot fail) plays a range of the level's design
+sections ("From section" / "To section", listed with their names and
+start times in the mod's settings) over and over. The level is cut to
+those sections' notes; 1.5 s after the last one the play restarts by
+itself — before it could complete, so practice never fills the local
+scores — and "Practice · Verse · loop 3" shows at the top. Combines
+with Half Time and Wait for me. Dev: `KAN_DEV_PRACTICE=2-3`.
 
 ### Instrument tuning (owner 2026-10-15)
 
@@ -200,6 +239,10 @@ section on now, the palette in force — eased between sections over
   music's low end.
 - **Section names** show as they start (an automatic design names only
   its climax).
+- **Picture:** a level's background picture or video shows behind the
+  staff, the palette a veil over it (`KanDesign.Picture`, 0.6 by default,
+  set in the design tab); playing well and rests show more of it. Before
+  2026-10-15 the palette's background covered it entirely.
 - **Palette and glow:** the background, notes, trail and the hot line take
   the palette; the design's glow scales how much playing well lights the
   screen, its sparkle the hit effects.
@@ -251,6 +294,16 @@ section on now, the palette in force — eased between sections over
   send a shockwave across the staff and "25 in a row" low on the line.
   A sustain held at its pitch burns at the line and sheds sparks. A miss
   cools it at once: red, a short shake, dull sparks falling.
+- **Notation** (owner 2026-10-15: "notes as letters are easy to
+  confuse"): note names as letters (C D E), Do-Re-Mi, or none; and a
+  colour per note — the twelve notes around the colour wheel (C red,
+  D orange, E yellow…), whatever the palette — so a note is known at a
+  glance on any instrument. Chosen in the player loader's side panel
+  ("Notation", fork F-16) or Settings → kan!; followed live.
+- **Size:** the staff (and the wait overlay) is designed for a 900-pixel
+  high screen and scaled to the real one, times Settings → kan! → Note
+  size (120 % by default; owner 2026-10-15: "on a 2K screen I can barely
+  see it"). The time shown ahead stays the same at any size.
 - Everything is drawn from fixed pools, so any length of score costs the
   same per frame.
 

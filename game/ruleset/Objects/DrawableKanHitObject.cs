@@ -47,7 +47,9 @@ namespace Kan.Ruleset.Objects
 
             ApplyResult(v.Result switch
             {
+                LiveResult.Perfect => HitResult.Perfect,
                 LiveResult.Great => HitResult.Great,
+                LiveResult.Good => HitResult.Good,
                 LiveResult.Ok => HitResult.Ok,
                 LiveResult.Meh => HitResult.Meh,
                 _ => HitResult.Miss,

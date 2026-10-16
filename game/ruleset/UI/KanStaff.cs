@@ -52,21 +52,26 @@ namespace Kan.Ruleset.UI
         private const double trail_ms = 2200;
 
         private static readonly Color4 unknown_colour = Color4Extensions.FromHex(@"8a8a99");
+        // osu!mania's order, its colours: perfect shines white, great gold, good
+        // green, ok blue, meh lilac.
+        private static readonly Color4 perfect_colour = Color4Extensions.FromHex(@"f2fbff");
         private static readonly Color4 great_colour = Color4Extensions.FromHex(@"ffd54f");
-        private static readonly Color4 ok_colour = Color4Extensions.FromHex(@"7cdb8a");
-        private static readonly Color4 meh_colour = Color4Extensions.FromHex(@"66b3ff");
+        private static readonly Color4 good_colour = Color4Extensions.FromHex(@"7cdb8a");
+        private static readonly Color4 ok_colour = Color4Extensions.FromHex(@"66b3ff");
+        private static readonly Color4 meh_colour = Color4Extensions.FromHex(@"b39ddb");
         private static readonly Color4 miss_colour = Color4Extensions.FromHex(@"5c4a55");
 
         /// <summary>Feedback for a miss: clearly red (the dim <see cref="miss_colour"/> marks notes already missed).</summary>
         private static readonly Color4 miss_feedback_colour = Color4Extensions.FromHex(@"ff5a6e");
 
-        private static readonly string[] names = { "C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B" };
-
-        public static string NoteName(int midi) => $"{names[((midi % 12) + 12) % 12]}{midi / 12 - 1}";
+        /// <summary>A note's name as the player chose to read it (letters or Do-Re-Mi; <see cref="KanNotation"/>).</summary>
+        public static string NoteName(int midi) => KanNotation.Label(midi);
 
         public static Color4 GradeColour(LiveResult result) => result switch
         {
+            LiveResult.Perfect => perfect_colour,
             LiveResult.Great => great_colour,
+            LiveResult.Good => good_colour,
             LiveResult.Ok => ok_colour,
             LiveResult.Meh => meh_colour,
             _ => miss_feedback_colour,
@@ -418,8 +423,15 @@ namespace Kan.Ruleset.UI
                     break;
 
                 default:
-                    text = v.Result == LiveResult.Great ? @"on time"
-                        : v.OffsetMs < 0 ? @"a bit early" : @"a bit late";
+                    // The grade's own word, as in osu!; early/late when off the beat.
+                    text = v.Result switch
+                    {
+                        LiveResult.Perfect => @"perfect",
+                        LiveResult.Great => @"great",
+                        LiveResult.Good => v.OffsetMs < 0 ? @"good · early" : @"good · late",
+                        LiveResult.Ok => v.OffsetMs < 0 ? @"ok · early" : @"ok · late",
+                        _ => v.OffsetMs < 0 ? @"meh · early" : @"meh · late",
+                    };
                     if (v.Reason == LiveReason.PitchUnclear) text += @" · pitch unclear";
                     else if (v.Cents > 25) text += @" · sharp ↑";
                     else if (v.Cents < -25) text += @" · flat ↓";
@@ -689,8 +701,10 @@ namespace Kan.Ruleset.UI
                 bool accent = n.Articulation == Articulation.Accent;
                 bool missed = verdict is { Result: LiveResult.Miss };
 
-                Color4 baseColour = n.PitchUnknown ? unknown_colour : look.Note;
-                Color4 lightColour = n.PitchUnknown ? unknown_colour.Lighten(0.4f) : look.NoteLight;
+                // Each note in its own colour when the player asked for it (KanNotation).
+                Color4 noteColour = KanNotation.ColourByNote ? KanNotation.Colour(n.Midi) : look.Note;
+                Color4 baseColour = n.PitchUnknown ? unknown_colour : noteColour;
+                Color4 lightColour = n.PitchUnknown ? unknown_colour.Lighten(0.4f) : KanNotation.ColourByNote ? noteColour.Lighten(0.45f) : look.NoteLight;
                 Color4 colour = baseColour, light = lightColour;
                 float pop = 0, flashAlpha = 0, shake = 0, drop = 0, scale = 1;
 
@@ -743,7 +757,7 @@ namespace Kan.Ruleset.UI
                 glow.Alpha = missed ? 0 : isNext ? 0.22f + 0.12f * pulse : verdict != null ? 0.1f + 0.5f * pop : 0.1f;
 
                 name.Position = headCircle.Position;
-                name.Text = n.PitchUnknown ? @"?" : NoteName(n.Midi);
+                name.Text = n.PitchUnknown ? @"?" : KanNotation.Name(n.Midi);
                 name.Font = OsuFont.GetFont(size: isNext ? 16 : 14, weight: FontWeight.Black);
                 name.Scale = new Vector2(scale * (1 + pop * 0.6f));
                 name.Alpha = missed ? 0.6f : 1;

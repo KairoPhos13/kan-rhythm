@@ -118,6 +118,7 @@ namespace Kan.Forge.Design
             var fresh = Generate(notes, levelLengthMs, design.Palette);
             fresh.Sparkle = design.Sparkle;
             fresh.Glow = design.Glow;
+            fresh.Picture = design.Picture;
             fresh.ShowSectionNames = design.ShowSectionNames;
             fresh.SavedAtUtc = design.SavedAtUtc;
             return fresh;

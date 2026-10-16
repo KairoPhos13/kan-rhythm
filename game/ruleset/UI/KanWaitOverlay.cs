@@ -42,6 +42,7 @@ namespace Kan.Ruleset.UI
         private readonly OsuSpriteText wrong;
         private readonly Circle[] tail = new Circle[comet];
 
+        private readonly Container content;
         private KanPlayState? subscribed;
         private Player? player;
         private Drawable? pauseOverlay;
@@ -52,10 +53,13 @@ namespace Kan.Ruleset.UI
             RelativeSizeAxes = Axes.Both;
             AlwaysPresent = true;
 
-            for (int i = 0; i < comet; i++)
-                AddInternal(tail[i] = new Circle { Origin = Anchor.Centre, Blending = BlendingParameters.Additive, Alpha = 0 });
+            // Drawn at the staff's scale (bigger screens, the note size setting).
+            AddInternal(content = new Container { RelativeSizeAxes = Axes.Both });
 
-            AddRangeInternal(new Drawable[]
+            for (int i = 0; i < comet; i++)
+                content.Add(tail[i] = new Circle { Origin = Anchor.Centre, Blending = BlendingParameters.Additive, Alpha = 0 });
+
+            content.AddRange(new Drawable[]
             {
                 stem = new Box { Origin = Anchor.TopCentre, Width = 3, Alpha = 0 },
                 target = new CircularContainer
@@ -115,7 +119,12 @@ namespace Kan.Ruleset.UI
             // The ruleset is not updated while the level stands still: hear the player from here.
             state.ListenWhileWaiting();
 
-            var staff = (r!.Playfield as KanPlayfield)?.Staff;
+            var playfield = r!.Playfield as KanPlayfield;
+            var staff = playfield?.Staff;
+
+            float scale = playfield?.UiScale ?? 1;
+            content.Scale = new Vector2(scale);
+            content.Size = new Vector2(1 / scale);
             var n = state.WaitingFor;
 
             if (n == null || staff == null || UserPaused)
@@ -126,7 +135,7 @@ namespace Kan.Ruleset.UI
 
             Alpha = Math.Min(1, Alpha + (float)(Time.Elapsed / 150));
 
-            Vector2 at(double midi) => ToLocalSpace(staff.LineScreenSpace(midi));
+            Vector2 at(double midi) => content.ToLocalSpace(staff.LineScreenSpace(midi));
 
             var goal = at(n.Midi);
             double now = state.RealNowMs;

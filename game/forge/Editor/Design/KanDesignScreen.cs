@@ -422,6 +422,7 @@ namespace Kan.Forge.Editor.Design
             var sparkle = new BindableFloat(d.Sparkle) { MinValue = 0, MaxValue = 2, Precision = 0.1f };
             var glow = new BindableFloat(d.Glow) { MinValue = 0, MaxValue = 2, Precision = 0.1f };
             var names = new BindableBool(d.ShowSectionNames);
+            var picture = new BindableFloat(d.Picture) { MinValue = 0, MaxValue = 1, Precision = 0.05f };
             var preview = new PaletteCard();
 
             palette.BindValueChanged(v =>
@@ -432,6 +433,7 @@ namespace Kan.Forge.Editor.Design
             sparkle.BindValueChanged(v => editLevel(x => x.Sparkle = v.NewValue));
             glow.BindValueChanged(v => editLevel(x => x.Glow = v.NewValue));
             names.BindValueChanged(v => editLevel(x => x.ShowSectionNames = v.NewValue));
+            picture.BindValueChanged(v => editLevel(x => x.Picture = v.NewValue));
             preview.Show(KanPalette.Get(d.Palette));
 
             levelFields.AddRange(new Drawable[]
@@ -440,6 +442,13 @@ namespace Kan.Forge.Editor.Design
                 preview,
                 new FormSliderBar<float> { Caption = @"sparkle", HintText = @"Hit effects: 0 = none, 1 = normal, 2 = double.", Current = sparkle, KeyboardStep = 0.1f },
                 new FormSliderBar<float> { Caption = @"glow", HintText = @"How much playing well lights the screen: 0 = none, 1 = normal, 2 = double.", Current = glow, KeyboardStep = 0.1f },
+                new FormSliderBar<float>
+                {
+                    Caption = @"picture",
+                    HintText = @"How much of the level's background picture or video shows behind the staff: 0 = none, 1 = all. Playing well and rests show a little more.",
+                    Current = picture,
+                    KeyboardStep = 0.05f,
+                },
                 new FormCheckBox { Caption = @"show section names", HintText = @"Each section's name as it starts (automatic designs name only the climax).", Current = names },
             });
         }

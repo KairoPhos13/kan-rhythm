@@ -28,6 +28,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-13 | `ec02860` | `e0c1cc9` (branch `agent/game`) | F-11 follow-up: tab presented as "track", second in the list | green (0 warnings / 0 errors) |
 | 2026-10-15 | `e0c1cc9` | `ca49bab` (branch `agent/game`) | `110dedc` F-12 summary timeline, `391afc1` F-11 follow-up (timing before compose), `b33c540` F-13 compose screen, `ca49bab` F-14 hit-object-less gameplay clock | green (0 warnings / 0 errors; editor and gameplay verified) |
 | 2026-10-15 | `ca49bab` | `cc2ccac` (branch `agent/game`) | F-15 design screen | green (0 warnings / 0 errors; design tab verified in an isolated instance) |
+| 2026-10-16 | `cc2ccac` | `9e92011` (branch `agent/game`) | F-16 player loader settings | green (0 warnings / 0 errors; panel verified in an isolated instance) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -246,6 +247,19 @@ Policy (rebase-ability first, ADR-0011 §4):
 - **Merge-conflict cost:** low — one virtual, one line in the mode switch.
 - **Upstream-PR:** candidate together with F-11/F-13 ("ruleset-provided
   editor screens").
+
+### F-16 — ruleset-provided player loader settings
+
+- **What:** `Ruleset.CreatePlayerLoaderSettings()` virtual (empty by
+  default); `PlayerLoader` appends its groups after the stock visual /
+  audio / input groups of the side panel.
+- **Why:** owner direction 2026-10-15 — the notation (note names as
+  letters or Do-Re-Mi, a colour per note, note size) is chosen right
+  before playing, in the panel that opens when a level is picked. The
+  group lives in plugin code (`Kan.Ruleset.UI.KanNotationSettings`).
+- **Merge-conflict cost:** low — one virtual, one expression in
+  `PlayerLoader`'s panel.
+- **Upstream-PR:** candidate (rulesets may want per-play settings there).
 
 ## String sweep — remaining scope (deferred, game/TODO.md)
 

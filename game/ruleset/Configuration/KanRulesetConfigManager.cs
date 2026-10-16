@@ -3,7 +3,6 @@
 
 using osu.Game.Configuration;
 using osu.Game.Rulesets.Configuration;
-using Kan.Ruleset.Instruments;
 
 namespace Kan.Ruleset.Configuration
 {
@@ -22,10 +21,16 @@ namespace Kan.Ruleset.Configuration
 
         protected override void InitialiseDefaults()
         {
-            // Provisional defaults (owner has not specified a startup
-            // instrument yet): the universal piano profile in "Keys".
-            SetDefault(KanRulesetSetting.SelectedCategory, KanInstrumentCategory.Keys);
-            SetDefault(KanRulesetSetting.SelectedInstrument, KanInstrument.Piano);
+            // The player's instrument (owner 2026-10-15: any level on any
+            // instrument); the keyboard, the widest range, until they choose.
+            SetDefault(KanRulesetSetting.PlayerInstrument, @"keyboard");
+            SetDefault(KanRulesetSetting.RangeLowest, 21, 12, 120);
+            SetDefault(KanRulesetSetting.RangeHighest, 108, 12, 120);
+
+            // Owner 2026-10-15: "circles and fonts must be bigger" (2K screen).
+            SetDefault(KanRulesetSetting.NoteSize, 1.2, 0.8, 2.0, 0.05);
+            SetDefault(KanRulesetSetting.NoteNames, Kan.Ruleset.UI.KanNoteNames.Letters);
+            SetDefault(KanRulesetSetting.ColourByNote, false);
         }
     }
 }

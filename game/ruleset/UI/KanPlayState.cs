@@ -218,7 +218,9 @@ namespace Kan.Ruleset.UI
 
             switch (verdict.Result)
             {
+                case LiveResult.Perfect:
                 case LiveResult.Great:
+                case LiveResult.Good:
                 case LiveResult.Ok:
                     Streak++;
                     bloomTarget += 0.07;
@@ -751,7 +753,7 @@ namespace Kan.Ruleset.UI
             if (summaryLogged) return;
 
             summaryLogged = true;
-            int judged = 0, great = 0, ok = 0, meh = 0, notHeard = 0, wrong = 0, unclear = 0;
+            int judged = 0, perfect = 0, great = 0, good = 0, ok = 0, meh = 0, notHeard = 0, wrong = 0, unclear = 0;
             double offsets = 0;
 
             foreach (var v in Verdicts)
@@ -762,7 +764,9 @@ namespace Kan.Ruleset.UI
 
                 switch (verdict.Result)
                 {
+                    case LiveResult.Perfect: perfect++; break;
                     case LiveResult.Great: great++; break;
+                    case LiveResult.Good: good++; break;
                     case LiveResult.Ok: ok++; break;
                     case LiveResult.Meh: meh++; break;
                 }
@@ -779,8 +783,8 @@ namespace Kan.Ruleset.UI
                 return;
             }
 
-            int hits = great + ok + meh;
-            osu.Framework.Logging.Logger.Log($"kan! play: {judged} of {Notes.Count} notes judged — great {great}, ok {ok}, meh {meh}, "
+            int hits = perfect + great + good + ok + meh;
+            osu.Framework.Logging.Logger.Log($"kan! play: {judged} of {Notes.Count} notes judged — perfect {perfect}, great {great}, good {good}, ok {ok}, meh {meh}, "
                                              + $"wrong note {wrong}, not heard {notHeard}, pitch unclear {unclear}; "
                                              + $"mean offset {(hits > 0 ? offsets / hits : 0):0} ms; instrument tuning {tuning.Cents:+0;-0;0} cents; {(failed ? Status.Value : "listening")}",
                 level: osu.Framework.Logging.LogLevel.Important);

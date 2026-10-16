@@ -6,9 +6,12 @@ using System.Collections.Generic;
 
 namespace Kan.Forge.Play
 {
+    /// <summary>The grades of osu!mania (owner 2026-10-15: "keep osu!'s steps — chaining perfects is the vice").</summary>
     public enum LiveResult
     {
+        Perfect,
         Great,
+        Good,
         Ok,
         Meh,
         Miss,
@@ -45,7 +48,12 @@ namespace Kan.Forge.Play
     /// </summary>
     public class LiveJudge
     {
+        // osu!mania's steps over kan!'s own windows: an acoustic attack is
+        // detected within ~20-30 ms, so the windows stay wider than osu!'s;
+        // great / ok / meh keep the bounds they had, perfect and good split them.
+        public const double PERFECT_MS = 35;
         public const double GREAT_MS = 70;
+        public const double GOOD_MS = 100;
         public const double OK_MS = 130;
         public const double MEH_MS = 200;
 
@@ -64,7 +72,9 @@ namespace Kan.Forge.Play
 
         private bool matches(Played p, int midi) => p.Midi is int m && Matches(m + p.Cents / 100, midi);
 
+        private double perfect => PERFECT_MS * WindowScale;
         private double great => GREAT_MS * WindowScale;
+        private double good => GOOD_MS * WindowScale;
         private double ok => OK_MS * WindowScale;
         private double meh => MEH_MS * WindowScale;
 
@@ -277,7 +287,9 @@ namespace Kan.Forge.Play
         {
             double distance = Math.Abs(offset);
 
-            var result = distance <= great ? LiveResult.Great
+            var result = distance <= perfect ? LiveResult.Perfect
+                : distance <= great ? LiveResult.Great
+                : distance <= good ? LiveResult.Good
                 : distance <= ok ? LiveResult.Ok
                 : LiveResult.Meh;
 

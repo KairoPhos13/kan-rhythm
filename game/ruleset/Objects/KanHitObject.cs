@@ -46,13 +46,13 @@ namespace Kan.Ruleset.Objects
 
     public class KanJudgement : Judgement
     {
-        public override HitResult MaxResult => HitResult.Great;
+        public override HitResult MaxResult => HitResult.Perfect;
     }
 
     /// <summary>The judge's windows (<see cref="Kan.Forge.Play.LiveJudge"/>), for the results screen.</summary>
     public class KanHitWindows : HitWindows
     {
-        public override bool IsHitResultAllowed(HitResult result) => result is HitResult.Great or HitResult.Ok or HitResult.Meh or HitResult.Miss;
+        public override bool IsHitResultAllowed(HitResult result) => result is HitResult.Perfect or HitResult.Great or HitResult.Good or HitResult.Ok or HitResult.Meh or HitResult.Miss;
 
         public override void SetDifficulty(double difficulty)
         {
@@ -60,7 +60,9 @@ namespace Kan.Ruleset.Objects
 
         public override double WindowFor(HitResult result) => result switch
         {
+            HitResult.Perfect => Kan.Forge.Play.LiveJudge.PERFECT_MS,
             HitResult.Great => Kan.Forge.Play.LiveJudge.GREAT_MS,
+            HitResult.Good => Kan.Forge.Play.LiveJudge.GOOD_MS,
             HitResult.Ok => Kan.Forge.Play.LiveJudge.OK_MS,
             HitResult.Meh => Kan.Forge.Play.LiveJudge.MEH_MS,
             HitResult.Miss => Kan.Forge.Play.LiveJudge.MEH_MS + Kan.Forge.Play.LiveJudge.PITCH_WAIT_MS,
