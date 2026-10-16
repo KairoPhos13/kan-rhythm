@@ -136,11 +136,37 @@ namespace Kan.Ruleset.Mods
 
         public bool RestartOnFail => false;
 
+        /// <summary>Whether a part was cut out of the level (otherwise the whole level plays, and never loops).</summary>
+        private bool prepared;
+
         public void ApplyToBeatmap(IBeatmap beatmap)
         {
+            // Whatever goes wrong here, the level still loads — whole, without looping
+            // (2026-10-16: a failure here restarted the play at once, and the restart
+            // failed too, back to song select).
+            try
+            {
+                cut(beatmap);
+            }
+            catch (Exception e)
+            {
+                prepared = false;
+                osu.Framework.Logging.Logger.Error(e, @"kan!: practice could not cut the level; playing it whole");
+            }
+        }
+
+        private void cut(IBeatmap beatmap)
+        {
+            prepared = false;
+
             var notes = beatmap.HitObjects.OfType<KanHitObject>().Where(h => h.HasScore).ToList();
             var design = DesignOf(beatmap.BeatmapInfo.BeatmapSet as BeatmapSetInfo, notes);
-            if (design.Sections.Count == 0) return;
+
+            if (design.Sections.Count == 0)
+            {
+                osu.Framework.Logging.Logger.Log($"kan!: practice found no sections (level known: {beatmap.BeatmapInfo.BeatmapSet != null}); playing it whole");
+                return;
+            }
 
             setId = (beatmap.BeatmapInfo.BeatmapSet as BeatmapSetInfo)?.ID ?? Guid.Empty;
             sections = design.Sections;
@@ -153,7 +179,11 @@ namespace Kan.Ruleset.Mods
             // some (2026-10-16: section 1, the intro, crashed; the outro looped forever).
             bool hasNotes(DesignSection section) => notes.Any(n => n.StartTime >= section.StartMs - 5 && n.StartTime < section.EndMs - 5);
             playable = Enumerable.Range(1, design.Sections.Count).Where(i => hasNotes(design.Sections[i - 1])).ToList();
-            if (playable.Count == 0) return;
+            if (playable.Count == 0)
+            {
+                osu.Framework.Logging.Logger.Log(@"kan!: practice found no section with notes; playing it whole");
+                return;
+            }
 
             from = nearestPlayable(from);
             to = Math.Max(from, nearestPlayable(to));
@@ -181,11 +211,22 @@ namespace Kan.Ruleset.Mods
 
             part.Add(placeholder);
             ((Beatmap<KanHitObject>)beatmap).HitObjects = part;
+
+            prepared = true;
+            osu.Framework.Logging.Logger.Log($"kan!: practice sections {from}–{to} ({rangeName}), {part.Count - 1} notes, {firstNote / 1000:0.0}–{lastNoteEnd / 1000:0.0} s");
         }
 
         /// <summary>The playable section nearest to <paramref name="number"/> (the next one first).</summary>
         private int nearestPlayable(int number)
-            => playable.Where(p => p >= number).DefaultIfEmpty(playable.Last(p => p < number)).First();
+        {
+            // (2026-10-16: computing the fallback eagerly threw for section 1 — the default)
+            foreach (int p in playable)
+            {
+                if (p >= number) return p;
+            }
+
+            return playable[^1];
+        }
 
         /// <summary>The level's design (the same one the play uses).</summary>
         internal static KanDesign DesignOf(BeatmapSetInfo? set, IReadOnlyCollection<KanHitObject> notes)
@@ -312,7 +353,7 @@ namespace Kan.Ruleset.Mods
 
                 // osu! starts a level from its beginning (with a Skip button): a part
                 // later in the song starts at once, a moment before its first note.
-                if (!skipped && clock.IsRunning)
+                if (!skipped && mod.prepared && clock.IsRunning)
                 {
                     skipped = true;
                     double target = mod.firstNote - lead_in_ms;
@@ -322,7 +363,7 @@ namespace Kan.Ruleset.Mods
                         gcc?.Seek(target);
                 }
 
-                if (restarting || clock.CurrentTime < mod.lastNoteEnd + loop_after_ms) return;
+                if (!mod.prepared || restarting || clock.CurrentTime < mod.lastNoteEnd + loop_after_ms) return;
 
                 mod.countLoop();
                 osu.Framework.Logging.Logger.Log($"kan!: practice loop {mod.Loops} done ({mod.rangeName}), again");
@@ -361,7 +402,11 @@ namespace Kan.Ruleset.Mods
             {
                 // Steps go through the sections with notes only.
                 var playable = mod.playable;
-                if (playable.Count == 0) return;
+                if (playable.Count == 0)
+            {
+                osu.Framework.Logging.Logger.Log(@"kan!: practice found no section with notes; playing it whole");
+                return;
+            }
 
                 int a = Math.Max(0, playable.IndexOf(mod.chosenFrom)), b = Math.Max(a, playable.IndexOf(mod.chosenTo));
 

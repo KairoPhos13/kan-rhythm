@@ -159,9 +159,24 @@ namespace Kan.Ruleset.Dev
                 return;
             }
 
-            if (Environment.GetEnvironmentVariable(SCREEN_ENV) == @"select")
+            if (Environment.GetEnvironmentVariable(SCREEN_ENV) is @"select" or @"selectplay")
             {
                 game.PerformFromScreen(s => s.Push(new SoloSongSelect()), new[] { typeof(MainMenu) });
+
+                // KAN_DEV_SCREEN=selectplay: start the level from song select, through osu!'s own player loader.
+                if (Environment.GetEnvironmentVariable(SCREEN_ENV) == @"selectplay")
+                {
+                    Scheduler.AddDelayed(() =>
+                    {
+                        // As pressing play: song select's own start (protected; developer tooling only).
+                        if (game.ScreenStack.CurrentScreen is SongSelect select)
+                        {
+                            select.GetType().GetMethod(@"OnStart", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.Invoke(select, null);
+                            Logger.Log(@"kan! dev play: started from song select", level: LogLevel.Important);
+                        }
+                    }, 5000);
+                    scheduleScreenshots();
+                }
 
                 // KAN_DEV_SCROLL=mods: the selected mods' settings controls, shown on screen (for screenshots).
                 if (Environment.GetEnvironmentVariable(@"KAN_DEV_SCROLL") == @"mods")
