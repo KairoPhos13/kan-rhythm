@@ -35,7 +35,10 @@ namespace Kan.Ruleset.UI
 
         private static readonly int[] milestones = { 10, 25, 50, 75, 100, 150, 200, 300, 400, 500 };
 
-        private readonly Color4 hot;
+        private readonly KanScene scene;
+
+        /// <summary>The palette's hot colour (eased between sections by the scene).</summary>
+        private Color4 hot => scene.Hot;
         private readonly Container group;
         private readonly Container glow;
         private readonly Box core;
@@ -53,9 +56,9 @@ namespace Kan.Ruleset.UI
         /// <summary>The music's bloom (0..1): the line glows with it.</summary>
         public double Bloom;
 
-        public KanNowLine(float nowFraction, Color4 hot)
+        public KanNowLine(float nowFraction, KanScene scene)
         {
-            this.hot = hot;
+            this.scene = scene;
             RelativeSizeAxes = Axes.Both;
 
             InternalChild = group = new Container
@@ -70,7 +73,6 @@ namespace Kan.Ruleset.UI
                         RelativeSizeAxes = Axes.Y,
                         Origin = Anchor.TopCentre,
                         Blending = BlendingParameters.Additive,
-                        Colour = hot,
                         Alpha = 0,
                     },
                     // A soft column: fades out to both sides.
@@ -122,7 +124,7 @@ namespace Kan.Ruleset.UI
                         Origin = Anchor.BottomCentre,
                         Y = -120,
                         Font = OsuFont.GetFont(size: 26, weight: FontWeight.Black),
-                        Colour = hot,
+                        Shadow = true,
                         Alpha = 0,
                     },
                 },
@@ -147,10 +149,14 @@ namespace Kan.Ruleset.UI
             {
                 core.Width = restingWidth;
                 core.Colour = restingColour;
-                core.Alpha = 0.7f + 0.3f * heat;
+                core.Alpha = (0.7f + 0.3f * heat) * (1 - 0.5f * scene.Rest);
             }
 
-            restingGlowAlpha = (float)(0.03 + 0.09 * Bloom) + 0.16f * heat;
+            // In a climax the line runs hotter; in a rest it calms down.
+            float floor = 0.35f * scene.ClimaxAmount;
+            if (heat < floor) heat += (floor - heat) * (float)Math.Min(1, Time.Elapsed / 600);
+
+            restingGlowAlpha = ((float)(0.03 + 0.09 * Bloom) + 0.16f * heat) * (1 - 0.6f * scene.Rest);
             glow.Width = 40 + 90 * heat;
 
             if (glow.LatestTransformEndTime <= Time.Current)
@@ -198,19 +204,23 @@ namespace Kan.Ruleset.UI
             glow.Alpha = Math.Max(restingGlowAlpha, 0.22f + 0.25f * power);
             glow.FadeTo(restingGlowAlpha, 450, Easing.OutQuint).FadeColour(restingColour, 450);
 
-            bursts[nextBurst++ % burst_pool].Fire(y, colour, power, result == LiveResult.Great);
+            if (scene.Sparkle > 0)
+                bursts[nextBurst++ % burst_pool].Fire(y, colour, power * Math.Min(1.5f, scene.Sparkle), result == LiveResult.Great);
 
-            int count = result switch
+            // The design sets how much it sparkles (a climax adds half again).
+            float sparkle = scene.Sparkle;
+
+            int count = (int)MathF.Round(sparkle * result switch
             {
                 LiveResult.Great => 14,
                 LiveResult.Ok => 8,
                 _ => 4,
-            };
+            });
 
             for (int i = 0; i < count; i++)
             {
                 double angle = random.NextDouble() * Math.PI * 2;
-                float distance = (40 + (float)random.NextDouble() * 80) * (0.6f + 0.6f * power);
+                float distance = (40 + (float)random.NextDouble() * 80) * (0.6f + 0.6f * power) * (0.7f + 0.3f * Math.Min(2, sparkle));
                 spark(new Vector2(0, y), new Vector2((float)Math.Cos(angle), (float)Math.Sin(angle)) * distance,
                     colour, 3 + (float)random.NextDouble() * 3 * (0.5f + power), 320 + random.NextDouble() * 260);
             }
@@ -279,6 +289,8 @@ namespace Kan.Ruleset.UI
         private void milestone(int streak)
         {
             shockwave.ClearTransforms();
+            shockwave.Colour = hot;
+            milestoneText.Colour = hot;
             shockwave.Width = 8;
             shockwave.Alpha = 0.4f;
             shockwave.ResizeWidthTo(900, 650, Easing.OutQuint).FadeOut(650, Easing.OutQuad);

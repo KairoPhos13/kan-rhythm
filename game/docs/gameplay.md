@@ -76,12 +76,42 @@ Mods that need nothing from the level editor:
 | No Fail, Sudden Death, Perfect | as in osu! |
 | Half Time / Daycore, Double Time / Nightcore | the level slower or faster, same notes (pitch kept): practise at 75 % or 90 % |
 | Hidden | notes fade out on the way to the line (gone 300 ms before it) |
-| Wait for me (WT) | the level stops at each note until it is played (it keeps listening from the HUD, since osu! updates nothing inside a stopped ruleset); score ×0.1, cannot fail |
-| Auto / Cinema | a perfect performance, played as a replay |
+| Wait for me (WT) | the level waits at each note until it is played — a gentle walk for learning (see below); score ×0.02, cannot fail |
+| Auto / Cinema | a perfect performance, played as a replay, and heard: the reference take when it is on this computer, else the notes as tones — one of the two, never both (owner 2026-10-15; `AutoplayPart`, shared with the song select preview as `LevelPart`) |
 | Muted | as in osu! |
 
 Not applicable: Relax, Auto Pilot, Spun Out (no cursor or spinners).
 Later: Flashlight (needs its own shader), Score V2.
+
+### Wait for me (owner 2026-10-15)
+
+- **A little grace:** the level runs 200 ms past a note before it stops
+  (`KanPlayState.WAIT_GRACE_MS`); a note played on time is heard within it,
+  so the level never stutters for the detection's own delay. While the
+  mod is on, the judge never closes a note as missed: it is played, or
+  waited for.
+- **Released fast:** five readings at the right pitch (50 ms) release the
+  wait, without waiting for a new note's pitch event — a held or slurred
+  note has none. The level then picks up from the note's start (plus the
+  detection's moment, 110 ms + the mic delay), so the next notes come in
+  time with the player (synthetic player 3 s late: 54 of 54 great after
+  the wait, mean offset −6 ms; resuming where it stood left them ~110 ms
+  late). The time the level stood still is measured when it really moves
+  again, track start latency included.
+- **Not frozen:** osu! updates nothing inside a stopped ruleset, so
+  `KanWaitOverlay` lives in the HUD: it keeps listening and draws the
+  player's pitch live on the now line against the waited note — a dot
+  with a comet of what was just played, a line to the target, "higher ↑
+  (a tone)" / "lower ↓" / "that's it — hold it".
+- **Not silent:** `WaitLoop` loops the last beat before the stop (one or
+  two beats of the timing grid, 450–1600 ms), softer and muffled, with
+  faded seams; silent while the pause menu is open.
+- **Honest combo:** a wrong note — a confirmed pitch, from an attack made
+  for this note, an octave off forgiven — makes the note a miss when it
+  is finally played (`KanPlayState.Adjust`), shown at once ("B5 — play
+  F5 · combo lost"). Misses dip the music gently in this mode.
+- **Pause:** continuing from the pause menu while the level waits keeps
+  it waiting (it ran on before).
 
 Rate mods: the player's sound arrives in real time and the level runs at
 the rate, so a fact's level time is `anchor + (stream − waited − mic
@@ -117,6 +147,29 @@ the part at 75 % too). Both channels report positions the same way, so
 keeping it as an offset, and learns the seek latency (measured in the
 isolated instance: ~1 ms apart after two corrections at the start).
 
+## Design in play (owner 2026-10-15)
+
+`KanScene` turns the level's design (editor-pipeline.md §6g; generated
+from the notes when the level has none) into what the screen does: the
+section on now, the palette in force — eased between sections over
+0.7 s, never jumping — and how far the screen is into a rest or a climax.
+
+- **Rests** (breaks, and an intro/outro with nothing to play): the staff
+  steps back, and `KanInterlude` fills the space with the companion as
+  light — its spectrum in mirrored bars, a soft core that breathes with
+  it — and "next: A5 in 12 s". The rest lets go 2.6 s before its next
+  note, so the note is seen coming; the last 3 s count 3-2-1 in a ring
+  closing on where that note will arrive. A section can ask for a calm,
+  empty screen instead.
+- **Climax:** the line runs hotter, sparks are half again bigger, and the
+  climax colour rises from the bottom of the screen pulsing with the
+  music's low end.
+- **Section names** show as they start (an automatic design names only
+  its climax).
+- **Palette and glow:** the background, notes, trail and the hot line take
+  the palette; the design's glow scales how much playing well lights the
+  screen, its sparkle the hit effects.
+
 ## The screen (`KanStaff`, `KanPlayfield`)
 
 - **Living staff:** time runs right to left onto a fixed "now" line, and
@@ -127,6 +180,23 @@ isolated instance: ~1 ms apart after two corrections at the start).
   mark for its style: accent `>` with a bigger head, staccato `•` with no
   tail, a legato line to the previous note, and `~` along the tail for
   vibrato. A ring closes on the head as it reaches the line.
+- **The notes look** (owner 2026-10-15: "not osu!'s level yet in effects,
+  smooth transitions, clarity, flashes, colours"): lit beads in the
+  palette — lighter at the top, a thin white rim, a soft halo — with
+  **white names** (shadowed, readable on every colour). Every change plays
+  from the moment it happened: a hit pops (+50 %), flashes white and
+  turns its grade's colour over 160 ms, then settles a little smaller; a
+  miss shudders, sinks and greys. Notes fade and grow in at the right
+  edge and fade towards the left; a held tail fills white with light
+  running along it.
+- **Reading the notes** (owner 2026-10-15: "note indicators aren't clear
+  enough"): heads are bigger with a readable name; the **next note** to play
+  wears a white rim and is the only one with the approach ring, while later
+  notes step back with distance (dimmer up to ~3 s ahead), so the eye lands
+  on what comes first. A **marker on the now line** ("G5 ▸") shows where the
+  next note will cross it and glides from note to note: the trail meets it
+  when the note is played right (hidden with the Hidden mod). Every natural
+  guide line is named at the left edge, the Cs brighter.
 - **Trail:** the player's pitch every 10 ms. It is green while on a
   sounding note, white otherwise, so a miss shows why (above = sharp,
   after the line = late). A hit note's tail fills while its pitch is held.
@@ -162,7 +232,8 @@ isolated instance: ~1 ms apart after two corrections at the start).
 | `KAN_DEV_SCREENSHOTS=20,45` | screenshots that many seconds into the level |
 | `KAN_LIVE_INPUT_REALTIME=1` | the recording plays in real time, like a player (rate and wait modes) |
 | `KAN_DEV_MODS=HT,NF` | play with those mods; `AT` plays through a replay player |
-| `KAN_DEV_SCREEN=select` / `replay` | open song select on the level / play back its newest local score |
+| `KAN_DEV_PAUSE=12` | pause 12 s into the level and continue 2 s later (as after a window switch) |
+| `KAN_DEV_SCREEN=select` / `replay` / `design` | open song select on the level / play back its newest local score / open the editor on its design tab |
 
 A dev run never opens the microphone: without `KAN_LIVE_INPUT` it listens
 to nothing. The test instance needs its own `/tmp` (mount namespace):

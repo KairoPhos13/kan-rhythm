@@ -71,6 +71,9 @@ namespace Kan.Ruleset.UI
         /// <summary>"Hidden": notes fade out before they reach the line.</summary>
         public bool HideNotes { get; init; }
 
+        /// <summary>The level's design (sections, palette, effects): the level's own, or generated from its notes.</summary>
+        public Kan.Forge.Design.KanDesign Design { get; init; } = new Kan.Forge.Design.KanDesign();
+
         /// <summary>A replay (or autoplay) to read the facts from instead of listening.</summary>
         public Func<Replay?>? ReplaySource { get; set; }
 
@@ -79,6 +82,49 @@ namespace Kan.Ruleset.UI
 
         /// <summary>The level is stopped, waiting for the player (wait mode).</summary>
         public bool Waiting => waitingFor != null;
+
+        /// <summary>The note the level waits for (wait mode), or null.</summary>
+        public KanHitObject? WaitingFor => waitingFor;
+
+        /// <summary>Where the level stood still (gameplay ms; meaningful while <see cref="Waiting"/>).</summary>
+        public double WaitStopTime { get; private set; }
+
+        /// <summary>
+        /// Wait mode: the level runs this far past a note before it stops
+        /// (owner 2026-10-15). A note played on time is heard within it, so
+        /// the level never stutters for the detection's own delay.
+        /// </summary>
+        public const double WAIT_GRACE_MS = 200;
+
+        /// <summary>Wait mode: a wrong note heard while waiting (its MIDI number), shown at once.</summary>
+        public event Action<int>? WrongWhileWaiting;
+
+        /// <summary>Notes played wrong before right in wait mode: they break the combo (owner 2026-10-15).</summary>
+        private readonly System.Collections.Generic.Dictionary<int, int> waitPenalty = new System.Collections.Generic.Dictionary<int, int>();
+
+        /// <summary>When each heard note started (gameplay ms): a pitch counts as a try only for a note started for it.</summary>
+        private readonly System.Collections.Generic.Dictionary<int, double> onsetOf = new System.Collections.Generic.Dictionary<int, double>();
+
+        /// <summary>Whether a heard note started late enough to be a try at <paramref name="n"/> (not the previous note still sounding).</summary>
+        private bool isTryAt(KanReplayFrame pitch, KanHitObject n)
+            => onsetOf.TryGetValue(pitch.Index, out double onset) && onset >= n.StartTime - 100;
+
+        /// <summary>One reading of the player's pitch, stamped with real time (it keeps coming while the level stands still).</summary>
+        public readonly record struct LivePoint(double RealMs, float Midi, float Level);
+
+        private readonly LivePoint[] live = new LivePoint[256];
+        private int liveHead;
+
+        /// <summary>How many live readings are kept (newest first through <see cref="LiveAt"/>).</summary>
+        public int LiveCount { get; private set; }
+
+        /// <summary>The i-th newest live reading (0 = newest).</summary>
+        public LivePoint LiveAt(int i) => live[(liveHead - 1 - i + live.Length * 2) % live.Length];
+
+        private readonly System.Diagnostics.Stopwatch realClock = System.Diagnostics.Stopwatch.StartNew();
+
+        /// <summary>Real time (ms) for <see cref="LivePoint.RealMs"/>.</summary>
+        public double RealNowMs => realClock.Elapsed.TotalMilliseconds;
 
         private LiveSession? session;
         private double rate = 1;
@@ -125,6 +171,19 @@ namespace Kan.Ruleset.UI
             });
 
             clockContainer = this.FindClosestParent<GameplayClockContainer>();
+        }
+
+        /// <summary>
+        /// The verdict the game applies: in wait mode a note played wrong
+        /// before it was played right is a miss — the combo means playing it
+        /// right the first time (owner 2026-10-15).
+        /// </summary>
+        public LiveVerdict Adjust(KanHitObject note, LiveVerdict verdict)
+        {
+            if (!WaitForPlayer || !waitPenalty.TryGetValue(note.Index, out int played) || verdict.Result == LiveResult.Miss)
+                return verdict;
+
+            return verdict with { Result = LiveResult.Miss, Reason = LiveReason.WrongNote, PlayedMidi = played };
         }
 
         /// <summary>Called by a note's judging object once the judge decided it.</summary>
@@ -192,7 +251,15 @@ namespace Kan.Ruleset.UI
             }
 
             if (WaitForPlayer)
+            {
+                // Resumed from the pause menu while waiting: the level keeps waiting
+                // (owner 2026-10-15: after "continue" it ran on without the player).
+                if (waitingFor != null && gameplayClock.IsRunning)
+                    clockContainer?.Stop();
+
+                settleResume(now);
                 updateWait(now);
+            }
 
             Judge.Forget(now - 5000);
 
@@ -324,6 +391,7 @@ namespace Kan.Ruleset.UI
             {
                 case KanFactKind.Hit:
                     Judge.Heard(id, f.FactTime);
+                    onsetOf[f.Index] = f.FactTime;
                     break;
 
                 case KanFactKind.PitchProvisional:
@@ -337,6 +405,10 @@ namespace Kan.Ruleset.UI
                     break;
 
                 case KanFactKind.Reading:
+                    live[liveHead] = new LivePoint(RealNowMs, f.Midi, f.Level);
+                    liveHead = (liveHead + 1) % live.Length;
+                    LiveCount = Math.Min(LiveCount + 1, live.Length);
+
                     Judge.Frame(f.FactTime, f.Midi);
                     Trail[trailHead] = new TrailPoint(f.FactTime, f.Midi, f.Level);
                     trailHead = (trailHead + 1) % Trail.Length;
@@ -344,7 +416,24 @@ namespace Kan.Ruleset.UI
                     break;
             }
 
-            if (waitingFor != null) checkWaitRelease(f);
+            if (waitingFor != null)
+                checkWaitRelease(f);
+            else if (WaitForPlayer)
+                checkWrongInGrace(f);
+        }
+
+        /// <summary>Wait mode: a wrong note around the next note's start (before the level stops) counts as a wrong try too.</summary>
+        private void checkWrongInGrace(KanReplayFrame f)
+        {
+            if (f.Kind != KanFactKind.PitchFinal || nextWait >= Notes.Count) return;
+
+            var n = Notes[nextWait];
+            int played = (int)f.Midi;
+
+            if (n.PitchUnknown || played <= 0 || Math.Abs(played - n.Midi) % 12 == 0) return;
+            if (clockMs > n.StartTime + WAIT_GRACE_MS || !isTryAt(f, n)) return;
+
+            waitPenalty.TryAdd(n.Index, played);
         }
 
         /// <summary>A replay: the facts that reached the judge by now, in order.</summary>
@@ -375,24 +464,58 @@ namespace Kan.Ruleset.UI
 
         private void updateWait(double now)
         {
-            if (waitingFor != null || clockContainer == null) return;
+            if (waitingFor != null || resuming || clockContainer == null) return;
 
-            // The next note to wait for, in order (the clock moves ~16 ms per frame:
-            // a note is caught on the first frame at or past its start).
+            // The next note to wait for, in order: skip notes already decided or heard.
             while (nextWait < Notes.Count && (Verdicts[Notes[nextWait].Index] != null || Notes[nextWait].StartTime <= now
                                                                                      && Judge.HasHeard(Notes[nextWait].StartTime, Notes[nextWait].Midi, Notes[nextWait].PitchUnknown)))
                 nextWait++;
 
-            if (nextWait >= Notes.Count || Notes[nextWait].StartTime > now) return;
+            if (nextWait >= Notes.Count) return;
 
-            var n = Notes[nextWait++];
+            var n = Notes[nextWait];
+
+            // A little past the note before stopping: the detection takes a moment.
+            if (n.StartTime + WAIT_GRACE_MS > now) return;
+
+            // Already sounding right (held over from before, or slurred into): played.
+            if (soundingRight(n))
+            {
+                markPlayed(n, LiveAt(0).Midi - n.Midi);
+                nextWait++;
+                return;
+            }
+
+            nextWait++;
             waitingFor = n;
+            WaitStopTime = now;
+            rightReadings = 0;
             waitingClock.Restart();
             clockContainer.Stop();
             Status.Value = $"Waiting: play {KanStaff.NoteName(n.Midi)}";
         }
 
         private int nextWait;
+
+        /// <summary>Consecutive readings at the waited note's pitch.</summary>
+        private int rightReadings;
+
+        /// <summary>Readings at the right pitch for this long release the wait (no need to wait for a new note's pitch event).</summary>
+        private const int right_readings_to_release = 5; // 10 ms apart
+
+        private bool soundingRight(KanHitObject n)
+        {
+            if (LiveCount < right_readings_to_release) return false;
+
+            for (int i = 0; i < right_readings_to_release; i++)
+            {
+                var p = LiveAt(i);
+                if (RealNowMs - p.RealMs > 150 || p.Midi <= 0) return false;
+                if (!n.PitchUnknown && MathF.Abs(p.Midi - n.Midi) >= 0.5f) return false;
+            }
+
+            return true;
+        }
 
         /// <summary>Called from outside the stopped ruleset (the HUD) while the level waits: keep hearing the player.</summary>
         public void ListenWhileWaiting()
@@ -407,17 +530,88 @@ namespace Kan.Ruleset.UI
         private void checkWaitRelease(KanReplayFrame f)
         {
             var n = waitingFor!;
-            bool right = f.Kind is KanFactKind.PitchProvisional or KanFactKind.PitchFinal && (n.PitchUnknown || (int)f.Midi == n.Midi);
-            bool slurred = f.Kind == KanFactKind.Reading && n.Articulation == Kan.Forge.Score.Articulation.Legato && MathF.Abs(f.Midi - n.Midi) < 0.5f;
-            if (!right && !slurred) return;
 
-            // Heard: the note counts as played at the point the level waited.
-            Judge.Heard(uint.MaxValue - (uint)n.Index, n.StartTime);
-            Judge.Pitch(uint.MaxValue - (uint)n.Index, n.Midi, f.Cents, final: true);
-            frozenStreamMs += (float)waitingClock.Elapsed.TotalMilliseconds;
+            if (f.Kind is KanFactKind.PitchProvisional or KanFactKind.PitchFinal)
+            {
+                int played = (int)f.Midi;
+
+                if (n.PitchUnknown || played == n.Midi)
+                {
+                    release(n, f.Cents);
+                    return;
+                }
+
+                // A wrong note — its confirmed pitch only, a gentle mod forgives a
+                // provisional slip; an octave off is the detector's, not the player's.
+                if (f.Kind == KanFactKind.PitchFinal && played > 0 && Math.Abs(played - n.Midi) % 12 != 0 && isTryAt(f, n))
+                {
+                    waitPenalty.TryAdd(n.Index, played);
+                    WrongWhileWaiting?.Invoke(played);
+                }
+
+                return;
+            }
+
+            if (f.Kind != KanFactKind.Reading) return;
+
+            // The right pitch sounding is enough: readings come every 10 ms, a
+            // note's pitch event later — and a held or slurred note has none.
+            bool right = f.Midi > 0 && (n.PitchUnknown || MathF.Abs(f.Midi - n.Midi) < 0.5f);
+            rightReadings = right ? rightReadings + 1 : 0;
+
+            if (rightReadings >= right_readings_to_release || (right && n.Articulation == Kan.Forge.Score.Articulation.Legato))
+                release(n, (f.Midi - n.Midi) * 100);
+        }
+
+        private void release(KanHitObject n, float cents)
+        {
+            markPlayed(n, cents / 100);
             waitingFor = null;
+            resuming = true;
             Status.Value = string.Empty;
+
+            // The player just played the note: the level picks up from the note's
+            // start (plus the detection's moment), not from where it stood a
+            // little past it — so the next notes come in time with the player,
+            // and the waited note is heard with its own accompaniment.
+            resumeAt = Math.Min(WaitStopTime, n.StartTime + (release_lead_ms + micDelayMs) * rate);
+            clockContainer?.Seek(resumeAt);
             clockContainer?.Start();
+        }
+
+        /// <summary>
+        /// How long after the player's attack the wait is released (real ms):
+        /// the readings' pipeline plus five readings at the right pitch,
+        /// measured 2026-10-15 (resuming 60 ms in left the next notes 53 ms
+        /// early). The microphone's own delay comes on top.
+        /// </summary>
+        private const double release_lead_ms = 110;
+
+        private double resumeAt;
+
+        /// <summary>Released, but the level has not moved yet (the track takes a moment to start).</summary>
+        private bool resuming;
+
+        /// <summary>
+        /// Once the level moves again, the time it stood still is what passed
+        /// in real time minus what the level advanced — including the moment
+        /// the track takes to start, which a stopwatch around Stop/Start
+        /// misses (seen 2026-10-15: notes after a wait judged ~110 ms late).
+        /// </summary>
+        private void settleResume(double now)
+        {
+            if (!resuming || gameplayClock is not { IsRunning: true } || now <= resumeAt + 1) return;
+
+            double real = waitingClock.Elapsed.TotalMilliseconds;
+            frozenStreamMs += (float)(real - (now - WaitStopTime) / rate);
+            resuming = false;
+        }
+
+        /// <summary>The note counts as played at its start (the level waited for it).</summary>
+        private void markPlayed(KanHitObject n, float semitonesOff)
+        {
+            Judge.Heard(uint.MaxValue - (uint)n.Index, n.StartTime);
+            Judge.Pitch(uint.MaxValue - (uint)n.Index, n.Midi, Math.Clamp(semitonesOff * 100, -49, 49), final: true);
         }
 
         /// <summary>The i-th newest trail point (0 = newest).</summary>
@@ -472,6 +666,7 @@ namespace Kan.Ruleset.UI
         private double toGameplay(float streamMs)
         {
             if (waitingFor != null) return waitingFor.StartTime;
+            if (resuming) return resumeAt;
 
             return anchorMs + (streamMs - frozenStreamMs - micDelayMs) * rate;
         }

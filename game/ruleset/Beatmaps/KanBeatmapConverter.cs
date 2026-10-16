@@ -16,6 +16,7 @@ namespace Kan.Ruleset.Beatmaps
     /// <see cref="KanHitObject"/> per note. A level without a score keeps the
     /// timing-only placeholder conversion (each source object becomes an
     /// object that resolves by itself), so any beatmap can still be entered.
+    /// The editor gets the source's objects too (<see cref="KanLevelFiles.EditorLoading"/>).
     /// </summary>
     public class KanBeatmapConverter : BeatmapConverter<KanHitObject>
     {
@@ -39,7 +40,7 @@ namespace Kan.Ruleset.Beatmaps
         protected override Beatmap<KanHitObject> ConvertBeatmap(IBeatmap original, CancellationToken cancellationToken)
         {
             var beatmap = base.ConvertBeatmap(original, cancellationToken);
-            if (score == null) return beatmap;
+            if (score == null || KanLevelFiles.EditorLoading) return beatmap;
 
             var notes = score.Notes.OrderBy(n => n.StartMs).ThenBy(n => n.Midi).ToList();
             beatmap.HitObjects = notes.Select((n, i) => new KanHitObject

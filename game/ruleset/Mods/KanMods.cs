@@ -86,8 +86,11 @@ namespace Kan.Ruleset.Mods
 
     /// <summary>
     /// "Wait for me" (owner 2026-10-15): the level never runs ahead of the
-    /// player; it stops at each note until it is played. For learning: it
-    /// scores very little, and it cannot fail.
+    /// player; a little past each note (<see cref="KanPlayState.WAIT_GRACE_MS"/>)
+    /// it stops until the note is played. A gentle walk for learning: while
+    /// it waits, the last beat loops softly and the player's pitch shows live
+    /// against the note (higher, lower); a wrong note breaks the combo; it
+    /// cannot fail, and it scores almost nothing.
     /// </summary>
     public partial class KanModWait : Mod, IApplicableFailOverride, IApplicableToDrawableRuleset<KanHitObject>, IApplicableToHUD
     {
@@ -96,25 +99,18 @@ namespace Kan.Ruleset.Mods
         public void ApplyToDrawableRuleset(osu.Game.Rulesets.UI.DrawableRuleset<KanHitObject> drawableRuleset) => ruleset = drawableRuleset as Kan.Ruleset.UI.KanDrawableRuleset;
 
         // While the level stands still osu! updates nothing inside the ruleset
-        // (FrameStabilityContainer), so the listening goes on from the HUD.
-        public void ApplyToHUD(osu.Game.Screens.Play.HUDOverlay overlay) => overlay.Add(new WaitListener(() => ruleset?.State));
-
-        private partial class WaitListener : osu.Framework.Graphics.Component
+        // (FrameStabilityContainer), so the listening, the live pitch and the
+        // loop go on from the HUD.
+        public void ApplyToHUD(osu.Game.Screens.Play.HUDOverlay overlay)
         {
-            private readonly System.Func<Kan.Ruleset.UI.KanPlayState?> state;
-
-            public WaitListener(System.Func<Kan.Ruleset.UI.KanPlayState?> state) => this.state = state;
-
-            protected override void Update()
-            {
-                base.Update();
-                state()?.ListenWhileWaiting();
-            }
+            var live = new Kan.Ruleset.UI.KanWaitOverlay(() => ruleset);
+            overlay.Add(live);
+            overlay.Add(new Kan.Forge.Play.WaitLoop(() => ruleset?.State is { Waiting: true } s ? s.WaitStopTime : null, () => live.UserPaused));
         }
 
         public override string Name => @"Wait for me";
         public override string Acronym => @"WT";
-        public override LocalisableString Description => @"The level stops at each note until you play it. For learning.";
+        public override LocalisableString Description => @"The level waits at each note until you play it. A gentle walk for learning: almost no score.";
         public override ModType Type => ModType.DifficultyReduction;
         public override osu.Framework.Graphics.Sprites.IconUsage? Icon => osu.Framework.Graphics.Sprites.FontAwesome.Solid.HourglassHalf;
         public override System.Type[] IncompatibleMods => new[] { typeof(ModAutoplay), typeof(ModFailCondition), typeof(ModNoFail) };
@@ -131,7 +127,7 @@ namespace Kan.Ruleset.Mods
         public KanScoreMultiplierCalculator(osu.Game.Rulesets.Scoring.ScoreMultiplierContext context)
             : base(context)
         {
-            Single<KanModWait>(0.1);
+            Single<KanModWait>(0.02); // owner 2026-10-15: passing a level this way is almost symbolic
             Single<KanModNoFail>(0.5);
             Single<KanModHalfTime>(m => m.SpeedChange.Value);
             Single<KanModDaycore>(m => m.SpeedChange.Value);

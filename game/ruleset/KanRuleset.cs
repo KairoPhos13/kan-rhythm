@@ -188,5 +188,8 @@ namespace Kan.Ruleset
 
         /// <summary>The compose tab is kan!'s score editor (fork F-13, owner 2026-10-14).</summary>
         public override osu.Game.Screens.Edit.EditorScreen? CreateComposeEditorScreen() => new Kan.Forge.Editor.Compose.KanComposeScreen();
+
+        /// <summary>kan!'s design tab (fork F-15): sections, rests, climaxes, palette and effects.</summary>
+        public override osu.Game.Screens.Edit.EditorScreen? CreateDesignEditorScreen() => new Kan.Forge.Editor.Design.KanDesignScreen();
     }
 }

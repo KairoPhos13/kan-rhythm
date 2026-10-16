@@ -34,9 +34,17 @@ namespace Kan.Ruleset.UI
             : base(ruleset, beatmap, mods)
         {
             var notes = Beatmap.HitObjects.Where(h => h.HasScore).OrderBy(h => h.Index).ToList();
-            string instrument = notes.Count > 0 ? KanLevelFiles.LoadScore(beatmap.BeatmapInfo.BeatmapSet)?.Instrument ?? @"keyboard" : @"keyboard";
+            var set = beatmap.BeatmapInfo.BeatmapSet as osu.Game.Beatmaps.BeatmapSetInfo;
+            var score = notes.Count > 0 ? KanLevelFiles.LoadScore(set) : null;
+            string instrument = score?.Instrument ?? @"keyboard";
+            var design = KanLevelFiles.DesignFor(set, score?.Notes ?? new List<Kan.Forge.Score.ScoreNote>(), beatmap.BeatmapInfo.Length);
+
+            osu.Framework.Logging.Logger.Log($"kan! design ({(design.Generated ? "generated" : "the level's")}, {design.Palette}): "
+                                             + string.Join(@", ", design.Sections.Select(s => $"{s.DisplayName}{(s.Climax ? "*" : "")} {s.StartMs / 1000:0.0}-{s.EndMs / 1000:0.0}s")));
+
             state = new KanPlayState(notes, instrument)
             {
+                Design = design,
                 WaitForPlayer = Mods.Any(m => m is Kan.Ruleset.Mods.KanModWait),
                 HideNotes = Mods.Any(m => m is Kan.Ruleset.Mods.KanModHidden),
                 ReplaySource = () => ReplayScore?.Replay,
@@ -50,6 +58,10 @@ namespace Kan.Ruleset.UI
             // Easy / hard rock: wider or stricter timing windows.
             if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModEasy)) state.Judge.WindowScale = 1.4;
             if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModHardRock)) state.Judge.WindowScale = 0.7;
+
+            // Autoplay is heard: the perfect player's part plays with the level.
+            if (Mods.Any(m => m is ModAutoplay))
+                AddInternal(new Kan.Forge.Play.AutoplayPart(KanLevelFiles.LoadScore, () => KanLevelFiles.ForgeRoot));
         }
 
         /// <summary>A play records what the judge heard (<see cref="KanReplayRecorder"/>).</summary>

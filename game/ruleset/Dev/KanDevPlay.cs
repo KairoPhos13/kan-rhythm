@@ -31,7 +31,9 @@ namespace Kan.Ruleset.Dev
     /// opens song select on that level instead of playing it (the screen a
     /// player goes through; owner 2026-10-15: it crashed there).
     /// KAN_DEV_MODS="HT,NF" plays with those mods (acronyms);
-    /// KAN_DEV_SCREEN=replay plays back the level's newest local score.
+    /// KAN_DEV_SCREEN=replay plays back the level's newest local score;
+    /// KAN_DEV_SCREEN=design opens the editor on its design tab;
+    /// KAN_DEV_PAUSE=12 pauses 12 s in and continues 2 s later.
     /// </summary>
     public partial class KanDevPlay : Component
     {
@@ -39,6 +41,7 @@ namespace Kan.Ruleset.Dev
         public const string SCREENSHOTS_ENV = @"KAN_DEV_SCREENSHOTS";
         public const string SCREEN_ENV = @"KAN_DEV_SCREEN";
         public const string MODS_ENV = @"KAN_DEV_MODS";
+        public const string PAUSE_ENV = @"KAN_DEV_PAUSE";
 
         [Resolved]
         private Bindable<System.Collections.Generic.IReadOnlyList<osu.Game.Rulesets.Mods.Mod>> mods { get; set; } = null!;
@@ -114,6 +117,15 @@ namespace Kan.Ruleset.Dev
                 return;
             }
 
+            if (Environment.GetEnvironmentVariable(SCREEN_ENV) == @"design")
+            {
+                // The editor on its design tab (the level's design, owner 2026-10-15).
+                game.PerformFromScreen(s => s.Push(new osu.Game.Screens.Edit.EditorLoader()), new[] { typeof(MainMenu) });
+                Scheduler.AddDelayed(openDesignTab, 1000);
+                scheduleScreenshots();
+                return;
+            }
+
             if (Environment.GetEnvironmentVariable(SCREEN_ENV) == @"select")
             {
                 game.PerformFromScreen(s => s.Push(new SoloSongSelect()), new[] { typeof(MainMenu) });
@@ -127,6 +139,30 @@ namespace Kan.Ruleset.Dev
             else
                 game.PerformFromScreen(s => s.Push(new UnattendedPlayerLoader()), new[] { typeof(MainMenu) });
 
+            scheduleScreenshots();
+            schedulePause();
+        }
+
+        /// <summary>KAN_DEV_PAUSE=12: pause the level that many seconds in and continue 2 s later (as after a window switch).</summary>
+        private void schedulePause()
+        {
+            if (!double.TryParse(Environment.GetEnvironmentVariable(PAUSE_ENV), NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds)) return;
+
+            Scheduler.AddDelayed(() =>
+            {
+                if (game.ScreenStack.CurrentScreen is not Player player) return;
+
+                Logger.Log($"kan! dev play: pausing ({player.Pause()})", level: LogLevel.Important);
+                Scheduler.AddDelayed(() =>
+                {
+                    Logger.Log(@"kan! dev play: continuing", level: LogLevel.Important);
+                    player.Resume();
+                }, 2000);
+            }, (seconds + 6) * 1000);
+        }
+
+        private void scheduleScreenshots()
+        {
             foreach (string part in (Environment.GetEnvironmentVariable(SCREENSHOTS_ENV) ?? string.Empty).Split(','))
             {
                 if (!double.TryParse(part, NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds)) continue;
@@ -134,6 +170,21 @@ namespace Kan.Ruleset.Dev
                 // The loader takes a few seconds before the level's clock starts.
                 Scheduler.AddDelayed(() => game.ChildrenOfType<ScreenshotManager>().FirstOrDefault()?.TakeScreenshotAsync(false, false), (seconds + 6) * 1000);
             }
+        }
+
+        private int designTries;
+
+        private void openDesignTab()
+        {
+            if (game.ScreenStack.CurrentScreen is osu.Game.Screens.Edit.Editor editor && editor.IsLoaded)
+            {
+                editor.Mode.Value = osu.Game.Screens.Edit.EditorScreenMode.Design;
+                Logger.Log(@"kan! dev play: editor on the design tab", level: LogLevel.Important);
+                return;
+            }
+
+            if (++designTries < 30)
+                Scheduler.AddDelayed(openDesignTab, 1000);
         }
     }
 

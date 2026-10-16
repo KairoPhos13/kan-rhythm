@@ -32,15 +32,20 @@ namespace Kan.Ruleset.UI
     /// </summary>
     public partial class KanPlayfield : Playfield
     {
-        private static readonly Color4 dark = Color4Extensions.FromHex(@"120e1a");
-        private static readonly Color4 bright = Color4Extensions.FromHex(@"2c2148");
-
         private const int muffled_hz = 450;
 
         [Cached]
         private readonly KanPlayState state;
 
         private Box background = null!;
+        private Box climaxGlow = null!;
+        private KanScene scene = null!;
+
+        /// <summary>The living staff (null for a level without a score).</summary>
+        public KanStaff? Staff { get; private set; }
+
+        /// <summary>The companion's low end (beats), smoothed: the climax glow pulses with it.</summary>
+        private float lowEnd;
         private OsuSpriteText status = null!;
         private AudioFilter? bloomFilter;
 
@@ -73,8 +78,22 @@ namespace Kan.Ruleset.UI
             AddRangeInternal(new Drawable[]
             {
                 state,
-                background = new Box { RelativeSizeAxes = Axes.Both, Colour = dark, Depth = float.MaxValue },
-                new KanStaff(state),
+                scene = new KanScene(state),
+                background = new Box { RelativeSizeAxes = Axes.Both, Depth = float.MaxValue },
+                climaxGlow = new Box
+                {
+                    // From the bottom: the colour rises behind the staff, it does not tint it all.
+                    RelativeSizeAxes = Axes.Both,
+                    Height = 0.6f,
+                    Anchor = Anchor.BottomLeft,
+                    Origin = Anchor.BottomLeft,
+                    Depth = float.MaxValue - 1,
+                    Blending = BlendingParameters.Additive,
+                    Alpha = 0,
+                },
+                new KanInterlude(scene, state, () => beatmap.Value.TrackLoaded ? beatmap.Value.Track : null),
+                Staff = new KanStaff(state, scene),
+                new KanSectionBanner(scene),
                 status = new OsuSpriteText
                 {
                     Anchor = Anchor.TopCentre,
@@ -98,7 +117,8 @@ namespace Kan.Ruleset.UI
 
         private void onJudged(int index, LiveVerdict verdict)
         {
-            if (verdict.Result == LiveResult.Miss) missDip = 1;
+            // Wait mode is a gentle walk: a miss is felt, softly.
+            if (verdict.Result == LiveResult.Miss) missDip = state.WaitForPlayer ? 0.45 : 1;
         }
 
         protected override void Update()
@@ -108,7 +128,23 @@ namespace Kan.Ruleset.UI
             if (bloomFilter == null) return;
 
             double bloom = state.Bloom;
-            background.Colour = ColourInfo.GradientVertical(Interpolation.ValueAt(bloom, dark, bright, 0, 1), dark);
+
+            // The level's palette; playing well lights it up (as much as the design's glow says).
+            double lit = Math.Clamp(bloom * scene.Design.Glow, 0, 1);
+            background.Colour = ColourInfo.GradientVertical(Interpolation.ValueAt(lit, scene.BackgroundDark, scene.BackgroundLit, 0, 1), scene.BackgroundDark);
+
+            // A climax glows from below in its colour, pulsing with the music's low end.
+            if (scene.ClimaxAmount > 0.001f && beatmap.Value.TrackLoaded)
+            {
+                var amplitudes = beatmap.Value.Track.CurrentAmplitudes.FrequencyAmplitudes.Span;
+                float low = 0;
+                for (int i = 1; i < Math.Min(8, amplitudes.Length); i++) low += amplitudes[i];
+                low = Math.Min(1, low / 7 * 2.5f);
+                lowEnd = low > lowEnd ? low : lowEnd - (lowEnd - low) * (float)Math.Min(1, Time.Elapsed / 180);
+            }
+
+            climaxGlow.Colour = ColourInfo.GradientVertical(scene.Climax.Opacity(0), scene.Climax);
+            climaxGlow.Alpha = scene.ClimaxAmount * (0.06f + 0.22f * lowEnd) * Math.Min(1, scene.Design.Glow);
 
             missDip = Math.Max(0, missDip - Time.Elapsed / miss_recovery_ms);
             double dip = missDip * missDip; // sharp at once, easing back

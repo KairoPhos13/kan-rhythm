@@ -427,6 +427,40 @@ cents), duration, intensity and playing style (normal / legato / staccato
   velocity = intensity; read back by `tools/dataset_bench`'s reader within
   one tick).
 
+### 6g. The design tab: the level's look (owner 2026-10-15, fork F-15)
+
+The design (`Kan.Forge.Design.KanDesign`, file `kan.design.json` in the
+level; autosave `kan-forge/<set>/design.json`, the newer copy wins, like
+the score) says how the level looks and rewards, stretch by stretch:
+
+- **Sections** cover the level's timeline without gaps: intro, verse,
+  pre-chorus, chorus, bridge, solo, break, outro; a name of the author's
+  choice; **climax** (hotter colours, half again the sparkle, the
+  background glows from below with the music's low end); for rests, what
+  the screen shows (the music as light then 3-2-1 / the music as light /
+  calm and empty); a palette of their own.
+- **The level:** palette (five presets: sakura, ocean, ember, forest,
+  aurora; grade colours are the same in all), sparkle 0–2, glow 0–2,
+  section names on/off.
+- **Automatic design** (`AutoDesign`, unit-tested): silences of 3.5 s or
+  more are breaks (before the first note the intro, after the last the
+  outro); the music between them is cut into phrases at 1.2 s silences,
+  none shorter than 9 s; the busiest, loudest phrases (notes/s × mean
+  intensity, top quarter, within 90 % of the best, and only if the best
+  stands 15 % above the median) are the chorus/climax. While a design is
+  automatic (`Generated`) its sections are generated again whenever it is
+  opened or played, so they follow the score; editing a section makes the
+  design the author's. A level nobody designed already looks right.
+- **The tab:** a timeline of the sections over the notes (click to select
+  and seek; drag a boundary to move it), the section's settings, the
+  level's settings with a palette preview, and automatic design / split at
+  playhead / join with next / undo / redo / save into the level. It is
+  saved into the level when leaving the tab or the editor.
+
+The editor loads a level without converting its score into objects
+(`KanLevelFiles.EditorLoading`): the osu! format it saves cannot hold a
+kan! note (it crashed on opening a level with a score, 2026-10-15).
+
 ## 7. URL / YouTube policy (owner direction, 2026-10-13)
 
 The URL fetch path uses **yt-dlp**, which brings cookie handling, ToS and

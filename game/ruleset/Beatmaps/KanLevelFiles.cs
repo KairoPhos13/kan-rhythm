@@ -2,6 +2,7 @@
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
@@ -10,6 +11,7 @@ using osu.Framework.Graphics.Sprites;
 using osu.Framework.Platform;
 using osu.Game.Beatmaps;
 using osu.Game.Extensions;
+using Kan.Forge.Design;
 using Kan.Forge.Score;
 
 namespace Kan.Ruleset.Beatmaps
@@ -24,8 +26,21 @@ namespace Kan.Ruleset.Beatmaps
     public static class KanLevelFiles
     {
         private static Storage? storage;
+        private static osu.Game.OsuGame? game;
 
-        public static void Init(Storage gameStorage) => storage ??= gameStorage;
+        public static void Init(Storage gameStorage, osu.Game.OsuGame? osuGame)
+        {
+            storage ??= gameStorage;
+            game ??= osuGame;
+        }
+
+        /// <summary>
+        /// Whether the editor is the screen loading (2026-10-15: the editor
+        /// crashed opening a level with a score). The editor keeps the level's
+        /// own objects: it saves them in the osu! format, which cannot hold a
+        /// kan! note, and its compose tab edits the score file directly.
+        /// </summary>
+        public static bool EditorLoading => game?.ScreenStack?.CurrentScreen is osu.Game.Screens.Edit.EditorLoader or osu.Game.Screens.Edit.Editor;
 
         /// <summary>
         /// The level's score: the copy inside the level, or the editor's
@@ -36,39 +51,62 @@ namespace Kan.Ruleset.Beatmaps
         {
             if (storage == null || set == null) return null;
 
-            KanScore? inLevel = null;
+            var inLevel = readLevelFile(set, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json) : null;
+            var autosaved = loadAutosave(set, @"score.json", KanScore.Load);
 
+            return autosaved != null && (inLevel == null || autosaved.SavedAtUtc > inLevel.SavedAtUtc) ? autosaved : inLevel;
+        }
+
+        /// <summary>
+        /// The level's design (owner 2026-10-15): the copy inside the level, or
+        /// the editor's newer autosave; null when the level has none (the
+        /// caller generates one from the notes, <see cref="AutoDesign"/>).
+        /// </summary>
+        public static KanDesign? LoadDesign(BeatmapSetInfo? set)
+        {
+            if (storage == null || set == null) return null;
+
+            var inLevel = readLevelFile(set, KanDesign.FILE_NAME) is string json ? KanDesign.FromJson(json) : null;
+            var autosaved = loadAutosave(set, @"design.json", KanDesign.Load);
+
+            return autosaved != null && (inLevel == null || autosaved.SavedAtUtc > inLevel.SavedAtUtc) ? autosaved : inLevel;
+        }
+
+        /// <summary>The design to play: the level's, else one generated from its notes.</summary>
+        public static KanDesign DesignFor(BeatmapSetInfo? set, IReadOnlyCollection<ScoreNote> notes, double levelLengthMs)
+            => LoadDesign(set) is { } design ? AutoDesign.Refresh(design, notes, levelLengthMs) : AutoDesign.Generate(notes, levelLengthMs);
+
+        private static string? readLevelFile(BeatmapSetInfo set, string fileName)
+        {
             try
             {
-                string? path = set.GetFile(KanScore.FILE_NAME)?.File.GetStoragePath();
+                string? path = set.GetFile(fileName)?.File.GetStoragePath();
+                if (path == null) return null;
 
-                if (path != null)
-                {
-                    using var stream = storage.GetStorageForDirectory(@"files").GetStream(path);
-                    if (stream != null)
-                    {
-                        using var reader = new StreamReader(stream);
-                        inLevel = KanScore.FromJson(reader.ReadToEnd());
-                    }
-                }
+                using var stream = storage!.GetStorageForDirectory(@"files").GetStream(path);
+                if (stream == null) return null;
+
+                using var reader = new StreamReader(stream);
+                return reader.ReadToEnd();
             }
             catch (Exception e)
             {
-                osu.Framework.Logging.Logger.Log($"kan!: the level's score could not be read: {e.Message}");
+                osu.Framework.Logging.Logger.Log($"kan!: the level's {fileName} could not be read: {e.Message}");
+                return null;
             }
+        }
 
-            KanScore? autosaved = null;
-
+        private static T? loadAutosave<T>(BeatmapSetInfo set, string fileName, Func<string, T?> load) where T : class
+        {
             try
             {
-                autosaved = KanScore.Load(Path.Combine(storage.GetFullPath(@"kan-forge"), set.ID.ToString("N"), @"score.json"));
+                return load(Path.Combine(storage!.GetFullPath(@"kan-forge"), set.ID.ToString("N"), fileName));
             }
             catch
             {
                 // The level copy is the source of truth; the autosave only helps its author.
+                return null;
             }
-
-            return autosaved != null && (inLevel == null || autosaved.SavedAtUtc > inLevel.SavedAtUtc) ? autosaved : inLevel;
         }
 
         /// <summary>The kan-forge folder (timing.json), or null before the storage is known.</summary>
@@ -89,7 +127,7 @@ namespace Kan.Ruleset.Beatmaps
         [BackgroundDependencyLoader(true)]
         private void load(Storage? storage, osu.Game.OsuGame? game, GameHost? host)
         {
-            if (storage != null) KanLevelFiles.Init(storage);
+            if (storage != null) KanLevelFiles.Init(storage, game);
 
             // Developer tooling (inert unless its environment variable is set). It
             // lives on the game itself: the toolbar holding this icon may be hidden.

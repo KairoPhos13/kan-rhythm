@@ -27,6 +27,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-13 | `e704f03` | `ec02860` (branch `agent/game`) | ruleset-provided "tracks" editor tab (entry F-11) | green (0 warnings / 0 errors; tab verified live) |
 | 2026-10-13 | `ec02860` | `e0c1cc9` (branch `agent/game`) | F-11 follow-up: tab presented as "track", second in the list | green (0 warnings / 0 errors) |
 | 2026-10-15 | `e0c1cc9` | `ca49bab` (branch `agent/game`) | `110dedc` F-12 summary timeline, `391afc1` F-11 follow-up (timing before compose), `b33c540` F-13 compose screen, `ca49bab` F-14 hit-object-less gameplay clock | green (0 warnings / 0 errors; editor and gameplay verified) |
+| 2026-10-15 | `ca49bab` | `cc2ccac` (branch `agent/game`) | F-15 design screen | green (0 warnings / 0 errors; design tab verified in an isolated instance) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -231,6 +232,20 @@ Policy (rebase-ability first, ADR-0011 §4):
   none, which threw "Sequence contains no elements" on entering the level.
 - **Merge-conflict cost:** trivial — one line.
 - **Upstream-PR:** candidate (harmless robustness fix).
+
+### F-15 — ruleset-provided "design" editor screen
+
+- **What:** `Ruleset.CreateDesignEditorScreen()` virtual (returns null →
+  the stock `DesignScreen`); `Editor`: the design case asks the ruleset
+  first.
+- **Why:** owner direction 2026-10-15 — kan!'s design tab is the level's
+  look and rewards (sections, rests, climaxes, palette, effect strength),
+  saved as `kan.design.json` in the level. osu!'s design screen is a
+  storyboard view. The screen lives in plugin code
+  (`Kan.Forge.Editor.Design.KanDesignScreen`), like F-11 and F-13.
+- **Merge-conflict cost:** low — one virtual, one line in the mode switch.
+- **Upstream-PR:** candidate together with F-11/F-13 ("ruleset-provided
+  editor screens").
 
 ## String sweep — remaining scope (deferred, game/TODO.md)
 

@@ -38,6 +38,13 @@ namespace Kan.Ruleset.Objects
                 legato: HitObject.Articulation == Kan.Forge.Score.Articulation.Legato);
             if (verdict is not { } v) return;
 
+            // "Wait for me": the level waits for a note the player has not played
+            // yet, so the judge never closes one as missed — it is played, or
+            // waited for (wrong tries count against it, KanPlayState.Adjust).
+            if (state.WaitForPlayer && v.Result == LiveResult.Miss) return;
+
+            v = state.Adjust(HitObject, v);
+
             ApplyResult(v.Result switch
             {
                 LiveResult.Great => HitResult.Great,
