@@ -35,11 +35,45 @@ namespace Kan.Ruleset.Mods
     /// the last of them the play restarts by itself — before it would
     /// complete, so practice never fills the local scores.
     /// </summary>
-    public partial class KanModPractice : Mod, IApplicableToBeatmap, IApplicableToHUD, IApplicableFailOverride
+    public partial class KanModPractice : Mod, IApplicableToBeatmap, IApplicableToHUD, IApplicableFailOverride,
+                                          IApplicableToDrawableRuleset<KanHitObject>, IApplicableToTrack, IApplicableToRate
     {
+        /// <summary>
+        /// Switched on and off while practising (owner 2026-10-16), apart from
+        /// the selected mods (which cannot change during play): wait for the
+        /// player, a slower speed, or listening to the part played for them.
+        /// Kept until the player leaves practice.
+        /// </summary>
+        public record PracticeOptions(bool Wait, double Speed, bool Listen);
+
+        // (declared first: static fields initialise in order)
+        private static readonly PracticeOptions defaults = new PracticeOptions(false, 1, false);
+
+        public static PracticeOptions Options { get; private set; } = defaults;
+
+        /// <summary>The speeds S steps through.</summary>
+        private static readonly double[] speeds = { 1, 0.9, 0.75, 0.6, 0.5 };
+
+        private readonly BindableDouble speed = new BindableDouble(1);
+        private Kan.Ruleset.UI.KanDrawableRuleset? ruleset;
+
+        public void ApplyToDrawableRuleset(osu.Game.Rulesets.UI.DrawableRuleset<KanHitObject> drawableRuleset) => ruleset = drawableRuleset as Kan.Ruleset.UI.KanDrawableRuleset;
+
+        // The practice speed keeps the pitch (tempo), like Half Time.
+        public void ApplyToTrack(osu.Framework.Audio.IAdjustableAudioComponent track)
+        {
+            speed.Value = Options.Speed;
+            track.AddAdjustment(osu.Framework.Audio.AdjustableProperty.Tempo, speed);
+        }
+
+        public double ApplyToRate(double time, double rate = 1) => rate * Options.Speed;
+
+        // Hit sounds keep their pitch too.
+        public void ApplyToSample(osu.Framework.Audio.IAdjustableAudioComponent sample) => sample.AddAdjustment(osu.Framework.Audio.AdjustableProperty.Tempo, speed);
+
         public override string Name => @"Practice";
         public override string Acronym => @"PR";
-        public override LocalisableString Description => @"Loop a part of the level, without score: pick its sections below.";
+        public override LocalisableString Description => @"Loop a part of the level, without score. While practising: arrows move, W waits for you, S slows down, L listens.";
         public override ModType Type => ModType.DifficultyReduction;
         public override IconUsage? Icon => FontAwesome.Solid.Redo;
         public override bool ValidForMultiplayer => false;
@@ -75,8 +109,28 @@ namespace Kan.Ruleset.Mods
         /// <summary>A moment after the part's last note, the next loop starts.</summary>
         private const double loop_after_ms = 1500;
 
-        private double rangeStart, rangeEnd, lastNoteEnd;
+        private double rangeStart, rangeEnd, lastNoteEnd, firstNote;
+
+        /// <summary>A part starts this long before its first note.</summary>
+        private const double lead_in_ms = 2000;
         private string rangeName = string.Empty;
+
+        /// <summary>The level's sections and the practised range (1-based), for the on-screen strip.</summary>
+        private IReadOnlyList<DesignSection> sections = Array.Empty<DesignSection>();
+
+        /// <summary>The sections with notes (1-based): the only ones to practise (owner 2026-10-16: leave the rest out).</summary>
+        private List<int> playable = new List<int>();
+
+        private int chosenFrom, chosenTo;
+        private Guid setId;
+
+        /// <summary>
+        /// A range picked while practising (keys or the strip). It outlives the
+        /// restart — a restart plays with fresh copies of the mods, and the
+        /// selected mods cannot change during play — and is dropped when the
+        /// player leaves practice.
+        /// </summary>
+        private static (Guid set, int from, int to)? picked;
 
         public bool PerformFail() => false;
 
@@ -88,9 +142,23 @@ namespace Kan.Ruleset.Mods
             var design = DesignOf(beatmap.BeatmapInfo.BeatmapSet as BeatmapSetInfo, notes);
             if (design.Sections.Count == 0) return;
 
-            int from = Math.Clamp(FromSection.Value, 1, design.Sections.Count);
-            int to = Math.Clamp(Math.Max(ToSection.Value, from), 1, design.Sections.Count);
+            setId = (beatmap.BeatmapInfo.BeatmapSet as BeatmapSetInfo)?.ID ?? Guid.Empty;
+            sections = design.Sections;
 
+            int from = FromSection.Value, to = ToSection.Value;
+            if (picked is { } p && p.set == setId) (from, to) = (p.from, p.to);
+
+            // Only sections with notes can be practised: a range starting or ending on
+            // one without (an intro, a break, the outro) snaps to the nearest that has
+            // some (2026-10-16: section 1, the intro, crashed; the outro looped forever).
+            bool hasNotes(DesignSection section) => notes.Any(n => n.StartTime >= section.StartMs - 5 && n.StartTime < section.EndMs - 5);
+            playable = Enumerable.Range(1, design.Sections.Count).Where(i => hasNotes(design.Sections[i - 1])).ToList();
+            if (playable.Count == 0) return;
+
+            from = nearestPlayable(from);
+            to = Math.Max(from, nearestPlayable(to));
+
+            (chosenFrom, chosenTo) = (from, to);
             rangeStart = design.Sections[from - 1].StartMs;
             rangeEnd = design.Sections[to - 1].EndMs;
             rangeName = from == to ? design.Sections[from - 1].DisplayName : $"{design.Sections[from - 1].DisplayName} – {design.Sections[to - 1].DisplayName}";
@@ -102,14 +170,22 @@ namespace Kan.Ruleset.Mods
                 part[i].Index = i;
 
             lastNoteEnd = part.Count > 0 ? part.Max(n => n.EndMs) : rangeEnd;
+            firstNote = part.Count > 0 ? part.Min(n => n.StartTime) : rangeStart;
 
             // A placeholder after the loop point keeps the play from completing
             // (and saving a score) before it restarts.
-            var hitObjects = part.Cast<osu.Game.Rulesets.Objects.HitObject>().ToList();
-            hitObjects.Add(new KanHitObject { StartTime = lastNoteEnd + loop_after_ms + 3000 });
+            // Mods reshape the beatmap after its objects got their defaults (timing
+            // windows): the placeholder needs them too, or the HUD's hit error meter fails.
+            var placeholder = new KanHitObject { StartTime = lastNoteEnd + loop_after_ms + 3000 };
+            placeholder.ApplyDefaults(beatmap.ControlPointInfo, beatmap.Difficulty);
 
-            ((Beatmap<KanHitObject>)beatmap).HitObjects = hitObjects.Cast<KanHitObject>().ToList();
+            part.Add(placeholder);
+            ((Beatmap<KanHitObject>)beatmap).HitObjects = part;
         }
+
+        /// <summary>The playable section nearest to <paramref name="number"/> (the next one first).</summary>
+        private int nearestPlayable(int number)
+            => playable.Where(p => p >= number).DefaultIfEmpty(playable.Last(p => p < number)).First();
 
         /// <summary>The level's design (the same one the play uses).</summary>
         internal static KanDesign DesignOf(BeatmapSetInfo? set, IReadOnlyCollection<KanHitObject> notes)
@@ -118,48 +194,321 @@ namespace Kan.Ruleset.Mods
             return KanLevelFiles.DesignFor(set, scoreNotes, 0);
         }
 
-        public void ApplyToHUD(HUDOverlay overlay) => overlay.Add(new PracticeLoop(this));
+        public void ApplyToHUD(HUDOverlay overlay)
+        {
+            overlay.Add(new PracticeLoop(this));
 
-        /// <summary>Restarts the play a moment after the part's last note, and says which loop it is.</summary>
+            // Waiting while practising works as the Wait for me mod does (listening from the HUD).
+            if (Options.Wait)
+            {
+                var live = new Kan.Ruleset.UI.KanWaitOverlay(() => ruleset);
+                overlay.Add(live);
+                overlay.Add(new Kan.Forge.Play.WaitHold(() => ruleset?.State is { Waiting: true } st ? st.WaitResumeTime : null, () => live.UserPaused));
+            }
+        }
+
+        /// <summary>Developer tooling: what ← → (with Shift) do while practising.</summary>
+        internal static void DevStep(bool forward, bool resize) => PracticeLoop.Current?.Step(forward, resize);
+
+        /// <summary>Developer tooling: what W / S / L do while practising.</summary>
+        internal static void DevToggle(char option) => PracticeLoop.Current?.Toggle(option);
+
+        /// <summary>
+        /// While practising: restarts the play a moment after the part's last
+        /// note, and lets the player move around (owner 2026-10-16: "how do I
+        /// go to the next loop, back, choose?") — ← → (or [ ]) the previous or
+        /// next section, Shift with them to shorten or lengthen the part, or a
+        /// click on the strip of sections at the top (Shift+click: up to there).
+        /// </summary>
         private partial class PracticeLoop : CompositeDrawable
         {
             private readonly KanModPractice mod;
-            private bool restarted;
+            private bool restarting;
 
             [Resolved]
             private osu.Game.Screens.Play.IGameplayClock clock { get; set; } = null!;
 
+            /// <summary>The practice being played (developer tooling drives it like the keys do).</summary>
+            internal static PracticeLoop? Current;
+
             public PracticeLoop(KanModPractice mod)
             {
                 this.mod = mod;
+                Current = this;
                 RelativeSizeAxes = Axes.Both;
                 AlwaysPresent = true;
 
-                InternalChild = new OsuSpriteText
+                var strip = new FillFlowContainer
+                {
+                    RelativeSizeAxes = Axes.X,
+                    Height = 26,
+                    Direction = FillDirection.Horizontal,
+                };
+
+                // Only the sections with notes, each its share of them.
+                double total = mod.playable.Sum(n => mod.sections[n - 1].DurationMs);
+
+                foreach (int number in mod.playable)
+                {
+                    var section = mod.sections[number - 1];
+                    bool inside = number >= mod.chosenFrom && number <= mod.chosenTo;
+
+                    strip.Add(new SectionButton(section, number, inside, (float)(section.DurationMs / total), shift => pick(number, shift)));
+                }
+
+                InternalChild = new FillFlowContainer
                 {
                     Anchor = Anchor.TopCentre,
                     Origin = Anchor.TopCentre,
-                    Y = 60,
-                    Font = OsuFont.GetFont(size: 18, weight: FontWeight.SemiBold),
-                    Text = $"Practice · {mod.rangeName} · loop {mod.currentLoop}",
-                    Alpha = 0.8f,
-                    Shadow = true,
+                    RelativeSizeAxes = Axes.X,
+                    Width = 0.6f,
+                    AutoSizeAxes = Axes.Y,
+                    Y = 48,
+                    Direction = FillDirection.Vertical,
+                    Spacing = new osuTK.Vector2(0, 4),
+                    Children = new Drawable[]
+                    {
+                        new OsuSpriteText
+                        {
+                            Anchor = Anchor.TopCentre,
+                            Origin = Anchor.TopCentre,
+                            Font = OsuFont.GetFont(size: 18, weight: FontWeight.SemiBold),
+                            Text = $"Practice · {mod.rangeName} · loop {mod.currentLoop}",
+                            Shadow = true,
+                        },
+                        strip,
+                        new OsuSpriteText
+                        {
+                            Anchor = Anchor.TopCentre,
+                            Origin = Anchor.TopCentre,
+                            Font = OsuFont.GetFont(size: 13),
+                            Text = @"← → section · Shift+← → shorter / longer · click a section (Shift+click: up to it)",
+                            Alpha = 0.7f,
+                            Shadow = true,
+                        },
+                        new FillFlowContainer
+                        {
+                            Anchor = Anchor.TopCentre,
+                            Origin = Anchor.TopCentre,
+                            AutoSizeAxes = Axes.Both,
+                            Direction = FillDirection.Horizontal,
+                            Spacing = new osuTK.Vector2(8, 0),
+                            Children = new Drawable[]
+                            {
+                                new OptionButton($"Wait for me: {(Options.Wait ? "on" : "off")} (W)", Options.Wait, () => Toggle('w')),
+                                new OptionButton($"Speed {Options.Speed:0%} (S)", Options.Speed < 1, () => Toggle('s')),
+                                new OptionButton($"Listen: {(Options.Listen ? "on" : "off")} (L)", Options.Listen, () => Toggle('l')),
+                            },
+                        },
+                    },
                 };
             }
+
+            private bool skipped;
 
             protected override void Update()
             {
                 base.Update();
 
-                if (restarted || clock.CurrentTime < mod.lastNoteEnd + loop_after_ms) return;
+                // osu! starts a level from its beginning (with a Skip button): a part
+                // later in the song starts at once, a moment before its first note.
+                if (!skipped && clock.IsRunning)
+                {
+                    skipped = true;
+                    double target = mod.firstNote - lead_in_ms;
 
-                var player = this.FindClosestParent<Player>();
-                if (player == null) return;
+                    var gcc = this.FindClosestParent<osu.Game.Screens.Play.GameplayClockContainer>();
+                    if (target - clock.CurrentTime > lead_in_ms)
+                        gcc?.Seek(target);
+                }
 
-                restarted = true;
+                if (restarting || clock.CurrentTime < mod.lastNoteEnd + loop_after_ms) return;
+
                 mod.countLoop();
                 osu.Framework.Logging.Logger.Log($"kan!: practice loop {mod.Loops} done ({mod.rangeName}), again");
+                restart();
+            }
+
+            protected override bool OnKeyDown(osu.Framework.Input.Events.KeyDownEvent e)
+            {
+                if (e.Repeat || mod.sections.Count == 0) return false;
+
+                switch (e.Key)
+                {
+                    case osuTK.Input.Key.W:
+                        Toggle('w');
+                        return true;
+
+                    case osuTK.Input.Key.S:
+                        Toggle('s');
+                        return true;
+
+                    case osuTK.Input.Key.L:
+                        Toggle('l');
+                        return true;
+                }
+
+                bool back = e.Key is osuTK.Input.Key.Left or osuTK.Input.Key.BracketLeft;
+                bool forward = e.Key is osuTK.Input.Key.Right or osuTK.Input.Key.BracketRight;
+                if (!back && !forward) return false;
+
+                Step(forward, e.ShiftPressed);
+                return true;
+            }
+
+            /// <summary>The next / previous section, or (with <paramref name="resize"/>) a longer / shorter part.</summary>
+            public void Step(bool forward, bool resize)
+            {
+                // Steps go through the sections with notes only.
+                var playable = mod.playable;
+                if (playable.Count == 0) return;
+
+                int a = Math.Max(0, playable.IndexOf(mod.chosenFrom)), b = Math.Max(a, playable.IndexOf(mod.chosenTo));
+
+                if (resize)
+                    b = Math.Clamp(b + (forward ? 1 : -1), a, playable.Count - 1); // longer / shorter
+                else
+                {
+                    int length = b - a;
+                    a = Math.Clamp(a + (forward ? 1 : -1), 0, playable.Count - 1 - length);
+                    b = a + length;
+                }
+
+                choose(playable[a], playable[b]);
+            }
+
+            /// <summary>W / S / L: wait for me, the next speed, listen.</summary>
+            public void Toggle(char option)
+            {
+                var o = Options;
+
+                Options = option switch
+                {
+                    'w' => o with { Wait = !o.Wait },
+                    's' => o with { Speed = speeds[(Array.IndexOf(speeds, o.Speed) + 1) % speeds.Length] },
+                    'l' => o with { Listen = !o.Listen },
+                    _ => o,
+                };
+
+                if (Options == o) return;
+
+                osu.Framework.Logging.Logger.Log($"kan!: practice options {Options}");
+                restart();
+            }
+
+            /// <summary>A section of the strip clicked: practise it, or (with Shift) extend the part up to it.</summary>
+            private void pick(int number, bool extend)
+            {
+                if (extend)
+                    choose(Math.Min(mod.chosenFrom, number), Math.Max(mod.chosenTo, number));
+                else
+                    choose(number, number);
+            }
+
+            private void choose(int from, int to)
+            {
+                if (from == mod.chosenFrom && to == mod.chosenTo) return;
+
+                picked = (mod.setId, from, to);
+                osu.Framework.Logging.Logger.Log($"kan!: practice now sections {from}-{to}");
+                restart();
+            }
+
+            private void restart()
+            {
+                var player = this.FindClosestParent<Player>();
+                if (player == null || restarting) return;
+
+                restarting = true;
                 player.Restart(quickRestart: true);
+            }
+
+            protected override void Dispose(bool isDisposing)
+            {
+                // Leaving practice (not restarting it): the next practice starts from the mod's settings.
+                if (!restarting)
+                {
+                    picked = null;
+                    Options = defaults;
+                }
+
+                base.Dispose(isDisposing);
+            }
+
+            /// <summary>A practice option, lit when on.</summary>
+            private partial class OptionButton : osu.Game.Graphics.Containers.OsuClickableContainer
+            {
+                public OptionButton(string text, bool on, Action toggle)
+                {
+                    AutoSizeAxes = Axes.Both;
+                    Action = toggle;
+                    Masking = true;
+                    CornerRadius = 4;
+
+                    Children = new Drawable[]
+                    {
+                        new osu.Framework.Graphics.Shapes.Box
+                        {
+                            RelativeSizeAxes = Axes.Both,
+                            Colour = on ? osuTK.Graphics.Color4.White : new osuTK.Graphics.Color4(0.18f, 0.18f, 0.24f, 1),
+                            Alpha = 0.85f,
+                        },
+                        new OsuSpriteText
+                        {
+                            Margin = new MarginPadding { Horizontal = 8, Vertical = 3 },
+                            Font = OsuFont.GetFont(size: 13, weight: FontWeight.SemiBold),
+                            Text = text,
+                            Colour = on ? osuTK.Graphics.Color4.Black : osuTK.Graphics.Color4.White,
+                        },
+                    };
+                }
+            }
+
+            /// <summary>One section on the strip: its share of the level, its name, highlighted when practised.</summary>
+            private partial class SectionButton : osu.Game.Graphics.Containers.OsuClickableContainer
+            {
+                private readonly Action<bool> picked;
+
+                public SectionButton(DesignSection section, int number, bool inside, float share, Action<bool> picked)
+                {
+                    this.picked = picked;
+                    RelativeSizeAxes = Axes.Both;
+                    Width = share;
+                    Padding = new MarginPadding { Horizontal = 1 };
+                    TooltipText = $"{number}. {section.DisplayName}";
+
+                    Child = new Container
+                    {
+                        RelativeSizeAxes = Axes.Both,
+                        Masking = true,
+                        CornerRadius = 4,
+                        Children = new Drawable[]
+                        {
+                            new osu.Framework.Graphics.Shapes.Box
+                            {
+                                RelativeSizeAxes = Axes.Both,
+                                Colour = inside ? osuTK.Graphics.Color4.White : section.IsRest ? new osuTK.Graphics.Color4(0.3f, 0.3f, 0.35f, 1) : new osuTK.Graphics.Color4(0.18f, 0.18f, 0.24f, 1),
+                                Alpha = inside ? 0.85f : 0.75f,
+                            },
+                            new osu.Game.Graphics.Sprites.TruncatingSpriteText
+                            {
+                                RelativeSizeAxes = Axes.X,
+                                Anchor = Anchor.CentreLeft,
+                                Origin = Anchor.CentreLeft,
+                                Padding = new MarginPadding { Horizontal = 5 },
+                                Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                                Text = $"{number} {section.DisplayName}",
+                                Colour = inside ? osuTK.Graphics.Color4.Black : osuTK.Graphics.Color4.White,
+                            },
+                        },
+                    };
+                }
+
+                protected override bool OnClick(osu.Framework.Input.Events.ClickEvent e)
+                {
+                    picked(e.ShiftPressed);
+                    return true;
+                }
             }
         }
 

@@ -30,6 +30,9 @@ namespace Kan.Ruleset.UI
 
         public KanPlayState State => state;
 
+        private readonly bool listening;
+        private osu.Game.Replays.Replay? listen;
+
         /// <summary>How the level was fitted to the player's instrument range.</summary>
         public Kan.Forge.Play.RangeFit.Fit Fit { get; }
 
@@ -60,12 +63,16 @@ namespace Kan.Ruleset.UI
             // Listen for what the player plays (their instrument), else what the level is written for.
             instrument = Kan.Ruleset.Configuration.KanPlayer.Instrument ?? instrument;
 
+            bool practice = Mods.Any(m => m is Kan.Ruleset.Mods.KanModPractice);
+            listening = practice && Kan.Ruleset.Mods.KanModPractice.Options.Listen;
+
             state = new KanPlayState(notes, instrument)
             {
                 Design = design,
-                WaitForPlayer = Mods.Any(m => m is Kan.Ruleset.Mods.KanModWait),
+                WaitForPlayer = Mods.Any(m => m is Kan.Ruleset.Mods.KanModWait) || (practice && Kan.Ruleset.Mods.KanModPractice.Options.Wait),
                 HideNotes = Mods.Any(m => m is Kan.Ruleset.Mods.KanModHidden),
-                ReplaySource = () => ReplayScore?.Replay,
+                // Listening while practising: the part played for the player, as autoplay does.
+                ReplaySource = listening ? () => listen ??= Kan.Ruleset.Mods.KanModAutoplay.Generate(notes) : () => ReplayScore?.Replay,
             };
         }
 
@@ -94,7 +101,7 @@ namespace Kan.Ruleset.UI
             if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModHardRock)) state.Judge.WindowScale = 0.7;
 
             // Autoplay is heard: the perfect player's part plays with the level.
-            if (Mods.Any(m => m is ModAutoplay))
+            if (Mods.Any(m => m is ModAutoplay) || listening)
                 AddInternal(new Kan.Forge.Play.AutoplayPart(KanLevelFiles.LoadScore, () => KanLevelFiles.ForgeRoot));
         }
 

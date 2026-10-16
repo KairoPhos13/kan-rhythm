@@ -116,11 +116,15 @@ namespace Kan.Forge.Play
         private float[] samples = Array.Empty<float>();
         private int fed;
 
+        private readonly double startMs;
+
         /// <param name="elapsedMs">Milliseconds of the file that should have been heard by now.</param>
-        public FileSource(string path, Func<double> elapsedMs)
+        /// <param name="startMs">Where in the file listening starts — like a microphone switched on mid-song (nothing before is heard).</param>
+        public FileSource(string path, Func<double> elapsedMs, double startMs = 0)
         {
             this.path = path;
             this.elapsedMs = elapsedMs;
+            this.startMs = Math.Max(0, startMs);
         }
 
         public int SampleRate { get; private set; } = 48000;
@@ -138,6 +142,7 @@ namespace Kan.Forge.Play
 
             samples = decoded;
             SampleRate = rate;
+            fed = (int)Math.Clamp(startMs / 1000 * rate, 0, samples.Length);
             return true;
         }
 

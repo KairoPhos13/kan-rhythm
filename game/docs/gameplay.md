@@ -120,7 +120,22 @@ start times in the mod's settings) over and over. The level is cut to
 those sections' notes; 1.5 s after the last one the play restarts by
 itself — before it could complete, so practice never fills the local
 scores — and "Practice · Verse · loop 3" shows at the top. Combines
-with Half Time and Wait for me. Dev: `KAN_DEV_PRACTICE=2-3`.
+with Half Time and Wait for me. Only sections with notes can be
+practised: the strip leaves the others out and a range on one of them
+(the intro — section 1 by default —, a break, the outro) snaps to the
+nearest that has notes (it crashed, and the outro looped forever,
+2026-10-16). A part later in the song starts at once, 2 s before its
+first note (osu! starts at the beginning and offers Skip).
+
+While practising (owner 2026-10-16: "how do I go to the next one, back,
+choose?"): ← → (or [ ]) the previous / next section, Shift+← → a shorter
+/ longer part, or a click on the strip of sections at the top (Shift+click:
+up to that section). W toggles Wait for me, S steps the speed (100, 90,
+75, 60, 50 %, pitch kept), L listens to the part played for the player
+(the reference, else the notes — as autoplay), each a button too. The
+part restarts at once; the picks last until the player leaves practice (the selected mods cannot change during play, so
+it is kept apart from the mod's settings). Dev: `KAN_DEV_PRACTICE=2-3`,
+`KAN_DEV_PRACTICE_NAV="right@8,shift+right@18"`.
 
 ### Instrument tuning (owner 2026-10-15)
 
@@ -183,6 +198,10 @@ wait mode, results shown.
   final pitch arriving late (a score overlap of the two is a tie).
   Synthetic checks: a skipped note followed by its repeat waits at both;
   a clean full run waits at none (325/325 great).
+- **Jumps:** a level that jumps while listening (Skip, a practice part
+  further on) is noticed as its time drifting from the real time since
+  listening started; listening starts over from the new position (it
+  kept placing what was heard from the old one, 2026-10-16).
 - **Pause:** continuing from the pause menu while the level waits keeps
   it waiting (it ran on before).
 

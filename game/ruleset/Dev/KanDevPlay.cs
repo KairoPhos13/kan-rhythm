@@ -206,6 +206,30 @@ namespace Kan.Ruleset.Dev
 
             scheduleScreenshots();
             schedulePause();
+            schedulePracticeSteps();
+        }
+
+        /// <summary>KAN_DEV_PRACTICE_NAV="right@10,shift+right@20": practice navigation at those seconds (as the keys).</summary>
+        private void schedulePracticeSteps()
+        {
+            foreach (string step in (Environment.GetEnvironmentVariable(@"KAN_DEV_PRACTICE_NAV") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] parts = step.Split('@');
+                if (parts.Length != 2 || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds)) continue;
+
+                string key = parts[0];
+
+                if (key.Length == 1)
+                {
+                    // w / s / l: the practice options
+                    Scheduler.AddDelayed(() => Kan.Ruleset.Mods.KanModPractice.DevToggle(key[0]), (seconds + 6) * 1000);
+                    continue;
+                }
+
+                bool resize = key.StartsWith(@"shift+", StringComparison.Ordinal);
+                bool forward = key.EndsWith(@"right", StringComparison.Ordinal);
+                Scheduler.AddDelayed(() => Kan.Ruleset.Mods.KanModPractice.DevStep(forward, resize), (seconds + 6) * 1000);
+            }
         }
 
         /// <summary>KAN_DEV_PAUSE=12: pause the level that many seconds in and continue 2 s later (as after a window switch).</summary>

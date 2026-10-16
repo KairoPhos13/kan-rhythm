@@ -145,6 +145,18 @@ namespace Kan.Ruleset.UI
         private bool filePacedByLevel;
         private int replayCursor;
         private double replayLastTime = double.NegativeInfinity;
+
+        [Resolved(CanBeNull = true)]
+        private osu.Game.Rulesets.UI.IFrameStableClock? frameStableClock { get; set; }
+
+        /// <summary>Where the level was when listening started.</summary>
+        private double listenedFrom;
+
+        /// <summary>Real time since listening started (what heard times are placed by).</summary>
+        private readonly System.Diagnostics.Stopwatch listeningFor = new System.Diagnostics.Stopwatch();
+
+        /// <summary>A level drifting this far from the listening's real time has jumped.</summary>
+        private const double jump_ms = 400;
         private readonly System.Collections.Generic.Dictionary<uint, int> heardIndex = new System.Collections.Generic.Dictionary<uint, int>();
         private KanHitObject? waitingFor;
         private float frozenStreamMs;
@@ -266,6 +278,24 @@ namespace Kan.Ruleset.UI
             double now = gameplayClock.CurrentTime;
             clockMs = (float)now;
 
+            // The level jumped (Skip, a practice part starting later): what is heard
+            // is placed by real time since listening started, so it must start over
+            // from the new position. Seen as the level drifting from that real time
+            // (however the jump happened: osu! may run the clock through the gap).
+            if (frameStableClock?.IsCatchingUp.Value == true)
+                return;
+
+            if (session != null && !filePacedByLevel && waitingFor == null && !resuming && gameplayClock.IsRunning)
+            {
+                double expected = listenedFrom + (listeningFor.Elapsed.TotalMilliseconds - frozenStreamMs) * rate;
+
+                if (Math.Abs(now - expected) > jump_ms)
+                {
+                    osu.Framework.Logging.Logger.Log($"kan!: the level jumped to {now:0} ms (expected {expected:0}); listening again from there");
+                    stopListening();
+                }
+            }
+
             if (ReplaySource?.Invoke() is { } replay)
                 feedReplay(replay, now);
             else
@@ -309,10 +339,12 @@ namespace Kan.Ruleset.UI
                 if (Environment.GetEnvironmentVariable(INPUT_REALTIME_ENV) == @"1")
                 {
                     // Paced like a player: real time, whatever the level's clock does.
-                    // The file's time 0 stays at fileStart on the level's timeline.
+                    // Like a microphone, it is heard from now on: the file from where
+                    // the level is, its first sample placed at the level's now.
                     var since = System.Diagnostics.Stopwatch.StartNew();
                     double startAt = clockMs - fileStart;
-                    source = new FileSource(file, () => startAt + since.Elapsed.TotalMilliseconds);
+                    source = new FileSource(file, () => startAt + since.Elapsed.TotalMilliseconds, startAt);
+                    anchorMs = clockMs;
                     filePacedByLevel = false;
                 }
                 else
@@ -354,6 +386,8 @@ namespace Kan.Ruleset.UI
             }
 
             session = s;
+            listenedFrom = now;
+            listeningFor.Restart();
             sessionBase += 1u << 24; // note ids restart with each session
             Status.Value = string.Empty;
         }
