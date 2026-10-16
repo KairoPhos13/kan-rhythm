@@ -43,7 +43,8 @@ dangerous for any inference consumer shipping q8_0 + Vulkan.
 - One-time **CPU/GPU parity gate** (`kan::roformer_device_parity_ok`):
   built-in probe separated on the default device and on CPU; content
   stems must match at >= 30 dB SNR or the session falls back to CPU.
-  Marker cached per (model, build, backend-tag); rebuilds re-probe.
+  Marker cached per (model, ggml and BSRoformer pins, backend tag); a pin
+  update re-probes, a plain rebuild does not (the CPU pass takes minutes).
   A broken GPU path can never silently produce a level's stems.
 - ggml and BSRoformer.cpp are **pinned** to tested commits.
 - Verification on the affected hardware class: `Vulkan0` vs `CPU`

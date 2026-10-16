@@ -538,10 +538,13 @@ parity 60.1 dB). The game side now reports the gate as its own progress
 phase with its verdict ("device check (GPU ok)" / "… (CPU fallback)").
 Two perf asks for the libkan lane:
 
-1. **Marker keying:** the `<model>.device-parity` marker embeds
-   `__DATE__ __TIME__` of `roformer_runtime.cpp`, so every recompile of
-   that file re-runs the probe. Key it on (model, backend tag, ggml
-   version/commit) instead — rebuilds of unrelated code should not pay it.
+1. **Marker keying** — **done 2026-10-16:** the marker is keyed on the
+   ggml and BSRoformer pins plus the backend tag (`ok v4 vk ggml <sha> bsr
+   <sha>`), so only a pin update re-probes. Before, it embedded
+   `__DATE__ __TIME__` of `roformer_runtime.cpp`, so every recompile
+   re-ran the probe: minutes of CPU before each first demux, read by the
+   owner as "the GPU limit made it slower" (no GPU limit was ever shipped;
+   the 2026-10-15 throttling experiments were reverted).
 2. **Probe cost & visibility:** the CPU reference pass on q8_0 is the slow
    half. A shorter probe clip (or subsampled SNR) would shrink it; a
    progress callback during the probe would make it honest from inside.

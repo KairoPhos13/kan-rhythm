@@ -20,7 +20,8 @@ double roformer_snr_db(const std::vector<float>& ref,
 
 /// One-time CPU/GPU parity gate (device correctness guard): separates a
 /// built-in probe on the default device and on CPU; content stems must
-/// match at >= 30 dB SNR. Cached per (model, build); rebuilds re-probe.
+/// match at >= 30 dB SNR. Cached per (model, ggml and BSRoformer pins, backend);
+/// a pin update re-probes, a plain rebuild does not.
 /// A failure means the caller must fall back to CPU.
 bool roformer_device_parity_ok(const std::string& model_path,
                                std::string* detail = nullptr);

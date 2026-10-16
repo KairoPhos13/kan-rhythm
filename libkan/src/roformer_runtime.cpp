@@ -76,8 +76,17 @@ std::vector<float> make_probe_signal() {
     return out;
 }
 
-// Marker: "<model>.device-parity" — re-probes after any rebuild (the
-// build stamp changes), which is exactly what protects ggml updates.
+// Marker: "<model>.device-parity" — re-probes when the GPU code changes:
+// the ggml and BSRoformer pins and the backend. Not on every rebuild of
+// libkan (owner 2026-10-16: the probe's CPU pass takes minutes, and a
+// build stamp made every editor rebuild pay it again).
+#ifndef KAN_GGML_PIN
+#define KAN_GGML_PIN "unpinned"
+#endif
+#ifndef KAN_BSR_PIN
+#define KAN_BSR_PIN "unpinned"
+#endif
+
 const char* parity_backend_tag() {
 #ifdef KAN_GGML_HAS_VULKAN
     return "vk";
@@ -90,19 +99,22 @@ std::string parity_marker_path(const std::string& model) {
     return model + ".device-parity";
 }
 
+std::string parity_marker_line() {
+    return std::string("ok v4 ") + parity_backend_tag() + " ggml " + KAN_GGML_PIN
+         + " bsr " + KAN_BSR_PIN;
+}
+
 bool parity_marker_valid(const std::string& model) {
     std::ifstream f(parity_marker_path(model));
     if (!f) return false;
     std::string line;
-    std::string want = std::string("ok v3 ") + parity_backend_tag() + " "
-                     + __DATE__ + " " + __TIME__;
     std::getline(f, line);
-    return line == want;
+    return line == parity_marker_line();
 }
 
 void parity_marker_write(const std::string& model) {
     std::ofstream f(parity_marker_path(model));
-    f << "ok v3 " << parity_backend_tag() << " " << __DATE__ << " " << __TIME__ << "\n";
+    f << parity_marker_line() << "\n";
 }
 
 bool run_probe(const std::string& model_path, bool force_cpu,
@@ -142,7 +154,7 @@ bool roformer_device_parity_ok(const std::string& model_path,
                                std::string* detail) {
     ensure_runtime_configured();
     if (parity_marker_valid(model_path)) {
-        if (detail) *detail = "cached pass (this build)";
+        if (detail) *detail = "cached pass (these ggml/BSRoformer pins)";
         return true;
     }
     std::vector<std::vector<float>> gpu_stems, cpu_stems;

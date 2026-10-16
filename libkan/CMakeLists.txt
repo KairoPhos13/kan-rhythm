@@ -166,13 +166,15 @@ if(KAN_ENABLE_ROFORMER)
     # integer dot product produced wrong stems on RADV NAVI21 at
     # 3612c0af). Update only WITH the parity test (libkan_runtime_test,
     # KAN_ROFORMER_PARITY=1) green on real hardware.
+    set(KAN_GGML_PIN 3612c0af93f2cfc8f048295300a61187723b12ae)
+    set(KAN_BSR_PIN a7b9625f0f4146cacf3c46080d1139833cd4d4c2)
     FetchContent_Declare(ggml
         GIT_REPOSITORY https://github.com/ggerganov/ggml.git
-        GIT_TAG 3612c0af93f2cfc8f048295300a61187723b12ae GIT_SHALLOW FALSE)
+        GIT_TAG ${KAN_GGML_PIN} GIT_SHALLOW FALSE)
     FetchContent_MakeAvailable(ggml)
     FetchContent_Declare(bsroformer
         GIT_REPOSITORY https://github.com/chenmozhijin/BSRoformer.cpp.git
-        GIT_TAG a7b9625f0f4146cacf3c46080d1139833cd4d4c2 GIT_SHALLOW FALSE
+        GIT_TAG ${KAN_BSR_PIN} GIT_SHALLOW FALSE
         SOURCE_SUBDIR _skip) # its own CMake needs GGML_DIR; we compile sources
     FetchContent_MakeAvailable(bsroformer)
 
@@ -190,6 +192,10 @@ if(KAN_ENABLE_ROFORMER)
     target_link_libraries(libkan_roformer PUBLIC ggml)
     target_compile_features(libkan_roformer PUBLIC cxx_std_17)
     target_compile_definitions(libkan_roformer PUBLIC KAN_HAVE_ROFORMER_RUNTIME=1)
+    # The parity marker is keyed on the pins: the probe re-runs when the GPU
+    # code changes, not on every rebuild of libkan (its CPU pass takes minutes).
+    target_compile_definitions(libkan_roformer PRIVATE
+        KAN_GGML_PIN="${KAN_GGML_PIN}" KAN_BSR_PIN="${KAN_BSR_PIN}")
     # Third-party sources must not pollute the -Wall -Wextra clean rule.
     set_source_files_properties(${BSR}/src/inference.cpp ${BSR}/src/model.cpp
         ${BSR}/src/audio.cpp ${BSR}/src/utils.cpp
