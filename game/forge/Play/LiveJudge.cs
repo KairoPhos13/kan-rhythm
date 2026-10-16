@@ -52,6 +52,18 @@ namespace Kan.Forge.Play
         /// <summary>Scales the timing windows: easier above 1 ("easy"), stricter below ("hard rock").</summary>
         public double WindowScale { get; set; } = 1;
 
+        /// <summary>
+        /// How far from a score note (cents) a played pitch still counts as
+        /// that note. 50 = the nearest note, as a tuner reads it; the Easy
+        /// mod widens it (owner 2026-10-15), never as far as the next note.
+        /// </summary>
+        public double PitchToleranceCents { get; set; } = 50;
+
+        /// <summary>Whether a pitch (fractional MIDI) counts as <paramref name="midi"/>.</summary>
+        public bool Matches(float pitch, int midi) => Math.Abs(pitch - midi) * 100 < PitchToleranceCents;
+
+        private bool matches(Played p, int midi) => p.Midi is int m && Matches(m + p.Cents / 100, midi);
+
         private double great => GREAT_MS * WindowScale;
         private double ok => OK_MS * WindowScale;
         private double meh => MEH_MS * WindowScale;
@@ -128,8 +140,30 @@ namespace Kan.Forge.Play
         {
             foreach (var p in played)
             {
-                if (!p.Claimed && Math.Abs(p.TimeMs - startMs) <= meh && (anyPitch || p.Midi == midi))
+                if (!p.Claimed && Math.Abs(p.TimeMs - startMs) <= meh && (anyPitch || matches(p, midi)))
                     return true;
+            }
+
+            return false;
+        }
+
+        /// <summary>
+        /// Whether the note's pitch sounded around its start — at least
+        /// <paramref name="readings"/> readings in a row at it, from just
+        /// before the start up to <paramref name="untilMs"/> — even without an
+        /// attack of its own (a short note slurred into, 2026-10-15: the wait
+        /// mode stopped for a 123 ms note that had been played).
+        /// </summary>
+        public bool PitchSounded(double startMs, int midi, double untilMs, int readings = 4)
+        {
+            int run = 0;
+
+            foreach (var (time, m) in frames)
+            {
+                if (time < startMs - LEGATO_FROM_MS || time > untilMs) continue;
+
+                run = Matches(m, midi) ? run + 1 : 0;
+                if (run >= readings) return true;
             }
 
             return false;
@@ -153,7 +187,7 @@ namespace Kan.Forge.Play
 
                 bool known = p.Midi != null;
 
-                if (anyPitch || (known && p.Midi == midi))
+                if (anyPitch || (known && matches(p, midi)))
                 {
                     if (best == null || Math.Abs(p.TimeMs - startMs) < Math.Abs(best.TimeMs - startMs))
                         best = p;
@@ -211,14 +245,14 @@ namespace Kan.Forge.Play
                 if (time >= startMs - 200 && time < startMs - 60)
                 {
                     before++;
-                    if (Math.Abs(m - midi) < 0.5) beforeOn++;
+                    if (Matches(m, midi)) beforeOn++;
                 }
 
                 if (time < startMs - LEGATO_FROM_MS || time > startMs + LEGATO_TO_MS) continue;
 
                 total++;
 
-                if (Math.Abs(m - midi) < 0.5)
+                if (Matches(m, midi))
                 {
                     on++;
                     first ??= time;

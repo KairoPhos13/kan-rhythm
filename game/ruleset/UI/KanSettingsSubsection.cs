@@ -51,10 +51,29 @@ namespace Kan.Ruleset.UI
             // The instrument list is tied to the selected category.
             categoryDropdown.Current.BindValueChanged(change => applyCategoryFilter(change.NewValue), true);
 
+            // The instrument's tuning (owner 2026-10-15): learnt while playing, or set by hand.
+            if (Beatmaps.KanLevelFiles.ForgeRoot is { } root)
+                Kan.Forge.Tracks.ForgeTiming.Load(root);
+
+            var autoTuning = Kan.Forge.Tracks.ForgeTiming.AUTO_TUNING;
+
             Children = new Drawable[]
             {
                 new SettingsItemV2(categoryDropdown),
                 new SettingsItemV2(instrumentDropdown),
+                new SettingsItemV2(new FormCheckBox
+                {
+                    Caption = @"Follow my instrument's tuning",
+                    HintText = @"Learn how far your instrument sits from A440 while you play, so a slightly sharp or flat instrument still plays the right notes.",
+                    Current = autoTuning,
+                }),
+                new SettingsItemV2(new FormSliderBar<double>
+                {
+                    Caption = @"Instrument tuning (cents)",
+                    HintText = @"How sharp (+) or flat (−) your instrument is. 100 cents = a semitone. Turn off the option above to set it by hand.",
+                    Current = Kan.Forge.Tracks.ForgeTiming.TUNING_CENTS,
+                    KeyboardStep = 1,
+                }),
             };
         }
 

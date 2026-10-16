@@ -103,6 +103,9 @@ namespace Kan.Ruleset.UI
         private int holding = -1;
 
         private double lo = 60, hi = 84; // shown pitch range (smoothed)
+
+        /// <summary>The time the staff shows (<see cref="KanPlayState.DisplayTime"/>).</summary>
+        private double displayNow;
         private int firstVisible;
 
         public KanStaff(KanPlayState state, KanScene scene)
@@ -176,7 +179,8 @@ namespace Kan.Ruleset.UI
 
             if (DrawWidth <= 0) return;
 
-            double now = Clock.CurrentTime;
+            // In wait mode the staff glides to a halt on the note instead of showing the level run past it.
+            double now = displayNow = state.DisplayTime(Clock.CurrentTime, Time.Elapsed);
 
             followRange(now);
             drawLines();
@@ -269,7 +273,7 @@ namespace Kan.Ruleset.UI
                 var n = notes[i];
                 if (now > n.EndMs || state.Verdicts[i] is not { } v || v.Result == LiveResult.Miss) continue;
 
-                if (n.PitchUnknown || Math.Abs(latest.Midi - n.Midi) < 0.6)
+                if (n.PitchUnknown || state.Judge.Matches(latest.Midi, n.Midi))
                 {
                     heldUntil[i] = Math.Min(now, n.EndMs);
 
@@ -384,7 +388,7 @@ namespace Kan.Ruleset.UI
             for (int i = Math.Max(0, firstVisible - 8); i < notes.Count && notes[i].StartTime <= timeMs + 60; i++)
             {
                 var n = notes[i];
-                if (timeMs >= n.StartTime - 60 && timeMs <= n.EndMs && Math.Abs(midi - n.Midi) < 0.5)
+                if (timeMs >= n.StartTime - 60 && timeMs <= n.EndMs && state.Judge.Matches(midi, n.Midi))
                     return true;
             }
 
@@ -397,7 +401,7 @@ namespace Kan.Ruleset.UI
 
         private void onJudged(int index, LiveVerdict v)
         {
-            judgedAt[index] = Clock.CurrentTime;
+            judgedAt[index] = displayNow; // the staff's own time: transitions play from what is seen
 
             var n = notes[index];
             string text;

@@ -49,10 +49,10 @@ namespace Kan.Ruleset.Mods
     {
     }
 
-    /// <summary>Wider timing windows (×1.4).</summary>
+    /// <summary>Wider timing windows (×1.4) and pitch tolerance (±75 cents instead of ±50).</summary>
     public class KanModEasy : ModEasy
     {
-        public override LocalisableString Description => @"Wider timing windows.";
+        public override LocalisableString Description => @"Wider timing windows, and notes up to 75 cents out of tune still count.";
     }
 
     /// <summary>Stricter timing windows (×0.7).</summary>
@@ -88,7 +88,7 @@ namespace Kan.Ruleset.Mods
     /// "Wait for me" (owner 2026-10-15): the level never runs ahead of the
     /// player; a little past each note (<see cref="KanPlayState.WAIT_GRACE_MS"/>)
     /// it stops until the note is played. A gentle walk for learning: while
-    /// it waits, the last beat loops softly and the player's pitch shows live
+    /// it waits, the music is held as a soft sustained sound and the player's pitch shows live
     /// against the note (higher, lower); a wrong note breaks the combo; it
     /// cannot fail, and it scores almost nothing.
     /// </summary>
@@ -100,12 +100,12 @@ namespace Kan.Ruleset.Mods
 
         // While the level stands still osu! updates nothing inside the ruleset
         // (FrameStabilityContainer), so the listening, the live pitch and the
-        // loop go on from the HUD.
+        // held sound go on from the HUD.
         public void ApplyToHUD(osu.Game.Screens.Play.HUDOverlay overlay)
         {
             var live = new Kan.Ruleset.UI.KanWaitOverlay(() => ruleset);
             overlay.Add(live);
-            overlay.Add(new Kan.Forge.Play.WaitLoop(() => ruleset?.State is { Waiting: true } s ? s.WaitStopTime : null, () => live.UserPaused));
+            overlay.Add(new Kan.Forge.Play.WaitHold(() => ruleset?.State is { Waiting: true } s ? s.WaitResumeTime : null, () => live.UserPaused));
         }
 
         public override string Name => @"Wait for me";

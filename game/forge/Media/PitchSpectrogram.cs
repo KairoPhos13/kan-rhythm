@@ -75,7 +75,7 @@ namespace Kan.Forge.Media
                     im[i] = 0;
                 }
 
-                fft(re, im);
+                Fft(re, im);
 
                 int row = fr * PITCHES;
                 for (int k = 1; k < fftSize / 2; k++)
@@ -148,7 +148,7 @@ namespace Kan.Forge.Media
         }
 
         /// <summary>In-place iterative radix-2 FFT (length must be a power of two).</summary>
-        private static void fft(float[] re, float[] im)
+        internal static void Fft(float[] re, float[] im)
         {
             int n = re.Length;
 

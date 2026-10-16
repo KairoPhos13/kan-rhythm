@@ -56,7 +56,13 @@ namespace Kan.Ruleset.UI
             base.LoadComplete();
 
             // Easy / hard rock: wider or stricter timing windows.
-            if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModEasy)) state.Judge.WindowScale = 1.4;
+            // Easy also forgives intonation: up to 75 cents off still counts as the note.
+            if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModEasy))
+            {
+                state.Judge.WindowScale = 1.4;
+                state.Judge.PitchToleranceCents = 75;
+            }
+
             if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModHardRock)) state.Judge.WindowScale = 0.7;
 
             // Autoplay is heard: the perfect player's part plays with the level.

@@ -31,6 +31,16 @@ namespace Kan.Forge.Tracks
 
         public static readonly BindableDouble TRANSCRIBER_DELAY_MS = new BindableDouble { MinValue = -200, MaxValue = 300, Precision = 1 };
 
+        /// <summary>
+        /// How far the player's instrument sits from A440, in cents (owner
+        /// 2026-10-15: "my instrument is almost a semitone sharp on every
+        /// note"). Taken off everything the game hears before judging.
+        /// </summary>
+        public static readonly BindableDouble TUNING_CENTS = new BindableDouble { MinValue = -80, MaxValue = 80, Precision = 1 };
+
+        /// <summary>Learn <see cref="TUNING_CENTS"/> while playing (<see cref="Kan.Forge.Play.TuningTracker"/>).</summary>
+        public static readonly BindableBool AUTO_TUNING = new BindableBool(true);
+
         /// <summary>When the mic delay was last measured, and with which instrument (empty = never).</summary>
         public static DateTime MicCalibratedAtUtc { get; private set; }
 
@@ -48,12 +58,18 @@ namespace Kan.Forge.Tracks
             public string MicCalibratedInstrument { get; set; } = string.Empty;
 
             public double TranscriberDelayMs { get; set; }
+
+            public double TuningCents { get; set; }
+
+            public bool AutoTuning { get; set; } = true;
         }
 
         static ForgeTiming()
         {
             MIC_DELAY_MS.BindValueChanged(_ => save());
             TRANSCRIBER_DELAY_MS.BindValueChanged(_ => save());
+            TUNING_CENTS.BindValueChanged(_ => save());
+            AUTO_TUNING.BindValueChanged(_ => save());
         }
 
         /// <summary>Read the saved values (once per storage folder).</summary>
@@ -70,6 +86,8 @@ namespace Kan.Forge.Tracks
                 var doc = File.Exists(file) ? JsonSerializer.Deserialize<Document>(File.ReadAllText(file)) : null;
                 MIC_DELAY_MS.Value = doc?.MicDelayMs ?? 0;
                 TRANSCRIBER_DELAY_MS.Value = doc?.TranscriberDelayMs ?? 0;
+                TUNING_CENTS.Value = doc?.TuningCents ?? 0;
+                AUTO_TUNING.Value = doc?.AutoTuning ?? true;
                 MicCalibratedAtUtc = doc?.MicCalibratedAtUtc ?? default;
                 MicCalibratedInstrument = doc?.MicCalibratedInstrument ?? string.Empty;
             }
@@ -106,6 +124,8 @@ namespace Kan.Forge.Tracks
                     MicCalibratedAtUtc = MicCalibratedAtUtc,
                     MicCalibratedInstrument = MicCalibratedInstrument,
                     TranscriberDelayMs = TRANSCRIBER_DELAY_MS.Value,
+                    TuningCents = TUNING_CENTS.Value,
+                    AutoTuning = AUTO_TUNING.Value,
                 }, new JsonSerializerOptions { WriteIndented = true }));
                 File.Move(tmp, path, true);
             }

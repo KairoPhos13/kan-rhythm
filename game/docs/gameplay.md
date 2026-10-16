@@ -72,7 +72,7 @@ Mods that need nothing from the level editor:
 
 | mod | what it does in kan! |
 |---|---|
-| Easy / Hard Rock | timing windows ×1.4 / ×0.7 (`LiveJudge.WindowScale`) |
+| Easy / Hard Rock | timing windows ×1.4 / ×0.7 (`LiveJudge.WindowScale`); Easy also accepts a note up to 75 cents out of tune instead of 50 (`LiveJudge.PitchToleranceCents`; a 65-cent-sharp player: 47 great + 3 meh of 50 on Easy, all wrong without it) |
 | No Fail, Sudden Death, Perfect | as in osu! |
 | Half Time / Daycore, Double Time / Nightcore | the level slower or faster, same notes (pitch kept): practise at 75 % or 90 % |
 | Hidden | notes fade out on the way to the line (gone 300 ms before it) |
@@ -82,6 +82,19 @@ Mods that need nothing from the level editor:
 
 Not applicable: Relax, Auto Pilot, Spun Out (no cursor or spinners).
 Later: Flashlight (needs its own shader), Score V2.
+
+### Instrument tuning (owner 2026-10-15)
+
+An instrument a little off A440 ("almost a semitone sharp on every note,
+consistently") plays the right notes: `TuningTracker` learns its tuning
+while playing — the median of (reading − sounding score note) over the
+last few seconds of readings, ignoring readings more than 0.7 semitones
+from the current estimate (other notes, not tuning), clamped to ±80 cents
+— and the play state takes it off every pitch and reading before judging.
+The learnt value is kept in `kan-forge/timing.json` for the next level;
+Settings → kan! shows it and can fix it by hand. A synthetic performance
+45 cents sharp: learnt +45 in ~5 s; with it saved, 325 of 325 great in
+wait mode, results shown.
 
 ### Wait for me (owner 2026-10-15)
 
@@ -98,14 +111,27 @@ Later: Flashlight (needs its own shader), Score V2.
   the wait, mean offset −6 ms; resuming where it stood left them ~110 ms
   late). The time the level stood still is measured when it really moves
   again, track start latency included.
+- **Not shown as a wait** (owner 2026-10-15: seeing the level run past
+  the note and jump back "feels like a penalty"): the staff glides to a
+  halt with the note on the line (`KanPlayState.DisplayTime`: at most
+  20 ms past it, asymptotically) and only ever moves forward, easing back
+  into step when the note is played; no "waiting" banner.
 - **Not frozen:** osu! updates nothing inside a stopped ruleset, so
   `KanWaitOverlay` lives in the HUD: it keeps listening and draws the
   player's pitch live on the now line against the waited note — a dot
   with a comet of what was just played, a line to the target, "higher ↑
   (a tone)" / "lower ↓" / "that's it — hold it".
-- **Not silent:** `WaitLoop` loops the last beat before the stop (one or
-  two beats of the timing grid, 450–1600 ms), softer and muffled, with
-  faded seams; silent while the pause menu is open.
+- **Not silent, not a loop:** `WaitHold` holds the music at the moment
+  the level picks up again (`WaitResumeTime`, the note's start plus the
+  detection's moment) as a sustained sound, so the song re-engages from
+  exactly what was held (owner 2026-10-15: "keep the
+  tone, don't replay a short stretch"; a looped beat came first). The
+  last ~170 ms before that point are decoded from the level audio, and
+  `SpectralFreeze` keeps their spectrum and resynthesises it with fresh
+  random phases (4096-sample frames, overlap-add wrapped around the end):
+  the same chord and timbre, no rhythm, no seam (unit-tested: pitch,
+  loudness, seam). Half volume, low-passed at 3.5 kHz, faded in 150 ms
+  and out 100 ms; silent while the pause menu is open.
 - **Honest combo:** a wrong note — a confirmed pitch, from an attack made
   for this note, an octave off forgiven — makes the note a miss when it
   is finally played (`KanPlayState.Adjust`), shown at once ("B5 — play

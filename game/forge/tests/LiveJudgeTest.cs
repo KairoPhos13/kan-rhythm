@@ -109,6 +109,41 @@ namespace Kan.Forge.Tests
         }
 
         [Test]
+        public void EasyForgivesIntonation()
+        {
+            // C5 played 70 cents sharp: heard as C♯5 (72 + 70 cents rounds to 73, -30).
+            LiveVerdict judge(double tolerance)
+            {
+                var j = new LiveJudge { PitchToleranceCents = tolerance };
+                j.Heard(1, 1000);
+                j.Pitch(1, 73, -30, final: true);
+                return j.Judge(1000, 72, false, 1400)!.Value;
+            }
+
+            Assert.That(judge(50).Result, Is.EqualTo(LiveResult.Miss), "normal: the next note up");
+            Assert.That(judge(75).Result, Is.EqualTo(LiveResult.Great), "easy: still C5");
+
+            var easy = new LiveJudge { PitchToleranceCents = 75 };
+            Assert.That(easy.Matches(72.74f, 72), Is.True);
+            Assert.That(easy.Matches(73.0f, 72), Is.False, "a whole semitone is another note, even on easy");
+        }
+
+        [Test]
+        public void AShortSlurredNoteSounded()
+        {
+            var judge = new LiveJudge();
+
+            // E5 (76), then F5 (77) for 120 ms from 1000 ms without an attack, then silence.
+            for (double t = 800; t < 1000; t += 10) judge.Frame(t, 76.05f);
+            for (double t = 1000; t < 1120; t += 10) judge.Frame(t, 77.1f);
+
+            Assert.That(judge.PitchSounded(1000, 77, 1200), Is.True);
+            Assert.That(judge.PitchSounded(1000, 79, 1200), Is.False, "another note");
+            Assert.That(judge.PitchSounded(1000, 77, 1020), Is.False, "too little of it yet");
+            Assert.That(judge.PitchSounded(1400, 77, 1600), Is.False, "too late for this note");
+        }
+
+        [Test]
         public void ALegatoNoteCountsWithoutAnAttack()
         {
             var judge = new LiveJudge();
