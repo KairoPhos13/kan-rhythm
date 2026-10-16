@@ -426,7 +426,10 @@ namespace Kan.Ruleset.UI
             switch (f.Kind)
             {
                 case KanFactKind.Hit:
-                    Judge.Heard(id, f.FactTime);
+                    // An attack while the level waits (or picks up) belongs to the note
+                    // waited for: it must not count for the next one (2026-10-15: the
+                    // note after a wait passed without being played).
+                    Judge.Heard(id, waitingFor != null || resuming ? double.NegativeInfinity : f.FactTime);
                     onsetOf[f.Index] = f.FactTime;
                     break;
 
@@ -545,7 +548,7 @@ namespace Kan.Ruleset.UI
 
             // Already sounding right (held over from before, or slurred into), or its
             // pitch came and went without an attack of its own: played.
-            if (soundingRight(n) || (!n.PitchUnknown && Judge.PitchSounded(n.StartTime, n.Midi, now)))
+            if (!needsAttack(n) && (soundingRight(n) || (!n.PitchUnknown && Judge.PitchSounded(n.StartTime, n.Midi, now))))
             {
                 markPlayed(n, 0);
                 nextWait++;
@@ -563,6 +566,20 @@ namespace Kan.Ruleset.UI
         }
 
         private int nextWait;
+
+        /// <summary>
+        /// A note at the same pitch as the one before it (not tied): it is played
+        /// by a new attack only — holding the previous note on is not playing it.
+        /// A score whose previous note still sounds when this one starts (an
+        /// overlap, from a transcription) means a tie: nothing to attack again.
+        /// </summary>
+        private bool needsAttack(KanHitObject n)
+        {
+            if (n.PitchUnknown || n.Articulation == Kan.Forge.Score.Articulation.Legato || n.Index == 0) return false;
+
+            var previous = Notes[n.Index - 1];
+            return previous.Midi == n.Midi && previous.EndMs <= n.StartTime + 1;
+        }
 
         /// <summary>Consecutive readings at the waited note's pitch.</summary>
         private int rightReadings;
@@ -602,7 +619,8 @@ namespace Kan.Ruleset.UI
             {
                 int played = (int)f.Midi;
 
-                if (n.PitchUnknown || Judge.Matches(f.Midi + f.Cents / 100, n.Midi))
+                // A repeated note needs an attack made for it, not the last one's pitch arriving late.
+                if ((n.PitchUnknown || Judge.Matches(f.Midi + f.Cents / 100, n.Midi)) && (!needsAttack(n) || isTryAt(f, n)))
                 {
                     release(n, f.Cents);
                     return;
@@ -623,6 +641,9 @@ namespace Kan.Ruleset.UI
 
             // The right pitch sounding is enough: readings come every 10 ms, a
             // note's pitch event later — and a held or slurred note has none.
+            // A repeated note is not released by the previous one still sounding: it waits for an attack.
+            if (needsAttack(n)) return;
+
             bool right = f.Midi > 0 && (n.PitchUnknown || Judge.Matches(f.Midi, n.Midi));
             rightReadings = right ? rightReadings + 1 : 0;
 

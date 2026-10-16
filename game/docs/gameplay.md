@@ -136,6 +136,14 @@ wait mode, results shown.
   for this note, an octave off forgiven — makes the note a miss when it
   is finally played (`KanPlayState.Adjust`), shown at once ("B5 — play
   F5 · combo lost"). Misses dip the music gently in this mode.
+- **One attack, one note** (2026-10-15: "the note after a wait passed
+  without being played"): attacks heard while the level waits (or picks
+  up) belong to the waited note and never count for the next one; a note
+  at the same pitch as the one before it needs an attack of its own —
+  holding the previous note on does not play it, and neither does its
+  final pitch arriving late (a score overlap of the two is a tie).
+  Synthetic checks: a skipped note followed by its repeat waits at both;
+  a clean full run waits at none (325/325 great).
 - **Pause:** continuing from the pause menu while the level waits keeps
   it waiting (it ran on before).
 
