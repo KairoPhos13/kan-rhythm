@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
 using osu.Framework.Graphics;
@@ -107,15 +108,81 @@ namespace Kan.Ruleset.UI
         /// <summary>Wait mode: a wrong note heard while waiting (its MIDI number), shown at once.</summary>
         public event Action<int>? WrongWhileWaiting;
 
-        /// <summary>Notes played wrong before right in wait mode: they break the combo (owner 2026-10-15).</summary>
-        private readonly System.Collections.Generic.Dictionary<int, int> waitPenalty = new System.Collections.Generic.Dictionary<int, int>();
+        /// <summary>
+        /// Wait mode: notes played wrong before right — a miss at once, when the
+        /// wrong note is confirmed (owner 2026-10-15: they break the combo;
+        /// 2026-10-17: at once, not when the right note is finally found).
+        /// </summary>
+        private readonly System.Collections.Generic.Dictionary<int, LiveVerdict> wrongTry = new System.Collections.Generic.Dictionary<int, LiveVerdict>();
+
+        private readonly System.Collections.Generic.Dictionary<int, int[]> expectedAround = new System.Collections.Generic.Dictionary<int, int[]>();
+
+        /// <summary>
+        /// The notes the score has around a note — the previous one, a chord's
+        /// others, the next ones within the window: played, they are not wrong
+        /// tries at it (<see cref="LiveJudge.IsWrongTry"/>).
+        /// </summary>
+        public IReadOnlyCollection<int> ExpectedAround(KanHitObject n)
+        {
+            if (expectedAround.TryGetValue(n.Index, out int[]? known)) return known;
+
+            var around = new System.Collections.Generic.List<int>();
+            if (n.Index > 0 && !Notes[n.Index - 1].PitchUnknown) around.Add(Notes[n.Index - 1].Midi);
+
+            double reach = LiveJudge.MEH_MS * Judge.WindowScale;
+
+            for (int i = n.Index - 1; i >= 0 && Notes[i].StartTime >= n.StartTime - reach; i--)
+                if (!Notes[i].PitchUnknown) around.Add(Notes[i].Midi);
+
+            for (int i = n.Index + 1; i < Notes.Count && Notes[i].StartTime <= n.StartTime + reach; i++)
+                if (!Notes[i].PitchUnknown) around.Add(Notes[i].Midi);
+
+            return expectedAround[n.Index] = around.Distinct().ToArray();
+        }
+
+        /// <summary>A wrong try heard for a note (wait mode): the drawable applies it at once.</summary>
+        public LiveVerdict? WrongTry(KanHitObject note) => wrongTry.TryGetValue(note.Index, out var v) ? v : null;
+
+        private void noteWrongTry(KanHitObject n, int played, double atMs)
+        {
+            if (!wrongTry.TryAdd(n.Index, new LiveVerdict(LiveResult.Miss, LiveReason.WrongNote, atMs - n.StartTime, played, 0))) return;
+
+            WrongWhileWaiting?.Invoke(played);
+        }
+
+        /// <summary>The last attack heard (gameplay ms) and the wrong pitch held since it (readings in a row).</summary>
+        private double lastOnsetMs = double.NegativeInfinity;
+
+        private int wrongHeldMidi, wrongHeldReadings;
+
+        /// <summary>
+        /// Wait mode: a wrong pitch held since an attack made for the note is a
+        /// wrong try, without waiting for libkan's final pitch — that comes
+        /// when the note ends, i.e. when the right note is found (owner 2026-10-17).
+        /// </summary>
+        private void trackWrongPitch(KanHitObject n, KanReplayFrame f)
+        {
+            int played = f.Midi > 0 ? (int)Math.Round(f.Midi) : 0;
+
+            if (n.PitchUnknown || lastOnsetMs < n.StartTime - LiveJudge.TRY_BEFORE_MS || !LiveJudge.IsWrongTry(played, n.Midi, ExpectedAround(n)))
+            {
+                wrongHeldReadings = 0;
+                return;
+            }
+
+            wrongHeldReadings = played == wrongHeldMidi ? wrongHeldReadings + 1 : 1;
+            wrongHeldMidi = played;
+
+            if (wrongHeldReadings >= LiveJudge.WRONG_HOLD_READINGS)
+                noteWrongTry(n, played, lastOnsetMs);
+        }
 
         /// <summary>When each heard note started (gameplay ms): a pitch counts as a try only for a note started for it.</summary>
         private readonly System.Collections.Generic.Dictionary<int, double> onsetOf = new System.Collections.Generic.Dictionary<int, double>();
 
         /// <summary>Whether a heard note started late enough to be a try at <paramref name="n"/> (not the previous note still sounding).</summary>
         private bool isTryAt(KanReplayFrame pitch, KanHitObject n)
-            => onsetOf.TryGetValue(pitch.Index, out double onset) && onset >= n.StartTime - 100;
+            => onsetOf.TryGetValue(pitch.Index, out double onset) && onset >= n.StartTime - LiveJudge.TRY_BEFORE_MS;
 
         /// <summary>One reading of the player's pitch, stamped with real time (it keeps coming while the level stands still).</summary>
         public readonly record struct LivePoint(double RealMs, float Midi, float Level);
@@ -198,19 +265,6 @@ namespace Kan.Ruleset.UI
             });
 
             clockContainer = this.FindClosestParent<GameplayClockContainer>();
-        }
-
-        /// <summary>
-        /// The verdict the game applies: in wait mode a note played wrong
-        /// before it was played right is a miss — the combo means playing it
-        /// right the first time (owner 2026-10-15).
-        /// </summary>
-        public LiveVerdict Adjust(KanHitObject note, LiveVerdict verdict)
-        {
-            if (!WaitForPlayer || !waitPenalty.TryGetValue(note.Index, out int played) || verdict.Result == LiveResult.Miss)
-                return verdict;
-
-            return verdict with { Result = LiveResult.Miss, Reason = LiveReason.WrongNote, PlayedMidi = played };
         }
 
         /// <summary>
@@ -455,7 +509,15 @@ namespace Kan.Ruleset.UI
         /// <summary>One heard fact: to the judge and the trail, and into the replay when recording.</summary>
         private void apply(KanReplayFrame f, bool record = true)
         {
+            // The pause menu is open: what is played is not for the level — not
+            // for the judge, not for the wait (owner 2026-10-17: the song went
+            // on as they played, under the pause menu).
+            if (UserPaused) return;
+
             if (record) Recorder?.Add(f);
+
+            if (record && Dev.KanDevPlay.Enabled && f.Kind is KanFactKind.Hit or KanFactKind.PitchProvisional or KanFactKind.PitchFinal)
+                osu.Framework.Logging.Logger.Log($"kan! dev fact {f.Kind} #{f.Index} at {f.FactTime:0} midi {f.Midi:0.0} (level {clockMs:0}, waiting {waitingFor?.Index.ToString() ?? "-"}, user paused {UserPaused})");
 
             uint id = (uint)f.Index;
 
@@ -467,6 +529,8 @@ namespace Kan.Ruleset.UI
                     // note after a wait passed without being played).
                     Judge.Heard(id, waitingFor != null || resuming ? double.NegativeInfinity : f.FactTime);
                     onsetOf[f.Index] = f.FactTime;
+                    lastOnsetMs = waitingFor != null ? clockMs : f.FactTime;
+                    wrongHeldReadings = 0;
                     break;
 
                 case KanFactKind.PitchProvisional:
@@ -500,15 +564,23 @@ namespace Kan.Ruleset.UI
         /// <summary>Wait mode: a wrong note around the next note's start (before the level stops) counts as a wrong try too.</summary>
         private void checkWrongInGrace(KanReplayFrame f)
         {
-            if (f.Kind != KanFactKind.PitchFinal || nextWait >= Notes.Count) return;
+            if (nextWait >= Notes.Count) return;
 
             var n = Notes[nextWait];
-            int played = (int)f.Midi;
 
-            if (n.PitchUnknown || played <= 0 || Math.Abs(played - n.Midi) % 12 == 0) return;
+            if (f.Kind == KanFactKind.Reading)
+            {
+                if (clockMs >= n.StartTime - LiveJudge.TRY_BEFORE_MS && clockMs <= n.StartTime + WAIT_GRACE_MS)
+                    trackWrongPitch(n, f);
+                return;
+            }
+
+            if (f.Kind != KanFactKind.PitchFinal) return;
+
+            if (n.PitchUnknown || !LiveJudge.IsWrongTry((int)f.Midi, n.Midi, ExpectedAround(n))) return;
             if (clockMs > n.StartTime + WAIT_GRACE_MS || !isTryAt(f, n)) return;
 
-            waitPenalty.TryAdd(n.Index, played);
+            noteWrongTry(n, (int)f.Midi, onsetOf.GetValueOrDefault(f.Index, clockMs));
         }
 
         private int tuneCursor;
@@ -571,7 +643,9 @@ namespace Kan.Ruleset.UI
             if (waitingFor != null || resuming || clockContainer == null) return;
 
             // The next note to wait for, in order: skip notes already decided or heard.
-            while (nextWait < Notes.Count && (Verdicts[Notes[nextWait].Index] != null || Notes[nextWait].StartTime <= now
+            // A note missed for a wrong try is still waited for: the miss is the
+            // penalty, finding the right note is still the walk (owner 2026-10-17).
+            while (nextWait < Notes.Count && (Verdicts[Notes[nextWait].Index] != null && !wrongTry.ContainsKey(Notes[nextWait].Index) || Notes[nextWait].StartTime <= now
                                                                                      && Judge.HasHeard(Notes[nextWait].StartTime, Notes[nextWait].Midi, Notes[nextWait].PitchUnknown)))
                 nextWait++;
 
@@ -637,6 +711,9 @@ namespace Kan.Ruleset.UI
             return true;
         }
 
+        /// <summary>The player has the pause menu open (set by the wait overlay, which listens while the level stands still).</summary>
+        public bool UserPaused { get; set; }
+
         /// <summary>Called from outside the stopped ruleset (the HUD) while the level waits: keep hearing the player.</summary>
         public void ListenWhileWaiting()
         {
@@ -663,17 +740,18 @@ namespace Kan.Ruleset.UI
                 }
 
                 // A wrong note — its confirmed pitch only, a gentle mod forgives a
-                // provisional slip; an octave off is the detector's, not the player's.
-                if (f.Kind == KanFactKind.PitchFinal && played > 0 && Math.Abs(played - n.Midi) % 12 != 0 && isTryAt(f, n))
-                {
-                    waitPenalty.TryAdd(n.Index, played);
-                    WrongWhileWaiting?.Invoke(played);
-                }
+                // provisional slip; an octave off is the detector's, not the
+                // player's, and the previous note still sounding is a learner's
+                // lag, not a try (owner 2026-10-17).
+                if (f.Kind == KanFactKind.PitchFinal && LiveJudge.IsWrongTry(played, n.Midi, ExpectedAround(n)) && isTryAt(f, n))
+                    noteWrongTry(n, played, onsetOf.GetValueOrDefault(f.Index, clockMs));
 
                 return;
             }
 
             if (f.Kind != KanFactKind.Reading) return;
+
+            trackWrongPitch(n, f);
 
             // The right pitch sounding is enough: readings come every 10 ms, a
             // note's pitch event later — and a held or slurred note has none.
@@ -734,6 +812,9 @@ namespace Kan.Ruleset.UI
         /// <summary>The note counts as played at its start (the level waited for it).</summary>
         private void markPlayed(KanHitObject n, float semitonesOff)
         {
+            // Already decided (a wrong try): an onset for it would be left over for a neighbour to claim.
+            if (Verdicts[n.Index] != null) return;
+
             Judge.Heard(uint.MaxValue - (uint)n.Index, n.StartTime);
             Judge.Pitch(uint.MaxValue - (uint)n.Index, n.Midi, Math.Clamp(semitonesOff * 100, -49, 49), final: true);
         }

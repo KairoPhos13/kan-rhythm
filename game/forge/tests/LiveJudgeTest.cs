@@ -49,9 +49,8 @@ namespace Kan.Forge.Tests
             judge.Heard(1, 1000);
             judge.Pitch(1, 71, 0, final: true);
 
-            Assert.That(judge.Judge(1000, 72, false, 1150), Is.Null, "the window is still open");
-
-            var wrong = judge.Judge(1000, 72, false, 1210)!.Value;
+            // A confirmed wrong try is a miss at once, while the window is still open (owner 2026-10-17).
+            var wrong = judge.Judge(1000, 72, false, 1150)!.Value;
             Assert.That(wrong.Result, Is.EqualTo(LiveResult.Miss));
             Assert.That(wrong.Reason, Is.EqualTo(LiveReason.WrongNote));
             Assert.That(wrong.PlayedMidi, Is.EqualTo(71));
@@ -66,6 +65,77 @@ namespace Kan.Forge.Tests
             var stillWrong = judge.Judge(5000, 72, false, 5510)!.Value;
             Assert.That(stillWrong.Reason, Is.EqualTo(LiveReason.WrongNote), "out of time: the provisional pitch says what was played");
             Assert.That(stillWrong.PlayedMidi, Is.EqualTo(73));
+        }
+
+        [Test]
+        public void TheNotesAroundAreNoWrongTries()
+        {
+            // Owner 2026-10-17: the previous note still sounding is a learner's lag,
+            // not a wrong try — the right note a little late is good, not a miss.
+            var judge = new LiveJudge();
+            judge.Heard(1, 1010);
+            judge.Pitch(1, 70, 0, final: true); // the previous note (70) again, at this one's start
+            int[] around = { 70 };
+
+            Assert.That(judge.Judge(1000, 72, false, 1080, expected: around), Is.Null, "not a try: the window runs on");
+
+            judge.Heard(2, 1095);
+            judge.Pitch(2, 72, 0, final: true);
+            var late = judge.Judge(1000, 72, false, 1120, expected: around)!.Value;
+            Assert.That(late.Result, Is.EqualTo(LiveResult.Good));
+            Assert.That(late.Reason, Is.EqualTo(LiveReason.Played));
+
+            // Only the previous note: still nothing else heard, so not heard (not "wrong note").
+            judge.Heard(3, 3000);
+            judge.Pitch(3, 70, 0, final: true);
+            Assert.That(judge.Judge(3000, 72, false, 3210, expected: around)!.Value.Reason, Is.EqualTo(LiveReason.NotHeard));
+
+            // A chord's other note is no wrong try at this one either.
+            judge.Heard(4, 5000);
+            judge.Pitch(4, 76, 0, final: true);
+            Assert.That(judge.Judge(5000, 72, false, 5050, expected: new[] { 76 }), Is.Null);
+        }
+
+        [Test]
+        public void AWrongPitchHeldIsConfirmedWithoutTheFinalPitch()
+        {
+            // libkan's final pitch comes when the note ends; the readings confirm it sooner.
+            var judge = new LiveJudge();
+            judge.Heard(1, 1000);
+            judge.Pitch(1, 70, 0, final: false);
+
+            for (int i = 0; i < LiveJudge.WRONG_HOLD_READINGS - 1; i++)
+                judge.Frame(1010 + i * 10, 70.1f);
+
+            Assert.That(judge.Judge(1000, 72, false, 1150), Is.Null, "not held long enough yet");
+
+            judge.Frame(1010 + LiveJudge.WRONG_HOLD_READINGS * 10, 70.1f);
+            var wrong = judge.Judge(1000, 72, false, 1160)!.Value;
+            Assert.That(wrong.Reason, Is.EqualTo(LiveReason.WrongNote));
+            Assert.That(wrong.PlayedMidi, Is.EqualTo(70));
+        }
+
+        [Test]
+        public void ASlipPutRightBeforeItIsConfirmedIsNoTry()
+        {
+            var judge = new LiveJudge();
+            judge.Heard(1, 990);
+            judge.Pitch(1, 71, 0, final: false); // a slip, still provisional
+            judge.Heard(2, 1040);
+            judge.Pitch(2, 72, 0, final: true);
+            judge.Pitch(1, 71, 0, final: true); // confirmed after the right note came
+
+            Assert.That(judge.Judge(1000, 72, false, 1060)!.Value.Result, Is.EqualTo(LiveResult.Great), "the right note wins");
+        }
+
+        [Test]
+        public void WrongTriesForgiveTheOctaveAndTheNotesAround()
+        {
+            Assert.That(LiveJudge.IsWrongTry(71, 72, null), Is.True);
+            Assert.That(LiveJudge.IsWrongTry(84, 72, null), Is.False, "an octave off is the detector's");
+            Assert.That(LiveJudge.IsWrongTry(70, 72, new[] { 70, 74 }), Is.False, "the previous note");
+            Assert.That(LiveJudge.IsWrongTry(82, 72, new[] { 70 }), Is.False, "the previous note an octave off");
+            Assert.That(LiveJudge.IsWrongTry(0, 72, null), Is.False, "nothing played");
         }
 
         [Test]

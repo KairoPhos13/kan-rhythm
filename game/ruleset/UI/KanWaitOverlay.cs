@@ -116,7 +116,9 @@ namespace Kan.Ruleset.UI
                 state.WrongWhileWaiting += onWrong;
             }
 
-            // The ruleset is not updated while the level stands still: hear the player from here.
+            // The ruleset is not updated while the level stands still: hear the player from here
+            // (but not for the level while the pause menu is open).
+            state.UserPaused = UserPaused;
             state.ListenWhileWaiting();
 
             var playfield = r!.Playfield as KanPlayfield;

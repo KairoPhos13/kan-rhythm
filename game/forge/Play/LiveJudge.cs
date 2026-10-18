@@ -81,6 +81,42 @@ namespace Kan.Forge.Play
         /// <summary>How long after the window a note waits for a heard onset's pitch.</summary>
         public const double PITCH_WAIT_MS = 300;
 
+        /// <summary>A wrong note started this long before a note's start is still a try at it (earlier: it belonged to what came before).</summary>
+        public const double TRY_BEFORE_MS = 100;
+
+        /// <summary>
+        /// A wrong pitch held this many readings in a row (10 ms each) is
+        /// confirmed. libkan's final pitch comes only when a note ends — for a
+        /// wrong note held until the right one is found, at the very moment of
+        /// finding it (owner 2026-10-17) — so the readings confirm it sooner.
+        /// </summary>
+        public const int WRONG_HOLD_READINGS = 15;
+
+        /// <summary>
+        /// Whether a played pitch is a wrong try at <paramref name="midi"/>,
+        /// not one of the ones a learner forgives (owner 2026-10-17): the note
+        /// an octave off (the detector's slip, not the player's), or a note
+        /// the score expects around it — the previous note still sounding
+        /// (a typical learner's lag), a chord's other notes, the next note
+        /// come early.
+        /// </summary>
+        public static bool IsWrongTry(int played, int midi, IReadOnlyCollection<int>? expected)
+        {
+            if (played <= 0 || sameNote(played, midi)) return false;
+
+            if (expected != null)
+            {
+                foreach (int e in expected)
+                {
+                    if (sameNote(played, e)) return false;
+                }
+            }
+
+            return true;
+
+            static bool sameNote(int a, int b) => ((a - b) % 12 + 12) % 12 == 0;
+        }
+
         private class Played
         {
             public uint Id;
@@ -185,8 +221,16 @@ namespace Kan.Forge.Play
         /// itself does not know the pitch (the transcriber could not tell).
         /// <paramref name="legato"/>: the note is slurred from the previous one
         /// — no attack is expected, so the pitch sounding at its start counts.
+        /// <paramref name="expected"/>: the notes the score has around this one
+        /// (the previous, a chord's, the next): played, they are not wrong
+        /// tries at it (<see cref="IsWrongTry"/>).
+        ///
+        /// A wrong try — its pitch confirmed, before the right note — is a
+        /// miss at once (owner 2026-10-17: reported only once the right note
+        /// came, the penalty landed on the moment of finding it). A slip put
+        /// right before its pitch is confirmed is no try: the right note wins.
         /// </summary>
-        public LiveVerdict? Judge(double startMs, int midi, bool anyPitch, double nowMs, bool legato = false)
+        public LiveVerdict? Judge(double startMs, int midi, bool anyPitch, double nowMs, bool legato = false, IReadOnlyCollection<int>? expected = null)
         {
             Played? best = null, unclear = null, wrong = null, wrongProvisional = null;
             bool waiting = false;
@@ -204,8 +248,11 @@ namespace Kan.Forge.Play
                 }
                 else if (p.Unresolved)
                     unclear ??= p;
-                else if (known && p.Final)
-                    wrong ??= p;
+                else if (known && (p.Final || held(p)))
+                {
+                    // The notes around it are no tries at this one: let the window run.
+                    if (IsWrongTry(p.Midi!.Value, midi, expected)) wrong ??= p;
+                }
                 else
                 {
                     waiting = true; // no pitch yet, or a provisional one that may still change
@@ -215,6 +262,12 @@ namespace Kan.Forge.Play
 
             if (best != null)
                 return claim(best, startMs, best.Unresolved ? LiveReason.PitchUnclear : LiveReason.Played);
+
+            if (wrong != null && wrong.TimeMs >= startMs - TRY_BEFORE_MS)
+            {
+                wrong.Claimed = true;
+                return new LiveVerdict(LiveResult.Miss, LiveReason.WrongNote, wrong.TimeMs - startMs, wrong.Midi, wrong.Cents);
+            }
 
             // No attack found, but the note's pitch arrived at its start: a slur
             // (legato), or an attack too soft to mark an onset. A note held over
@@ -232,7 +285,8 @@ namespace Kan.Forge.Play
                 return claim(unclear, startMs, LiveReason.PitchUnclear);
 
             // Out of time: a provisional pitch is the best word we have on what was played.
-            wrong ??= wrongProvisional;
+            if (wrongProvisional != null && IsWrongTry(wrongProvisional.Midi!.Value, midi, expected))
+                wrong ??= wrongProvisional;
 
             if (wrong != null)
                 return new LiveVerdict(LiveResult.Miss, LiveReason.WrongNote, wrong.TimeMs - startMs, wrong.Midi, wrong.Cents);
@@ -275,6 +329,23 @@ namespace Kan.Forge.Play
 
             // Already sounding when the window opened (tied): nothing to time, so on time.
             return first!.Value <= startMs - LEGATO_FROM_MS + 10 ? startMs : first.Value;
+        }
+
+        /// <summary>Whether a played note's pitch has held since its onset for <see cref="WRONG_HOLD_READINGS"/> readings in a row.</summary>
+        private bool held(Played p)
+        {
+            float pitch = p.Midi!.Value + p.Cents / 100;
+            int run = 0;
+
+            foreach (var (time, m) in frames)
+            {
+                if (time < p.TimeMs) continue;
+
+                run = Math.Abs(m - pitch) < 0.5f ? run + 1 : 0;
+                if (run >= WRONG_HOLD_READINGS) return true;
+            }
+
+            return false;
         }
 
         private LiveVerdict claim(Played p, double startMs, LiveReason reason)

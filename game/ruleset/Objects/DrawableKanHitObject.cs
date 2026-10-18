@@ -34,16 +34,21 @@ namespace Kan.Ruleset.Objects
                 return;
             }
 
-            var verdict = state.Judge.Judge(HitObject.StartTime, HitObject.Midi, HitObject.PitchUnknown, Time.Current,
-                legato: HitObject.Articulation == Kan.Forge.Score.Articulation.Legato);
-            if (verdict is not { } v) return;
+            // "Wait for me": a wrong try is a miss the moment it is confirmed
+            // (owner 2026-10-17), even while the level waits for the right note.
+            if (state.WrongTry(HitObject) is not { } v)
+            {
+                var verdict = state.Judge.Judge(HitObject.StartTime, HitObject.Midi, HitObject.PitchUnknown, Time.Current,
+                    legato: HitObject.Articulation == Kan.Forge.Score.Articulation.Legato, expected: state.ExpectedAround(HitObject));
+                if (verdict is not { } judged) return;
 
-            // "Wait for me": the level waits for a note the player has not played
-            // yet, so the judge never closes one as missed — it is played, or
-            // waited for (wrong tries count against it, KanPlayState.Adjust).
-            if (v.Result == LiveResult.Miss && state.WaitPending(HitObject)) return;
+                // The level waits for a note the player has not played yet, so
+                // the judge never closes one as missed: it is played, waited for,
+                // or tried wrong (the wait's own count of tries, above).
+                if (judged.Result == LiveResult.Miss && state.WaitPending(HitObject)) return;
 
-            v = state.Adjust(HitObject, v);
+                v = judged;
+            }
 
             ApplyResult(v.Result switch
             {
