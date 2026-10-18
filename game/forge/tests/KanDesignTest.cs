@@ -133,6 +133,43 @@ namespace Kan.Forge.Tests
         }
 
         [Test]
+        public void PartsAreNumberedWithoutGaps()
+        {
+            // Owner 2026-10-17: "verse 9, verse 11" — the intro and breaks were counted.
+            var design = new KanDesign
+            {
+                Sections =
+                {
+                    new DesignSection { StartMs = 0, EndMs = 5000, Kind = SectionKind.Intro },
+                    new DesignSection { StartMs = 5000, EndMs = 10000, Kind = SectionKind.Phrase },
+                    new DesignSection { StartMs = 10000, EndMs = 15000, Kind = SectionKind.Break },
+                    new DesignSection { StartMs = 15000, EndMs = 20000, Kind = SectionKind.Phrase },
+                    new DesignSection { StartMs = 20000, EndMs = 25000, Kind = SectionKind.Chorus },
+                    new DesignSection { StartMs = 25000, EndMs = 30000, Kind = SectionKind.Phrase, Label = @"Coda" },
+                },
+            };
+
+            var (playable, names) = DesignParts.Of(design.Sections, new double[] { 6000, 16000, 21000, 26000 });
+
+            Assert.That(playable, Is.EqualTo(new[] { 2, 4, 5, 6 }));
+            Assert.That(names[2], Is.EqualTo(@"Phrase 1"));
+            Assert.That(names[4], Is.EqualTo(@"Phrase 2"), "the break between is not counted");
+            Assert.That(names[5], Is.EqualTo(@"Chorus"), "a kind that comes once is not numbered");
+            Assert.That(names[6], Is.EqualTo(@"Coda"), "the author's name as it is");
+        }
+
+        [Test]
+        public void OldDesignsCallTheirPhrasesPhrases()
+        {
+            const string v1 = @"{""Version"":1,""Palette"":""ocean"",""Sections"":[{""StartMs"":0,""EndMs"":5000,""Kind"":""Intro""},{""StartMs"":5000,""EndMs"":9000,""Kind"":""Verse""}]}";
+            var design = KanDesign.FromJson(v1)!;
+
+            Assert.That(design.Sections[1].Kind, Is.EqualTo(SectionKind.Phrase));
+            Assert.That(design.Version, Is.EqualTo(KanDesign.VERSION));
+            Assert.That(KanDesign.FromJson(design.ToJson())!.Sections[0].Kind, Is.EqualTo(SectionKind.Intro));
+        }
+
+        [Test]
         public void SurvivesTheFile()
         {
             var design = AutoDesign.Generate(run(5000, 30000, 500).ToList(), 40000, @"ocean");

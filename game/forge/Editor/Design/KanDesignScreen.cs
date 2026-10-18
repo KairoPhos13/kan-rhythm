@@ -13,6 +13,7 @@ using osu.Framework.Graphics.Containers;
 using osu.Framework.Graphics.Shapes;
 using osu.Framework.Graphics.Sprites;
 using osu.Framework.Input.Events;
+using osuTK.Input;
 using osu.Framework.Localisation;
 using osu.Framework.Platform;
 using osu.Game.Beatmaps;
@@ -25,6 +26,7 @@ using osu.Game.Screens.Edit;
 using osuTK;
 using osuTK.Graphics;
 using Kan.Forge.Design;
+using Kan.Forge.Editor.Compose;
 
 namespace Kan.Forge.Editor.Design
 {
@@ -36,6 +38,9 @@ namespace Kan.Forge.Editor.Design
     /// its own palette) and the level's (palette, effects). A level starts
     /// from an automatic design (<see cref="AutoDesign"/>); editing a section
     /// makes it the author's. Saved inside the level (<see cref="KanDesign.FILE_NAME"/>).
+    /// The notes are heard with the companion by default (owner 2026-10-17:
+    /// "it's difficult to understand the song without them"), with the same
+    /// toggles as the compose tab (<see cref="ComposeMonitor"/>).
     /// </summary>
     public partial class KanDesignScreen : EditorScreen
     {
@@ -59,6 +64,8 @@ namespace Kan.Forge.Editor.Design
         private FillFlowContainer sectionFields = null!;
         private OsuSpriteText status = null!;
         private ForgeButton undoButton = null!, redoButton = null!, splitButton = null!, mergeButton = null!;
+        private ForgeButton companionToggle = null!, referenceToggle = null!, notesToggle = null!;
+        private ComposeMonitor monitor = null!;
 
         private DesignSection? selected;
         private int autosaveCountdown;
@@ -75,6 +82,9 @@ namespace Kan.Forge.Editor.Design
         private void load(OverlayColourProvider colourProvider)
         {
             open();
+
+            Add(monitor = new ComposeMonitor());
+            monitor.NotesOn.Value = true;
 
             Add(new Box { RelativeSizeAxes = Axes.Both, Colour = colourProvider.Background3 });
             Add(new GridContainer
@@ -171,11 +181,12 @@ namespace Kan.Forge.Editor.Design
 
         private Drawable createToolbar()
         {
-            ForgeButton button(IconUsage icon, string text, Action action, float width) => new ForgeButton(icon, text)
+            ForgeButton button(IconUsage icon, string text, Action action, float width, string? tooltip = null) => new ForgeButton(icon, text)
             {
                 RelativeSizeAxes = Axes.None,
                 Width = width,
                 Action = action,
+                TooltipText = tooltip ?? string.Empty,
             };
 
             return new FillFlowContainer
@@ -192,6 +203,9 @@ namespace Kan.Forge.Editor.Design
                     undoButton = button(FontAwesome.Solid.Undo, @"Undo", () => history(DesignSession.Undo), 90),
                     redoButton = button(FontAwesome.Solid.Redo, @"Redo", () => history(DesignSession.Redo), 90),
                     button(FontAwesome.Solid.Save, @"Save into level", () => saveToLevel(true), 150),
+                    companionToggle = button(FontAwesome.Solid.LayerGroup, @"companion", () => monitor.CompanionOn.Toggle(), 128, @"Hear the companion (the level audio) — M"),
+                    referenceToggle = button(FontAwesome.Solid.Microphone, @"reference", () => monitor.ReferenceOn.Toggle(), 124, @"Hear the reference (the full performance) — R"),
+                    notesToggle = button(FontAwesome.Solid.Music, @"notes", () => monitor.NotesOn.Toggle(), 96, @"Hear the notes the player plays — P"),
                     status = new OsuSpriteText
                     {
                         Anchor = Anchor.CentreLeft,
@@ -207,6 +221,7 @@ namespace Kan.Forge.Editor.Design
             base.LoadComplete();
             rebuildLevelFields();
             select(DesignSession.Design.SectionAt(clock.CurrentTime));
+            monitor.Active.Value = true;
         }
 
         protected override void Update()
@@ -217,6 +232,12 @@ namespace Kan.Forge.Editor.Design
             redoButton.Enabled.Value = DesignSession.CanRedo;
             splitButton.Enabled.Value = DesignSession.Design.SectionAt(clock.CurrentTime) != null;
             mergeButton.Enabled.Value = selected != null && DesignSession.Design.Sections.IndexOf(selected) < DesignSession.Design.Sections.Count - 1;
+
+            bool hasReference = monitor.Reference != null;
+            referenceToggle.Enabled.Value = hasReference;
+            companionToggle.Alpha = monitor.CompanionOn.Value ? 1 : 0.55f;
+            referenceToggle.Alpha = monitor.ReferenceOn.Value && hasReference ? 1 : 0.55f;
+            notesToggle.Alpha = monitor.NotesOn.Value ? 1 : 0.55f;
 
             var d = DesignSession.Design;
             status.Text = $"{d.Sections.Count} sections · {(d.Generated ? "automatic (from the notes)" : "designed by hand")}"
@@ -309,6 +330,8 @@ namespace Kan.Forge.Editor.Design
             {
                 open();
                 afterReplace();
+                monitor.NotesChanged();
+                monitor.Active.Value = true;
             }
         }
 
@@ -317,7 +340,30 @@ namespace Kan.Forge.Editor.Design
             base.PopOut();
             if (!IsLoaded) return;
 
+            monitor.Active.Value = false;
             saveToLevel(false);
+        }
+
+        protected override bool OnKeyDown(KeyDownEvent e)
+        {
+            if (e.ControlPressed || e.AltPressed || e.Repeat) return base.OnKeyDown(e);
+
+            switch (e.Key)
+            {
+                case Key.P:
+                    monitor.NotesOn.Toggle();
+                    return true;
+
+                case Key.M:
+                    monitor.CompanionOn.Toggle();
+                    return true;
+
+                case Key.R:
+                    if (monitor.Reference != null) monitor.ReferenceOn.Toggle();
+                    return true;
+            }
+
+            return base.OnKeyDown(e);
         }
 
         public override void OnExiting(osu.Framework.Screens.ScreenExitEvent e)

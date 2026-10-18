@@ -14,6 +14,14 @@ namespace Kan.Forge.Design
     public enum SectionKind
     {
         Intro,
+
+        /// <summary>
+        /// A stretch of music the automatic design found between silences
+        /// (owner 2026-10-17: calling them all "Verse" read as if verses were
+        /// missing). Verse, chorus… are the author's to say.
+        /// </summary>
+        Phrase,
+
         Verse,
         PreChorus,
         Chorus,
@@ -46,7 +54,7 @@ namespace Kan.Forge.Design
 
         public double EndMs { get; set; }
 
-        public SectionKind Kind { get; set; } = SectionKind.Verse;
+        public SectionKind Kind { get; set; } = SectionKind.Phrase;
 
         /// <summary>The level's high point: hotter colours, bigger rewards.</summary>
         public bool Climax { get; set; }
@@ -79,6 +87,41 @@ namespace Kan.Forge.Design
     }
 
     /// <summary>
+    /// The sections a player can practise — the ones with notes — and the
+    /// names they go by: numbered within their kind, in order ("Phrase 1",
+    /// "Phrase 2", "Chorus 1"), so the numbers have no gaps where an intro or
+    /// a break was left out (owner 2026-10-17). A kind that comes once is not
+    /// numbered; an author's own name is kept as it is.
+    /// </summary>
+    public static class DesignParts
+    {
+        /// <summary>The 1-based numbers of the sections with notes, and their names.</summary>
+        public static (List<int> Playable, Dictionary<int, string> Names) Of(IReadOnlyList<DesignSection> sections, IEnumerable<double> noteStartsMs)
+        {
+            var starts = noteStartsMs.ToList();
+
+            // (a few ms of slack: a note on a section's boundary belongs to it)
+            var playable = Enumerable.Range(1, sections.Count)
+                                     .Where(i => starts.Any(t => t >= sections[i - 1].StartMs - 5 && t < sections[i - 1].EndMs - 5))
+                                     .ToList();
+
+            var names = new Dictionary<int, string>();
+            var total = playable.GroupBy(i => sections[i - 1].DisplayName).ToDictionary(g => g.Key, g => g.Count());
+            var seen = new Dictionary<string, int>();
+
+            foreach (int i in playable)
+            {
+                var s = sections[i - 1];
+                string name = s.DisplayName;
+                seen[name] = seen.GetValueOrDefault(name) + 1;
+                names[i] = s.Label != null || total[name] == 1 ? name : $"{name} {seen[name]}";
+            }
+
+            return (playable, names);
+        }
+    }
+
+    /// <summary>
     /// The level's design (owner 2026-10-15): how the level looks and
     /// rewards, stretch by stretch — sections (breaks, climaxes), the
     /// palette, and how strong the effects are. Stored as a versioned file
@@ -87,7 +130,7 @@ namespace Kan.Forge.Design
     /// </summary>
     public class KanDesign
     {
-        public const int VERSION = 1;
+        public const int VERSION = 2;
 
         /// <summary>The design's file name inside the level.</summary>
         public const string FILE_NAME = @"kan.design.json";
@@ -239,6 +282,16 @@ namespace Kan.Forge.Design
 
                 design.Sections ??= new List<DesignSection>();
                 design.Sort();
+
+                // Version 1 and before: the automatic design called every phrase a verse;
+                // now it is a phrase (owner 2026-10-17: verses seemed to be missing).
+                if (design.Version <= 1)
+                {
+                    foreach (var section in design.Sections)
+                        if (section.Kind == SectionKind.Verse) section.Kind = SectionKind.Phrase;
+
+                    design.Version = VERSION;
+                }
                 return design;
             }
             catch (Exception)

@@ -609,7 +609,15 @@ namespace Kan.Ruleset.UI
             private readonly Box tailShine;
             private readonly OsuSpriteText tailMark;
             private readonly Circle glow;
+            private readonly Container points;
+            private readonly Triangle[] pointShapes = new Triangle[point_count];
             private readonly CircularContainer headCircle;
+
+            /// <summary>A sharp's points around its bead (owner 2026-10-17: "so it is clear they are not the same note").</summary>
+            private const int point_count = 8;
+
+            /// <summary>How far a point sticks out of the bead (px, at the bead's own size).</summary>
+            private const float point_length = 7;
             private readonly Box headFill;
             private readonly Circle flash;
             private readonly OsuSpriteText name;
@@ -620,6 +628,17 @@ namespace Kan.Ruleset.UI
             {
                 RelativeSizeAxes = Axes.Both;
                 Alpha = 0;
+
+                for (int i = 0; i < point_count; i++)
+                {
+                    // From the centre outwards, apex out: the bead covers all but the tip.
+                    pointShapes[i] = new Triangle
+                    {
+                        Anchor = Anchor.Centre,
+                        Origin = Anchor.BottomCentre,
+                        Rotation = (i + 0.5f) * 360f / point_count,
+                    };
+                }
 
                 InternalChildren = new Drawable[]
                 {
@@ -651,6 +670,7 @@ namespace Kan.Ruleset.UI
                         Origin = Anchor.Centre,
                         Blending = BlendingParameters.Additive,
                     },
+                    points = new Container { Origin = Anchor.Centre, Alpha = 0, Children = pointShapes },
                     ring = new CircularContainer
                     {
                         Origin = Anchor.Centre,
@@ -750,6 +770,23 @@ namespace Kan.Ruleset.UI
 
                 float pulse = isNext ? 0.5f + 0.5f * MathF.Sin((float)(now / 110)) : 0;
                 headCircle.BorderThickness = isNext ? 3 + pulse : missed ? 0 : 1.5f;
+
+                // A sharp has points: told apart from its neighbours by its shape too, not only by "♯".
+                bool sharp = !n.PitchUnknown && KanNotation.IsSharp(n.Midi);
+                points.Alpha = sharp ? (missed ? 0.5f : 1) : 0;
+
+                if (sharp)
+                {
+                    float length = size / 2 + point_length * size / head;
+                    points.Position = headCircle.Position;
+                    points.Size = new Vector2(size);
+
+                    foreach (var t in pointShapes)
+                    {
+                        t.Size = new Vector2(length * 0.9f, length);
+                        t.Colour = ColourInfo.GradientVertical(light, colour);
+                    }
+                }
 
                 glow.Position = headCircle.Position;
                 glow.Size = new Vector2(size * (isNext ? 2.1f + 0.3f * pulse : 1.7f) + pop * 40);

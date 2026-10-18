@@ -58,6 +58,9 @@ namespace Kan.Ruleset.UI
             ? $"{solfege[pitchClass(midi)]}{midi / 12 - 1}"
             : $"{letters[pitchClass(midi)]}{midi / 12 - 1}";
 
+        /// <summary>Whether the note is a sharp (a black key): drawn with points, not round (owner 2026-10-17).</summary>
+        public static bool IsSharp(int midi) => pitchClass(midi) is 1 or 3 or 6 or 8 or 10;
+
         /// <summary>The note's own colour: its place on the colour wheel (sharps between their neighbours).</summary>
         public static Color4 Colour(int midi)
         {

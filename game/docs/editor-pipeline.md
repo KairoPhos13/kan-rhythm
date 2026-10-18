@@ -443,8 +443,12 @@ The design (`Kan.Forge.Design.KanDesign`, file `kan.design.json` in the
 level; autosave `kan-forge/<set>/design.json`, the newer copy wins, like
 the score) says how the level looks and rewards, stretch by stretch:
 
-- **Sections** cover the level's timeline without gaps: intro, verse,
-  pre-chorus, chorus, bridge, solo, break, outro; a name of the author's
+- **Sections** cover the level's timeline without gaps: intro, phrase,
+  verse, pre-chorus, chorus, bridge, solo, break, outro ("phrase" — owner
+  2026-10-17 — is what the automatic design calls a stretch of music
+  between silences; it called them all "verse" before, which read as if
+  verses were missing; designs saved before, file version 1, are
+  migrated); a name of the author's
   choice; **climax** (hotter colours, half again the sparkle, the
   background glows from below with the music's low end); for rests, what
   the screen shows (the music as light then 3-2-1 / the music as light /
@@ -457,7 +461,7 @@ the score) says how the level looks and rewards, stretch by stretch:
   section names on/off.
 - **Automatic design** (`AutoDesign`, unit-tested): silences of 3.5 s or
   more are breaks (before the first note the intro, after the last the
-  outro); the music between them is cut into phrases at 1.2 s silences,
+  outro); the music between them is cut into phrases (kind Phrase) at 1.2 s silences,
   none shorter than 9 s; the busiest, loudest phrases (notes/s × mean
   intensity, top quarter, within 90 % of the best, and only if the best
   stands 15 % above the median) are the chorus/climax. While a design is
@@ -469,6 +473,10 @@ the score) says how the level looks and rewards, stretch by stretch:
   level's settings with a palette preview, and automatic design / split at
   playhead / join with next / undo / redo / save into the level. It is
   saved into the level when leaving the tab or the editor.
+- **What is heard** (owner 2026-10-17: "it's difficult to understand the
+  song without the notes"): the notes play with the companion by default,
+  with the compose tab's toggles — companion (M), reference (R), notes
+  (P) — through the same `ComposeMonitor`, so each tab keeps its own state.
 
 The editor loads a level without converting its score into objects
 (`KanLevelFiles.EditorLoading`): the osu! format it saves cannot hold a

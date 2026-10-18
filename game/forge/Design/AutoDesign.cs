@@ -147,11 +147,11 @@ namespace Kan.Forge.Design
 
             foreach (double cut in cuts)
             {
-                yield return new DesignSection { StartMs = start, EndMs = cut, Kind = SectionKind.Verse };
+                yield return new DesignSection { StartMs = start, EndMs = cut, Kind = SectionKind.Phrase };
                 start = cut;
             }
 
-            yield return new DesignSection { StartMs = start, EndMs = to, Kind = SectionKind.Verse };
+            yield return new DesignSection { StartMs = start, EndMs = to, Kind = SectionKind.Phrase };
         }
 
         private static void markClimax(List<DesignSection> phrases, List<ScoreNote> notes)
