@@ -29,7 +29,10 @@ namespace Kan.Ruleset.Mods
     /// its design's sections — over and over, without score, then play the
     /// whole song for real. Scored play keeps the genre's rule (earn the hard
     /// part by getting there); practice is apart from it, as in other music
-    /// games. Combines with Half Time and Wait for me.
+    /// games. Combines with Wait for me, the speed mods and Autoplay: what
+    /// they set is where practice starts (owner 2026-10-17: "it says wait
+    /// for me is off but it is actually waiting for me"), and W / S then
+    /// switch it while practising.
     ///
     /// The level is cut to the notes of the chosen sections; a moment after
     /// the last of them the play restarts by itself — before it would
@@ -49,7 +52,46 @@ namespace Kan.Ruleset.Mods
         // (declared first: static fields initialise in order)
         private static readonly PracticeOptions defaults = new PracticeOptions(false, 1, false);
 
-        public static PracticeOptions Options { get; private set; } = defaults;
+        private static PracticeOptions? options;
+
+        public static PracticeOptions Options => options ?? defaults;
+
+        /// <summary>The selected mods' speed (Half Time 0.75, Double Time 1.5…); practice's own speed makes up the rest.</summary>
+        private double modSpeed = 1;
+
+        /// <summary>Wait for me is selected: its listening overlay is already there.</summary>
+        private bool waitModSelected;
+
+        /// <summary>Autoplay (or Cinema) is selected: the part is played for the player, and L cannot change that.</summary>
+        public bool AutoplaySelected { get; private set; }
+
+        /// <summary>
+        /// This play's options, taken once (<see cref="Begin"/>): the
+        /// ruleset, the HUD and the track all go by the same ones, whatever
+        /// happens to <see cref="Options"/> meanwhile (owner 2026-10-17: after
+        /// osu!'s quick retry the play waited but its HUD did not listen).
+        /// </summary>
+        public PracticeOptions Play { get; private set; } = defaults;
+
+        /// <summary>
+        /// A practice play is being made with these mods (the drawable
+        /// ruleset's constructor, before the HUD and the track are set up).
+        /// The first play of a practice starts from what the mods set.
+        /// </summary>
+        public PracticeOptions Begin(IReadOnlyList<Mod> mods)
+        {
+            waitModSelected = mods.OfType<KanModWait>().Any();
+            AutoplaySelected = mods.OfType<ModAutoplay>().Any();
+            modSpeed = mods.Where(m => m is not KanModPractice).OfType<IApplicableToRate>().Aggregate(1.0, (r, m) => m.ApplyToRate(0, r));
+
+            options ??= new PracticeOptions(waitModSelected, modSpeed, AutoplaySelected);
+            Play = options;
+            speed.Value = ownSpeed;
+            return Play;
+        }
+
+        /// <summary>Practice's own tempo: what turns the mods' speed into the practice speed.</summary>
+        private double ownSpeed => modSpeed > 0 ? Play.Speed / modSpeed : 1;
 
         /// <summary>The speeds S steps through.</summary>
         private static readonly double[] speeds = { 1, 0.9, 0.75, 0.6, 0.5 };
@@ -57,16 +99,20 @@ namespace Kan.Ruleset.Mods
         private readonly BindableDouble speed = new BindableDouble(1);
         private Kan.Ruleset.UI.KanDrawableRuleset? ruleset;
 
-        public void ApplyToDrawableRuleset(osu.Game.Rulesets.UI.DrawableRuleset<KanHitObject> drawableRuleset) => ruleset = drawableRuleset as Kan.Ruleset.UI.KanDrawableRuleset;
+        public void ApplyToDrawableRuleset(osu.Game.Rulesets.UI.DrawableRuleset<KanHitObject> drawableRuleset)
+        {
+            ruleset = drawableRuleset as Kan.Ruleset.UI.KanDrawableRuleset;
+            speed.Value = ownSpeed;
+        }
 
         // The practice speed keeps the pitch (tempo), like Half Time.
         public void ApplyToTrack(osu.Framework.Audio.IAdjustableAudioComponent track)
         {
-            speed.Value = Options.Speed;
+            speed.Value = ownSpeed;
             track.AddAdjustment(osu.Framework.Audio.AdjustableProperty.Tempo, speed);
         }
 
-        public double ApplyToRate(double time, double rate = 1) => rate * Options.Speed;
+        public double ApplyToRate(double time, double rate = 1) => rate * ownSpeed;
 
         // Hit sounds keep their pitch too.
         public void ApplyToSample(osu.Framework.Audio.IAdjustableAudioComponent sample) => sample.AddAdjustment(osu.Framework.Audio.AdjustableProperty.Tempo, speed);
@@ -120,6 +166,9 @@ namespace Kan.Ruleset.Mods
 
         /// <summary>The sections with notes (1-based): the only ones to practise (owner 2026-10-16: leave the rest out).</summary>
         private List<int> playable = new List<int>();
+
+        /// <summary>What each playable section is called, numbered without gaps (<see cref="DesignParts"/>).</summary>
+        private Dictionary<int, string> partNames = new Dictionary<int, string>();
 
         private int chosenFrom, chosenTo;
         private Guid setId;
@@ -177,8 +226,7 @@ namespace Kan.Ruleset.Mods
             // Only sections with notes can be practised: a range starting or ending on
             // one without (an intro, a break, the outro) snaps to the nearest that has
             // some (2026-10-16: section 1, the intro, crashed; the outro looped forever).
-            bool hasNotes(DesignSection section) => notes.Any(n => n.StartTime >= section.StartMs - 5 && n.StartTime < section.EndMs - 5);
-            playable = Enumerable.Range(1, design.Sections.Count).Where(i => hasNotes(design.Sections[i - 1])).ToList();
+            (playable, partNames) = DesignParts.Of(design.Sections, notes.Select(n => n.StartTime));
             if (playable.Count == 0)
             {
                 osu.Framework.Logging.Logger.Log(@"kan!: practice found no section with notes; playing it whole");
@@ -191,7 +239,7 @@ namespace Kan.Ruleset.Mods
             (chosenFrom, chosenTo) = (from, to);
             rangeStart = design.Sections[from - 1].StartMs;
             rangeEnd = design.Sections[to - 1].EndMs;
-            rangeName = from == to ? design.Sections[from - 1].DisplayName : $"{design.Sections[from - 1].DisplayName} – {design.Sections[to - 1].DisplayName}";
+            rangeName = from == to ? partNames[from] : $"{partNames[from]} – {partNames[to]}";
 
             // Only the part's notes, numbered from 0 again (the play state indexes by them).
             // (a few ms of slack: a note on a section's boundary belongs to it)
@@ -239,8 +287,10 @@ namespace Kan.Ruleset.Mods
         {
             overlay.Add(new PracticeLoop(this));
 
-            // Waiting while practising works as the Wait for me mod does (listening from the HUD).
-            if (Options.Wait)
+            // Waiting while practising works as the Wait for me mod does (listening
+            // from the HUD). With that mod selected its overlay is already there
+            // (and stays quiet while practice does not wait).
+            if (Play.Wait && !waitModSelected)
             {
                 var live = new Kan.Ruleset.UI.KanWaitOverlay(() => ruleset);
                 overlay.Add(live);
@@ -294,7 +344,7 @@ namespace Kan.Ruleset.Mods
                     var section = mod.sections[number - 1];
                     bool inside = number >= mod.chosenFrom && number <= mod.chosenTo;
 
-                    strip.Add(new SectionButton(section, number, inside, (float)(section.DurationMs / total), shift => pick(number, shift)));
+                    strip.Add(new SectionButton(section, mod.partNames[number], inside, (float)(section.DurationMs / total), shift => pick(number, shift)));
                 }
 
                 InternalChild = new FillFlowContainer
@@ -336,9 +386,9 @@ namespace Kan.Ruleset.Mods
                             Spacing = new osuTK.Vector2(8, 0),
                             Children = new Drawable[]
                             {
-                                new OptionButton($"Wait for me: {(Options.Wait ? "on" : "off")} (W)", Options.Wait, () => Toggle('w')),
-                                new OptionButton($"Speed {Options.Speed:0%} (S)", Options.Speed < 1, () => Toggle('s')),
-                                new OptionButton($"Listen: {(Options.Listen ? "on" : "off")} (L)", Options.Listen, () => Toggle('l')),
+                                new OptionButton($"Wait for me: {(mod.Play.Wait ? "on" : "off")} (W)", mod.Play.Wait, () => Toggle('w')),
+                                new OptionButton($"Speed {mod.Play.Speed:0%} (S)", Math.Abs(mod.Play.Speed - 1) > 0.001, () => Toggle('s')),
+                                new OptionButton(mod.AutoplaySelected ? @"Listen: on (Autoplay)" : $"Listen: {(mod.Play.Listen ? "on" : "off")} (L)", mod.Play.Listen || mod.AutoplaySelected, () => Toggle('l')),
                             },
                         },
                     },
@@ -346,6 +396,12 @@ namespace Kan.Ruleset.Mods
             }
 
             private bool skipped;
+
+            protected override void LoadComplete()
+            {
+                base.LoadComplete();
+                player = this.FindClosestParent<Player>();
+            }
 
             protected override void Update()
             {
@@ -422,20 +478,27 @@ namespace Kan.Ruleset.Mods
                 choose(playable[a], playable[b]);
             }
 
+            /// <summary>The next slower speed, back to the fastest after the slowest; the mods' speed is one of the steps.</summary>
+            private double nextSpeed(double current)
+            {
+                var steps = speeds.Append(mod.modSpeed).Distinct().OrderByDescending(v => v).ToArray();
+                return steps.FirstOrDefault(v => v < current - 0.001, steps[0]);
+            }
+
             /// <summary>W / S / L: wait for me, the next speed, listen.</summary>
             public void Toggle(char option)
             {
-                var o = Options;
+                var o = mod.Play;
 
-                Options = option switch
+                options = option switch
                 {
                     'w' => o with { Wait = !o.Wait },
-                    's' => o with { Speed = speeds[(Array.IndexOf(speeds, o.Speed) + 1) % speeds.Length] },
-                    'l' => o with { Listen = !o.Listen },
+                    's' => o with { Speed = nextSpeed(o.Speed) },
+                    'l' when !mod.AutoplaySelected => o with { Listen = !o.Listen },
                     _ => o,
                 };
 
-                if (Options == o) return;
+                if (options == o) return;
 
                 osu.Framework.Logging.Logger.Log($"kan!: practice options {Options}");
                 restart();
@@ -461,20 +524,27 @@ namespace Kan.Ruleset.Mods
 
             private void restart()
             {
-                var player = this.FindClosestParent<Player>();
                 if (player == null || restarting) return;
 
                 restarting = true;
                 player.Restart(quickRestart: true);
             }
 
+            /// <summary>osu!'s own restart (quick retry, the pause menu's retry) is a restart too: it keeps the part and the options.</summary>
+            private static readonly System.Reflection.FieldInfo? player_restarting =
+                typeof(Player).GetField(@"isRestarting", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+
+            private Player? player;
+
+            private bool playerRestarting => player != null && player_restarting?.GetValue(player) is true;
+
             protected override void Dispose(bool isDisposing)
             {
                 // Leaving practice (not restarting it): the next practice starts from the mod's settings.
-                if (!restarting)
+                if (!restarting && !playerRestarting)
                 {
                     picked = null;
-                    Options = defaults;
+                    options = null;
                 }
 
                 base.Dispose(isDisposing);
@@ -514,13 +584,13 @@ namespace Kan.Ruleset.Mods
             {
                 private readonly Action<bool> picked;
 
-                public SectionButton(DesignSection section, int number, bool inside, float share, Action<bool> picked)
+                public SectionButton(DesignSection section, string name, bool inside, float share, Action<bool> picked)
                 {
                     this.picked = picked;
                     RelativeSizeAxes = Axes.Both;
                     Width = share;
                     Padding = new MarginPadding { Horizontal = 1 };
-                    TooltipText = $"{number}. {section.DisplayName}";
+                    TooltipText = name;
 
                     Child = new Container
                     {
@@ -542,7 +612,7 @@ namespace Kan.Ruleset.Mods
                                 Origin = Anchor.CentreLeft,
                                 Padding = new MarginPadding { Horizontal = 5 },
                                 Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
-                                Text = $"{number} {section.DisplayName}",
+                                Text = name,
                                 Colour = inside ? osuTK.Graphics.Color4.Black : osuTK.Graphics.Color4.White,
                             },
                         },
@@ -568,6 +638,7 @@ namespace Kan.Ruleset.Mods
                 private IBindable<WorkingBeatmap> beatmap { get; set; } = null!;
 
                 private IReadOnlyList<DesignSection> sections = Array.Empty<DesignSection>();
+                private Dictionary<int, string> names = new Dictionary<int, string>();
 
                 protected override void LoadComplete()
                 {
@@ -580,14 +651,18 @@ namespace Kan.Ruleset.Mods
                     var set = beatmap.Value.BeatmapSetInfo;
                     sections = DesignOf(set, Array.Empty<KanHitObject>()).Sections;
 
-                    if (sections.Count == 0)
+                    // Only the sections with notes, by the names practice shows (no gaps in the numbers).
+                    var starts = KanLevelFiles.LoadScore(set)?.Notes.Select(n => n.StartMs) ?? Enumerable.Empty<double>();
+                    (var playable, names) = DesignParts.Of(sections, starts);
+
+                    if (playable.Count == 0)
                     {
                         Items = new[] { 1 };
                         return;
                     }
 
-                    Items = Enumerable.Range(1, sections.Count).ToArray();
-                    if (Current.Value > sections.Count) Current.Value = sections.Count;
+                    Items = playable.ToArray();
+                    if (!playable.Contains(Current.Value)) Current.Value = playable.FirstOrDefault(p => p >= Current.Value, playable[^1]);
                 }
 
                 protected override LocalisableString GenerateItemText(int item)
@@ -596,7 +671,7 @@ namespace Kan.Ruleset.Mods
 
                     var s = sections[item - 1];
                     var at = TimeSpan.FromMilliseconds(s.StartMs);
-                    return $"{item}. {s.DisplayName}{(s.Climax ? " ★" : "")} — {(int)at.TotalMinutes}:{at.Seconds:00}";
+                    return $"{names.GetValueOrDefault(item, s.DisplayName)}{(s.Climax ? " ★" : "")} — {(int)at.TotalMinutes}:{at.Seconds:00}";
                 }
             }
         }

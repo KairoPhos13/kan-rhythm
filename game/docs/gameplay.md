@@ -42,7 +42,8 @@ but it does not work streamed yet and accepts octave-below expectations
 
 - A score note is answered by the closest unclaimed onset within ±200 ms
   that has the note's pitch. Great ≤ 70 ms, ok ≤ 130 ms, meh ≤ 200 ms.
-- The pitch arrives after the onset (provisional ~45 ms, final ~200 ms),
+- The pitch arrives after the onset (provisional ~45 ms; final when the
+  played note ends — measured 2026-10-17, not ~200 ms as assumed before),
   so a note waits up to 300 ms past its window for it.
 - A heard note whose pitch can't be told counts as at most "meh" (owner
   2026-10-15: noise must not pass for playing well). A score
@@ -59,6 +60,20 @@ but it does not work streamed yet and accepts octave-below expectations
   note.
 - **Out of time with only a provisional pitch:** the miss says which
   note was played ("F5 — play G5").
+- **A wrong try is a miss at once** (owner 2026-10-17: "it feels like
+  'found it!' and the penalty at the same moment"): an attack made for the
+  note (from 100 ms before its start) whose pitch is wrong and confirmed.
+  Confirmed means libkan's final pitch, or the pitch held 150 ms (15
+  readings in a row): libkan sends the final pitch only when a note ends,
+  so a wrong note held until the right one is found was confirmed at the
+  very moment of finding it. A slip put right before it is confirmed is
+  no try (the right note wins).
+- **The notes around are no wrong tries** (`LiveJudge.IsWrongTry`): an
+  octave off (the detector's slip), the previous note still sounding (a
+  typical learner's lag: the right note a little late is still good or
+  meh, the streak kept), a chord's other notes, the next note come early
+  (the score's notes within ±200 ms, `KanPlayState.ExpectedAround`).
+  Alone they leave the note "not heard" at the window's end, not "wrong".
 - Misses drain health and an empty bar fails the level, as in osu!
   (owner 2026-10-15; it was no-fail before). "No fail" and "wait for me"
   keep it going.
@@ -120,12 +135,16 @@ start times in the mod's settings) over and over. The level is cut to
 those sections' notes; 1.5 s after the last one the play restarts by
 itself — before it could complete, so practice never fills the local
 scores — and "Practice · Verse · loop 3" shows at the top. Combines
-with Half Time and Wait for me. Only sections with notes can be
+with the speed mods, Wait for me and Autoplay. Only sections with notes can be
 practised: the strip leaves the others out and a range on one of them
 (the intro — section 1 by default —, a break, the outro) snaps to the
 nearest that has notes (it crashed, and the outro looped forever,
 2026-10-16). A part later in the song starts at once, 2 s before its
-first note (osu! starts at the beginning and offers Skip).
+first note (osu! starts at the beginning and offers Skip). The playable
+sections are named in order within their kind — "Phrase 1, Phrase 2…
+Chorus" (`DesignParts`, unit-tested) — on the strip, the title and the
+mod's dropdown, which lists only them (owner 2026-10-17: "verse 9, verse
+11" read as missing verses; the intro and breaks were being counted).
 
 While practising (owner 2026-10-16: "how do I go to the next one, back,
 choose?"): ← → (or [ ]) the previous / next section, Shift+← → a shorter
@@ -134,8 +153,21 @@ up to that section). W toggles Wait for me, S steps the speed (100, 90,
 75, 60, 50 %, pitch kept), L listens to the part played for the player
 (the reference, else the notes — as autoplay), each a button too. The
 part restarts at once; the picks last until the player leaves practice (the selected mods cannot change during play, so
-it is kept apart from the mod's settings). Dev: `KAN_DEV_PRACTICE=2-3`,
-`KAN_DEV_PRACTICE_NAV="right@8,shift+right@18"`.
+it is kept apart from the mod's settings). The first play of a practice
+starts from the selected mods (owner 2026-10-17: "it says wait for me is
+off but it is actually waiting for me"): Wait for me → W on, Half Time /
+Daycore / Double Time / Nightcore → that speed (one of S's steps; practice
+adds only the tempo that makes up the difference, so the rate is never
+applied twice), Autoplay / Cinema → "Listen: on (Autoplay)", which L
+cannot switch off (the replay plays the part). While practising W decides
+whether the level waits, even with the Wait for me mod selected (its
+overlay stays quiet). osu!'s own retry (the quick retry key, the pause
+menu) is a restart too: it keeps the part and the options (owner
+2026-10-17: after it the play waited but no longer heard — the old play
+had reset the options while the new one was half built). Each play takes
+its options once (`KanModPractice.Play`) and the ruleset, HUD and track
+all go by them. Dev: `KAN_DEV_PRACTICE=2-3`,
+`KAN_DEV_PRACTICE_NAV="right@8,shift+right@18,w@4,retry@20"`.
 
 ### Instrument tuning (owner 2026-10-15)
 
@@ -186,10 +218,20 @@ wait mode, results shown.
   the same chord and timbre, no rhythm, no seam (unit-tested: pitch,
   loudness, seam). Half volume, low-passed at 3.5 kHz, faded in 150 ms
   and out 100 ms; silent while the pause menu is open.
-- **Honest combo:** a wrong note — a confirmed pitch, from an attack made
-  for this note, an octave off forgiven — makes the note a miss when it
-  is finally played (`KanPlayState.Adjust`), shown at once ("B5 — play
-  F5 · combo lost"). Misses dip the music gently in this mode.
+- **The pause menu:** while it is open, what is played goes nowhere —
+  not to the judge, not to the wait (owner 2026-10-17: the song went on as
+  they played under the menu; `KanPlayState.UserPaused`, set by the wait
+  overlay). Dev: `KAN_DEV_PAUSE=wait` pauses at the first wait.
+- **Honest combo:** a wrong try (see Judging: confirmed, the notes around
+  forgiven) makes the note a miss the moment it is confirmed — during the
+  200 ms grace or while waiting (`KanPlayState.WrongTry`) — shown at once
+  ("B5 — play F5 · combo lost"). The level still waits for the right
+  note: the miss is the penalty, finding the note is still the walk
+  (2026-10-17; before, the miss landed when the right note was found).
+  Misses dip the music gently in this mode. Synthetic learner take: the
+  previous note held 600 ms into the next → no penalty; a wrong note held
+  450 ms → miss 150 ms in, then the wait, then the right note releases it.
+  An on-time take with no mods: 58/58 perfect, no wrong tries.
 - **One attack, one note** (2026-10-15: "the note after a wait passed
   without being played"): attacks heard while the level waits (or picks
   up) belong to the waited note and never count for the next one; a note
@@ -275,7 +317,9 @@ section on now, the palette in force — eased between sections over
 - **A note** has a head with its name, a tail as long as it lasts, and a
   mark for its style: accent `>` with a bigger head, staccato `•` with no
   tail, a legato line to the previous note, and `~` along the tail for
-  vibrato. A ring closes on the head as it reaches the line.
+  vibrato. A ring closes on the head as it reaches the line. A sharp's
+  head has eight points around it (owner 2026-10-17: so it reads as a
+  different note at a glance, not only by "♯").
 - **The notes look** (owner 2026-10-15: "not osu!'s level yet in effects,
   smooth transitions, clarity, flashes, colours"): lit beads in the
   palette — lighter at the top, a thin white rim, a soft halo — with

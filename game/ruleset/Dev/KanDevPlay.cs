@@ -224,7 +224,7 @@ namespace Kan.Ruleset.Dev
             schedulePracticeSteps();
         }
 
-        /// <summary>KAN_DEV_PRACTICE_NAV="right@10,shift+right@20": practice navigation at those seconds (as the keys).</summary>
+        /// <summary>KAN_DEV_PRACTICE_NAV="right@10,shift+right@20,retry@30": practice navigation at those seconds (as the keys; retry = osu!'s quick retry).</summary>
         private void schedulePracticeSteps()
         {
             foreach (string step in (Environment.GetEnvironmentVariable(@"KAN_DEV_PRACTICE_NAV") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries))
@@ -233,6 +233,13 @@ namespace Kan.Ruleset.Dev
                 if (parts.Length != 2 || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds)) continue;
 
                 string key = parts[0];
+
+                if (key == @"retry")
+                {
+                    // osu!'s quick retry (owner 2026-10-17: after it practice no longer heard)
+                    Scheduler.AddDelayed(() => (game.ScreenStack.CurrentScreen as Player)?.Restart(quickRestart: true), (seconds + 6) * 1000);
+                    continue;
+                }
 
                 if (key.Length == 1)
                 {
@@ -248,8 +255,33 @@ namespace Kan.Ruleset.Dev
         }
 
         /// <summary>KAN_DEV_PAUSE=12: pause the level that many seconds in and continue 2 s later (as after a window switch).</summary>
+        private bool pauseAtWait;
+
+        protected override void Update()
+        {
+            base.Update();
+
+            if (!pauseAtWait || game.ScreenStack.CurrentScreen is not Player player) return;
+            if (player.ChildrenOfType<Kan.Ruleset.UI.KanDrawableRuleset>().FirstOrDefault()?.State is not { Waiting: true }) return;
+
+            pauseAtWait = false;
+            Logger.Log($"kan! dev play: pausing at a wait ({player.Pause()})", level: LogLevel.Important);
+            Scheduler.AddDelayed(() =>
+            {
+                Logger.Log(@"kan! dev play: continuing", level: LogLevel.Important);
+                player.Resume();
+            }, 2500);
+        }
+
         private void schedulePause()
         {
+            // KAN_DEV_PAUSE=wait: pause the first time the level waits for a note (wait mode).
+            if (Environment.GetEnvironmentVariable(PAUSE_ENV) == @"wait")
+            {
+                pauseAtWait = true;
+                return;
+            }
+
             if (!double.TryParse(Environment.GetEnvironmentVariable(PAUSE_ENV), NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds)) return;
 
             Scheduler.AddDelayed(() =>
