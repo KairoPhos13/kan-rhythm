@@ -82,6 +82,15 @@ namespace Kan.Ruleset.UI
             };
         }
 
+        [osu.Framework.Allocation.BackgroundDependencyLoader(true)]
+        private void load(Player? player)
+        {
+            // Practice has no score to rank (owner 2026-10-19): no leaderboard, set
+            // before the HUD shows it (the practice bar keeps Tab from toggling it).
+            if (player != null && Mods.Any(m => m is Kan.Ruleset.Mods.KanModPractice))
+                player.Configuration.ShowLeaderboard = false;
+        }
+
         /// <summary>Fit the written notes to the player's range as it is now (logged when they move).</summary>
         private void fitToPlayer()
         {

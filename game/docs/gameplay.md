@@ -209,7 +209,11 @@ sections ("From section" / "To section", listed with their names and
 start times in the mod's settings) over and over. The level is cut to
 those sections' notes; 1.5 s after the last one the play restarts by
 itself — before it could complete, so practice never fills the local
-scores — and "Practice · Verse · loop 3" shows at the top. Combines
+scores — and "Practice · Verse · loop 3" shows at the top. With no
+score to rank, the in-game leaderboard is off (owner 2026-10-19:
+`KanDrawableRuleset` sets the player's `ShowLeaderboard` to false before
+the HUD shows it, and the practice bar swallows Tab, so the setting is
+not flipped for the next scored play). Combines
 with the speed mods, Wait for me and Autoplay. Only sections with notes can be
 practised: the strip leaves the others out and a range on one of them
 (the intro — section 1 by default —, a break, the outro) snaps to the

@@ -311,7 +311,7 @@ namespace Kan.Ruleset.Mods
         /// next section, Shift with them to shorten or lengthen the part, or a
         /// click on the strip of sections at the top (Shift+click: up to there).
         /// </summary>
-        private partial class PracticeLoop : CompositeDrawable
+        private partial class PracticeLoop : CompositeDrawable, osu.Framework.Input.Bindings.IKeyBindingHandler<osu.Game.Input.Bindings.GlobalAction>
         {
             private readonly KanModPractice mod;
             private bool restarting;
@@ -424,6 +424,15 @@ namespace Kan.Ruleset.Mods
                 mod.countLoop();
                 osu.Framework.Logging.Logger.Log($"kan!: practice loop {mod.Loops} done ({mod.rangeName}), again");
                 restart();
+            }
+
+            // No leaderboard while practising (KanDrawableRuleset hides it): Tab
+            // would only flip the setting for the next scored play.
+            public bool OnPressed(osu.Framework.Input.Events.KeyBindingPressEvent<osu.Game.Input.Bindings.GlobalAction> e)
+                => e.Action == osu.Game.Input.Bindings.GlobalAction.ToggleInGameLeaderboard;
+
+            public void OnReleased(osu.Framework.Input.Events.KeyBindingReleaseEvent<osu.Game.Input.Bindings.GlobalAction> e)
+            {
             }
 
             protected override bool OnKeyDown(osu.Framework.Input.Events.KeyDownEvent e)
