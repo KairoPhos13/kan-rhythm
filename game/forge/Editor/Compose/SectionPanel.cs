@@ -139,11 +139,11 @@ namespace Kan.Forge.Editor.Compose
                     {
                         Caption = @"mic delay (ms)",
                         HintText = @"How late notes played into the mic arrive: speakers, microphone and recognition together. "
-                                   + @"Section recordings are placed this much earlier, and gameplay will judge your mic with it. Measure it rather than guessing.",
+                                   + @"Yours, not the song's (also set before playing a level, in the Microphone group). Section recordings are placed this much earlier, and plays judge your mic with it.",
                         Current = ForgeTiming.MIC_DELAY_MS,
                         KeyboardStep = 1,
                     },
-                    small(FontAwesome.Solid.Stopwatch, @"measure the mic delay", @"Play a note on a few clicks: the delay is measured and saved", tools.ShowMicCalibration),
+                    small(FontAwesome.Solid.Stopwatch, @"measure the mic delay", @"Play a note on a few clicks: the delay is measured and saved (the same measurement as before playing a level)", tools.ShowMicCalibration),
                     new FormSliderBar<double>
                     {
                         Caption = @"transcriber delay (ms)",

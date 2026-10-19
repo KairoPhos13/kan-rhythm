@@ -71,7 +71,6 @@ namespace Kan.Forge.Editor.Compose
         private OsuSpriteText status = null!;
         private GridTempoBar gridTempo = null!;
         private ShortcutsPanel shortcuts = null!;
-        private MicCalibrationPanel calibration = null!;
         private readonly BindableDouble transcriberDelay = new BindableDouble();
         private Container emptyState = null!;
         private Container newerTranscription = null!;
@@ -143,7 +142,6 @@ namespace Kan.Forge.Editor.Compose
                                             emptyState = createEmptyState(colourProvider),
                                             newerTranscription = createNewerTranscriptionBanner(colourProvider),
                                             shortcuts = new ShortcutsPanel(),
-                                            calibration = new MicCalibrationPanel(),
                                         },
                                     },
                                     Empty(),
@@ -185,10 +183,30 @@ namespace Kan.Forge.Editor.Compose
             changed();
         }
 
+        [Resolved]
+        private osu.Game.OsuGame? game { get; set; }
+
+        private Kan.Forge.Play.MicTimingOverlay? micTiming;
+
+        /// <summary>The mic delay measurement (the player's; the same as before playing a level).</summary>
         public void ShowMicCalibration()
         {
+            if (game == null) return;
+
             shortcuts.Hide();
-            calibration.Show();
+            clock.Stop();
+
+            if (micTiming == null)
+                game.Add(micTiming = new Kan.Forge.Play.MicTimingOverlay(() => ForgeTrackSession.Instrument));
+
+            micTiming.Show();
+        }
+
+        protected override void Dispose(bool isDisposing)
+        {
+            // Leaving the editor: the measurement goes with it.
+            micTiming?.Expire();
+            base.Dispose(isDisposing);
         }
 
         // ------------------------------------------------------------------

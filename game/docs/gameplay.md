@@ -30,9 +30,49 @@ microphone (BASS capture, 10 ms periods)
   each), so the selftest checks that live onsets equal the offline ones.
   libkan describes; the game judges (`LiveJudge` lives in `forge/Play`).
 - **Time:** a fact's gameplay time = the clock when listening started +
-  its stream time − the mic delay (`ForgeTiming.MIC_DELAY_MS`, measured
-  with the compose tab's mic calibration, which has the same structure:
-  the take's first sample is "now").
+  its stream time − the mic delay (`ForgeTiming.MIC_DELAY_MS`, the
+  player's, kan-forge/timing.json).
+- **Microphone, before playing** (owner 2026-10-17: "it consistently marks
+  me late"; real plays landed +29…+67 ms, about +45 on average, over ~25
+  practice rounds with the delay measured in compose): the player
+  loader's "Microphone" group (`KanMicSettings`) holds the delay, a
+  measurement and the last play's timing.
+  - **Measure it on clicks** opens `MicTimingOverlay` (forge/Play; compose
+    opens the same one — section recordings use the delay too): four count-in
+    clicks, then eight to answer, a ball coming to the ring on each (the
+    exact moment to attack, besides the sound), each answer marked beside
+    the ring. `MicCalibrator` measures it the way a play hears: the clicks
+    on a track, the live describer (`LiveSession`, the play's own path —
+    compose's measured a recorder and an offline transcription), onsets
+    placed on the track's clock as a play places them on the level's. The
+    overlay is focused, so the level does not start meanwhile; the song
+    about to start is silent while it is open (owner 2026-10-17: whichever
+    track is playing, and the level's part with it — `LevelPreview` follows
+    the track's whole volume, adjustments included). The measurement is
+    raw (the whole delay); the marks and the words show it as a play would
+    with the delay in use ("with your mic delay (41 ms) your notes landed
+    22 ms late: the right delay is 63 ms"), and "Use" saves the whole
+    delay, never adds to it (owner 2026-10-17: with a delay set, the marks
+    still landed late). Isolated checks: a take answering exactly on the
+    clicks measures 3 ms, 8 of 8, ±1; one 60 ms late measures 63 ms, then
+    "it is right" with 63. Each answer is marked beside its own click;
+    count-in answers grey and short (they never count — only the first
+    note near each of the eight clicks does; a take playing all twelve
+    measures the same 3 ms). Owner 2026-10-17: count-in notes, marked
+    against the first click to play, looked like they spoiled it.
+  - **Known limit:** answering clicks, people play ahead of them
+    (negative mean asynchrony, tens of ms — more with a ball announcing
+    each); in a song they read and tend to land late. The owner's own
+    measurements came out −5…−73 ms while plays landed ~+86 ms in all. A
+    loopback mode (the mic hears the speaker's clicks, no player) would
+    measure the device alone, but not with headphones; for now the last
+    play's timing is the closer measure.
+  - **The last play:** the median lateness of a play on the microphone
+    (not a wait mode, ≥ 10 notes; `KanPlayState.LastPlay`), and a button
+    to set the delay to the one played with + that, as osu!'s offset
+    suggestion does — for when the player knows they played it in time.
+  - Dev: `KAN_DEV_SCREEN=mictiming` measures in the player loader, the
+    clicks answered by `KAN_LIVE_INPUT` (never the microphone).
 
 ## Judging (`Kan.Forge.Play.LiveJudge`)
 

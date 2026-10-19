@@ -81,8 +81,9 @@ namespace Kan.Forge.Play
             var levelAudio = music.CurrentTrack;
             bool ours = playingLevel?.BeatmapSetInfo?.ID == set && music.TrackLoaded;
 
-            // The level audio fades in and out on track changes: so does its part.
-            part.Follow(levelAudio.CurrentTime, ours && levelAudio.IsRunning && onPreviewScreen(), ours ? levelAudio : null, (float)levelAudio.Volume.Value);
+            // The level audio fades in and out on track changes, or is silenced (the
+            // mic timing, 2026-10-17): so is its part — its whole volume, adjustments included.
+            part.Follow(levelAudio.CurrentTime, ours && levelAudio.IsRunning && onPreviewScreen(), ours ? levelAudio : null, (float)levelAudio.AggregateVolume.Value);
         }
 
         private bool onPreviewScreen() => game.ScreenStack?.CurrentScreen is SongSelect or PlayerLoader;

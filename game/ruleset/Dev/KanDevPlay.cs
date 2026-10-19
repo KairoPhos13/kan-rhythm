@@ -68,11 +68,28 @@ namespace Kan.Ruleset.Dev
         private osu.Game.Rulesets.IRulesetConfigCache configs { get; set; } = null!;
 
 
+        /// <summary>
+        /// What the mic timing listens to in a developer run: KAN_LIVE_INPUT,
+        /// paced in real time — never the microphone (a test instance must not
+        /// hear the person at the computer; no input = nothing heard).
+        /// </summary>
+        public static Kan.Forge.Play.ILiveSource? CalibrationInput()
+        {
+            if (!Enabled) return null;
+
+            var since = System.Diagnostics.Stopwatch.StartNew();
+            return new Kan.Forge.Play.FileSource(Environment.GetEnvironmentVariable(@"KAN_LIVE_INPUT") ?? string.Empty, () => since.Elapsed.TotalMilliseconds);
+        }
+
         public static bool Enabled => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(PLAY_ENV));
 
         protected override void LoadComplete()
         {
             base.LoadComplete();
+
+            // Mic measurements in a developer run hear KAN_LIVE_INPUT, never the microphone.
+            if (Enabled) Kan.Forge.Play.MicCalibrator.DevInput = CalibrationInput;
+
             Scheduler.AddDelayed(start, 8000);
         }
 
@@ -159,13 +176,24 @@ namespace Kan.Ruleset.Dev
                 return;
             }
 
-            if (Environment.GetEnvironmentVariable(SCREEN_ENV) is @"select" or @"selectplay")
+            if (Environment.GetEnvironmentVariable(SCREEN_ENV) is @"select" or @"selectplay" or @"mictiming")
             {
                 game.PerformFromScreen(s => s.Push(new SoloSongSelect()), new[] { typeof(MainMenu) });
 
                 // KAN_DEV_SCREEN=selectplay: start the level from song select, through osu!'s own player loader.
-                if (Environment.GetEnvironmentVariable(SCREEN_ENV) == @"selectplay")
+                if (Environment.GetEnvironmentVariable(SCREEN_ENV) is @"selectplay" or @"mictiming")
                 {
+                    // KAN_DEV_SCREEN=mictiming: in the player loader, measure the mic delay (KAN_LIVE_INPUT answers the clicks).
+                    if (Environment.GetEnvironmentVariable(SCREEN_ENV) == @"mictiming")
+                    {
+                        Scheduler.AddDelayed(() =>
+                        {
+                            var settings = game.ChildrenOfType<Kan.Ruleset.UI.KanMicSettings>().FirstOrDefault();
+                            Logger.Log($"kan! dev play: mic timing ({(settings == null ? "no microphone group" : "measuring")})", level: LogLevel.Important);
+                            settings?.DevMeasure();
+                        }, 10000);
+                    }
+
                     Scheduler.AddDelayed(() =>
                     {
                         // As pressing play: song select's own start (protected; developer tooling only).

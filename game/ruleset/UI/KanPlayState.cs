@@ -421,6 +421,7 @@ namespace Kan.Ruleset.UI
                 // measured round trip (micDelayMs) covers everything after it.
                 anchorMs = now;
                 source = new MicSource();
+                micPlay = true;
             }
 
             // Rate mods: the player's time runs at the real pace, the level's at the rate.
@@ -714,6 +715,18 @@ namespace Kan.Ruleset.UI
             return true;
         }
 
+        /// <summary>Whether this play listens to the microphone (not a recording, not a replay).</summary>
+        private bool micPlay;
+
+        /// <summary>How late the notes of the last play on the microphone landed (real ms, median), with the mic delay it was played with.</summary>
+        public readonly record struct LastPlayTiming(double MedianMs, int Notes, double MicDelayMs)
+        {
+            public const int MIN_NOTES = 10;
+        }
+
+        /// <summary>The last play on the microphone (owner 2026-10-17: offer to correct the mic delay by it, as osu! does).</summary>
+        public static LastPlayTiming? LastPlay { get; private set; }
+
         /// <summary>The player has the pause menu open (set by the wait overlay, which listens while the level stands still).</summary>
         public bool UserPaused { get; set; }
 
@@ -873,6 +886,7 @@ namespace Kan.Ruleset.UI
             summaryLogged = true;
             int judged = 0, perfect = 0, great = 0, good = 0, ok = 0, meh = 0, notHeard = 0, wrong = 0, unclear = 0;
             double offsets = 0;
+            var timings = new System.Collections.Generic.List<double>();
 
             foreach (var v in Verdicts)
             {
@@ -893,6 +907,15 @@ namespace Kan.Ruleset.UI
                 if (verdict.Reason == LiveReason.WrongNote) wrong++;
                 if (verdict.Reason == LiveReason.PitchUnclear) unclear++;
                 if (verdict.Result != LiveResult.Miss) offsets += verdict.OffsetMs;
+                if (verdict.Result != LiveResult.Miss && verdict.Reason == LiveReason.Played) timings.Add(verdict.OffsetMs / (rate > 0 ? rate : 1));
+            }
+
+            // How late the player's notes landed, for "correct by the last play" (the
+            // microphone, timed by the level: a wait mode's resumes are timed by itself).
+            if (micPlay && !WaitForPlayer && timings.Count >= LastPlayTiming.MIN_NOTES)
+            {
+                timings.Sort();
+                LastPlay = new LastPlayTiming(timings[timings.Count / 2], timings.Count, micDelayMs);
             }
 
             if (judged == 0)

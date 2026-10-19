@@ -414,10 +414,13 @@ cents), duration, intensity and playing style (normal / legato / staccato
   osu editor's own Space/C, X, Z, V and arrow seeks keep working.
 - **Timing** (`Tracks/ForgeTiming`, kan-forge/timing.json, for gameplay too):
   **mic delay** = the play-along round trip (speakers + player + mic +
-  transcriber), measured by `MicCalibrationPanel` (4 count-in + 8 clicks,
-  median lateness of the transcribed onsets, `MicCalibration.Estimate`,
-  trusted with ≥ 2/3 answers and spread ≤ 40 ms); applied to section
-  recordings. **Transcriber delay** = the transcriber's lateness on a file;
+  transcriber), the player's, measured before playing a level (2026-10-17:
+  moved out of compose to the player loader, `KanMicTimingOverlay` — see
+  gameplay.md; 4 count-in + 8 clicks, median lateness of the live
+  describer's onsets, `MicCalibration.Estimate`, trusted with ≥ 2/3
+  answers and spread ≤ 40 ms); applied to section recordings too — compose
+  keeps the slider and a "measure the mic delay" button that opens the
+  same `MicTimingOverlay` (the owner: it has a role there too). **Transcriber delay** = the transcriber's lateness on a file;
   applied to every transcription and, when changed, shifts the whole score
   by the difference (undoable).
 - **Validation export:** "export MIDI" writes a folder with the reference

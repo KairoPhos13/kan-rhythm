@@ -223,7 +223,7 @@ namespace Kan.Ruleset
 
         /// <summary>The player loader's "Notation" group (fork F-16): note names, colours, size.</summary>
         public override IEnumerable<osu.Game.Screens.Play.PlayerSettings.PlayerSettingsGroup> CreatePlayerLoaderSettings()
-            => new osu.Game.Screens.Play.PlayerSettings.PlayerSettingsGroup[] { new KanNotationSettings() };
+            => new osu.Game.Screens.Play.PlayerSettings.PlayerSettingsGroup[] { new KanNotationSettings(), new KanMicSettings() };
 
         /// <summary>Song select lists the levels the player's instrument can play.</summary>
         public override osu.Game.Rulesets.Filter.IRulesetFilterCriteria CreateRulesetFilterCriteria() => new KanFilterCriteria();
