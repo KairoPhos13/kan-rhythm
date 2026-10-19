@@ -208,6 +208,9 @@ namespace Kan.Ruleset.UI
         public double RealNowMs => realClock.Elapsed.TotalMilliseconds;
 
         private LiveSession? session;
+
+        /// <summary>The describer listening now (null while not listening).</summary>
+        internal LiveSession? Session => session;
         private double rate = 1;
         private bool filePacedByLevel;
         private int replayCursor;
@@ -232,6 +235,9 @@ namespace Kan.Ruleset.UI
         private double anchorMs;
         private double micDelayMs;
         private volatile float clockMs;
+
+        /// <summary>Where the level is (ms), as of the last frame.</summary>
+        internal float ClockMs => clockMs;
         private bool failed;
         private long lastHeartbeat;
         private int judgedCount;

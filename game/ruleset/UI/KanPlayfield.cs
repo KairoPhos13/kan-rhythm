@@ -98,6 +98,7 @@ namespace Kan.Ruleset.UI
             AddRangeInternal(new Drawable[]
             {
                 state,
+                new KanHitchMonitor(state),
                 scene = new KanScene(state),
                 background = new Box { RelativeSizeAxes = Axes.Both, Depth = float.MaxValue },
                 climaxGlow = new Box

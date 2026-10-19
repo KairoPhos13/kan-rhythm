@@ -377,16 +377,38 @@ inline float midi_to_hz(float midi) noexcept {
 }
 
 /// Harmonic-series energy of a fundamental: sum |harmonic|² / h² over the
-/// first six harmonics (fixed grid math, no allocation).
+/// first six harmonics (fixed grid math, no allocation). The harmonics'
+/// Goertzel recurrences run side by side in one pass over the window — the
+/// same arithmetic as `goertzel_mag` per harmonic, but independent chains the
+/// CPU overlaps instead of one latency-bound chain at a time (owner
+/// 2026-10-19: the live stream stalled on these).
 inline double series_energy(const float* x, size_t n, float sr, float f0,
                             float* f0_mag = nullptr) noexcept {
-    double e = 0.0;
+    double w[6], coeff[6], s1[6] = {0.0}, s2[6] = {0.0};
+    int count = 0;
     for (int h = 1; h <= 6; ++h) {
         const float f = f0 * float(h);
         if (f > 0.45f * sr) break;
-        const double m = goertzel_mag(x, n, sr, f);
-        if (h == 1 && f0_mag != nullptr) *f0_mag = float(m);
-        e += (m / double(h)) * (m / double(h));
+        w[count] = 2.0 * M_PI * double(f) / double(sr);
+        coeff[count] = 2.0 * std::cos(w[count]);
+        ++count;
+    }
+    for (size_t i = 0; i < n; ++i) {
+        const double xi = double(x[i]);
+        for (int k = 0; k < count; ++k) {
+            const double s0 = xi + coeff[k] * s1[k] - s2[k];
+            s2[k] = s1[k];
+            s1[k] = s0;
+        }
+    }
+    double e = 0.0;
+    for (int k = 0; k < count; ++k) {
+        const double re = s1[k] - s2[k] * std::cos(w[k]);
+        const double im = s2[k] * std::sin(w[k]);
+        const double m = 2.0 * std::sqrt(re * re + im * im) / double(n);
+        if (k == 0 && f0_mag != nullptr) *f0_mag = float(m);
+        const double h = double(k + 1);
+        e += (m / h) * (m / h);
     }
     return e;
 }
@@ -408,13 +430,25 @@ inline BlindContent classify_content(const float* window, size_t count,
     BlindContent out;
     if (count < 256) return out;
 
+    // The coarse grid's series energies are measured once and shared by the
+    // best-series search and every acceptance pass (they never change between
+    // passes): the passes used to re-measure the whole grid each, ~50 M
+    // multiply-adds on a 170 ms window — a 30 ms stall of the live stream.
+    constexpr int kGrid = 129; // 28..92 in 0.5 steps
+    double grid_e[kGrid];
+    float grid_f0[kGrid];
+    for (int i = 0; i < kGrid; ++i) {
+        const float m = 28.0f + 0.5f * float(i);
+        grid_f0[i] = 0.0f;
+        grid_e[i] = detail::series_energy(window, count, sample_rate,
+                                          detail::midi_to_hz(m), &grid_f0[i]);
+    }
+
     // Best single series: coarse 0.5-semitone grid, then a fine refine.
     double best_e = -1.0;
     float best_midi = 60.0f;
-    for (float m = 28.0f; m <= 92.0f; m += 0.5f) {
-        const double e = detail::series_energy(window, count, sample_rate,
-                                               detail::midi_to_hz(m));
-        if (e > best_e) { best_e = e; best_midi = m; }
+    for (int i = 0; i < kGrid; ++i) {
+        if (grid_e[i] > best_e) { best_e = grid_e[i]; best_midi = 28.0f + 0.5f * float(i); }
     }
     for (float m = best_midi - 0.5f; m <= best_midi + 0.5f; m += 0.05f) {
         const double e = detail::series_energy(window, count, sample_rate,
@@ -437,7 +471,8 @@ inline BlindContent classify_content(const float* window, size_t count,
     for (int pass = 0; pass < 7; ++pass) {
         double pick_e = 0.0;
         float pick_midi = 0.0f, pick_f0_mag = 0.0f;
-        for (float m = 28.0f; m <= 92.0f; m += 0.5f) {
+        for (int i = 0; i < kGrid; ++i) {
+            const float m = 28.0f + 0.5f * float(i);
             bool derivative = false;
             for (size_t a = 0; a < n_acc; ++a) {
                 const float r = detail::midi_to_hz(m) / detail::midi_to_hz(accepted[a]);
@@ -448,10 +483,7 @@ inline BlindContent classify_content(const float* window, size_t count,
                 }
             }
             if (derivative) continue;
-            float f0_mag = 0.0f;
-            const double e = detail::series_energy(window, count, sample_rate,
-                                                   detail::midi_to_hz(m), &f0_mag);
-            if (e > pick_e) { pick_e = e; pick_midi = m; pick_f0_mag = f0_mag; }
+            if (grid_e[i] > pick_e) { pick_e = grid_e[i]; pick_midi = m; pick_f0_mag = grid_f0[i]; }
         }
         if (pick_midi == 0.0f || pick_e < double(ratio) * best_e
             || pick_f0_mag < 0.12 * double(best_f0_mag)) {

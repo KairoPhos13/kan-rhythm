@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using ManagedBass;
@@ -223,6 +224,26 @@ namespace Kan.Forge.Play
 
         public bool TryTake(out KanForgeLiveEvent fact) => facts.TryDequeue(out fact);
 
+        // Worst since the last TakeLoad (µs; written by the worker, swapped out by the game).
+        private long worstChunkUs;
+        private long worstBatchUs;
+
+        /// <summary>
+        /// How hard the describer works (owner 2026-10-19, lag hunt): the slowest
+        /// 10 ms block it described, and the most audio it found waiting at once
+        /// (a lot means it fell behind), both in ms since the last call.
+        /// </summary>
+        public (double WorstChunkMs, double WorstBacklogMs) TakeLoad()
+            => (Interlocked.Exchange(ref worstChunkUs, 0) / 1000.0, Interlocked.Exchange(ref worstBatchUs, 0) / 1000.0);
+
+        private static void raise(ref long worst, long value)
+        {
+            long seen;
+            while (value > (seen = Interlocked.Read(ref worst)) && Interlocked.CompareExchange(ref worst, value, seen) != seen)
+            {
+            }
+        }
+
         private void run(IntPtr live)
         {
             var samples = new float[chunk * 10];
@@ -240,11 +261,15 @@ namespace Kan.Forge.Play
                         continue;
                     }
 
+                    raise(ref worstBatchUs, (long)got * 1_000_000 / source.SampleRate);
+
                     // The describer measures in its own blocks; hand it 10 ms at a time.
                     for (int at = 0; at < got; at += chunk)
                     {
                         int n = Math.Min(chunk, got - at);
+                        long started = Stopwatch.GetTimestamp();
                         int count = KanForgeNative.LiveProcess(live, at == 0 ? samples : slice(samples, at, n), n, events, events.Length);
+                        raise(ref worstChunkUs, (long)Stopwatch.GetElapsedTime(started).TotalMicroseconds);
 
                         for (int i = 0; i < count; i++)
                             facts.Enqueue(events[i]);

@@ -20,6 +20,8 @@
 //   9. legato TRANSITIONS — pitch changes without attacks open records
 //  10. vibrato center — the final pitch is the center of the oscillation
 //  12. bend fact — a glide is claimed as bend_c, disambiguated from vibrato
+//  15. content classifier measures its grid once, harmonics side by side —
+//      same result as the original, bit for bit, on mono / chord / noise
 #include "libkan/note_stream.hpp"
 
 #include <algorithm>
@@ -920,6 +922,109 @@ void fixture_14_wind_articulation() {
     check(std::fabs(median) <= 30.0f, what);
 }
 
+// ---------------------------------------------------------------------------
+// 15. classify_content shares its grid between passes and runs a series'
+//     harmonics side by side (owner 2026-10-19: it stalled the live stream
+//     ~30 ms). The original algorithm — re-measuring passes, one harmonic at
+//     a time — kept here as the reference, must agree bit for bit.
+
+double series_energy_reference(const float* x, size_t n, float sr, float f0, float* f0_mag = nullptr) {
+    double e = 0.0;
+    for (int h = 1; h <= 6; ++h) {
+        const float f = f0 * float(h);
+        if (f > 0.45f * sr) break;
+        const double m = kan::detail::goertzel_mag(x, n, sr, f);
+        if (h == 1 && f0_mag != nullptr) *f0_mag = float(m);
+        e += (m / double(h)) * (m / double(h));
+    }
+    return e;
+}
+
+kan::BlindContent classify_content_reference(const float* window, size_t count, float sample_rate,
+                                             const kan::InstrumentProfile& profile) {
+    namespace d = kan::detail;
+    kan::BlindContent out;
+    if (count < 256) return out;
+    double best_e = -1.0;
+    float best_midi = 60.0f;
+    for (float m = 28.0f; m <= 92.0f; m += 0.5f) {
+        const double e = series_energy_reference(window, count, sample_rate, d::midi_to_hz(m));
+        if (e > best_e) { best_e = e; best_midi = m; }
+    }
+    for (float m = best_midi - 0.5f; m <= best_midi + 0.5f; m += 0.05f) {
+        const double e = series_energy_reference(window, count, sample_rate, d::midi_to_hz(m));
+        if (e > best_e) { best_e = e; best_midi = m; }
+    }
+    out.dominant_midi = std::round(best_midi);
+    if (best_e <= 0.0) return out;
+    float best_f0_mag = 0.0f;
+    (void)series_energy_reference(window, count, sample_rate, d::midi_to_hz(best_midi), &best_f0_mag);
+    float accepted[8] = {best_midi};
+    size_t n_acc = 1;
+    double acc_energy = best_e;
+    for (int pass = 0; pass < 7; ++pass) {
+        double pick_e = 0.0;
+        float pick_midi = 0.0f, pick_f0_mag = 0.0f;
+        for (float m = 28.0f; m <= 92.0f; m += 0.5f) {
+            bool derivative = false;
+            for (size_t a = 0; a < n_acc; ++a) {
+                const float r = d::midi_to_hz(m) / d::midi_to_hz(accepted[a]);
+                const float k = std::round(r);
+                if (k >= 1.0f && k <= 8.0f && std::fabs(r - k) < 0.02f) { derivative = true; break; }
+            }
+            if (derivative) continue;
+            float f0_mag = 0.0f;
+            const double e = series_energy_reference(window, count, sample_rate, d::midi_to_hz(m), &f0_mag);
+            if (e > pick_e) { pick_e = e; pick_midi = m; pick_f0_mag = f0_mag; }
+        }
+        if (pick_midi == 0.0f || pick_e < double(profile.mono_poly_threshold) * best_e
+            || pick_f0_mag < 0.12 * double(best_f0_mag)) break;
+        accepted[n_acc++] = pick_midi;
+        acc_energy += pick_e;
+    }
+    out.n_series = float(n_acc);
+    out.capture = float(best_e / (acc_energy > 0.0 ? acc_energy : 1.0));
+    out.klass = (n_acc >= 2) ? kan::ContentClass::Polyphonic : kan::ContentClass::Mono;
+    return out;
+}
+
+void fixture_15_classifier_grid_shared() {
+    std::printf("[15] content classifier: grid measured once, same result\n");
+    constexpr size_t n = 8192; // kFinalWindow
+    auto tones = [&](std::initializer_list<float> midis) {
+        std::vector<float> w(n, 0.0f);
+        for (float m : midis) {
+            const double f = 440.0 * std::pow(2.0, (double(m) - 69.0) / 12.0);
+            for (size_t i = 0; i < n; ++i)
+                for (int h = 1; h <= 4; ++h)
+                    w[i] += float(0.2 / h * std::sin(2.0 * M_PI * f * h * double(i) / kSr));
+        }
+        return w;
+    };
+    std::vector<float> noise(n);
+    uint32_t x = 12345;
+    for (float& s : noise) { x = x * 1664525u + 1013904223u; s = float(int(x >> 16) - 32768) / 65536.0f; }
+
+    const std::vector<std::vector<float>> windows = {
+        tones({76.0f}), tones({60.0f, 64.0f, 67.0f}), tones({48.0f, 60.0f, 71.0f}), tones({57.3f, 62.0f}), noise,
+    };
+    const kan::InstrumentProfile profiles[] = {piano_profile(), mono_profile()};
+    int same = 0, total = 0;
+    for (const auto& w : windows) {
+        for (const auto& p : profiles) {
+            const kan::BlindContent a = kan::classify_content(w.data(), n, kSr, p);
+            const kan::BlindContent b = classify_content_reference(w.data(), n, kSr, p);
+            ++total;
+            same += a.klass == b.klass && a.capture == b.capture && a.dominant_midi == b.dominant_midi && a.n_series == b.n_series;
+        }
+    }
+    char what[96];
+    std::snprintf(what, sizeof(what), "%d of %d windows classified identically", same, total);
+    check(same == total, what);
+    const kan::BlindContent chord = kan::classify_content(windows[1].data(), n, kSr, piano_profile());
+    check(chord.klass == kan::ContentClass::Polyphonic, "a C major triad is polyphonic");
+}
+
 } // namespace
 
 int main() {
@@ -938,6 +1043,7 @@ int main() {
     fixture_11_restrike_vs_extension();
     fixture_13_mono_one_record_at_a_time();
     fixture_14_wind_articulation();
+    fixture_15_classifier_grid_shared();
     std::printf("%s\n", g_pass ? "ALL PASS" : "FAILURES");
     return g_pass ? 0 : 1;
 }

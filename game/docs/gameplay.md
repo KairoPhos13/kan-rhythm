@@ -449,6 +449,25 @@ section on now, the palette in force — eased between sections over
 - Everything is drawn from fixed pools, so any length of score costs the
   same per frame.
 
+## Stutters (owner 2026-10-19)
+
+`KanHitchMonitor` (on the playfield) logs every frame over 50 ms during a
+play — `kan!: hitch at 12.3 s — update / draw / audio ms; GC pause and
+collections; describer ms per 10 ms block, ms of audio waiting` — and the
+play's totals when it ends (`kan!: play frames — …`). The describer's load
+comes from `LiveSession.TakeLoad` (worker: slowest block, biggest backlog).
+Read the log after a play that stuttered before changing threads or
+priorities: the update, draw, audio and describer threads already run apart.
+
+First finding (2026-10-19): frames were smooth, but the describer stalled
+up to 75 ms on one 10 ms block, so judgements landed late. The cost was
+libkan's blind content classifier (`classify_content`: mono or chord), which
+re-measured its whole pitch grid on every acceptance pass, one harmonic at
+a time. It now measures the grid once and runs a series' harmonics side by
+side, bit-identical (libkan `note_stream_test` fixture 15). On the owner's
+ocarina take, the worst block fell from 97 ms to 6 ms (p99 30 → 5 ms; none
+over 10 ms).
+
 ## Testing without a microphone or a screen
 
 `Dev/KanDevPlay` (inert unless its environment variables are set):
