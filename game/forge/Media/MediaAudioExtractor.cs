@@ -155,6 +155,68 @@ namespace Kan.Forge.Media
             }
         }
 
+        /// <summary>
+        /// Shift <paramref name="inputPath"/>'s pitch by <paramref name="semitones"/>
+        /// at the same speed (BASS_FX tempo stream, the processor the live
+        /// preview hears) into a PCM16 WAV.
+        /// </summary>
+        public static bool TryPitchShiftToWav(string inputPath, string outWav, int semitones, out string error)
+        {
+            error = string.Empty;
+            ensureBass();
+
+            int source = Bass.CreateStream(inputPath, 0, 0, BassFlags.Decode | BassFlags.Float);
+            if (source == 0)
+            {
+                error = $"cannot open track for the pitch shift ({Bass.LastError})";
+                return false;
+            }
+
+            int handle = ManagedBass.Fx.BassFx.TempoCreate(source, BassFlags.Decode | BassFlags.FxFreeSource);
+            if (handle == 0)
+            {
+                Bass.StreamFree(source);
+                error = $"cannot create the pitch shifter ({Bass.LastError})";
+                return false;
+            }
+
+            try
+            {
+                if (!Bass.ChannelGetInfo(handle, out ChannelInfo info) || info.Channels <= 0)
+                {
+                    error = $"cannot read track info ({Bass.LastError})";
+                    return false;
+                }
+
+                if (!Bass.ChannelSetAttribute(handle, ChannelAttribute.Pitch, semitones))
+                {
+                    error = $"cannot set the pitch ({Bass.LastError})";
+                    return false;
+                }
+
+                // The tempo stream's length is only an estimate: read to the end.
+                var samples = new System.Collections.Generic.List<float>();
+                var buffer = new float[16384 * info.Channels];
+                int read;
+
+                while ((read = Bass.ChannelGetData(handle, buffer, buffer.Length * 4)) > 0)
+                    samples.AddRange(new ArraySegment<float>(buffer, 0, read / 4));
+
+                if (samples.Count == 0)
+                {
+                    error = $"pitch shift decode failed ({Bass.LastError})";
+                    return false;
+                }
+
+                writeWav(outWav, samples.ToArray(), samples.Count / info.Channels, info.Channels, info.Frequency);
+                return true;
+            }
+            finally
+            {
+                Bass.StreamFree(handle);
+            }
+        }
+
         private static bool addFilter(int handle, ManagedBass.Fx.BQFType type, double cutoffHz, int sampleRate, out string error)
         {
             error = string.Empty;

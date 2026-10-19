@@ -65,6 +65,53 @@ namespace Kan.Forge.Tests
             Assert.That(error, Is.Not.Empty);
         }
 
+        /// <summary>
+        /// Pitch shift (owner 2026-10-19: a companion moved about an octave to
+        /// the instrument's range): 440 Hz an octave up is 880 Hz, down 220 Hz,
+        /// and the length — the speed — is kept.
+        /// </summary>
+        [TestCase(12, 880.0)]
+        [TestCase(-12, 220.0)]
+        public void TestPitchShiftKeepsTheSpeed(int semitones, double expectedHz)
+        {
+            const int rate = 44100;
+            const int frames = rate * 2;
+
+            string dir = Path.Combine(Path.GetTempPath(), "kan-forge-tests");
+            string src = Path.Combine(dir, "pitch-src-" + Guid.NewGuid().ToString("N")[..8] + ".wav");
+            string outWav = Path.Combine(dir, "pitch-out-" + Guid.NewGuid().ToString("N")[..8] + ".wav");
+
+            var tone = new float[frames];
+            for (int i = 0; i < frames; i++)
+                tone[i] = 0.5f * MathF.Sin(2 * MathF.PI * 440 * i / rate);
+            MediaAudioExtractor.WriteWav(src, tone, frames, 1, rate);
+
+            bool ok = MediaAudioExtractor.TryPitchShiftToWav(src, outWav, semitones, out string error);
+            Assert.That(ok, Is.True, error);
+
+            var shifted = readPcm16(outWav);
+            Assert.That(shifted.Length, Is.EqualTo(frames).Within(rate / 20), "same length: the speed is unchanged");
+
+            // Count rising zero crossings over the steady middle second.
+            int crossings = 0;
+            for (int i = rate / 2 + 1; i < rate * 3 / 2; i++)
+            {
+                if (shifted[i - 1] < 0 && shifted[i] >= 0)
+                    crossings++;
+            }
+
+            Assert.That(crossings, Is.EqualTo(expectedHz).Within(expectedHz * 0.03));
+        }
+
+        private static float[] readPcm16(string path)
+        {
+            byte[] bytes = File.ReadAllBytes(path);
+            var samples = new float[(bytes.Length - 44) / 2];
+            for (int i = 0; i < samples.Length; i++)
+                samples[i] = BitConverter.ToInt16(bytes, 44 + i * 2) / 32768f;
+            return samples;
+        }
+
         [Test]
         public void TestVideoDetection()
         {

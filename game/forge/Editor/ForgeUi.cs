@@ -237,7 +237,7 @@ namespace Kan.Forge.Editor
             var sb = new StringBuilder(@"[");
             foreach (var r in e.Ranges)
                 sb.Append((int)r.Mode).Append(':').Append(Math.Round(r.FromMs)).Append('-').Append(Math.Round(r.ToMs)).Append(';');
-            return sb.Append(Math.Round(e.LowCutHz)).Append('/').Append(Math.Round(e.HighCutHz)).Append(']').ToString();
+            return sb.Append(Math.Round(e.LowCutHz)).Append('/').Append(Math.Round(e.HighCutHz)).Append('^').Append(e.PitchSemitones).Append(']').ToString();
         }
 
         /// <summary>Everything that is saved with the set, as one comparable string.</summary>

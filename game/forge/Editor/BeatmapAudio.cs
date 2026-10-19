@@ -120,7 +120,7 @@ namespace Kan.Forge.Editor
         public static string Signature(ForgeTrackSet set)
         {
             var parts = set.Companions.Select(t =>
-                $"{t.Path}|{t.Gain:0.000}|{t.OffsetMs:0}|{t.ClipStartMs:0}-{t.ClipEndMs:0}|{t.Edits.LowCutHz:0}/{t.Edits.HighCutHz:0}|"
+                $"{t.Path}|{t.Gain:0.000}|{t.OffsetMs:0}|{t.ClipStartMs:0}-{t.ClipEndMs:0}|{t.Edits.LowCutHz:0}/{t.Edits.HighCutHz:0}^{t.Edits.PitchSemitones}|"
                 + string.Join(';', t.Edits.Ranges.Select(r => $"{(int)r.Mode}:{r.FromMs:0}-{r.ToMs:0}")));
 
             return $"{set.AudioStartMs:0}-{set.AudioEndMs:0}#" + string.Join('#', parts);

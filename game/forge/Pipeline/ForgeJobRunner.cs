@@ -255,7 +255,8 @@ namespace Kan.Forge.Pipeline
         /// <summary>
         /// The track as heard, as a file: range edits through the native
         /// editor (keeps' gaps and silences first, one trim last), then the
-        /// filters via BASS — the same biquads the preview runs. Worker
+        /// filters via BASS — the same biquads the preview runs — then the
+        /// pitch shift (BASS_FX, as the preview's). Worker
         /// thread. Intermediate files are added to <paramref name="temps"/>.
         /// </summary>
         private static (string Path, double OffsetMs) prepare(ForgeTrack track, string workDir, List<string> temps)
@@ -290,6 +291,15 @@ namespace Kan.Forge.Pipeline
                 string output = next();
                 if (!Media.MediaAudioExtractor.TryFilterToWav(current, output, edits.LowCutHz, edits.HighCutHz, out string error))
                     throw new ForgeException($"filter: {error}");
+
+                current = output;
+            }
+
+            if (edits.HasPitch)
+            {
+                string output = next();
+                if (!Media.MediaAudioExtractor.TryPitchShiftToWav(current, output, edits.PitchSemitones, out string error))
+                    throw new ForgeException($"pitch: {error}");
 
                 current = output;
             }

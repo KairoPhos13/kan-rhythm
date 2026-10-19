@@ -59,13 +59,25 @@ namespace Kan.Forge.Tracks
 
         public bool HasFilters => LowCutHz > 0 || HighCutHz > 0;
 
-        public bool IsEmpty => Ranges.Count == 0 && !HasFilters;
+        /// <summary>
+        /// Pitch shift in semitones, speed unchanged (owner 2026-10-19: a piano
+        /// companion written for another range is moved to the ocarina's,
+        /// about an octave either way); 0 = off.
+        /// </summary>
+        public int PitchSemitones { get; set; }
+
+        public const int MAX_PITCH_SEMITONES = 12;
+
+        public bool HasPitch => PitchSemitones != 0;
+
+        public bool IsEmpty => Ranges.Count == 0 && !HasFilters && !HasPitch;
 
         public TrackEdits Clone() => new TrackEdits
         {
             Ranges = Ranges.Select(r => r.Clone()).ToList(),
             LowCutHz = LowCutHz,
             HighCutHz = HighCutHz,
+            PitchSemitones = PitchSemitones,
         };
 
         private IEnumerable<PendingRange> of(KanForgeEditMode mode) => Ranges.Where(r => r.Mode == mode);

@@ -126,7 +126,7 @@ Use these words everywhere — UI, code, docs, saved files:
 | **start and end of a track** | its side trims (`ClipStartMs/ClipEndMs`): drag the sides, or use the bar in its edit panel |
 | **mute** | part of the mix: a muted track is left out of the level audio too (saved, undoable) |
 | **solo** | only for listening: "hear only this" (click), Ctrl+click adds tracks; not saved. A track is never muted and soloed at once (soloing unmutes it, muting drops its solo); each row says why it is silent (*muted*, *silent: solo*); **clear solo** in the toolbar |
-| **edits** | pending, heard live, saved only as a NEW track: **keep this** (all kept parts stay, the rest is muted, timing preserved), **silence this**, **trim to this**, low cut / high cut |
+| **edits** | pending, heard live, saved only as a NEW track: **keep this** (all kept parts stay, the rest is muted, timing preserved), **silence this**, **trim to this**, low cut / high cut, pitch (±12 semitones, same speed) |
 
 There is no "music", "song" or "accompaniment" role any more; sets saved
 with those names load as companion (`ForgeSetFile` legacy aliases).
@@ -290,6 +290,16 @@ it starts. The set spans `max(start + length)`.
   never modified. Its edits are cleared and it is muted, so the mix still
   sounds like the preview, and one undo brings everything back. Tests:
   `TrackEditsTest`.
+- **Pitch (owner 2026-10-19):** a piano companion written for another range
+  is moved to the instrument's: `TrackEdits.PitchSemitones`, ±12 (an octave
+  either way), speed unchanged. Live, the track's channel takes a frequency
+  adjustment of 2^(s/12) and a tempo adjustment of its inverse (BASS_FX),
+  so its rate stays 1 and it keeps the timeline. Saving renders it after the
+  filters with a BASS_FX tempo stream's pitch attribute
+  (`MediaAudioExtractor.TryPitchShiftToWav`). The level audio's signature
+  includes it, so a pitched companion re-renders the mix. Test:
+  `MediaExtractionTest.TestPitchShiftKeepsTheSpeed` (440 Hz → 880 / 220 Hz,
+  same length).
 - **Undo/redo:** `ForgeSetHistory`, the tab's own history (Ctrl+Z / Ctrl+Y;
   the beatmap's undo is untouched). It covers roles, volume, mute, start,
   pending edits, removals, saves and demux stems. Tracks imported in

@@ -391,6 +391,20 @@ namespace Kan.Forge.Editor
                 onRoleChanged();
             });
 
+            var pitch = new BindableInt(Track.Edits.PitchSemitones)
+            {
+                MinValue = -TrackEdits.MAX_PITCH_SEMITONES,
+                MaxValue = TrackEdits.MAX_PITCH_SEMITONES,
+            };
+            pitch.BindValueChanged(v =>
+            {
+                if (resettingFilters) return;
+
+                history.Record($"pitch:{historyId}");
+                Track.Edits.PitchSemitones = v.NewValue;
+                onRoleChanged();
+            });
+
             ForgeButton op(IconUsage icon, string text, string tooltip, KanForgeEditMode mode) => new ForgeButton(icon, text)
             {
                 TooltipText = tooltip,
@@ -537,6 +551,13 @@ namespace Kan.Forge.Editor
                                 HintText = @"Removes hiss and high content above this frequency.",
                                 Current = highCut,
                                 KeyboardStep = 100,
+                            },
+                            new FormSliderBar<int>
+                            {
+                                Caption = @"pitch (semitones) · ±12 = an octave",
+                                HintText = @"Moves every note up or down at the same speed — e.g. a piano part written for another range, moved to your instrument's.",
+                                Current = pitch,
+                                KeyboardStep = 1,
                             }),
                         heading(FontAwesome.Solid.Save, @"Save", @"as a new track — this one is never modified"),
                         row(
@@ -544,7 +565,7 @@ namespace Kan.Forge.Editor
                             new ForgeButton(FontAwesome.Solid.Save, @"save as new track", colours.GreenLight)
                             {
                                 Height = 52,
-                                TooltipText = @"Render this track with its edits and filters into a new track of the set.",
+                                TooltipText = @"Render this track with its edits, filters and pitch into a new track of the set.",
                                 Action = () =>
                                 {
                                     editHint.FadeOut(100);
@@ -554,7 +575,7 @@ namespace Kan.Forge.Editor
                             new ForgeButton(FontAwesome.Solid.Undo, @"discard edits")
                             {
                                 Height = 52,
-                                TooltipText = @"Drop the pending edits and filters (undo brings them back).",
+                                TooltipText = @"Drop the pending edits, filters and pitch (undo brings them back).",
                                 Action = () =>
                                 {
                                     if (Track.Edits.IsEmpty) return;
@@ -564,6 +585,7 @@ namespace Kan.Forge.Editor
                                     resettingFilters = true;
                                     lowCut.Value = 0;
                                     highCut.Value = high_cut_off;
+                                    pitch.Value = 0;
                                     resettingFilters = false;
                                     refreshPending();
                                     onRoleChanged();

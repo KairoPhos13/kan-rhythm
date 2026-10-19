@@ -529,6 +529,12 @@ namespace Kan.Forge.Editor
             private bool boostAttached;
             private float boostDb;
 
+            // Pitch without a speed change: the frequency moves the pitch (and
+            // the speed), the tempo puts the speed back — their product, the
+            // track's rate, stays 1, so the channel keeps the timeline.
+            private readonly BindableDouble pitchFrequency = new BindableDouble(1);
+            private readonly BindableDouble pitchTempo = new BindableDouble(1);
+
             private Channel(AudioMixer mixer, ITrackStore store, Track track)
             {
                 Mixer = mixer;
@@ -537,6 +543,9 @@ namespace Kan.Forge.Editor
 
                 lowCut = new AudioFilter(mixer, BQFType.HighPass);
                 highCut = new AudioFilter(mixer, BQFType.LowPass);
+
+                track.AddAdjustment(AdjustableProperty.Frequency, pitchFrequency);
+                track.AddAdjustment(AdjustableProperty.Tempo, pitchTempo);
             }
 
             /// <summary>Amplify above 0 dB (the track volume covers 0..1).</summary>
@@ -570,11 +579,15 @@ namespace Kan.Forge.Editor
                 }
             }
 
-            /// <summary>Follow the track's pending filters (same biquads the save renders with).</summary>
+            /// <summary>Follow the track's pending filters (same biquads the save renders with) and pitch shift.</summary>
             public void ApplyFilters(TrackEdits edits)
             {
                 lowCut.Cutoff = edits.LowCutHz > 0 ? (int)edits.LowCutHz : 1;
                 highCut.Cutoff = edits.HighCutHz > 0 ? (int)Math.Min(edits.HighCutHz, AudioFilter.MAX_LOWPASS_CUTOFF) : AudioFilter.MAX_LOWPASS_CUTOFF;
+
+                double ratio = Math.Pow(2, edits.PitchSemitones / 12.0);
+                pitchFrequency.Value = ratio;
+                pitchTempo.Value = 1 / ratio;
             }
 
             public static Channel? Open(AudioManager audio, ForgeTrack track)
