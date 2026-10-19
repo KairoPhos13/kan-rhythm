@@ -89,9 +89,15 @@ but it does not work streamed yet and accepts octave-below expectations
   (`ChimeSynth`, unit-tested) at the note just played, an octave up (at
   most C7) — the melody's own note, so it never clashes; game samples, so
   the effects volume governs it.
-- **Known limit:** osu! stamps a result with the time it is applied, so the
-  results screen's timing graph includes the pitch wait. Our verdict's
-  `OffsetMs` is the real offset; it drives the in-game feedback.
+- **A hit is stamped with the attack, not the decision** (fork F-17,
+  owner 2026-10-17: the tortoise / hare meter always said "late"): osu!
+  stamped a result with the time it was applied, after the pitch arrived,
+  so the hit error meters and the results' timing graph added the
+  detection wait (+50 ms or more). `DrawableKanHitObject` stamps the
+  note's start + the judge's offset. Accuracy was never affected (it goes
+  by the result type: perfect/great 300, good 200, ok 100, meh 50); what
+  lowers it is a mic delay that is off (+45 ms late turns most "great"s
+  past ±70 ms into goods and oks).
 
 ## Mods (owner 2026-10-15)
 

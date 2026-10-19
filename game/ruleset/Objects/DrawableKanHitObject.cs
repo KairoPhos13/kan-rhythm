@@ -24,6 +24,11 @@ namespace Kan.Ruleset.Objects
         {
         }
 
+        /// <summary>A hit's moment: the note's start plus the judge's offset (the attack, not the decision).</summary>
+        private double? resultTime;
+
+        protected override double ResultTime => resultTime ?? Time.Current;
+
         protected override void CheckForResult(bool userTriggered, double timeOffset)
         {
             // A level without a score: timing-only placeholders resolve by themselves.
@@ -49,6 +54,9 @@ namespace Kan.Ruleset.Objects
 
                 v = judged;
             }
+
+            // Stamped when the player played it, not when the pitch came in (fork F-17).
+            resultTime = v.Result != LiveResult.Miss ? HitObject.StartTime + v.OffsetMs : null;
 
             ApplyResult(v.Result switch
             {

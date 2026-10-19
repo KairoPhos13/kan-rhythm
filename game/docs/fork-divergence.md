@@ -29,6 +29,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-15 | `e0c1cc9` | `ca49bab` (branch `agent/game`) | `110dedc` F-12 summary timeline, `391afc1` F-11 follow-up (timing before compose), `b33c540` F-13 compose screen, `ca49bab` F-14 hit-object-less gameplay clock | green (0 warnings / 0 errors; editor and gameplay verified) |
 | 2026-10-15 | `ca49bab` | `cc2ccac` (branch `agent/game`) | F-15 design screen | green (0 warnings / 0 errors; design tab verified in an isolated instance) |
 | 2026-10-16 | `cc2ccac` | `9e92011` (branch `agent/game`) | F-16 player loader settings | green (0 warnings / 0 errors; panel verified in an isolated instance) |
+| 2026-10-19 | `9e92011` | `e4f19a2` (branch `agent/game`) | F-17 ruleset-chosen result time | green (0 warnings / 0 errors; hit error meter verified in an isolated instance) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -260,6 +261,21 @@ Policy (rebase-ability first, ADR-0011 §4):
 - **Merge-conflict cost:** low — one virtual, one expression in
   `PlayerLoader`'s panel.
 - **Upstream-PR:** candidate (rulesets may want per-play settings there).
+
+### F-17 — ruleset-chosen result time
+
+- **What:** `DrawableHitObject.ResultTime` virtual (default
+  `Time.Current`); `ApplyResult` stamps `Result.RawTime` with it.
+- **Why:** owner report 2026-10-17 — the hit error meter (tortoise / hare)
+  always said "late". kan! decides a note when its pitch arrives, after
+  the attack, so stamping "now" added the detection wait (+50 ms or more)
+  to every hit, in the meters and the results' timing graph.
+  `DrawableKanHitObject` stamps a hit at the note's start + the judge's
+  offset (the attack). Accuracy and score were not affected (they go by
+  the result type).
+- **Merge-conflict cost:** low — one virtual property and one changed
+  assignment in `ApplyResult`.
+- **Upstream-PR:** candidate (any ruleset that decides after the input).
 
 ## String sweep — remaining scope (deferred, game/TODO.md)
 
