@@ -414,7 +414,11 @@ section on now, the palette in force — eased between sections over
   notes step back with distance (dimmer up to ~3 s ahead), so the eye lands
   on what comes first. A **marker on the now line** ("G5 ▸") shows where the
   next note will cross it and glides from note to note: the trail meets it
-  when the note is played right (hidden with the Hidden mod). Every natural
+  when the note is played right (hidden with the Hidden mod). A **target
+  circle** on the line at the same height (owner 2026-10-19: easier than
+  judging by eye when a note is on the line) is a little wider than a note:
+  the moment to play is when the note sits centred inside it; its inside
+  lights up over the note's last half second. Every natural
   guide line is named at the left edge, the Cs brighter.
 - **Trail:** the player's pitch every 10 ms. It is green while on a
   sounding note, white otherwise, so a miss shows why (above = sharp,

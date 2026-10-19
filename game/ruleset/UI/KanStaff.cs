@@ -99,6 +99,7 @@ namespace Kan.Ruleset.UI
 
         private KanNowLine nowLine = null!;
         private NextMarker nextMarker = null!;
+        private HitTarget hitTarget = null!;
         private Countdown countdown = null!;
 
         /// <summary>The next note to play (the first not yet judged), or -1.</summary>
@@ -148,6 +149,8 @@ namespace Kan.Ruleset.UI
             InternalChildren = new Drawable[]
             {
                 lines,
+                // Under the notes: the next one slides into it.
+                hitTarget = new HitTarget(),
                 noteLayer,
                 trailLayer,
                 // Above the notes: a hit's impact lands on its note.
@@ -339,9 +342,15 @@ namespace Kan.Ruleset.UI
 
             // Where the next note will cross the line, marked on the line itself.
             if (next >= 0 && !state.HideNotes)
+            {
                 nextMarker.Point(nowX - head / 2 - 6, yAt(notes[next].Midi), notes[next], notes[next].StartTime - now, scene.NoteLight);
+                hitTarget.Point(nowX, yAt(notes[next].Midi), notes[next], notes[next].StartTime - now, scene.NoteLight);
+            }
             else
+            {
                 nextMarker.Point(0, 0, null, 0, Color4.White);
+                hitTarget.Point(0, 0, null, 0, Color4.White);
+            }
         }
 
         private void drawTrail(double now)
@@ -532,6 +541,60 @@ namespace Kan.Ruleset.UI
 
                 // Appears as the note comes close; full when it is time.
                 Alpha = (float)Math.Clamp(1 - (toGo - 400) / 1600, 0.25, 1);
+            }
+        }
+
+        /// <summary>
+        /// A circle on the now line where the next note will cross it (owner
+        /// 2026-10-19: easier than judging by eye when a note is on the line):
+        /// a little wider than a note, so the moment to play is when the note
+        /// sits centred inside it. It fills in as the note arrives.
+        /// </summary>
+        private partial class HitTarget : CompositeDrawable
+        {
+            private const float margin = 8;
+
+            private readonly CircularContainer outline;
+            private readonly Box fill;
+            private bool placed;
+
+            public HitTarget()
+            {
+                Size = new Vector2(head + margin);
+                Origin = Anchor.Centre;
+                Alpha = 0;
+
+                InternalChild = outline = new CircularContainer
+                {
+                    RelativeSizeAxes = Axes.Both,
+                    Masking = true,
+                    BorderThickness = 3,
+                    BorderColour = Color4.White,
+                    Child = fill = new Box { RelativeSizeAxes = Axes.Both, Alpha = 0, AlwaysPresent = true },
+                };
+            }
+
+            public void Point(float x, float y, KanHitObject? note, double toGo, Color4 colour)
+            {
+                if (note == null)
+                {
+                    Alpha = Math.Max(0, Alpha - (float)(Time.Elapsed / 200));
+                    placed = Alpha > 0 && placed;
+                    return;
+                }
+
+                X = x;
+
+                // Glides to the next note's height with the arrow (snap the first time).
+                Y = placed ? Y + (y - Y) * (float)Math.Min(1, Time.Elapsed / 90) : y;
+                placed = true;
+
+                outline.BorderColour = note.PitchUnknown ? unknown_colour : colour;
+                fill.Colour = outline.BorderColour;
+
+                // Shows as the note comes close; the inside lights up over its last half second.
+                Alpha = (float)Math.Clamp(1 - (toGo - 400) / 1600, 0.3, 0.9);
+                fill.Alpha = (float)Math.Clamp(1 - toGo / 500, 0, 1) * 0.25f;
             }
         }
 
