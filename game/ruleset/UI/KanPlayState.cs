@@ -428,7 +428,10 @@ namespace Kan.Ruleset.UI
             if (!(rate > 0) || filePacedByLevel) rate = 1; // a file paced by the level's clock is already in its time
             frozenStreamMs = 0;
 
-            var s = new LiveSession(source, instrument);
+            // The player's instrument as it is now (it can change in the player loader), else the level's.
+            string listenAs = Configuration.KanPlayer.Instrument ?? instrument;
+            var s = new LiveSession(source, listenAs);
+            osu.Framework.Logging.Logger.Log($"kan!: listening as {listenAs}");
 
             if (!s.Start())
             {

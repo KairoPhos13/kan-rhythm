@@ -22,8 +22,8 @@ namespace Kan.Ruleset.Configuration
         protected override void InitialiseDefaults()
         {
             // The player's instrument (owner 2026-10-15: any level on any
-            // instrument); the keyboard, the widest range, until they choose.
-            SetDefault(KanRulesetSetting.PlayerInstrument, @"keyboard");
+            // instrument); as the level until they choose.
+            SetDefault(KanRulesetSetting.PlayerInstrument, string.Empty); // empty: as the level (owner 2026-10-17)
             SetDefault(KanRulesetSetting.RangeLowest, 21, 12, 120);
             SetDefault(KanRulesetSetting.RangeHighest, 108, 12, 120);
 
@@ -31,6 +31,7 @@ namespace Kan.Ruleset.Configuration
             SetDefault(KanRulesetSetting.NoteSize, 1.2, 0.8, 2.0, 0.05);
             SetDefault(KanRulesetSetting.NoteNames, Kan.Ruleset.UI.KanNoteNames.Letters);
             SetDefault(KanRulesetSetting.ColourByNote, false);
+            SetDefault(KanRulesetSetting.OnlyPlayableLevels, true);
         }
     }
 }

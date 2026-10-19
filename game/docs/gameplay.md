@@ -131,6 +131,35 @@ lower."), and the play says it once at its start. The level's own
 instrument (Setup) says what it was written for. Known limit: a replay
 plays back with the fit of the instrument set when it is watched.
 
+"My instrument" is also the first control of that loader group (owner
+2026-10-17: "it is not clear where the instrument is chosen" — it was only
+in the game's settings). Its default is **As the level**
+(`KanPlayer.AS_THE_LEVEL`, empty): the game listens for the level's own
+instrument, in the level's own range (nothing moves). The default was
+"keyboard", so an ocarina player was heard as a pianist without ever
+choosing it. Below it, the lowest and highest notes it plays (owner
+2026-10-17: "ocarinas come in many kinds"), hidden while it is "as the
+level". Only the kind of instrument is asked — how it attacks, and one
+note at a time or chords ("Ocarina · one note at a time", "Piano /
+keyboard · chords too", `KanScore.IsMonophonic`) — and its range. The
+instrument listened for is decided when listening starts (`KanPlayState`,
+logged "listening as …"); the level is fitted when it is prepared (while
+the loader shows) and fitted again as a live play starts if the
+instrument or range changed meanwhile ("fitted again"; replays and
+autoplay keep the fit their frames were made with).
+
+**Song select lists the levels the instrument can play**
+(`KanFilterCriteria`, the ruleset's own filter — no fork change): a
+level's notes must sit in the range as written or an octave away
+(`KanPlayer.CanPlay`: nothing folded note by note, which would change the
+melody). On by default (Settings → kan! → Only levels my instrument
+plays); off while the instrument is "as the level". Search `fits=no` for
+the others, `fits=yes` for these with the setting off. Levels without a
+score are always listed. Isolated checks on the ocarina level (C5–D6):
+ocarina A4–F6 → shown; C5–G5 → hidden; guitar E2–E4 → shown (two octaves
+down). Known limit: song select filters again when its filter changes,
+not when the setting does.
+
 ### Practice (owner 2026-10-15)
 
 Scored play keeps the genre's rule — earn the hard part by getting there

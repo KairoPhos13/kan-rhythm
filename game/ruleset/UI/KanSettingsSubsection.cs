@@ -35,7 +35,7 @@ namespace Kan.Ruleset.UI
             // A new instrument starts from its usual range (the player can then adjust it).
             instrument.BindValueChanged(v =>
             {
-                (lowest.Value, highest.Value) = Kan.Forge.Play.RangeFit.DefaultRange(v.NewValue);
+                if (!string.IsNullOrEmpty(v.NewValue)) (lowest.Value, highest.Value) = Kan.Forge.Play.RangeFit.DefaultRange(v.NewValue);
             });
 
             // The instrument's tuning (owner 2026-10-15): learnt while playing, or set by hand.
@@ -47,7 +47,7 @@ namespace Kan.Ruleset.UI
                 new SettingsItemV2(new InstrumentDropdown
                 {
                     Caption = @"My instrument",
-                    HintText = @"What you play. The game listens for it (one note at a time, or several), and any level is fitted to its range.",
+                    HintText = @"What you play. The game listens for it (one note at a time, or several), and any level is fitted to its range. ""As the level"": the instrument the level is made for, in its own range. Also set right before playing.",
                     Current = instrument,
                 }),
                 new SettingsItemV2(new NoteDropdown
@@ -60,6 +60,12 @@ namespace Kan.Ruleset.UI
                     Caption = @"Highest note it plays",
                     HintText = @"A level outside this range plays an octave up or down, and notes still outside move by octaves into it.",
                     Current = highest,
+                }),
+                new SettingsItemV2(new FormCheckBox
+                {
+                    Caption = @"Only levels my instrument plays",
+                    HintText = @"Song select lists the levels whose notes fit your instrument's range (as written, or an octave away). Search fits=no for the others. Off while the instrument is ""As the level"".",
+                    Current = config.GetBindable<bool>(KanRulesetSetting.OnlyPlayableLevels),
                 }),
                 new SettingsItemV2(new FormSliderBar<double>
                 {
@@ -89,10 +95,10 @@ namespace Kan.Ruleset.UI
         {
             public InstrumentDropdown()
             {
-                Items = Kan.Forge.Pipeline.ForgeJobs.Profiles;
+                Items = Configuration.KanPlayer.Choices;
             }
 
-            protected override LocalisableString GenerateItemText(string item) => Kan.Forge.Pipeline.ForgeJobs.ProfileLabel(item);
+            protected override LocalisableString GenerateItemText(string item) => Configuration.KanPlayer.ChoiceLabel(item);
         }
 
         private partial class NoteDropdown : FormDropdown<int>

@@ -225,6 +225,9 @@ namespace Kan.Ruleset
         public override IEnumerable<osu.Game.Screens.Play.PlayerSettings.PlayerSettingsGroup> CreatePlayerLoaderSettings()
             => new osu.Game.Screens.Play.PlayerSettings.PlayerSettingsGroup[] { new KanNotationSettings() };
 
+        /// <summary>Song select lists the levels the player's instrument can play.</summary>
+        public override osu.Game.Rulesets.Filter.IRulesetFilterCriteria CreateRulesetFilterCriteria() => new KanFilterCriteria();
+
         /// <summary>kan!'s design tab (fork F-15): sections, rests, climaxes, palette and effects.</summary>
         public override osu.Game.Screens.Edit.EditorScreen? CreateDesignEditorScreen() => new Kan.Forge.Editor.Design.KanDesignScreen();
     }

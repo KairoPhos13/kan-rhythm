@@ -89,13 +89,36 @@ namespace Kan.Ruleset.UI
         {
             if (configs.GetConfigFor(new KanRuleset()) is not KanRulesetConfigManager config) return;
 
+            instrument = config.GetBindable<string>(KanRulesetSetting.PlayerInstrument);
+            lowest = config.GetBindable<int>(KanRulesetSetting.RangeLowest);
+            highest = config.GetBindable<int>(KanRulesetSetting.RangeHighest);
+
+            osu.Game.Graphics.Containers.OsuTextFlowContainer fit;
+
             Children = new Drawable[]
             {
-                new osu.Game.Graphics.Containers.OsuTextFlowContainer(t => t.Font = osu.Game.Graphics.OsuFont.GetFont(size: 13))
+                // Owner 2026-10-17: "it is not clear where the instrument is chosen" —
+                // it was only in the game's settings; here it is set right before playing.
+                new InstrumentChoice
+                {
+                    LabelText = @"My instrument",
+                    Current = instrument,
+                },
+                // Owner 2026-10-17: "ocarinas come in many kinds" — the notes this one plays.
+                lowestChoice = new NoteChoice
+                {
+                    LabelText = @"Lowest note it plays",
+                    Current = lowest,
+                },
+                highestChoice = new NoteChoice
+                {
+                    LabelText = @"Highest note it plays",
+                    Current = highest,
+                },
+                fit = new osu.Game.Graphics.Containers.OsuTextFlowContainer(t => t.Font = osu.Game.Graphics.OsuFont.GetFont(size: 13))
                 {
                     RelativeSizeAxes = Axes.X,
                     AutoSizeAxes = Axes.Y,
-                    Text = fitText(),
                 },
                 new SettingsEnumDropdown<KanNoteNames>
                 {
@@ -114,20 +137,77 @@ namespace Kan.Ruleset.UI
                     Current = config.GetBindable<double>(KanRulesetSetting.NoteSize),
                 },
             };
+
+            // A new instrument starts from its usual range (adjustable in the game's settings).
+            instrument.BindValueChanged(v =>
+            {
+                if (v.OldValue != null && !string.IsNullOrEmpty(v.NewValue)) (lowest.Value, highest.Value) = Kan.Forge.Play.RangeFit.DefaultRange(v.NewValue);
+            });
+
+            instrument.BindValueChanged(_ => fit.Text = fitText());
+
+            // As the level: its own range, nothing to set.
+            instrument.BindValueChanged(v => lowestChoice.Alpha = highestChoice.Alpha = string.IsNullOrEmpty(v.NewValue) ? 0 : 1, true);
+            lowest.BindValueChanged(_ => fit.Text = fitText());
+            highest.BindValueChanged(_ => fit.Text = fitText(), true);
+        }
+
+        private Bindable<string> instrument = null!;
+        private NoteChoice lowestChoice = null!, highestChoice = null!;
+
+        /// <summary>A note by its name, over the piano's keys (A0–C8).</summary>
+        private partial class NoteChoice : SettingsDropdown<int>
+        {
+            public NoteChoice()
+            {
+                Items = Enumerable.Range(21, 88).ToArray();
+            }
+
+            protected override osu.Game.Graphics.UserInterface.OsuDropdown<int> CreateDropdown() => new NoteDropdownControl();
+
+            private partial class NoteDropdownControl : DropdownControl
+            {
+                protected override osu.Framework.Localisation.LocalisableString GenerateItemText(int item) => KanNotation.Label(item);
+            }
+        }
+        private Bindable<int> lowest = null!, highest = null!;
+
+        /// <summary>What the player plays, by its name ("Ocarina", "Piano / keyboard").</summary>
+        private partial class InstrumentChoice : SettingsDropdown<string>
+        {
+            public InstrumentChoice()
+            {
+                Items = KanPlayer.Choices;
+            }
+
+            protected override osu.Game.Graphics.UserInterface.OsuDropdown<string> CreateDropdown() => new InstrumentDropdownControl();
+
+            private partial class InstrumentDropdownControl : DropdownControl
+            {
+                protected override osu.Framework.Localisation.LocalisableString GenerateItemText(string item) => KanPlayer.ChoiceLabel(item);
+            }
         }
 
         /// <summary>"Ocarina (A4–F6). This level: C5–A6 — plays an octave lower."</summary>
         private string fitText()
         {
-            string mine = $"{Kan.Forge.Pipeline.ForgeJobs.ProfileLabel(KanPlayer.Instrument ?? @"keyboard")} ({KanNotation.Label(KanPlayer.Lowest)}–{KanNotation.Label(KanPlayer.Highest)})";
-            var notes = Beatmaps.KanLevelFiles.LoadScore(beatmap.Value.BeatmapSetInfo)?.Notes.Where(n => !n.PitchUnknown).Select(n => n.Midi).ToList();
+            var score = Beatmaps.KanLevelFiles.LoadScore(beatmap.Value.BeatmapSetInfo);
+            var notes = score?.Notes.Where(n => !n.PitchUnknown).Select(n => n.Midi).ToList();
+            string level = notes is { Count: > 0 } ? $"{KanNotation.Label(notes.Min())}–{KanNotation.Label(notes.Max())}" : string.Empty;
+            string written = Kan.Forge.Pipeline.ForgeJobs.ProfileLabel(score?.Instrument ?? @"keyboard");
+
+            // (a change here fits the level again as the play starts: KanDrawableRuleset)
+
+            if (KanPlayer.Instrument == null)
+                return $"The game listens for the level's instrument ({written}){(level.Length > 0 ? $"; it plays {level}" : string.Empty)}.";
+
+            string mine = $"{KanNotation.Label(KanPlayer.Lowest)}–{KanNotation.Label(KanPlayer.Highest)}";
 
             if (notes == null || notes.Count == 0)
-                return $"Your instrument: {mine}.";
+                return $"Your range: {mine}.";
 
             var fit = KanPlayer.FitOf(notes);
-            string level = $"{KanNotation.Label(notes.Min())}–{KanNotation.Label(notes.Max())}";
-            return $"Your instrument: {mine}. This level: {level} — {KanPlayer.Describe(fit)?.ToLowerInvariant() ?? "fits as it is"}.";
+            return $"Your range: {mine}. This level ({written}): {level} — {KanPlayer.Describe(fit)?.ToLowerInvariant() ?? "fits as it is"}.";
         }
     }
 }

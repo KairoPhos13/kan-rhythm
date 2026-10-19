@@ -20,20 +20,59 @@ namespace Kan.Ruleset.Configuration
     {
         private static Bindable<string>? instrument;
         private static Bindable<int>? lowest, highest;
+        private static Bindable<bool>? onlyPlayable;
 
         public static void Bind(KanRulesetConfigManager config)
         {
             instrument ??= config.GetBindable<string>(KanRulesetSetting.PlayerInstrument);
             lowest ??= config.GetBindable<int>(KanRulesetSetting.RangeLowest);
             highest ??= config.GetBindable<int>(KanRulesetSetting.RangeHighest);
+            onlyPlayable ??= config.GetBindable<bool>(KanRulesetSetting.OnlyPlayableLevels);
         }
 
-        /// <summary>The instrument profile the game listens with (null before the settings are known).</summary>
-        public static string? Instrument => instrument?.Value;
+        /// <summary>
+        /// The instrument profile the player chose, or null: "as the level" —
+        /// listen for the level's instrument, play it in its own range (owner
+        /// 2026-10-17: the default was "keyboard", so an ocarina player was
+        /// heard as a pianist without ever choosing it).
+        /// </summary>
+        public static string? Instrument => string.IsNullOrEmpty(instrument?.Value) ? null : instrument.Value;
 
-        public static int Lowest => lowest?.Value ?? 21;
+        /// <summary>The choice that means "the level's own instrument".</summary>
+        public const string AS_THE_LEVEL = "";
 
-        public static int Highest => highest?.Value ?? 108;
+        /// <summary>The choices for "My instrument": as the level, then every profile.</summary>
+        public static string[] Choices => new[] { AS_THE_LEVEL }.Concat(Kan.Forge.Pipeline.ForgeJobs.Profiles).ToArray();
+
+        /// <summary>A choice by its name.</summary>
+        /// <summary>
+        /// A choice by its name, and what it means for listening (owner
+        /// 2026-10-17: only ask the kind of instrument — how it attacks, one
+        /// note at a time or chords — and its range): "Ocarina · one note at a
+        /// time", "Piano / keyboard · chords too".
+        /// </summary>
+        public static string ChoiceLabel(string choice)
+        {
+            if (string.IsNullOrEmpty(choice)) return @"As the level";
+
+            string name = Kan.Forge.Pipeline.ForgeJobs.ProfileLabel(choice);
+            return $"{char.ToUpperInvariant(name[0])}{name[1..]} · {(Kan.Forge.Score.KanScore.IsMonophonic(choice) ? "one note at a time" : "chords too")}";
+        }
+
+        // As the level: every note is in range (nothing moves).
+        public static int Lowest => Instrument == null ? 0 : lowest?.Value ?? 21;
+
+        public static int Highest => Instrument == null ? 127 : highest?.Value ?? 108;
+
+        /// <summary>Whether song select lists only the levels the player's instrument can play.</summary>
+        public static bool OnlyPlayableLevels => onlyPlayable?.Value ?? false;
+
+        /// <summary>
+        /// Whether the player's instrument plays these notes: in its range as
+        /// written, or moved by an octave — nothing folded note by note (that
+        /// changes the melody). Always, while it is "as the level".
+        /// </summary>
+        public static bool CanPlay(IReadOnlyCollection<int> midis) => Instrument == null || midis.Count == 0 || FitOf(midis).Folded == 0;
 
         /// <summary>The octave fit of a level's notes into the player's range.</summary>
         public static RangeFit.Fit FitOf(IReadOnlyCollection<int> midis) => RangeFit.Plan(midis, Lowest, Highest);

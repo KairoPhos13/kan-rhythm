@@ -26,5 +26,8 @@ namespace Kan.Ruleset.Configuration
 
         /// <summary>Each note in its own colour (C red, D orange…), whatever the palette.</summary>
         ColourByNote,
+
+        /// <summary>Song select lists only the levels the player's instrument can play (owner 2026-10-17).</summary>
+        OnlyPlayableLevels,
     }
 }

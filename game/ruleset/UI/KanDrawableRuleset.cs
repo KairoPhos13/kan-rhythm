@@ -3,13 +3,16 @@
 
 using System.Collections.Generic;
 using System.Linq;
+using osu.Framework.Graphics;
 using osu.Framework.Input;
+using osu.Framework.Screens;
 using osu.Framework.Input.Bindings;
 using osu.Framework.Input.StateChanges;
 using osu.Game.Beatmaps;
 using osu.Game.Input.Handlers;
 using osu.Game.Replays;
 using osu.Game.Scoring;
+using osu.Game.Screens.Play;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Rulesets.UI;
@@ -34,7 +37,13 @@ namespace Kan.Ruleset.UI
         private osu.Game.Replays.Replay? listen;
 
         /// <summary>How the level was fitted to the player's instrument range.</summary>
-        public Kan.Forge.Play.RangeFit.Fit Fit { get; }
+        public Kan.Forge.Play.RangeFit.Fit Fit { get; private set; }
+
+        /// <summary>The notes as written, and the range they were fitted to (to fit them again).</summary>
+        private readonly List<(KanHitObject Note, int Midi)> written;
+
+        private (string? Instrument, int Lowest, int Highest) fittedTo;
+        private bool fitChecked;
 
         public KanDrawableRuleset(osu.Game.Rulesets.Ruleset ruleset, IBeatmap beatmap, IReadOnlyList<Mod>? mods = null)
             : base(ruleset, beatmap, mods)
@@ -50,18 +59,12 @@ namespace Kan.Ruleset.UI
 
             // Any level on any instrument: the notes move by the octave that fits the
             // player's range, the rest fold in; the game shows and expects them so.
-            Fit = Kan.Ruleset.Configuration.KanPlayer.FitOf(notes.Where(n => !n.PitchUnknown).Select(n => n.Midi).ToList());
+            written = notes.Select(n => (n, n.Midi)).ToList();
+            fitToPlayer();
 
-            if (Fit.Changes)
-            {
-                foreach (var n in notes)
-                    n.Midi = Kan.Ruleset.Configuration.KanPlayer.Apply(n.Midi, Fit);
-
-                osu.Framework.Logging.Logger.Log($"kan!: fitted to the player's range: {Kan.Ruleset.Configuration.KanPlayer.Describe(Fit)}");
-            }
-
-            // Listen for what the player plays (their instrument), else what the level is written for.
-            instrument = Kan.Ruleset.Configuration.KanPlayer.Instrument ?? instrument;
+            // Listen for what the player plays (their instrument), else what the level is
+            // written for — decided when listening starts (KanPlayState), so a choice made
+            // in the player loader, after the level was prepared, still counts.
 
             var practice = Mods.OfType<Kan.Ruleset.Mods.KanModPractice>().FirstOrDefault();
             var practiceOptions = practice?.Begin(Mods);
@@ -79,12 +82,40 @@ namespace Kan.Ruleset.UI
             };
         }
 
-        protected override void LoadComplete()
+        /// <summary>Fit the written notes to the player's range as it is now (logged when they move).</summary>
+        private void fitToPlayer()
         {
-            base.LoadComplete();
+            fittedTo = (Kan.Ruleset.Configuration.KanPlayer.Instrument, Kan.Ruleset.Configuration.KanPlayer.Lowest, Kan.Ruleset.Configuration.KanPlayer.Highest);
+            Fit = Kan.Ruleset.Configuration.KanPlayer.FitOf(written.Where(w => !w.Note.PitchUnknown).Select(w => w.Midi).ToList());
 
-            // Easy / hard rock: wider or stricter timing windows.
-            // Say once how the level was fitted to the player's instrument.
+            foreach (var (note, midi) in written)
+                note.Midi = Fit.Changes ? Kan.Ruleset.Configuration.KanPlayer.Apply(midi, Fit) : midi;
+
+            if (Fit.Changes)
+                osu.Framework.Logging.Logger.Log($"kan!: fitted to the player's range: {Kan.Ruleset.Configuration.KanPlayer.Describe(Fit)}");
+        }
+
+        protected override void Update()
+        {
+            base.Update();
+
+            // The level was prepared while the player loader showed; an instrument or
+            // range set there (owner 2026-10-17) fits it again as the play starts. A
+            // replay or autoplay keeps the fit its frames were made with.
+            if (fitChecked || this.FindClosestParent<Player>() is not { } player || !player.IsCurrentScreen()) return;
+
+            fitChecked = true;
+
+            if (ReplayScore != null || Mods.Any(m => m is ModAutoplay)) return;
+            if (fittedTo == (Kan.Ruleset.Configuration.KanPlayer.Instrument, Kan.Ruleset.Configuration.KanPlayer.Lowest, Kan.Ruleset.Configuration.KanPlayer.Highest)) return;
+
+            fitToPlayer();
+            osu.Framework.Logging.Logger.Log(@"kan!: fitted again: the instrument or range changed in the player loader");
+            sayFit();
+        }
+
+        private void sayFit()
+        {
             if (Fit.Changes && Kan.Ruleset.Configuration.KanPlayer.Describe(Fit) is { } fitted)
             {
                 state.Status.Value = $"For your instrument: {fitted.ToLowerInvariant()}.";
@@ -93,6 +124,15 @@ namespace Kan.Ruleset.UI
                     if (state.Status.Value.StartsWith(@"For your instrument", System.StringComparison.Ordinal)) state.Status.Value = string.Empty;
                 }, 6000);
             }
+        }
+
+        protected override void LoadComplete()
+        {
+            base.LoadComplete();
+
+            // Easy / hard rock: wider or stricter timing windows.
+            // Say once how the level was fitted to the player's instrument.
+            sayFit();
 
             // Easy also forgives intonation: up to 75 cents off still counts as the note.
             if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModEasy))
