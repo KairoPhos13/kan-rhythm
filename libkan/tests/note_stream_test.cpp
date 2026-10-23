@@ -923,6 +923,179 @@ void fixture_14_wind_articulation() {
 }
 
 // ---------------------------------------------------------------------------
+/// Short repeated wind notes, each released into the room: its tail carries
+/// a faint reflection (a 2 ms rise, ~-20 dB under the note) 60-90 ms after
+/// the release. Deterministic; `truth` receives the notes' starts (ms).
+std::vector<float> staccato_repeats(float tail_amp, std::vector<float>* truth) {
+    const int notes = 8;
+    const float ioi = 0.5f, sounding = 0.17f, f = 440.0f * std::pow(2.0f, (84.0f - 69.0f) / 12.0f);
+    std::vector<float> sig(size_t((0.4f + notes * ioi + 0.6f) * kSr), 0.0f);
+    for (int k = 0; k < notes; ++k) {
+        const float t0 = 0.4f + float(k) * ioi;
+        if (truth != nullptr) truth->push_back(1000.0f * t0);
+        const size_t at = size_t(t0 * kSr), n = size_t(sounding * kSr);
+        for (size_t i = 0; i < n; ++i) {
+            const float tt = float(i) / kSr;
+            const float env = std::min(1.0f, tt / 0.02f) * std::min(1.0f, float(n - i) / (0.015f * kSr));
+            const double ph = 2.0 * M_PI * double(f) * double(tt);
+            sig[at + i] += 0.6f * env * float(std::sin(ph) + 0.12 * std::sin(2.0 * ph));
+        }
+        // The reflection: 70 ms after the release, 40 ms of the note's pitch, sharp front, soft back.
+        const size_t echo = at + n + size_t(0.07f * kSr), en = size_t(0.04f * kSr);
+        for (size_t i = 0; i < en && echo + i < sig.size(); ++i) {
+            const float tt = float(i) / kSr;
+            const float env = std::min(1.0f, tt / 0.002f) * (1.0f - float(i) / float(en));
+            sig[echo + i] += tail_amp * env * float(std::sin(2.0 * M_PI * double(f) * double(tt)));
+        }
+    }
+    add_noise_floor(sig, 0.002f, 0x9e3779b9u);
+    return sig;
+}
+
+void fixture_16_release_tail_is_not_an_attack() {
+    std::printf("fixture 16: a short repeated wind note's release tail is not a new attack\n");
+    // Real ocarina take 2026-10-22 (C6 repeated every ~500 ms, each held
+    // ~170 ms): a faint bump in each release tail (~-20 dB) jumped the
+    // transient detector against the near silence before it -> an onset
+    // ~200 ms before the next note, which the judge took for it (Meh/Good
+    // for notes played on time).
+    for (float tail : {0.04f, 0.06f, 0.08f}) {
+        std::vector<float> truth;
+        Harness h;
+        run(staccato_repeats(tail, &truth), mono_profile(), {}, 1, h);
+
+        int found = 0, extra = 0;
+        for (const auto& e : h.events) {
+            if (e.kind != kan::NoteKind::Hit) continue;
+            bool near = false;
+            for (float t : truth) near = near || std::fabs(e.u.hit.onset_ms - t) <= 30.0f;
+            if (near) ++found; else ++extra;
+        }
+        char what[160];
+        std::snprintf(what, sizeof(what), "tail %.2f: every attack heard on time (%d of %zu)", double(tail), found, truth.size());
+        check(found == int(truth.size()), what);
+        std::snprintf(what, sizeof(what), "tail %.2f: no attack in a release tail (%d)", double(tail), extra);
+        check(extra == 0, what);
+    }
+}
+
+/// An F5 tongued into a C5 (real ocarina take 2026-10-23): the dip keeps
+/// what is left of the F, the level comes back with the F still in it,
+/// and the C speaks `speak_s` later. Envelope breakpoints (s, F, C), linear between.
+std::vector<float> tongued_into_another_note(float dip_s, float speak_s, float rest) {
+    std::vector<float> sig(size_t(2.0f * kSr), 0.0f);
+    const float t1 = 1.0f;
+    const float pts[][3] = {{0.3f, 0, 0}, {0.33f, 1, 0}, {t1, 1, 0}, {t1 + 0.01f, rest, 0}, {t1 + dip_s, rest, 0},
+                            {t1 + dip_s + 0.01f, 0.32f, 0.1f}, {t1 + dip_s + speak_s, 0.3f, 0.1f},
+                            {t1 + dip_s + speak_s + 0.01f, 0, 0.5f}, {t1 + dip_s + speak_s + 0.05f, 0, 1},
+                            {1.8f, 0, 1}, {1.82f, 0, 0}};
+    const size_t np = sizeof(pts) / sizeof(pts[0]);
+    const double f5 = 698.46, c5 = 523.25;
+    for (size_t i = 0; i < sig.size(); ++i) {
+        const float t = float(i) / kSr;
+        float fa = 0, ca = 0;
+        for (size_t k = 0; k + 1 < np; ++k) {
+            if (t < pts[k][0] || t >= pts[k + 1][0]) continue;
+            const float u = (t - pts[k][0]) / (pts[k + 1][0] - pts[k][0]);
+            fa = pts[k][1] + u * (pts[k + 1][1] - pts[k][1]);
+            ca = pts[k][2] + u * (pts[k + 1][2] - pts[k][2]);
+        }
+        const double tt = double(t);
+        sig[i] = float(0.3 * fa * (std::sin(2.0 * M_PI * f5 * tt) + 0.1 * std::sin(4.0 * M_PI * f5 * tt))
+                     + 0.3 * ca * (std::sin(2.0 * M_PI * c5 * tt) + 0.1 * std::sin(4.0 * M_PI * c5 * tt)));
+    }
+    add_noise_floor(sig, 0.002f, 0x2545f491u);
+    return sig;
+}
+
+void fixture_17_a_tongued_note_speaks_before_its_pitch_is_read() {
+    std::printf("fixture 17: a note out of a tonguing dip is read where it speaks, not in the dip\n");
+    // Before: the provisional pitch was read just after the dip's bottom, in
+    // the F's leftover (76.83 for the 40/40 ms case), and the C came as a
+    // second record — the judge waited past its window for the C's pitch.
+    const float cases[][3] = {{0.04f, 0.04f, 0.2f}, {0.04f, 0.03f, 0.2f}, {0.05f, 0.03f, 0.15f}, {0.03f, 0.03f, 0.2f}};
+    for (const auto& c : cases) {
+        Harness h;
+        run(tongued_into_another_note(c[0], c[1], c[2]), mono_profile(), {}, 1, h);
+
+        int after = 0;
+        uint32_t id = 0;
+        for (const auto& e : h.events) {
+            if (e.kind != kan::NoteKind::Hit || e.u.hit.onset_ms < 1000.0f) continue;
+            if (after++ == 0) id = e.note_id;
+        }
+        char what[160];
+        std::snprintf(what, sizeof(what), "dip %.0f ms, speaks %.0f ms later: one note after the dip (%d)",
+                      double(c[0] * 1000), double(c[1] * 1000), after);
+        check(after == 1, what);
+
+        const kan::NoteEvent* prov = find_pitch(h, id, kan::PitchStage::Provisional);
+        const float midi = prov != nullptr ? prov->u.pitch.midi + prov->u.pitch.cents / 100.0f : 0.0f;
+        std::snprintf(what, sizeof(what), "dip %.0f ms, speaks %.0f ms later: the first note's provisional pitch is the C (%.2f)",
+                      double(c[0] * 1000), double(c[1] * 1000), double(midi));
+        check(prov != nullptr && std::fabs(midi - 72.0f) < 0.5f, what);
+    }
+}
+
+// A D5 cut by the tongue, its level coming back for a moment (`back`, share
+// of the note, for `back_s`), then the same D5 again. The real take
+// (2026-10-23) has the cut's click at about -9 dB for 20 ms, then silence;
+// a soft tongued note comes back as low but holds.
+std::vector<float> cut_then_again(float back, float back_s, float rest_s) {
+    std::vector<float> sig(size_t(2.0f * kSr), 0.0f);
+    const float t1 = 1.0f, b1 = t1 + 0.02f, t2 = b1 + back_s + rest_s;
+    const float pts[][2] = {{0.3f, 0}, {0.33f, 1}, {t1, 1}, {t1 + 0.005f, 0.08f}, {b1 - 0.005f, 0.08f}, {b1, back},
+                            {b1 + back_s, back}, {b1 + back_s + 0.01f, 0.05f}, {b1 + back_s + 0.03f, 0},
+                            {t2, 0}, {t2 + 0.02f, 1}, {1.8f, 1}, {1.82f, 0}};
+    const size_t np = sizeof(pts) / sizeof(pts[0]);
+    const double d5 = 587.33;
+    for (size_t i = 0; i < sig.size(); ++i) {
+        const float t = float(i) / kSr;
+        float a = 0;
+        for (size_t k = 0; k + 1 < np; ++k) {
+            if (t < pts[k][0] || t >= pts[k + 1][0]) continue;
+            a = pts[k][1] + (t - pts[k][0]) / (pts[k + 1][0] - pts[k][0]) * (pts[k + 1][1] - pts[k][1]);
+        }
+        const double tt = double(t);
+        sig[i] = float(0.3 * a * (std::sin(2.0 * M_PI * d5 * tt) + 0.1 * std::sin(4.0 * M_PI * d5 * tt)));
+    }
+    add_noise_floor(sig, 0.002f, 0x9e3779b9u);
+    return sig;
+}
+
+void fixture_18_a_tongue_cut_is_no_attack() {
+    std::printf("fixture 18: the click of a tongue cutting a note is no attack; a soft tongued note still is\n");
+    // Before: the click came back above the release level and opened a note
+    // at the cut, ~150 ms ahead of the next one, with the same pitch.
+    const float clicks[][2] = {{0.35f, 0.02f}, {0.40f, 0.02f}, {0.35f, 0.03f}};
+    for (const auto& c : clicks) {
+        Harness h;
+        run(cut_then_again(c[0], c[1], 0.13f), mono_profile(), {}, 1, h);
+        int at_cut = 0, after = 0;
+        for (const auto& e : h.events) {
+            if (e.kind != kan::NoteKind::Hit) continue;
+            if (e.u.hit.onset_ms > 990.0f && e.u.hit.onset_ms < 1100.0f) ++at_cut;
+            if (e.u.hit.onset_ms >= 1100.0f) ++after;
+        }
+        char what[160];
+        std::snprintf(what, sizeof(what), "click at %.0f%% for %.0f ms: no attack at the cut (%d), one for the next note (%d)",
+                      double(c[0] * 100), double(c[1] * 1000), at_cut, after);
+        check(at_cut == 0 && after == 1, what);
+    }
+
+    // A soft tongued note: back as low as the click, but it holds.
+    Harness h;
+    run(cut_then_again(0.35f, 0.4f, 0.3f), mono_profile(), {}, 1, h);
+    int tongued = 0;
+    for (const auto& e : h.events) {
+        if (e.kind == kan::NoteKind::Hit && e.u.hit.onset_ms > 990.0f && e.u.hit.onset_ms < 1050.0f) ++tongued;
+    }
+    char what[160];
+    std::snprintf(what, sizeof(what), "a soft tongued note (35%%, held) opens at its dip (%d)", tongued);
+    check(tongued == 1, what);
+}
+
+// ---------------------------------------------------------------------------
 // 15. classify_content shares its grid between passes and runs a series'
 //     harmonics side by side (owner 2026-10-19: it stalled the live stream
 //     ~30 ms). The original algorithm — re-measuring passes, one harmonic at
@@ -1044,6 +1217,9 @@ int main() {
     fixture_13_mono_one_record_at_a_time();
     fixture_14_wind_articulation();
     fixture_15_classifier_grid_shared();
+    fixture_16_release_tail_is_not_an_attack();
+    fixture_17_a_tongued_note_speaks_before_its_pitch_is_read();
+    fixture_18_a_tongue_cut_is_no_attack();
     std::printf("%s\n", g_pass ? "ALL PASS" : "FAILURES");
     return g_pass ? 0 : 1;
 }

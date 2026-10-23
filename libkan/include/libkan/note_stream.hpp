@@ -670,7 +670,14 @@ public:
             // A level re-articulation just opened this attack's record (the
             // detector often fires late on a soft wind attack): not a second note.
             const bool duplicate = level_strike_ && sample_pos_ + n < last_strike_sample_ + articulation_guard_samples();
-            if (!duplicate) open_strike(sample_pos_ + n); // block-quantized
+            if (!duplicate) {
+                // Far under the last note's level (a release tail, a soft
+                // attack's first block): the sound must still rise to a note.
+                if (confirms_quiet_onsets() && block_strength_ < kOnsetTailShare * art_peak_)
+                    pending_onset_sample_ = sample_pos_ + n;
+                else
+                    open_strike(sample_pos_ + n); // block-quantized
+            }
         }
         const size_t mask = history_.size() - 1;
         for (size_t off = 0; off < n; ++off) {
@@ -783,6 +790,8 @@ private:
         bool have_cands = false, sustain_due = false;
         size_t live_records = 0;
         uint64_t window_start = 0;
+        float speaks_ms = 0.0f;         ///< where its sound speaks: pitch windows start there (-1 = not yet)
+        float speaks_at = 0.0f;         ///< the level (bucket RMS) at which it speaks
         uint64_t strike_sample = 0;     ///< this execution's strike anchor
         float strike_ms = 0.0f;
         uint64_t boundary = UINT64_MAX; ///< next strike: no measurement
@@ -855,7 +864,10 @@ private:
     /// struck candidate, or one blind record when no candidates.
     /// `rearticulated`: opened by a level dip (tonguing) on a mono profile —
     /// a new note by construction, never an extension of the held one.
-    void open_strike(uint64_t onset_sample, bool rearticulated = false) noexcept {
+    /// `speaks_at`: a note out of a dip or a quiet transient speaks once its
+    /// level reaches this (bucket RMS); no pitch is measured before
+    /// (<see cref="speak"/>). 0 = it speaks at the onset.
+    void open_strike(uint64_t onset_sample, bool rearticulated = false, float speaks_at = 0.0f) noexcept {
         const float onset_ms = 1000.0f * float(onset_sample) / sr_;
         last_strike_sample_ = onset_sample;
         level_strike_ = rearticulated;
@@ -912,6 +924,9 @@ private:
         g->live = true;
         g->strike_sample = onset_sample;
         g->window_start = onset_sample + uint64_t(profile_.blanking_ms / 1000.0f * sr_);
+        g->strike_ms = onset_ms;
+        g->speaks_at = speaks_at;
+        g->speaks_ms = speaks_at > 0.0f ? -1.0f : 0.0f;
         if (have_next_cands_) {
             install_candidates(*g, next_cands_);
             have_next_cands_ = false;
@@ -1028,7 +1043,9 @@ private:
             if (n.rms_count < kRmsSeriesMax) n.rms_series[n.rms_count++] = rms;
         }
 
+        confirm_quiet_onset(rms);
         track_articulation(rms, t_ms);
+        speak(rms, t_ms);
 
         // Mix readings per live group leader: stability, vibrato trajectory,
         // legato transitions (all bookkeeping on the bucket grid).
@@ -1037,7 +1054,8 @@ private:
             Record* lead = find_record(g.leader);
             if (lead == nullptr || !lead->live) continue;
             const float since = t_ms - lead->onset_ms;
-            if (since >= profile_.blanking_ms && since + 0.5f >= float(lead->next_reading_ms)) {
+            if (since >= profile_.blanking_ms && since + 0.5f >= float(lead->next_reading_ms)
+                && g.speaks_ms >= 0.0f && t_ms - g.speaks_ms >= 1000.0f * float(kReadingWindow) / sr_) {
                 take_reading(*lead, t_ms);
                 lead->next_reading_ms += size_t(profile_.reading_interval_ms);
                 if (profile_.accepts_legato_boundaries && profile_.max_simultaneous_notes <= 1
@@ -1045,9 +1063,11 @@ private:
                     check_transition(*lead, g, t_ms);
                 }
             }
-            // Blind provisional: first clean window of a no-candidate group.
+            // Blind provisional: first clean window of a no-candidate group,
+            // all of it after the note speaks (not the dip before it).
             if (!g.have_cands && !lead->provisional_sent && since >= profile_.blanking_ms
-                + 1000.0f * float(kProvisionalWindow) / sr_) {
+                + 1000.0f * float(kProvisionalWindow) / sr_
+                && g.speaks_ms >= 0.0f && t_ms - g.speaks_ms >= 1000.0f * float(kProvisionalWindow) / sr_) {
                 emit_blind_provisional(*lead, t_ms);
             }
             // Sustain fits become due on their own cadence.
@@ -1130,11 +1150,81 @@ private:
     static constexpr float kArticulationGapMs = 90.0f;
     /// Attack ramp of a new record before its level is trusted as reference.
     static constexpr float kArticulationSettleMs = 40.0f;
+    /// A level back from a dip is a tongued note once it holds this long (or
+    /// speaks, kSpeakShare): a tongue stopping a note leaves a click, a
+    /// bump of ~20 ms under the note that falls back into the release.
+    /// Real take 2026-10-23: repeated ocarina D5s, each cut opened a note
+    /// ~160 ms before the next one, and the judge took it for that note.
+    static constexpr float kDipBackHoldMs = 40.0f;
 
     /// Below this bucket RMS (about -56 dBFS) nothing is taken for a note.
     static constexpr float kArticulationMinRms = 0.0015f;
 
     size_t articulation_guard_samples() const noexcept { return size_t(0.06f * sr_); }
+
+    // ---- quiet transients (mono profiles that rearticulate) ----------------
+    // The transient detector compares a block with the few before it: in a
+    // release tail, near silence, a faint room reflection (~-20 dB under the
+    // note) is a big jump. Real take 2026-10-22: short repeated C6 on an
+    // ocarina, each tail opened a note ~200 ms before the next one, and the
+    // judge took it for that note. A transient this far under the last
+    // note's level opens a note only once the sound rises to one.
+
+    /// Share of the last note's level (bucket RMS) a transient's block must reach to open at once.
+    static constexpr float kOnsetTailShare = 0.2f;
+    /// How long a quiet transient waits for its sound to rise (a soft attack ramps in ~30 ms).
+    static constexpr float kOnsetConfirmMs = 60.0f;
+    /// The last note's level fades with this time constant (ms): a soft note well after a loud one is not held back.
+    static constexpr float kPeakFadeMs = 500.0f;
+
+    // ---- when a note speaks -------------------------------------------------
+    // A note out of a tonguing dip (or a quiet transient) opens at the
+    // dip's bottom, but its pitch speaks a moment later: in between, the
+    // quiet still holds what was left of the last note. Real take
+    // 2026-10-23: an ocarina F5 tongued into a C5 — the level came back at
+    // -10 dB, the C sounded 30 ms after, and the provisional pitch (the
+    // window just after the onset) read the F. Pitch windows start where
+    // the level reaches a share of the note before.
+
+    /// Share of the last note's level at which a note out of a dip speaks.
+    static constexpr float kSpeakShare = 0.5f;
+    /// A note that never gets there (played softer) is measured after this long.
+    static constexpr float kSpeakPatienceMs = 100.0f;
+
+    void speak(float rms, float t_ms) noexcept {
+        const float bucket_ms = 1000.0f * float(bucket_samples_) / sr_;
+        for (auto& g : groups_) {
+            if (!g.live || g.speaks_ms >= 0.0f) continue;
+            if (rms >= g.speaks_at || t_ms - g.strike_ms >= kSpeakPatienceMs) {
+                g.speaks_ms = t_ms - bucket_ms;
+                const uint64_t from = sample_pos_ - std::min<uint64_t>(sample_pos_, bucket_samples_);
+                if (from > g.window_start) g.window_start = from;
+            }
+        }
+    }
+
+    bool confirms_quiet_onsets() const noexcept {
+        return profile_.rearticulates_by_level && profile_.max_simultaneous_notes <= 1;
+    }
+
+    void confirm_quiet_onset(float rms) noexcept {
+        if (!confirms_quiet_onsets()) return;
+
+        if (pending_onset_sample_ != 0) {
+            const uint64_t at = pending_onset_sample_;
+            if (rms >= kOnsetTailShare * art_peak_ && rms > kArticulationMinRms) {
+                // Risen: a note, from the transient (unless the level line already opened it).
+                pending_onset_sample_ = 0;
+                if (at >= last_strike_sample_ + articulation_guard_samples())
+                    open_strike(at, false, kSpeakShare * art_peak_);
+            } else if (sample_pos_ > at + uint64_t(kOnsetConfirmMs / 1000.0f * sr_)) {
+                pending_onset_sample_ = 0; // never rose: the room, not a note
+            }
+        }
+
+        const float fade = std::exp(-1000.0f * float(bucket_samples_) / sr_ / kPeakFadeMs);
+        art_peak_ = std::max(rms, art_peak_ * fade);
+    }
 
     void track_articulation(float rms, float t_ms) noexcept {
         if (!profile_.rearticulates_by_level || profile_.max_simultaneous_notes > 1) return;
@@ -1145,12 +1235,14 @@ private:
         }
         if (live == nullptr) {
             art_record_ = 0;
-            art_low_since_ms_ = -1.0f;
+            art_low_since_ms_ = art_back_since_ms_ = -1.0f;
             // Out of silence: the sound rising well above the room level opens a
             // note at the start of the rise (a breath attack has no transient).
             if (art_rise_start_sample_ == 0 && rms > 2.0f * art_quiet_ && rms > kArticulationMinRms)
                 art_rise_start_sample_ = sample_pos_ - std::min<uint64_t>(sample_pos_, bucket_samples_);
-            if (art_rise_start_sample_ != 0 && rms > 4.0f * art_quiet_ && rms > 2.0f * kArticulationMinRms) {
+            // (Near a note just ended, it must come close to that note's level: a reflection in its tail does not.)
+            if (art_rise_start_sample_ != 0 && rms > 4.0f * art_quiet_ && rms > 2.0f * kArticulationMinRms
+                && rms >= kOnsetTailShare * art_peak_) {
                 const uint64_t at = art_rise_start_sample_;
                 art_rise_start_sample_ = 0;
                 if (at >= last_strike_sample_ + articulation_guard_samples()) open_strike(at, true);
@@ -1167,7 +1259,7 @@ private:
         if (live->id != art_record_) { // a new note: its own reference level
             art_record_ = live->id;
             art_level_ = rms;
-            art_low_since_ms_ = -1.0f;
+            art_low_since_ms_ = art_back_since_ms_ = -1.0f;
         }
         if (t_ms - live->onset_ms < kArticulationSettleMs) {
             art_level_ = std::max(art_level_, rms);
@@ -1176,6 +1268,7 @@ private:
 
         const float release = std::pow(10.0f, -profile_.end_drop_db / 20.0f);
         if (rms < release * art_level_) {
+            art_back_since_ms_ = -1.0f; // fell back: that was the cut's click, the low goes on
             if (art_low_since_ms_ < 0.0f) {
                 art_low_since_ms_ = t_ms - 1000.0f * float(bucket_samples_) / sr_;
                 art_low_min_ = rms;
@@ -1187,17 +1280,21 @@ private:
             if (t_ms - art_low_since_ms_ >= kArticulationGapMs) {
                 close_record(*live, art_low_since_ms_); // the release
                 art_record_ = 0;
-                art_low_since_ms_ = -1.0f;
+                art_low_since_ms_ = art_back_since_ms_ = -1.0f;
             }
             return;
         }
 
         if (art_low_since_ms_ >= 0.0f) {
             // Back within the gap: the note was re-articulated at the bottom of
-            // the dip — unless the onset detector already opened it.
+            // the dip — unless the onset detector already opened it — once
+            // the level holds or speaks.
+            if (art_back_since_ms_ < 0.0f) art_back_since_ms_ = t_ms - 1000.0f * float(bucket_samples_) / sr_;
+            if (rms < kSpeakShare * art_level_ && t_ms - art_back_since_ms_ < kDipBackHoldMs) return;
             art_low_since_ms_ = -1.0f;
+            art_back_since_ms_ = -1.0f;
             const uint64_t at = art_low_min_sample_ - std::min<uint64_t>(art_low_min_sample_, bucket_samples_ / 2);
-            if (at >= last_strike_sample_ + articulation_guard_samples()) open_strike(at, true);
+            if (at >= last_strike_sample_ + articulation_guard_samples()) open_strike(at, true, kSpeakShare * art_level_);
             return;
         }
 
@@ -1290,6 +1387,7 @@ private:
         // attack's group (which measures the sustaining notes too, when the
         // chart lists them). The boundary is strike-determined (audio), so
         // the clipped window stays deterministic.
+        if (g.speaks_ms < 0.0f) return false;          // not speaking yet
         uint64_t end = g.window_start + len;
         if (end > g.boundary) end = g.boundary;
         if (end <= g.window_start + 256) return false; // nothing measurable
@@ -1732,8 +1830,11 @@ private:
     float art_low_since_ms_ = -1.0f;
     float art_low_min_ = 0.0f;
     uint64_t art_low_min_sample_ = 0;
+    float art_back_since_ms_ = -1.0f;     ///< the level back from a dip since (-1 = not back)
     float art_quiet_ = 0.0f;              ///< room level between notes (bucket RMS)
     uint64_t art_rise_start_sample_ = 0;  ///< where the sound began to rise (0 = not rising)
+    float art_peak_ = 0.0f;               ///< the last note's level, fading (bucket RMS)
+    uint64_t pending_onset_sample_ = 0;   ///< a quiet transient waiting for its sound to rise (0 = none)
 
     size_t fit_count_ = 0;
     double fit_micros_ = 0.0;

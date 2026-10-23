@@ -21,6 +21,9 @@ namespace Kan.Forge.Play
 
         /// <summary>Copy the samples that arrived since the last call (up to the array's length).</summary>
         int Read(float[] into);
+
+        /// <summary>Drop what arrived so far: what comes next is heard from now.</summary>
+        void SkipArrived();
     }
 
     /// <summary>
@@ -81,6 +84,8 @@ namespace Kan.Forge.Play
             read += count;
             return count;
         }
+
+        public void SkipArrived() => read = Interlocked.Read(ref written);
 
         private bool onData(int recording, IntPtr data, int length, IntPtr user)
         {
@@ -158,6 +163,11 @@ namespace Kan.Forge.Play
             return count;
         }
 
+        public void SkipArrived()
+        {
+            // Paced by a clock from where it started: nothing arrives early.
+        }
+
         public void Dispose()
         {
         }
@@ -188,15 +198,32 @@ namespace Kan.Forge.Play
         /// <summary>Why the session is not listening (empty while it is).</summary>
         public string Error { get; private set; } = string.Empty;
 
+        /// <summary>Also hands what is heard to a recording (<see cref="PlayTake"/>), on the describer's thread.</summary>
+        public PlayTake? Take { get; init; }
+
+        /// <summary>Open and begin at once (<see cref="Open"/>, <see cref="Begin"/>).</summary>
         public bool Start()
+        {
+            if (!Open()) return false;
+
+            Begin();
+            return true;
+        }
+
+        private IntPtr live;
+
+        /// <summary>
+        /// Open the source and the describer — what may take a while (a busy
+        /// audio system once took 5 s to give the microphone, 2026-10-23), so
+        /// it may run off the game's thread. Nothing is heard until <see cref="Begin"/>.
+        /// </summary>
+        public bool Open()
         {
             if (!source.Start(out string error))
             {
                 Error = error;
                 return false;
             }
-
-            IntPtr live;
 
             try
             {
@@ -216,11 +243,32 @@ namespace Kan.Forge.Play
                 return false;
             }
 
-            running = true;
-            worker = new Thread(() => run(live)) { IsBackground = true, Name = @"kan live describer" };
-            worker.Start();
             return true;
         }
+
+        /// <summary>
+        /// Start hearing, from now: what the source took in while opening is
+        /// dropped, so the stream's first sample is this moment.
+        /// </summary>
+        public void Begin()
+        {
+            source.SkipArrived();
+
+            // Before its thread taps: the take's new stretch starts with the stream.
+            Take?.Begin(source.SampleRate);
+
+            Interlocked.Exchange(ref lastArrival, Stopwatch.GetTimestamp());
+            running = true;
+            var opened = live;
+            live = IntPtr.Zero;
+            worker = new Thread(() => run(opened)) { IsBackground = true, Name = @"kan live describer" };
+            worker.Start();
+        }
+
+        private long lastArrival;
+
+        /// <summary>How long (ms) since the source last gave samples: a microphone gives them all the time, silence included.</summary>
+        public double SilentForMs => Stopwatch.GetElapsedTime(Interlocked.Read(ref lastArrival)).TotalMilliseconds;
 
         public bool TryTake(out KanForgeLiveEvent fact) => facts.TryDequeue(out fact);
 
@@ -261,7 +309,9 @@ namespace Kan.Forge.Play
                         continue;
                     }
 
+                    Interlocked.Exchange(ref lastArrival, Stopwatch.GetTimestamp());
                     raise(ref worstBatchUs, (long)got * 1_000_000 / source.SampleRate);
+                    Take?.Tap(samples, got);
 
                     // The describer measures in its own blocks; hand it 10 ms at a time.
                     for (int at = 0; at < got; at += chunk)
@@ -291,11 +341,20 @@ namespace Kan.Forge.Play
             return sliceBuffer;
         }
 
+        /// <summary>Stop and close (may take a while with a busy audio system: it may run off the game's thread).</summary>
         public void Dispose()
         {
             running = false;
             worker?.Join(500);
             worker = null;
+
+            // Opened, never begun: the describer is still ours to close.
+            if (live != IntPtr.Zero)
+            {
+                KanForgeNative.LiveClose(live);
+                live = IntPtr.Zero;
+            }
+
             source.Dispose();
         }
     }

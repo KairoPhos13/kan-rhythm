@@ -131,11 +131,11 @@ namespace Kan.Ruleset.UI
 
             if (n == null || staff == null || UserPaused)
             {
-                Alpha = Math.Max(0, Alpha - (float)(Time.Elapsed / 150));
+                Alpha = Math.Max(0, Alpha - (float)(Math.Abs(Time.Elapsed) / 150));
                 return;
             }
 
-            Alpha = Math.Min(1, Alpha + (float)(Time.Elapsed / 150));
+            Alpha = Math.Min(1, Alpha + (float)(Math.Abs(Time.Elapsed) / 150));
 
             Vector2 at(double midi) => content.ToLocalSpace(staff.LineScreenSpace(midi));
 

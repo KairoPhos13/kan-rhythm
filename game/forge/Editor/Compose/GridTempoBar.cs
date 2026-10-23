@@ -22,6 +22,7 @@ using osu.Game.Graphics.UserInterface;
 using osu.Game.Overlays;
 using osu.Game.Screens.Edit;
 using osuTK;
+using Kan.Forge.Score;
 
 namespace Kan.Forge.Editor.Compose
 {
@@ -29,8 +30,14 @@ namespace Kan.Forge.Editor.Compose
     /// The beat grid and the song's tempo, right where the notes are written
     /// (owner 2026-10-14): grid divisions (straight, triplets, odd), BPM with
     /// tap tempo, the first beat (to line the grid up with the song) and beats
-    /// per bar. Edits the level's first timing point — the same data the
-    /// timing tab edits, which stays the place for tempo changes mid-song.
+    /// per bar. The same data the timing tab edits.
+    ///
+    /// A tempo that breathes (owner 2026-10-22: a cover played without a
+    /// click speeds up and slows down): the tempo shown and edited is the one
+    /// at the playhead, a tempo change can be put at the playhead, and "the
+    /// beat falls here" stretches the tempo before the playhead so the nearest
+    /// beat lands on it — the grid fitted to the music, so the notes stay
+    /// where they sound (<see cref="ScoreSession.GridChangeKeepsNotes"/>).
     /// </summary>
     internal partial class GridTempoBar : CompositeDrawable
     {
@@ -47,6 +54,10 @@ namespace Kan.Forge.Editor.Compose
         private OverlayColourProvider colourProvider { get; set; } = null!;
 
         private OsuTextBox bpmBox = null!, firstBeatBox = null!, barBox = null!;
+        private OsuSpriteText tempoLabel = null!;
+
+        [Resolved]
+        private osu.Game.Overlays.INotificationOverlay? notifications { get; set; }
         private readonly List<(int divisor, Chip chip)> chips = new List<(int, Chip)>();
         private readonly List<Family> families = new List<Family>();
         private Family? shownFamily;
@@ -91,10 +102,13 @@ namespace Kan.Forge.Editor.Compose
                 flow.Add(family.Divisions);
 
             flow.Add(new Container { Width = 14, Height = 26 });
-            flow.Add(label(@"tempo"));
-            flow.Add(bpmBox = box(64, @"beats per minute"));
+            flow.Add(tempoLabel = label(@"tempo"));
+            flow.Add(bpmBox = box(64, @"beats per minute at the playhead"));
             flow.Add(label(@"BPM"));
-            flow.Add(button(FontAwesome.Solid.HandPointUp, @"tap", @"Tap along with the beat a few times: the BPM follows your taps", tap, 64));
+            flow.Add(button(FontAwesome.Solid.HandPointUp, @"tap", @"Tap along with the beat a few times: the tempo at the playhead follows your taps", tap, 64));
+            flow.Add(button(FontAwesome.Solid.Plus, @"change", @"A tempo change at the playhead: from here on the tempo can differ (it starts as the one before)", addTempoChangeHere, 84));
+            flow.Add(button(FontAwesome.Solid.MapPin, @"beat here", @"The music's beat falls at the playhead: the tempo before it stretches or shrinks so the nearest beat lands here. The notes stay where they sound.", beatHere, 96));
+            flow.Add(button(FontAwesome.Solid.Times, @"remove", @"Remove the tempo change the playhead is in (the first tempo stays)", removeTempoChange, 84));
 
             flow.Add(new Container { Width = 14, Height = 26 });
             flow.Add(label(@"first beat"));
@@ -109,6 +123,11 @@ namespace Kan.Forge.Editor.Compose
             flow.Add(new Container { Width = 14, Height = 26 });
             flow.Add(barBox = box(36, @"beats per bar (the time signature's top number)"));
             flow.Add(label(@"beats per bar"));
+
+            flow.Add(new Container { Width = 14, Height = 26 });
+            flow.Add(label(@"the beat is"));
+            flow.Add(button(FontAwesome.Solid.Compress, @"½", @"Each beat half as long (the BPM doubles: a half note becomes two quarters). Every tempo of the level; the notes stay where they sound and the grid lines where they were. For a level timed with the wrong note value.", () => ScaleBeat(0.5), 50));
+            flow.Add(button(FontAwesome.Solid.Expand, @"×2", @"Each beat twice as long (the BPM halves: two quarters become a half note). Every tempo of the level; the notes stay where they sound and the grid lines where they were. For a level timed with the wrong note value.", () => ScaleBeat(2), 56));
 
             InternalChild = flow;
 
@@ -147,13 +166,17 @@ namespace Kan.Forge.Editor.Compose
             foreach (var family in families)
                 family.Chip.On = family == shownFamily;
 
-            // Show the tempo (unless the user is typing in one of the boxes).
-            var tp = editorBeatmap.ControlPointInfo.TimingPoints.FirstOrDefault();
+            // Show the tempo at the playhead (unless the user is typing in one of the boxes).
+            var points = editorBeatmap.ControlPointInfo.TimingPoints;
+            var tp = currentTimingPoint(points);
             double beatLength = tp?.BeatLength ?? TimingControlPoint.DEFAULT_BEAT_LENGTH;
-            double first = tp?.Time ?? 0;
+            double first = points.FirstOrDefault()?.Time ?? 0;
             int beats = tp?.TimeSignature.Numerator ?? 4;
 
-            string tempo = $"{beatLength:0.###}|{first:0.##}|{beats}";
+            int index = tp == null ? 0 : points.TakeWhile(p => p != tp).Count();
+            tempoLabel.Text = points.Count > 1 ? $"tempo {index + 1}/{points.Count}" : @"tempo";
+
+            string tempo = $"{beatLength:0.###}|{first:0.##}|{beats}|{index}";
             if (tempo == shownTempo || bpmBox.HasFocus || firstBeatBox.HasFocus || barBox.HasFocus) return;
 
             shownTempo = tempo;
@@ -177,14 +200,148 @@ namespace Kan.Forge.Editor.Compose
             return tp;
         }
 
+        /// <summary>The timing point in effect at the playhead, or null when there is none.</summary>
+        private TimingControlPoint? currentTimingPoint(IReadOnlyList<TimingControlPoint> points)
+            => points.LastOrDefault(p => p.Time <= clock.CurrentTime + 0.5) ?? points.FirstOrDefault();
+
         private void setTempo(Action<TimingControlPoint> change)
         {
             editorBeatmap.BeginChange();
-            change(firstTimingPoint());
+            change(currentTimingPoint(editorBeatmap.ControlPointInfo.TimingPoints) ?? firstTimingPoint());
             editorBeatmap.EndChange();
         }
 
-        private void moveFirstBeat(double deltaMs) => setFirstBeat(firstTimingPoint().Time + deltaMs);
+        internal void addTempoChangeHere()
+        {
+            var cpi = editorBeatmap.ControlPointInfo;
+            double at = Math.Round(clock.CurrentTime, 1);
+            var tp = currentTimingPoint(cpi.TimingPoints) ?? firstTimingPoint();
+
+            if (cpi.TimingPoints.Any(p => Math.Abs(p.Time - at) < 1))
+            {
+                ForgeNotify.Info(notifications, "There is a tempo change here already.", FontAwesome.Solid.Plus);
+                return;
+            }
+
+            editorBeatmap.BeginChange();
+            cpi.Add(at, new TimingControlPoint { BeatLength = tp.BeatLength, TimeSignature = tp.TimeSignature });
+            editorBeatmap.EndChange();
+            shownTempo = null;
+        }
+
+        internal void beatHere()
+        {
+            var cpi = editorBeatmap.ControlPointInfo;
+            double at = clock.CurrentTime;
+
+            // The tempo before the playhead (not one starting right on it).
+            var tp = cpi.TimingPoints.LastOrDefault(p => p.Time < at - 1);
+
+            if (tp == null)
+            {
+                ForgeNotify.Info(notifications, "Put the grid's first beat before the playhead first.", FontAwesome.Solid.MapPin);
+                return;
+            }
+
+            int beats = (int)Math.Max(1, Math.Round((at - tp.Time) / tp.BeatLength));
+            double beat = Math.Round((at - tp.Time) / beats, 3);
+
+            if (beat < tp.BeatLength / 1.5 || beat > tp.BeatLength * 1.5)
+            {
+                ForgeNotify.Info(notifications, "That would change the tempo by more than half: put a tempo change nearer the playhead first.", FontAwesome.Solid.MapPin);
+                return;
+            }
+
+            string before = gridKey();
+            editorBeatmap.BeginChange();
+            tp.BeatLength = beat;
+            editorBeatmap.EndChange();
+            ScoreSession.GridChangeKeepsNotes(before, gridKey());
+            shownTempo = null;
+        }
+
+        /// <summary>
+        /// The level's beat made <paramref name="factor"/> times as long, in
+        /// every tempo (owner 2026-10-23: a level timed at 130 BPM with a beat
+        /// per quarter, whose pulse is four quarters; the game's windows follow
+        /// the notes' pace, not the beat, so this is for the grid). Nothing moves: the notes stay where they
+        /// sound (<see cref="ScoreSession.GridChangeKeepsNotes"/>), the bars keep
+        /// their length (beats per bar scaled) and the grid its lines (the
+        /// division scaled, when it can be).
+        /// </summary>
+        internal void ScaleBeat(double factor)
+        {
+            var points = editorBeatmap.ControlPointInfo.TimingPoints;
+
+            if (points.Count == 0)
+            {
+                ForgeNotify.Info(notifications, "There is no tempo yet: set the BPM first.", FontAwesome.Solid.Expand);
+                return;
+            }
+
+            foreach (var tp in points)
+            {
+                double bpm = 60000 / (tp.BeatLength * factor);
+                double perBar = tp.TimeSignature.Numerator / factor;
+
+                if (bpm < 10 || bpm > 1000)
+                {
+                    ForgeNotify.Info(notifications, $"That would make a tempo {bpm:0.#} BPM (10 to 1000 BPM).", FontAwesome.Solid.Expand);
+                    return;
+                }
+
+                if (perBar < 1 || perBar > 32 || perBar != Math.Floor(perBar))
+                {
+                    ForgeNotify.Info(notifications, $"A bar of {tp.TimeSignature.Numerator} beats can't hold beats {(factor > 1 ? "twice as long" : "half as long")}: the bars would move.", FontAwesome.Solid.Expand);
+                    return;
+                }
+            }
+
+            double from = 60000 / points[0].BeatLength;
+            string before = gridKey();
+
+            editorBeatmap.BeginChange();
+
+            foreach (var tp in points)
+            {
+                tp.BeatLength *= factor;
+                tp.TimeSignature = new TimeSignature((int)(tp.TimeSignature.Numerator / factor));
+            }
+
+            editorBeatmap.EndChange();
+            ScoreSession.GridChangeKeepsNotes(before, gridKey());
+
+            // The same grid lines: a quarter-beat grid of the old beat is an eighth of the new one.
+            double division = beatDivisor.Value * factor;
+            if (division == Math.Floor(division) && families.Any(f => f.Has((int)division)))
+                beatDivisor.SetArbitraryDivisor((int)division);
+
+            shownTempo = null;
+            ForgeNotify.Info(notifications, $"The beat is now {(factor > 1 ? "twice as long" : "half as long")}: {from:0.##} → {from / factor:0.##} BPM. The notes stayed where they sound.", FontAwesome.Solid.Expand);
+        }
+
+        private void removeTempoChange()
+        {
+            var cpi = editorBeatmap.ControlPointInfo;
+            var tp = currentTimingPoint(cpi.TimingPoints);
+
+            if (tp == null || tp == cpi.TimingPoints[0])
+            {
+                ForgeNotify.Info(notifications, "The playhead is in the first tempo: it stays (move the playhead after a tempo change).", FontAwesome.Solid.Times);
+                return;
+            }
+
+            editorBeatmap.BeginChange();
+            var group = cpi.GroupAt(tp.Time);
+            group?.Remove(tp);
+            if (group != null && group.ControlPoints.Count == 0) cpi.RemoveGroup(group);
+            editorBeatmap.EndChange();
+            shownTempo = null;
+        }
+
+        private string gridKey() => KanScore.GridKey(editorBeatmap.ControlPointInfo.TimingPoints.Select(p => new GridPoint { TimeMs = p.Time, BeatMs = p.BeatLength }));
+
+        internal void moveFirstBeat(double deltaMs) => setFirstBeat(firstTimingPoint().Time + deltaMs);
 
         private void setFirstBeat(double ms)
         {

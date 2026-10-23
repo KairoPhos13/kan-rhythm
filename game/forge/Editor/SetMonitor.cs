@@ -57,6 +57,7 @@ namespace Kan.Forge.Editor
 
         private readonly ForgeTrackSet set;
         private readonly Dictionary<ForgeTrack, Channel> channels = new Dictionary<ForgeTrack, Channel>();
+        private readonly Dictionary<ForgeTrack, string> openedPaths = new Dictionary<ForgeTrack, string>();
         private readonly HashSet<ForgeTrack> soloed = new HashSet<ForgeTrack>();
 
         private readonly BindableDouble silenceLevelMusic = new BindableDouble(0);
@@ -455,9 +456,19 @@ namespace Kan.Forge.Editor
 
             foreach (var track in tracks)
             {
-                if (track == null || channels.ContainsKey(track)) continue;
+                if (track == null) continue;
+
+                if (channels.TryGetValue(track, out var open))
+                {
+                    // A timeline repair gives the same track a new file: open that.
+                    if (openedPaths.GetValueOrDefault(track) == track.Path) continue;
+
+                    open.Dispose();
+                    channels.Remove(track);
+                }
 
                 var ch = Channel.Open(audio, track);
+                openedPaths[track] = track.Path;
                 if (ch == null) continue;
 
                 // Follow the editor's playback speed like the level music does.
@@ -470,6 +481,7 @@ namespace Kan.Forge.Editor
             {
                 channels[gone].Dispose();
                 channels.Remove(gone);
+                openedPaths.Remove(gone);
                 soloed.Remove(gone);
             }
 

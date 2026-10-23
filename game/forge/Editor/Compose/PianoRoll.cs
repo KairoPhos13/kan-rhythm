@@ -90,6 +90,7 @@ namespace Kan.Forge.Editor.Compose
         private Container grid = null!;
         private Container rows = null!;
         private Container beats = null!;
+        private Container outOfRange = null!;
         // Created up front: the screen adds its layers before this loads.
         private readonly Container overlays = new Container { RelativeSizeAxes = Axes.Both };
         private Container notes = null!;
@@ -102,6 +103,7 @@ namespace Kan.Forge.Editor.Compose
         private OsuSpriteText ghostLabel = null!;
 
         private string? drawnGridKey;
+        private (int, int)? drawnRange;
         private string? drawnNotesKey;
         private int scoreVersion;
 
@@ -129,6 +131,7 @@ namespace Kan.Forge.Editor.Compose
                         beats = new Container { RelativeSizeAxes = Axes.Both },
                         // Layers under the notes (spectrogram, section highlights).
                         overlays,
+                        outOfRange = new Container { RelativeSizeAxes = Axes.Both },
                         notes = new Container { RelativeSizeAxes = Axes.Both },
                         band = new Box { Colour = colourProvider.Highlight1, Alpha = 0 },
                         rowHighlight = new Box { RelativeSizeAxes = Axes.X, Colour = colourProvider.Light4, Alpha = 0 },
@@ -187,6 +190,17 @@ namespace Kan.Forge.Editor.Compose
         /// use) — inside the keyboard's padding, not the padded container.
         /// </summary>
         private Vector2 gridPos(Vector2 screenSpace) => notes.ToLocalSpace(screenSpace);
+
+        /// <summary>A time on the beat grid (when snapping is on).</summary>
+        public double Snapped(double ms) => snap(ms, false);
+
+        /// <summary>
+        /// The pitches the player can play (owner 2026-10-23: notes out of range
+        /// "in theory I cannot use"): rows outside are dimmed, notes outside greyed.
+        /// </summary>
+        public (int Lowest, int Highest) Range => Kan.Forge.Play.RangeFit.Playable(ForgeTrackSession.Instrument);
+
+        private bool inRange(int midi) => midi >= Range.Lowest && midi <= Range.Highest;
 
         private double snap(double ms, bool free) => !Snap || free || snapProvider == null ? ms : snapProvider.SnapTime(ms, null);
 
@@ -258,10 +272,16 @@ namespace Kan.Forge.Editor.Compose
                     ViewStartMs = Math.Max(0, t - ViewLengthMs * 0.05);
             }
 
-            string gridKey = $"{ViewStartMs:0.0}|{ViewLengthMs:0.0}|{TopMidi:0.00}|{RowHeight:0.0}|{DrawWidth:0}|{DrawHeight:0}|{timingKey()}|{snapProvider?.BeatDivisor}";
+            string gridKey = $"{ViewStartMs:0.0}|{ViewLengthMs:0.0}|{TopMidi:0.00}|{RowHeight:0.0}|{DrawWidth:0}|{DrawHeight:0}|{timingKey()}|{snapProvider?.BeatDivisor}|{Range}";
 
             if (gridKey != drawnGridKey)
             {
+                if (Range != drawnRange)
+                {
+                    drawnRange = Range;
+                    osu.Framework.Logging.Logger.Log($"kan! compose: playable range {KanScore.NoteName(Range.Lowest)}–{KanScore.NoteName(Range.Highest)}");
+                }
+
                 drawnGridKey = gridKey;
                 rebuildKeysAndRows();
                 rebuildBeats();
@@ -293,6 +313,7 @@ namespace Kan.Forge.Editor.Compose
         {
             keys.Clear();
             rows.Clear();
+            outOfRange.Clear();
 
             keys.Add(new Box { RelativeSizeAxes = Axes.Both, Colour = colourProvider.Background5 });
 
@@ -303,6 +324,13 @@ namespace Kan.Forge.Editor.Compose
             {
                 float y = YOf(midi);
                 bool black = isBlack(midi);
+
+                // Out of the player's range: a dimming layer over the row (and its key), under the notes.
+                if (!inRange(midi))
+                {
+                    outOfRange.Add(new Box { RelativeSizeAxes = Axes.X, Height = RowHeight, Y = y, Colour = Color4.Black, Alpha = 0.45f });
+                    keys.Add(new Box { Width = KEYS_WIDTH, Height = RowHeight, Y = y, Colour = Color4.Black, Alpha = 0.35f, Depth = -1 });
+                }
 
                 if (black)
                 {
@@ -339,6 +367,9 @@ namespace Kan.Forge.Editor.Compose
             double end = ViewStartMs + ViewLengthMs;
             int divisor = Math.Max(1, snapProvider?.BeatDivisor ?? 4);
 
+            // The bars go on across a tempo change on a beat (Bars), as the play's staff marks them.
+            var phases = Bars.PhaseOf(cpi.TimingPoints.Select(p => new Bars.Tempo(p.Time, p.BeatLength, p.TimeSignature.Numerator)).ToList());
+
             double t = ViewStartMs;
             int guard = 0;
 
@@ -348,6 +379,8 @@ namespace Kan.Forge.Editor.Compose
                 double beat = tp.BeatLength;
                 double step = beat / divisor;
                 int perBar = Math.Max(1, tp.TimeSignature.Numerator);
+                int point = cpi.TimingPoints.TakeWhile(p => p != tp).Count();
+                int phase = point < phases.Length ? phases[point] : 0;
 
                 // Grid lines on this timing point's own phase.
                 long index = (long)Math.Ceiling((t - tp.Time) / step - 1e-6);
@@ -367,7 +400,7 @@ namespace Kan.Forge.Editor.Compose
                 {
                     double beatsFromStart = (line - tp.Time) / beat;
                     bool onBeat = Math.Abs(beatsFromStart - Math.Round(beatsFromStart)) < 1e-6;
-                    bool onBar = onBeat && (long)Math.Round(beatsFromStart) % perBar == 0;
+                    bool onBar = onBeat && ((long)Math.Round(beatsFromStart) + phase) % perBar == 0;
 
                     beats.Add(new Box
                     {
@@ -399,7 +432,7 @@ namespace Kan.Forge.Editor.Compose
                 float y = YOf(n.Midi);
                 if (y < topY || y > bottomY) continue;
 
-                notes.Add(new NoteBlock(n, Selected.Contains(n), colours, colourProvider)
+                notes.Add(new NoteBlock(n, Selected.Contains(n), inRange(n.Midi), colours, colourProvider)
                 {
                     X = XOf(n.StartMs),
                     Y = y + 1,
@@ -730,10 +763,10 @@ namespace Kan.Forge.Editor.Compose
             return true;
         }
 
-        /// <summary>One note: intensity sets its brightness; selected notes are outlined.</summary>
+        /// <summary>One note: intensity sets its brightness; selected notes are outlined; out of range, grey.</summary>
         private partial class NoteBlock : CompositeDrawable
         {
-            public NoteBlock(ScoreNote note, bool selected, OsuColour colours, OverlayColourProvider provider)
+            public NoteBlock(ScoreNote note, bool selected, bool playable, OsuColour colours, OverlayColourProvider provider)
             {
                 Masking = true;
                 CornerRadius = 2;
@@ -741,7 +774,8 @@ namespace Kan.Forge.Editor.Compose
                 BorderColour = Color4.White;
 
                 // Pink: apart from the companion (blue) and reference (yellow) sound behind.
-                Color4 baseColour = note.PitchUnknown ? colours.Gray9 : colours.Pink;
+                Color4 baseColour = note.PitchUnknown ? colours.Gray9 : !playable ? colours.Gray6 : colours.Pink;
+                if (!playable) Alpha = 0.6f;
                 // Intensity sets the brightness — never so dark the note disappears.
                 Color4 fill = Interpolation.ValueAt(note.Intensity, baseColour.Darken(0.6f), baseColour, 0f, 1f);
 

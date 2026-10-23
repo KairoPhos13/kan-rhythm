@@ -47,6 +47,9 @@ namespace Kan.Ruleset.UI
         /// <summary>A note was judged: its index and verdict.</summary>
         public event Action<int, LiveVerdict>? Judged;
 
+        /// <summary>A note's verdict was taken back (a replay rewound past it): its index.</summary>
+        public event Action<int>? Unjudged;
+
         /// <summary>The player's pitch, newest last: gameplay time, fractional MIDI (0 = none), level.</summary>
         public readonly TrailPoint[] Trail = new TrailPoint[400];
 
@@ -75,11 +78,20 @@ namespace Kan.Ruleset.UI
         /// <summary>The level's design (sections, palette, effects): the level's own, or generated from its notes.</summary>
         public Kan.Forge.Design.KanDesign Design { get; init; } = new Kan.Forge.Design.KanDesign();
 
+        /// <summary>The level's bars, beats and parts of a beat (in order; <see cref="Kan.Forge.Score.Bars"/>): the staff marks them.</summary>
+        public IReadOnlyList<Kan.Forge.Score.Bars.Tick> Ticks { get; init; } = Array.Empty<Kan.Forge.Score.Bars.Tick>();
+
         /// <summary>A replay (or autoplay) to read the facts from instead of listening.</summary>
         public Func<Replay?>? ReplaySource { get; set; }
 
         /// <summary>Where a live play records what it heard (its replay).</summary>
         public KanReplayRecorder? Recorder { get; set; }
+
+        /// <summary>The level's set: a play's recording is kept for it (<see cref="PlayTake"/>).</summary>
+        public Guid SetId { get; init; }
+
+        /// <summary>What the player played, kept with the play to be heard in its replay (owner 2026-10-22).</summary>
+        private PlayTake? take;
 
         /// <summary>The level is stopped, waiting for the player (wait mode).</summary>
         public bool Waiting => waitingFor != null;
@@ -129,7 +141,7 @@ namespace Kan.Ruleset.UI
             var around = new System.Collections.Generic.List<int>();
             if (n.Index > 0 && !Notes[n.Index - 1].PitchUnknown) around.Add(Notes[n.Index - 1].Midi);
 
-            double reach = LiveJudge.MEH_MS * Judge.WindowScale;
+            double reach = LiveJudge.WindowMs(LiveResult.Meh, n.PaceMs) * Judge.WindowScale;
 
             for (int i = n.Index - 1; i >= 0 && Notes[i].StartTime >= n.StartTime - reach; i--)
                 if (!Notes[i].PitchUnknown) around.Add(Notes[i].Midi);
@@ -139,6 +151,27 @@ namespace Kan.Ruleset.UI
 
             return expectedAround[n.Index] = around.Distinct().ToArray();
         }
+
+        /// <summary>When the score's previous note (not a chord mate) starts: the judge's window reaches back at most halfway to it.</summary>
+        public double PreviousStart(KanHitObject n)
+        {
+            for (int i = n.Index - 1; i >= 0; i--)
+                if (Notes[i].StartTime < n.StartTime) return Notes[i].StartTime;
+
+            return double.NegativeInfinity;
+        }
+
+        /// <summary>When the score's next note (not a chord mate) starts: the judge's window reaches on at most halfway to it.</summary>
+        public double NextStart(KanHitObject n)
+        {
+            for (int i = n.Index + 1; i < Notes.Count; i++)
+                if (Notes[i].StartTime > n.StartTime) return Notes[i].StartTime;
+
+            return double.PositiveInfinity;
+        }
+
+        /// <summary>Whether the judge heard a note played for <paramref name="n"/>, within its window.</summary>
+        private bool heard(KanHitObject n) => Judge.HasHeard(n.StartTime, n.Midi, n.PitchUnknown, n.PaceMs, PreviousStart(n), NextStart(n));
 
         /// <summary>A wrong try heard for a note (wait mode): the drawable applies it at once.</summary>
         public LiveVerdict? WrongTry(KanHitObject note) => wrongTry.TryGetValue(note.Index, out var v) ? v : null;
@@ -164,7 +197,8 @@ namespace Kan.Ruleset.UI
         {
             int played = f.Midi > 0 ? (int)Math.Round(f.Midi) : 0;
 
-            if (n.PitchUnknown || lastOnsetMs < n.StartTime - LiveJudge.TRY_BEFORE_MS || !LiveJudge.IsWrongTry(played, n.Midi, ExpectedAround(n)))
+            if (n.PitchUnknown || lastOnsetMs < n.StartTime - LiveJudge.TRY_BEFORE_MS || LiveJudge.Accepts(f.Midi, n.Midi)
+                || !LiveJudge.IsWrongTry(played, n.Midi, ExpectedAround(n)))
             {
                 wrongHeldReadings = 0;
                 return;
@@ -209,6 +243,28 @@ namespace Kan.Ruleset.UI
 
         private LiveSession? session;
 
+        /// <summary>
+        /// The microphone being opened off the game's thread, or null (owner
+        /// 2026-10-23: with the disk saturated, a restart froze 5 s opening it).
+        /// </summary>
+        private System.Threading.Tasks.Task<bool>? opening;
+
+        private LiveSession? openingSession;
+        private string openingAs = string.Empty;
+        private long openingSince;
+
+        /// <summary>Sessions being closed, off the game's thread: a play's recording is kept once they are (their thread writes to it until then).</summary>
+        private System.Threading.Tasks.Task closing = System.Threading.Tasks.Task.CompletedTask;
+
+        /// <summary>
+        /// A microphone that gives no samples this long has stopped (it gives
+        /// them all the time, silence included): it is opened again (owner
+        /// 2026-10-23: it stopped 1.6 s into a play and the level stood still).
+        /// </summary>
+        private const double mic_stall_ms = 1000;
+
+        private bool micReopened;
+
         /// <summary>The describer listening now (null while not listening).</summary>
         internal LiveSession? Session => session;
         private double rate = 1;
@@ -224,6 +280,17 @@ namespace Kan.Ruleset.UI
 
         /// <summary>Real time since listening started (what heard times are placed by).</summary>
         private readonly System.Diagnostics.Stopwatch listeningFor = new System.Diagnostics.Stopwatch();
+
+        // Timing diagnostics for the play's summary line.
+        private double lagSum, lagMin = double.MaxValue, lagMax = double.MinValue;
+        private int lagFrames, hitsHeard, hitsInFuture;
+
+        /// <summary>The play, note by note (<see cref="KanPlayTrace"/>); null in replays.</summary>
+        internal KanPlayTrace? Trace { get; private set; }
+
+        internal double TraceRealMs => listeningFor.Elapsed.TotalMilliseconds;
+
+        private long lastLagRow;
 
         /// <summary>A level drifting this far from the listening's real time has jumped.</summary>
         private const double jump_ms = 400;
@@ -271,6 +338,10 @@ namespace Kan.Ruleset.UI
             });
 
             clockContainer = this.FindClosestParent<GameplayClockContainer>();
+            scoreProcessor?.HasCompleted.BindValueChanged(c =>
+            {
+                if (c.NewValue) saveTake();
+            });
         }
 
         /// <summary>
@@ -283,6 +354,34 @@ namespace Kan.Ruleset.UI
         public bool WaitPending(KanHitObject note)
             => WaitForPlayer && (ReferenceEquals(note, waitingFor) || note.Index >= nextWait); // Notes are in index order
 
+        /// <summary>
+        /// Called by a note's judging object when the game takes its result
+        /// back (a replay rewound before it was decided): the note is
+        /// undecided again, so it looks and plays as it did the first time
+        /// (owner 2026-10-22: after a rewind the notes' effects never came back).
+        /// </summary>
+        public void Unreport(KanHitObject note)
+        {
+            if (Verdicts[note.Index] == null) return;
+
+            Verdicts[note.Index] = null;
+            wrongTry.Remove(note.Index);
+            judgedCount--;
+            Unjudged?.Invoke(note.Index);
+        }
+
+        /// <summary>
+        /// Whether an attack played at <paramref name="now"/> would be a perfect
+        /// for <paramref name="note"/>: placed as the judge places what it hears
+        /// (with the player's timing habit), graded on the note's own window.
+        /// The staff lights the target with it (owner 2026-10-22).
+        /// </summary>
+        public bool PerfectNow(KanHitObject note, double now)
+            => Judge.WithinPerfect(PlacedAt(now) - note.StartTime, note.PaceMs, note.StartTime, PreviousStart(note), NextStart(note));
+
+        /// <summary>Where on the level an attack played at <paramref name="now"/> is placed (the player's timing habit included, as the judge places it).</summary>
+        public double PlacedAt(double now) => now + (micPlay ? -ForgeTiming.PLAYER_TIMING_MS.Value * (rate > 0 ? rate : 1) : 0);
+
         /// <summary>Called by a note's judging object once the judge decided it.</summary>
         public void Report(KanHitObject note, LiveVerdict verdict)
         {
@@ -291,9 +390,7 @@ namespace Kan.Ruleset.UI
             switch (verdict.Result)
             {
                 case LiveResult.Perfect:
-                case LiveResult.Great:
                 case LiveResult.Good:
-                case LiveResult.Ok:
                     Streak++;
                     bloomTarget += 0.07;
                     break;
@@ -310,6 +407,8 @@ namespace Kan.Ruleset.UI
             }
 
             bloomTarget = Math.Clamp(bloomTarget, 0.15, 1);
+            Trace?.Row(TraceRealMs, clockMs, "verdict", note.Index, note.StartTime, note.Midi, verdict.Result, verdict.Reason, verdict.OffsetMs, verdict.PlayedMidi,
+                verdict.PlayedId, clockMs - note.StartTime);
             Judged?.Invoke(note.Index, verdict);
 
             if (Dev.KanDevPlay.Enabled)
@@ -349,6 +448,19 @@ namespace Kan.Ruleset.UI
             {
                 double expected = listenedFrom + (listeningFor.Elapsed.TotalMilliseconds - frozenStreamMs) * rate;
 
+                // How far the level's clock sits from real time since listening began
+                // (diagnostics: a hit is placed by that real time, so a gap moves every hit).
+                lagSum += now - expected;
+                lagMin = Math.Min(lagMin, now - expected);
+                lagMax = Math.Max(lagMax, now - expected);
+                lagFrames++;
+
+                if (Environment.TickCount64 - lastLagRow > 1000)
+                {
+                    lastLagRow = Environment.TickCount64;
+                    Trace?.Row(TraceRealMs, now, "clock", now - expected);
+                }
+
                 if (Math.Abs(now - expected) > jump_ms)
                 {
                     osu.Framework.Logging.Logger.Log($"kan!: the level jumped to {now:0} ms (expected {expected:0}); listening again from there");
@@ -360,11 +472,36 @@ namespace Kan.Ruleset.UI
                 feedReplay(replay, now);
             else
             {
-                if (session == null && !failed && gameplayClock.IsRunning && !gameplayClock.IsPaused.Value)
+                if (opening != null)
+                {
+                    if (opening.IsCompleted)
+                        finishOpening(now);
+                    else if (Status.Value.Length == 0 && System.Diagnostics.Stopwatch.GetElapsedTime(openingSince).TotalMilliseconds > 1000)
+                        Status.Value = @"Opening the microphone…";
+                }
+                else if (session == null && !failed && gameplayClock.IsRunning && !gameplayClock.IsPaused.Value)
                     startListening(now);
 
+                if (session != null && micPlay && session.SilentForMs > mic_stall_ms)
+                {
+                    osu.Framework.Logging.Logger.Log($"kan!: the microphone gave nothing for {session.SilentForMs:0} ms; opening it again", level: osu.Framework.Logging.LogLevel.Important);
+                    Trace?.Row(TraceRealMs, now, "reopen");
+                    stopListening();
+                    micReopened = true;
+                    startListening(now);
+                }
+
                 if (session != null)
+                {
+                    remember(listeningFor.Elapsed.TotalMilliseconds, now);
+
+                    // Where the level was as the take was heard: as the judge places it, without the player's habit.
+                    if (waitingFor != null || resuming)
+                        take?.Break();
+                    else
+                        take?.Mark(now, listeningFor.Elapsed.TotalMilliseconds, micDelayMs);
                     takeFacts();
+                }
             }
 
             if (WaitForPlayer)
@@ -382,7 +519,7 @@ namespace Kan.Ruleset.UI
 
 
             // Ease towards the target: blooming is felt over a phrase, not a note.
-            Bloom += (bloomTarget - Bloom) * Math.Min(1, Time.Elapsed / 900);
+            Bloom += (bloomTarget - Bloom) * Math.Min(1, Math.Abs(Time.Elapsed) / 900);
         }
 
         private void startListening(double now)
@@ -401,9 +538,8 @@ namespace Kan.Ruleset.UI
                     // Paced like a player: real time, whatever the level's clock does.
                     // Like a microphone, it is heard from now on: the file from where
                     // the level is, its first sample placed at the level's now.
-                    var since = System.Diagnostics.Stopwatch.StartNew();
                     double startAt = clockMs - fileStart;
-                    source = new FileSource(file, () => startAt + since.Elapsed.TotalMilliseconds, startAt);
+                    source = new FileSource(file, () => startAt + listeningFor.Elapsed.TotalMilliseconds, startAt);
                     anchorMs = clockMs;
                     filePacedByLevel = false;
                 }
@@ -423,9 +559,6 @@ namespace Kan.Ruleset.UI
             }
             else
             {
-                // The take's first sample is "now" — as in the mic calibration, whose
-                // measured round trip (micDelayMs) covers everything after it.
-                anchorMs = now;
                 source = new MicSource();
                 micPlay = true;
             }
@@ -437,29 +570,117 @@ namespace Kan.Ruleset.UI
 
             // The player's instrument as it is now (it can change in the player loader), else the level's.
             string listenAs = Configuration.KanPlayer.Instrument ?? instrument;
-            var s = new LiveSession(source, listenAs);
-            osu.Framework.Logging.Logger.Log($"kan!: listening as {listenAs}");
-
-            if (!s.Start())
+            // A live play records what it hears, for its replay (its id rides in the replay).
+            if (take == null && Recorder != null)
             {
-                failed = true;
-                bloomTarget = 1; // nothing to judge by: never muffle the music for it
-                Status.Value = $"Not listening: {s.Error}.";
-                osu.Framework.Logging.Logger.Log($"kan!: live input failed: {s.Error}", level: osu.Framework.Logging.LogLevel.Important);
+                take = new PlayTake();
+                Recorder.Add(new KanReplayFrame(now, KanFactKind.Take, take.Id));
+            }
+
+            var s = new LiveSession(source, listenAs) { Take = take };
+
+            if (micPlay)
+            {
+                // A microphone may take a while to open: off the game's thread, heard from when it is open.
+                openingSession = s;
+                openingAs = listenAs;
+                openingSince = System.Diagnostics.Stopwatch.GetTimestamp();
+                opening = System.Threading.Tasks.Task.Run(s.Open);
                 return;
             }
 
-            session = s;
-            listenedFrom = now;
-            listeningFor.Restart();
-            sessionBase += 1u << 24; // note ids restart with each session
-            Status.Value = string.Empty;
+            if (!s.Open())
+            {
+                notListening(s.Error);
+                return;
+            }
+
+            begin(s, now, listenAs);
         }
 
+        /// <summary>The microphone opened (or not): heard from now.</summary>
+        private void finishOpening(double now)
+        {
+            var s = openingSession!;
+            bool opened = opening!.IsCompletedSuccessfully && opening.Result;
+            opening = null;
+            openingSession = null;
+
+            if (!opened)
+            {
+                closing = closing.ContinueWith(_ => s.Dispose());
+                notListening(s.Error.Length > 0 ? s.Error : @"the microphone could not open");
+                return;
+            }
+
+            // The take's first sample is "now" — as in the mic calibration, whose
+            // measured round trip (micDelayMs) covers everything after it.
+            anchorMs = now;
+            begin(s, now, openingAs);
+        }
+
+        private void notListening(string error)
+        {
+            failed = true;
+            bloomTarget = 1; // nothing to judge by: never muffle the music for it
+            Status.Value = $"Not listening: {error}.";
+            osu.Framework.Logging.Logger.Log($"kan!: live input failed: {error}", level: osu.Framework.Logging.LogLevel.Important);
+        }
+
+        /// <summary>Start hearing an open session: its first sample is now.</summary>
+        private void begin(LiveSession s, double now, string listenAs)
+        {
+            // Real time starts with the stream: its first sample is real time 0.
+            listeningFor.Restart();
+            s.Begin();
+            osu.Framework.Logging.Logger.Log($"kan!: listening as {listenAs}");
+
+            session = s;
+            listenedFrom = now;
+            seenCount = 0;
+            playerTimingMs = micPlay ? ForgeTiming.PLAYER_TIMING_MS.Value : 0; // a recording plays as it was recorded
+
+            Trace ??= KanPlayTrace.Start(new[]
+            {
+                $"kan! play trace {DateTime.Now:yyyy-MM-dd HH:mm:ss}; {Notes.Count} notes; instrument {listenAs}; mic delay {micDelayMs:0} ms; player timing {playerTimingMs:+0;-0;0} ms; rate {rate:0.##}; wait for the player {WaitForPlayer}; source {(micPlay ? "microphone" : "file")}",
+                "rows: listen,anchor_ms | hit,heard,stream_ms,placed_ms,stamp_ms | pitch,heard,stage,raw_midi,corrected_midi,cents | unresolved,heard,stage | read,stream_ms,placed_ms,midi,level",
+                "      verdict,note,start_ms,midi,result,reason,offset_ms,played_midi,heard (empty: timed by readings),late_ms (verdict after the note's start)",
+                "      frame,update_ms,draw_ms,gc_ms | clock,level_minus_real_ms | wait,note | release,note",
+                "real_ms: since listening (re)started; level_ms: the level's clock when the row was written",
+            });
+            Trace?.Row(TraceRealMs, now, "listen", anchorMs);
+            sessionBase += 1u << 24; // note ids restart with each session
+
+            if (micReopened)
+            {
+                micReopened = false;
+                const string reopened = @"The microphone stopped for a moment: it was opened again.";
+                Status.Value = reopened;
+                Scheduler.AddDelayed(() =>
+                {
+                    if (Status.Value == reopened) Status.Value = string.Empty;
+                }, 4000);
+            }
+            else
+                Status.Value = string.Empty;
+        }
+
+        /// <summary>Stop hearing: the session (or the one opening) is closed off the game's thread.</summary>
         private void stopListening()
         {
-            session?.Dispose();
-            session = null;
+            if (opening != null)
+            {
+                var abandoned = openingSession!;
+                closing = System.Threading.Tasks.Task.WhenAll(closing, opening).ContinueWith(_ => abandoned.Dispose());
+                opening = null;
+                openingSession = null;
+            }
+
+            if (session is { } s)
+            {
+                session = null;
+                closing = closing.ContinueWith(_ => s.Dispose());
+            }
         }
 
         private void takeFacts()
@@ -477,6 +698,9 @@ namespace Kan.Ruleset.UI
                         int index = heardIndex.Count;
                         heardIndex[id] = index;
                         double at = toGameplay(f.OnsetMs);
+                        hitsHeard++;
+                        if (at > now) hitsInFuture++;
+                        Trace?.Row(TraceRealMs, now, "hit", index, f.OnsetMs, at, Math.Min(at, now));
                         apply(new KanReplayFrame(now, KanFactKind.Hit, index, delayMs: delay(now, at)));
                         break;
                     }
@@ -489,13 +713,17 @@ namespace Kan.Ruleset.UI
 
                         // "Nothing measurable" comes as its own stage, or as a pitch of 0.
                         if (f.Stage == KanForgeLiveEvent.UNRESOLVED || f.Midi <= 0)
+                        {
+                            Trace?.Row(TraceRealMs, now, "unresolved", index, final ? "final" : "provisional");
                             apply(new KanReplayFrame(now, final ? KanFactKind.UnresolvedFinal : KanFactKind.UnresolvedProvisional, index));
+                        }
                         else
                         {
                             // The instrument's tuning off first: a note a little sharp on a
                             // sharp instrument is the right note (not the next one up).
                             float pitch = tuning.Correct(MathF.Round(f.Midi) + f.Cents / 100);
                             float midi = MathF.Round(pitch);
+                            Trace?.Row(TraceRealMs, now, "pitch", index, f.Stage == KanForgeLiveEvent.FINAL ? "final" : "provisional", f.Midi + f.Cents / 100, midi, (pitch - midi) * 100);
                             apply(new KanReplayFrame(now, f.Stage == KanForgeLiveEvent.FINAL ? KanFactKind.PitchFinal : KanFactKind.PitchProvisional, index,
                                 midi, (pitch - midi) * 100));
                         }
@@ -507,6 +735,7 @@ namespace Kan.Ruleset.UI
                     {
                         double at = toGameplay(f.TMs);
                         learnTuning(f.Midi, at);
+                        Trace?.Row(TraceRealMs, now, "read", f.TMs, at, tuning.Correct(f.Midi), f.Level);
                         apply(new KanReplayFrame(now, KanFactKind.Reading, midi: tuning.Correct(f.Midi), level: f.Level, delayMs: delay(now, at)));
                         break;
                     }
@@ -587,7 +816,7 @@ namespace Kan.Ruleset.UI
 
             if (f.Kind != KanFactKind.PitchFinal) return;
 
-            if (n.PitchUnknown || !LiveJudge.IsWrongTry((int)f.Midi, n.Midi, ExpectedAround(n))) return;
+            if (n.PitchUnknown || LiveJudge.Accepts(f.Midi + f.Cents / 100, n.Midi) || !LiveJudge.IsWrongTry((int)f.Midi, n.Midi, ExpectedAround(n))) return;
             if (clockMs > n.StartTime + WAIT_GRACE_MS || !isTryAt(f, n)) return;
 
             noteWrongTry(n, (int)f.Midi, onsetOf.GetValueOrDefault(f.Index, clockMs));
@@ -638,7 +867,7 @@ namespace Kan.Ruleset.UI
 
             while (replayCursor < frames.Count && frames[replayCursor].Time <= now)
             {
-                if (frames[replayCursor] is KanReplayFrame f)
+                if (frames[replayCursor] is KanReplayFrame { Kind: not KanFactKind.Take } f)
                     apply(f, record: false);
                 replayCursor++;
             }
@@ -656,7 +885,7 @@ namespace Kan.Ruleset.UI
             // A note missed for a wrong try is still waited for: the miss is the
             // penalty, finding the right note is still the walk (owner 2026-10-17).
             while (nextWait < Notes.Count && (Verdicts[Notes[nextWait].Index] != null && !wrongTry.ContainsKey(Notes[nextWait].Index) || Notes[nextWait].StartTime <= now
-                                                                                     && Judge.HasHeard(Notes[nextWait].StartTime, Notes[nextWait].Midi, Notes[nextWait].PitchUnknown)))
+                                                                                     && heard(Notes[nextWait])))
                 nextWait++;
 
             if (nextWait >= Notes.Count) return;
@@ -678,6 +907,7 @@ namespace Kan.Ruleset.UI
             nextWait++;
             waitingFor = n;
             WaitStopTime = now;
+            Trace?.Row(TraceRealMs, now, "wait", n.Index);
             WaitResumeTime = Math.Min(now, n.StartTime + (release_lead_ms + micDelayMs) * rate);
             rightReadings = 0;
             waitingClock.Restart();
@@ -715,7 +945,7 @@ namespace Kan.Ruleset.UI
             {
                 var p = LiveAt(i);
                 if (RealNowMs - p.RealMs > 150 || p.Midi <= 0) return false;
-                if (!n.PitchUnknown && !Judge.Matches(p.Midi, n.Midi)) return false;
+                if (!n.PitchUnknown && !LiveJudge.Accepts(p.Midi, n.Midi)) return false;
             }
 
             return true;
@@ -724,8 +954,8 @@ namespace Kan.Ruleset.UI
         /// <summary>Whether this play listens to the microphone (not a recording, not a replay).</summary>
         private bool micPlay;
 
-        /// <summary>How late the notes of the last play on the microphone landed (real ms, median), with the mic delay it was played with.</summary>
-        public readonly record struct LastPlayTiming(double MedianMs, int Notes, double MicDelayMs)
+        /// <summary>How late the notes of the last play on the microphone landed (real ms, median), with the player timing it was played with.</summary>
+        public readonly record struct LastPlayTiming(double MedianMs, int Notes, double PlayerTimingMs)
         {
             public const int MIN_NOTES = 10;
         }
@@ -755,7 +985,7 @@ namespace Kan.Ruleset.UI
                 int played = (int)f.Midi;
 
                 // A repeated note needs an attack made for it, not the last one's pitch arriving late.
-                if ((n.PitchUnknown || Judge.Matches(f.Midi + f.Cents / 100, n.Midi)) && (!needsAttack(n) || isTryAt(f, n)))
+                if ((n.PitchUnknown || LiveJudge.Accepts(f.Midi + f.Cents / 100, n.Midi)) && (!needsAttack(n) || isTryAt(f, n)))
                 {
                     release(n, f.Cents);
                     return;
@@ -780,7 +1010,7 @@ namespace Kan.Ruleset.UI
             // A repeated note is not released by the previous one still sounding: it waits for an attack.
             if (needsAttack(n)) return;
 
-            bool right = f.Midi > 0 && (n.PitchUnknown || Judge.Matches(f.Midi, n.Midi));
+            bool right = f.Midi > 0 && (n.PitchUnknown || LiveJudge.Accepts(f.Midi, n.Midi));
             rightReadings = right ? rightReadings + 1 : 0;
 
             if (rightReadings >= right_readings_to_release || (right && n.Articulation == Kan.Forge.Score.Articulation.Legato))
@@ -790,6 +1020,7 @@ namespace Kan.Ruleset.UI
         private void release(KanHitObject n, float cents)
         {
             markPlayed(n, cents / 100);
+            Trace?.Row(TraceRealMs, clockMs, "release", n.Index);
             waitingFor = null;
             resuming = true;
             Status.Value = string.Empty;
@@ -866,7 +1097,7 @@ namespace Kan.Ruleset.UI
             var held = waitingFor ?? (resuming || nextWait >= Notes.Count ? null : Notes[nextWait]);
 
             if (held != null && Verdicts[held.Index] == null && now > held.StartTime
-                && (waitingFor != null || !Judge.HasHeard(held.StartTime, held.Midi, held.PitchUnknown)))
+                && (waitingFor != null || !heard(held)))
             {
                 double over = (waitingFor != null ? WaitStopTime : now) - held.StartTime;
                 target = held.StartTime + display_overrun_ms * (1 - Math.Exp(-over / display_overrun_ms));
@@ -877,7 +1108,7 @@ namespace Kan.Ruleset.UI
                 return displayed = target;
 
             // Only forward, easing into step (a note played in the grace, or the level resuming).
-            double eased = displayed + (target - displayed) * Math.Min(1, elapsedMs / 120);
+            double eased = displayed + (target - displayed) * Math.Min(1, Math.Abs(elapsedMs) / 120);
             return displayed = Math.Max(displayed, eased);
         }
 
@@ -890,7 +1121,7 @@ namespace Kan.Ruleset.UI
             if (summaryLogged) return;
 
             summaryLogged = true;
-            int judged = 0, perfect = 0, great = 0, good = 0, ok = 0, meh = 0, notHeard = 0, wrong = 0, unclear = 0;
+            int judged = 0, perfect = 0, good = 0, meh = 0, notHeard = 0, wrong = 0, unclear = 0;
             double offsets = 0;
             var timings = new System.Collections.Generic.List<double>();
 
@@ -903,9 +1134,7 @@ namespace Kan.Ruleset.UI
                 switch (verdict.Result)
                 {
                     case LiveResult.Perfect: perfect++; break;
-                    case LiveResult.Great: great++; break;
                     case LiveResult.Good: good++; break;
-                    case LiveResult.Ok: ok++; break;
                     case LiveResult.Meh: meh++; break;
                 }
 
@@ -921,7 +1150,7 @@ namespace Kan.Ruleset.UI
             if (micPlay && !WaitForPlayer && timings.Count >= LastPlayTiming.MIN_NOTES)
             {
                 timings.Sort();
-                LastPlay = new LastPlayTiming(timings[timings.Count / 2], timings.Count, micDelayMs);
+                LastPlay = new LastPlayTiming(timings[timings.Count / 2], timings.Count, playerTimingMs);
             }
 
             if (judged == 0)
@@ -930,10 +1159,12 @@ namespace Kan.Ruleset.UI
                 return;
             }
 
-            int hits = perfect + great + good + ok + meh;
-            osu.Framework.Logging.Logger.Log($"kan! play: {judged} of {Notes.Count} notes judged — perfect {perfect}, great {great}, good {good}, ok {ok}, meh {meh}, "
+            int hits = perfect + good + meh;
+            osu.Framework.Logging.Logger.Log($"kan! play: {judged} of {Notes.Count} notes judged — perfect {perfect}, good {good}, meh {meh}, "
                                              + $"wrong note {wrong}, not heard {notHeard}, pitch unclear {unclear}; "
-                                             + $"mean offset {(hits > 0 ? offsets / hits : 0):0} ms; instrument tuning {tuning.Cents:+0;-0;0} cents; {(failed ? Status.Value : "listening")}",
+                                             + $"mean offset {(hits > 0 ? offsets / hits : 0):0} ms; instrument tuning {tuning.Cents:+0;-0;0} cents; "
+                                             + $"clock vs listening {(lagFrames > 0 ? lagSum / lagFrames : 0):+0;-0;0} ms ({(lagFrames > 0 ? lagMin : 0):+0;-0;0}..{(lagFrames > 0 ? lagMax : 0):+0;-0;0}), "
+                                             + $"hits placed after now {hitsInFuture} of {hitsHeard}, mic delay {micDelayMs:0} ms, player timing {playerTimingMs:+0;-0;0} ms; {(failed ? Status.Value : "listening")}",
                 level: osu.Framework.Logging.LogLevel.Important);
         }
 
@@ -947,7 +1178,99 @@ namespace Kan.Ruleset.UI
             if (waitingFor != null) return waitingFor.StartTime;
             if (resuming) return resumeAt;
 
-            return anchorMs + (streamMs - frozenStreamMs - micDelayMs) * rate;
+            // The player's habit (ahead of the line, most of us): their notes taken as meant.
+            double habit = -playerTimingMs * rate;
+
+            if (filePacedByLevel || seenCount < 2)
+                return anchorMs + (streamMs - frozenStreamMs - micDelayMs) * rate + habit;
+
+            return levelAt(streamMs - micDelayMs) + habit;
+        }
+
+        // What the level's clock showed at each real moment while listening (owner 2026-10-21:
+        // a fixed anchor drifted 0-40 ms from the clock, so 60 % of the onsets were cut to
+        // their arrival — two notes played alike could grade differently).
+        private const int seen_size = 4096;
+        private readonly double[] seenReal = new double[seen_size];
+        private readonly double[] seenLevel = new double[seen_size];
+        private int seenHead, seenCount;
+        private double playerTimingMs;
+
+        private void remember(double realMs, double levelMs)
+        {
+            if (seenCount > 0 && realMs <= seenReal[(seenHead - 1 + seen_size) % seen_size]) return;
+
+            seenReal[seenHead] = realMs;
+            seenLevel[seenHead] = levelMs;
+            seenHead = (seenHead + 1) % seen_size;
+            seenCount = Math.Min(seenCount + 1, seen_size);
+        }
+
+        /// <summary>
+        /// The level's time at a real moment since listening began: between the
+        /// frames that saw it, else carried on at the rate from the nearest one
+        /// (a sound newer than the last frame, or across a stop).
+        /// </summary>
+        private double levelAt(double realMs)
+        {
+            int oldest = (seenHead - seenCount + seen_size) % seen_size;
+            int newest = (seenHead - 1 + seen_size) % seen_size;
+
+            if (realMs >= seenReal[newest])
+                return seenLevel[newest] + (realMs - seenReal[newest]) * rate;
+            if (realMs <= seenReal[oldest])
+                return seenLevel[oldest] + (realMs - seenReal[oldest]) * rate;
+
+            // Binary search over the ring, in age order.
+            int lo = 0, hi = seenCount - 1;
+
+            while (hi - lo > 1)
+            {
+                int mid = (lo + hi) / 2;
+                if (seenReal[(oldest + mid) % seen_size] <= realMs) lo = mid;
+                else hi = mid;
+            }
+
+            int a = (oldest + lo) % seen_size, b = (oldest + hi) % seen_size;
+            double span = seenReal[b] - seenReal[a];
+
+            // Frames far apart (the level stood still between): carry on from the later one.
+            if (span > 100)
+                return seenLevel[b] + (realMs - seenReal[b]) * rate;
+
+            return seenLevel[a] + (seenLevel[b] - seenLevel[a]) * (realMs - seenReal[a]) / span;
+        }
+
+        [Resolved(CanBeNull = true)]
+        private osu.Game.Rulesets.Scoring.ScoreProcessor? scoreProcessor { get; set; }
+
+        /// <summary>
+        /// Keep the play's recording (in the background: it writes the file),
+        /// with the play's score: when the level ends, so its replay — even
+        /// watched straight from the results — finds it; else when the play goes.
+        /// </summary>
+        private void saveTake()
+        {
+            var kept = take;
+            take = null;
+
+            if (kept == null || Recorder == null || KanLevelFiles.ForgeRoot is not { } root) return;
+
+            long score = scoreProcessor?.TotalScore.Value ?? Recorder.Target.ScoreInfo.TotalScore;
+            Guid set = SetId;
+
+            // Once the sessions that write to it are closed.
+            closing.ContinueWith(_ =>
+            {
+                try
+                {
+                    kept.Save(root, set, score);
+                }
+                catch (Exception e) when (e is System.IO.IOException or UnauthorizedAccessException)
+                {
+                    osu.Framework.Logging.Logger.Log($"kan!: the play's recording could not be kept: {e.Message}");
+                }
+            });
         }
 
         protected override void Dispose(bool isDisposing)
@@ -958,6 +1281,9 @@ namespace Kan.Ruleset.UI
 
             logSummary();
             stopListening();
+            saveTake();
+            Trace?.Dispose();
+            Trace = null;
             base.Dispose(isDisposing);
         }
     }

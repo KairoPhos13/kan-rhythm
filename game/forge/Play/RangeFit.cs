@@ -34,6 +34,16 @@ namespace Kan.Forge.Play
             _ => (21, 108), // keyboard: the piano's 88 keys
         };
 
+        /// <summary>
+        /// The player's own range (lowest–highest), or null while their
+        /// instrument is "as the level". The ruleset sets it: its settings
+        /// hold the player's instrument.
+        /// </summary>
+        public static Func<(int Lowest, int Highest)?>? PlayerRange { get; set; }
+
+        /// <summary>The notes the player can play: their own range, else the level instrument's.</summary>
+        public static (int Lowest, int Highest) Playable(string instrument) => PlayerRange?.Invoke() ?? DefaultRange(instrument);
+
         public static Fit Plan(IReadOnlyCollection<int> midis, int lowest, int highest)
         {
             if (midis.Count == 0 || highest < lowest) return new Fit(0, 0, midis.Count);

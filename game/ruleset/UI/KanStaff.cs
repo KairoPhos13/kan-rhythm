@@ -49,17 +49,36 @@ namespace Kan.Ruleset.UI
         private const int note_pool = 72;
         private const int trail_pool = 240;
         private const int line_pool = 48;
+        private const int bar_pool = 16;
+        private const int tick_pool = 96;
         private const double trail_ms = 2200;
 
         private static readonly Color4 unknown_colour = Color4Extensions.FromHex(@"8a8a99");
-        // osu!mania's order, its colours: perfect shines white, great gold, good
-        // green, ok blue, meh lilac.
-        private static readonly Color4 perfect_colour = Color4Extensions.FromHex(@"f2fbff");
-        private static readonly Color4 great_colour = Color4Extensions.FromHex(@"ffd54f");
+        // Three grades (owner 2026-10-21): perfect white, radiating faint gold
+        // (it was orchid, and before that a near-white that read like the old
+        // lilac meh), good green, meh grey. White is "right": a played note's
+        // ring is white when its timing was perfect, its inside white when its
+        // pitch was in tune.
+        private static readonly Color4 perfect_colour = Color4Extensions.FromHex(@"fffaf0");
+
+        /// <summary>The faint gold a perfect radiates (its halo, the inside's lower edge).</summary>
+        private static readonly Color4 perfect_glow = Color4Extensions.FromHex(@"ffd98a");
+
+        /// <summary>The target's ring while the perfect window is open: deeper than the perfects' own glow.</summary>
+        private static readonly Color4 window_gold = Color4Extensions.FromHex(@"ffb300");
+
+        /// <summary>The target's pulse: two quiet tones, swapped on every line of the grid.</summary>
+        private static readonly Color4 pulse_a = Color4Extensions.FromHex(@"5fc9bf");
+
+        private static readonly Color4 pulse_b = Color4Extensions.FromHex(@"9c86e6");
+
         private static readonly Color4 good_colour = Color4Extensions.FromHex(@"7cdb8a");
-        private static readonly Color4 ok_colour = Color4Extensions.FromHex(@"66b3ff");
-        private static readonly Color4 meh_colour = Color4Extensions.FromHex(@"b39ddb");
-        private static readonly Color4 miss_colour = Color4Extensions.FromHex(@"5c4a55");
+        private static readonly Color4 meh_colour = Color4Extensions.FromHex(@"9e9ea8");
+
+        /// <summary>A missed note becomes a shadow: black, half seen (<see cref="missed_alpha"/>).</summary>
+        private static readonly Color4 miss_colour = Color4.Black;
+
+        private const float missed_alpha = 0.5f;
 
         /// <summary>Feedback for a miss: clearly red (the dim <see cref="miss_colour"/> marks notes already missed).</summary>
         private static readonly Color4 miss_feedback_colour = Color4Extensions.FromHex(@"ff5a6e");
@@ -70,12 +89,15 @@ namespace Kan.Ruleset.UI
         public static Color4 GradeColour(LiveResult result) => result switch
         {
             LiveResult.Perfect => perfect_colour,
-            LiveResult.Great => great_colour,
             LiveResult.Good => good_colour,
-            LiveResult.Ok => ok_colour,
             LiveResult.Meh => meh_colour,
             _ => miss_feedback_colour,
         };
+
+        // Built once: GetFont spells its weight anew on every call, every frame.
+        private static readonly FontUsage name_font = OsuFont.GetFont(size: 14, weight: FontWeight.Black);
+        private static readonly FontUsage next_name_font = OsuFont.GetFont(size: 16, weight: FontWeight.Black);
+        private static readonly FontUsage feedback_font = OsuFont.GetFont(size: 17, weight: FontWeight.Bold);
 
         private readonly KanPlayState state;
         private readonly KanScene scene;
@@ -92,6 +114,9 @@ namespace Kan.Ruleset.UI
         private readonly Container trailLayer = new Container { RelativeSizeAxes = Axes.Both };
         private readonly Container feedbackLayer = new Container { RelativeSizeAxes = Axes.Both };
 
+        private readonly Box[] barBoxes = new Box[tick_pool];
+        private readonly OsuSpriteText[] barLabels = new OsuSpriteText[bar_pool];
+        private readonly int[] barNumbers = new int[bar_pool]; // what each label shows (its text is set only when it changes)
         private readonly Box[] lineBoxes = new Box[line_pool];
         private readonly OsuSpriteText[] lineLabels = new OsuSpriteText[line_pool];
         private readonly NoteView[] views = new NoteView[note_pool];
@@ -113,6 +138,7 @@ namespace Kan.Ruleset.UI
         /// <summary>The time the staff shows (<see cref="KanPlayState.DisplayTime"/>).</summary>
         private double displayNow;
         private int firstVisible;
+        private double lastDrawnMs = double.NegativeInfinity;
 
         public KanStaff(KanPlayState state, KanScene scene)
         {
@@ -140,6 +166,19 @@ namespace Kan.Ruleset.UI
                 });
             }
 
+            for (int i = 0; i < tick_pool; i++)
+                lines.Add(barBoxes[i] = new Box { Origin = Anchor.TopCentre, Alpha = 0 });
+
+            for (int i = 0; i < bar_pool; i++)
+            {
+                lines.Add(barLabels[i] = new OsuSpriteText
+                {
+                    Origin = Anchor.BottomCentre,
+                    Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                    Alpha = 0,
+                });
+            }
+
             for (int i = 0; i < note_pool; i++)
                 noteLayer.Add(views[i] = new NoteView());
 
@@ -160,7 +199,19 @@ namespace Kan.Ruleset.UI
                 feedbackLayer,
             };
 
+            // The feedback words' glyphs, loaded before the first note: the
+            // first verdict loading them was a stutter on the first note.
+            feedbackLayer.Add(new OsuSpriteText
+            {
+                Text = @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789·—♯↑↓?",
+                Font = feedback_font,
+                Shadow = true,
+                Alpha = 0,
+                AlwaysPresent = true,
+            });
+
             state.Judged += onJudged;
+            state.Unjudged += onUnjudged;
         }
 
         private float nowX => DrawWidth * now_fraction;
@@ -192,6 +243,7 @@ namespace Kan.Ruleset.UI
 
             followRange(now);
             drawLines();
+            drawBars(now);
             trackHolding(now);
             drawNotes(now);
             drawTrail(now);
@@ -220,10 +272,14 @@ namespace Kan.Ruleset.UI
             double centre = (min + max) / 2.0;
             double span = Math.Max(14, max - min + 6);
             double targetLo = centre - span / 2, targetHi = centre + span / 2;
-            double k = Math.Min(1, Time.Elapsed / 600);
+            // A replay rewound runs the clock backwards: a negative step once sent the range to infinity (owner 2026-10-22, crash).
+            double k = Math.Min(1, Math.Abs(Time.Elapsed) / 600);
 
             lo += (targetLo - lo) * k;
             hi += (targetHi - hi) * k;
+
+            if (!double.IsFinite(lo) || !double.IsFinite(hi) || hi - lo < 1)
+                (lo, hi) = (targetLo, targetHi);
         }
 
         private void drawLines()
@@ -266,6 +322,92 @@ namespace Kan.Ruleset.UI
             }
         }
 
+        private int firstBar;
+
+        /// <summary>
+        /// The bars travel with the notes (owner 2026-10-22: "the only way to
+        /// know the bars is listening"): a line across the staff where each
+        /// bar starts, its number above it; the beats, and the finest part of
+        /// a beat the notes use, as shorter lines between.
+        /// </summary>
+        private void drawBars(double now)
+        {
+            var ticks = state.Ticks;
+            double from = now - nowX / speed, until = now + ahead_ms;
+
+            // The time only moves forward in a play; a seek back starts the search again.
+            if (firstBar >= ticks.Count || (firstBar > 0 && ticks[firstBar - 1].TimeMs >= from)) firstBar = 0;
+            while (firstBar < ticks.Count && ticks[firstBar].TimeMs < from) firstBar++;
+
+            float top = yAt(hi) - 14, bottom = yAt(lo) + 14;
+            float full = Math.Max(1, bottom - top);
+            float presence = 1 - 0.75f * scene.Rest;
+            int used = 0, labelled = 0;
+
+            // The line of the note whose perfect window is open now (as the judge places an attack) is gold.
+            var window = perfectWindowOpen(now);
+
+            if ((window != null) != wasGolden && Dev.KanDevPlay.Enabled)
+                osu.Framework.Logging.Logger.Log($"kan! dev perfect window {(window != null ? "opens" : "closes")} at {now:0}");
+            wasGolden = window != null;
+            nowLine.PerfectWindow = window != null;
+
+            for (int i = firstBar; i < ticks.Count && ticks[i].TimeMs <= until && used < tick_pool; i++)
+            {
+                var tick = ticks[i];
+                float x = xAt(tick.TimeMs, now);
+
+                // Faint coming in on the right, gone soon after the line.
+                float fadeIn = Math.Clamp((DrawWidth - x) / 120f, 0, 1);
+                float fadeOut = Math.Clamp((x - (nowX - 160)) / 160f, 0, 1);
+                float alpha = fadeIn * fadeOut * presence;
+
+                // The beats and their parts as shorter lines, centred on the staff (owner 2026-10-22).
+                float length = tick.Kind switch
+                {
+                    Kan.Forge.Score.Bars.TickKind.Bar => full,
+                    Kan.Forge.Score.Bars.TickKind.Beat => full * 0.45f,
+                    _ => full * 0.2f,
+                };
+
+                var line = barBoxes[used++];
+                line.X = x;
+                line.Y = top + (full - length) / 2;
+                line.Width = tick.Kind == Kan.Forge.Score.Bars.TickKind.Bar ? 2 : 1.5f;
+                line.Height = length;
+                // Two quiet tones, one line each (owner 2026-10-22, after Sayonara Wild Hearts,
+                // calmer): the colour changes as each line crosses the now line — the perfect is on the change.
+                bool golden = window != null && Math.Abs(tick.TimeMs - window.StartTime) < 2;
+                Color4 tone = golden ? window_gold : i % 2 == 0 ? pulse_a : pulse_b;
+                float kindAlpha = tick.Kind == Kan.Forge.Score.Bars.TickKind.Bar ? 0.35f : tick.Kind == Kan.Forge.Score.Bars.TickKind.Beat ? 0.3f : 0.25f;
+
+                line.Width = golden ? 4 : line.Width;
+                line.Alpha = (golden ? 0.95f : kindAlpha) * alpha;
+                line.Colour = tick.Kind == Kan.Forge.Score.Bars.TickKind.Bar && !golden ? ColourInfo.GradientVertical(tone.Opacity(0.4f), tone) : tone;
+
+                if (tick.Kind != Kan.Forge.Score.Bars.TickKind.Bar || labelled >= bar_pool) continue;
+
+                var label = barLabels[labelled];
+                label.X = x;
+                label.Y = top - 2;
+                label.Alpha = 0.45f * alpha;
+
+                if (barNumbers[labelled] != tick.Bar)
+                {
+                    barNumbers[labelled] = tick.Bar;
+                    label.Text = tick.Bar.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                }
+
+                labelled++;
+            }
+
+            for (int i = used; i < tick_pool; i++)
+                barBoxes[i].Alpha = 0;
+
+            for (int i = labelled; i < bar_pool; i++)
+                barLabels[i].Alpha = 0;
+        }
+
         /// <summary>A hit note fills while the player holds its pitch.</summary>
         private void trackHolding(double now)
         {
@@ -295,6 +437,10 @@ namespace Kan.Ruleset.UI
         {
             double from = now - nowX / speed - 200; // what has scrolled off to the left
             double to = now + ahead_ms + 200;
+
+            // A replay rewound: the notes behind come back (owner 2026-10-22: they never did).
+            if (now < lastDrawnMs - 1) firstVisible = 0;
+            lastDrawnMs = now;
 
             while (firstVisible < notes.Count && notes[firstVisible].EndMs < from)
                 firstVisible++;
@@ -344,13 +490,67 @@ namespace Kan.Ruleset.UI
             if (next >= 0 && !state.HideNotes)
             {
                 nextMarker.Point(nowX - head / 2 - 6, yAt(notes[next].Midi), notes[next], notes[next].StartTime - now, scene.NoteLight);
-                hitTarget.Point(nowX, yAt(notes[next].Midi), notes[next], notes[next].StartTime - now, scene.NoteLight);
+                pointTarget(now, next);
             }
             else
             {
                 nextMarker.Point(0, 0, null, 0, Color4.White);
                 hitTarget.Point(0, 0, null, 0, Color4.White);
             }
+        }
+
+        /// <summary>
+        /// The target circle stays on the note being held until it ends (owner
+        /// 2026-10-21: jumping to the next one while the last still sounded
+        /// distracted), then goes to the next; into a slurred (legato) note it
+        /// glides over the held note's last moments — the slur the judge takes
+        /// by its pitch arriving.
+        /// </summary>
+        private void pointTarget(double now, int next)
+        {
+            int held = -1;
+
+            for (int i = Math.Max(0, firstVisible - 4); i < next; i++)
+            {
+                var n = notes[i];
+                if (n.StartTime <= now && now < n.EndMs && state.Verdicts[i] is not { Result: LiveResult.Miss })
+                    held = i;
+            }
+
+            var to = notes[next];
+
+            if (held < 0)
+            {
+                hitTarget.Point(nowX, yAt(to.Midi), to, to.StartTime - now, scene.NoteLight);
+                return;
+            }
+
+            var from = notes[held];
+
+            if (to.Articulation == Articulation.Legato)
+            {
+                double glide = Math.Min(180, from.DurationMs / 2);
+                float k = (float)Math.Clamp((now - (from.EndMs - glide)) / glide, 0, 1);
+                k = k * k * (3 - 2 * k);
+                hitTarget.Point(nowX, yAt(from.Midi) + (yAt(to.Midi) - yAt(from.Midi)) * k, k > 0 ? to : from, 0, scene.NoteLight, follow: true);
+                return;
+            }
+
+            hitTarget.Point(nowX, yAt(from.Midi), from, 0, scene.NoteLight);
+        }
+
+        private bool wasGolden;
+
+        /// <summary>The note whose perfect window is open now, if any.</summary>
+        private KanHitObject? perfectWindowOpen(double now)
+        {
+            for (int i = Math.Max(0, firstVisible - 4); i < notes.Count && notes[i].StartTime <= now + 400; i++)
+            {
+                if (state.PerfectNow(notes[i], now))
+                    return notes[i];
+            }
+
+            return null;
         }
 
         private void drawTrail(double now)
@@ -389,7 +589,7 @@ namespace Kan.Ruleset.UI
 
             if (!counting)
             {
-                countdown.Fade(Time.Elapsed);
+                countdown.Fade(Math.Abs(Time.Elapsed));
                 return;
             }
 
@@ -413,6 +613,13 @@ namespace Kan.Ruleset.UI
         // Feedback: short, in musical words, where the player is looking
         // ------------------------------------------------------------------
 
+        /// <summary>Taken back (a replay rewound): the note is drawn as not yet played, its transition ready to play again.</summary>
+        private void onUnjudged(int index)
+        {
+            judgedAt[index] = double.NaN;
+            heldUntil[index] = 0;
+        }
+
         private void onJudged(int index, LiveVerdict v)
         {
             judgedAt[index] = displayNow; // the staff's own time: transitions play from what is seen
@@ -432,25 +639,26 @@ namespace Kan.Ruleset.UI
                     break;
 
                 default:
-                    // The grade's own word, as in osu!; early/late when off the beat.
+                    // The grade's own word, as in osu!, and what cost the perfect (owner 2026-10-22:
+                    // time and pitch judged together): early/late only when off the perfect's window.
                     text = v.Result switch
                     {
                         LiveResult.Perfect => @"perfect",
-                        LiveResult.Great => @"great",
-                        LiveResult.Good => v.OffsetMs < 0 ? @"good · early" : @"good · late",
-                        LiveResult.Ok => v.OffsetMs < 0 ? @"ok · early" : @"ok · late",
-                        _ => v.OffsetMs < 0 ? @"meh · early" : @"meh · late",
+                        LiveResult.Good => @"good",
+                        _ => @"meh",
                     };
+                    if (v.Result != LiveResult.Perfect && !state.Judge.WithinPerfect(v.OffsetMs, n.PaceMs, n.StartTime, state.PreviousStart(n), state.NextStart(n)))
+                        text += v.OffsetMs < 0 ? @" · early" : @" · late";
                     if (v.Reason == LiveReason.PitchUnclear) text += @" · pitch unclear";
-                    else if (v.Cents > 25) text += @" · sharp ↑";
-                    else if (v.Cents < -25) text += @" · flat ↓";
+                    else if (v.Cents > state.Judge.PerfectCents) text += @" · sharp ↑";
+                    else if (v.Cents < -state.Judge.PerfectCents) text += @" · flat ↓";
                     break;
             }
 
             var label = new OsuSpriteText
             {
                 Text = text,
-                Font = OsuFont.GetFont(size: 17, weight: FontWeight.Bold),
+                Font = feedback_font,
                 Colour = colour,
                 Shadow = true,
                 Origin = Anchor.BottomCentre,
@@ -473,6 +681,7 @@ namespace Kan.Ruleset.UI
         protected override void Dispose(bool isDisposing)
         {
             state.Judged -= onJudged;
+            state.Unjudged -= onUnjudged;
             base.Dispose(isDisposing);
         }
 
@@ -525,7 +734,7 @@ namespace Kan.Ruleset.UI
             {
                 if (note == null)
                 {
-                    Alpha = Math.Max(0, Alpha - (float)(Time.Elapsed / 200));
+                    Alpha = Math.Max(0, Alpha - (float)(Math.Abs(Time.Elapsed) / 200));
                     placed = Alpha > 0 && placed;
                     return;
                 }
@@ -533,7 +742,7 @@ namespace Kan.Ruleset.UI
                 X = x;
 
                 // Glide to the next note's height (snap the first time).
-                Y = placed ? Y + (y - Y) * (float)Math.Min(1, Time.Elapsed / 90) : y;
+                Y = placed ? Y + (y - Y) * (float)Math.Min(1, Math.Abs(Time.Elapsed) / 90) : y;
                 placed = true;
 
                 label.Text = note.PitchUnknown ? @"?" : NoteName(note.Midi);
@@ -574,11 +783,12 @@ namespace Kan.Ruleset.UI
                 };
             }
 
-            public void Point(float x, float y, KanHitObject? note, double toGo, Color4 colour)
+            /// <param name="follow">Take <paramref name="y"/> as it is (a glide drawn by the caller), not eased to.</param>
+            public void Point(float x, float y, KanHitObject? note, double toGo, Color4 colour, bool follow = false)
             {
                 if (note == null)
                 {
-                    Alpha = Math.Max(0, Alpha - (float)(Time.Elapsed / 200));
+                    Alpha = Math.Max(0, Alpha - (float)(Math.Abs(Time.Elapsed) / 200));
                     placed = Alpha > 0 && placed;
                     return;
                 }
@@ -586,7 +796,7 @@ namespace Kan.Ruleset.UI
                 X = x;
 
                 // Glides to the next note's height with the arrow (snap the first time).
-                Y = placed ? Y + (y - Y) * (float)Math.Min(1, Time.Elapsed / 90) : y;
+                Y = placed && !follow ? Y + (y - Y) * (float)Math.Min(1, Math.Abs(Time.Elapsed) / 90) : y;
                 placed = true;
 
                 outline.BorderColour = note.PitchUnknown ? unknown_colour : colour;
@@ -636,7 +846,7 @@ namespace Kan.Ruleset.UI
             public void Count(float x, float y, double toGo, Color4 colour)
             {
                 Position = new Vector2(x, y);
-                Alpha = Math.Min(1, Alpha + (float)(Time.Elapsed / 200));
+                Alpha = Math.Min(1, Alpha + (float)(Math.Abs(Time.Elapsed) / 200));
 
                 int second = (int)Math.Ceiling(toGo / 1000);
                 float within = (float)(1 - (toGo - (second - 1) * 1000) / 1000); // 0 → 1 inside each second
@@ -788,18 +998,37 @@ namespace Kan.Ruleset.UI
                 Color4 noteColour = KanNotation.ColourByNote ? KanNotation.Colour(n.Midi) : look.Note;
                 Color4 baseColour = n.PitchUnknown ? unknown_colour : noteColour;
                 Color4 lightColour = n.PitchUnknown ? unknown_colour.Lighten(0.4f) : KanNotation.ColourByNote ? noteColour.Lighten(0.45f) : look.NoteLight;
-                Color4 colour = baseColour, light = lightColour;
+                Color4 colour = baseColour, light = lightColour, ringColour = Color4.White;
                 float pop = 0, flashAlpha = 0, shake = 0, drop = 0, scale = 1;
+                bool perfect = verdict is { Result: LiveResult.Perfect };
 
                 if (verdict != null)
                 {
-                    Color4 target = missed ? miss_colour : GradeColour(verdict.Value.Result);
-
                     // Transitions play from the moment of the verdict (a seek lands on the end state).
                     double t = double.IsNaN(sinceJudged) ? 10_000 : Math.Max(0, sinceJudged);
                     float k = (float)Math.Clamp(t / 160, 0, 1);
-                    colour = Interpolation.ValueAt(k, baseColour, target, 0, 1);
-                    light = Interpolation.ValueAt(k, lightColour, missed ? target : target.Lighten(0.5f), 0, 1);
+
+                    if (missed)
+                    {
+                        colour = Interpolation.ValueAt(k, baseColour, miss_colour, 0, 1);
+                        light = Interpolation.ValueAt(k, lightColour, miss_colour, 0, 1);
+                    }
+                    else
+                    {
+                        // Timing and pitch told apart (owner 2026-10-21: the player sees
+                        // what they got right): the ring is the timing's grade, the inside
+                        // white when the pitch was in tune, else the note's own colour.
+                        var v = verdict.Value;
+                        bool inTune = v.Reason == LiveReason.Played && Math.Abs(v.Cents) <= staff.state.Judge.PerfectCents; // the feedback's "sharp ↑ / flat ↓" bound
+
+                        ringColour = Interpolation.ValueAt(k, Color4.White, GradeColour(v.Result), 0, 1);
+
+                        if (inTune)
+                        {
+                            colour = Interpolation.ValueAt(k, baseColour, perfect ? perfect_glow : perfect_colour, 0, 1);
+                            light = Interpolation.ValueAt(k, lightColour, Color4.White, 0, 1);
+                        }
+                    }
 
                     if (missed)
                     {
@@ -822,7 +1051,7 @@ namespace Kan.Ruleset.UI
                 float enter = Math.Clamp((look.Width - x) / (look.Width * 0.1f), 0, 1);
                 float leave = x < look.NowX ? Math.Clamp(0.3f + 0.7f * x / look.NowX, 0.3f, 1) : 1;
 
-                Alpha = emphasis * enter * leave * (missed ? 0.6f : 1);
+                Alpha = emphasis * enter * leave * (missed ? missed_alpha : 1);
 
                 // Head: a lit bead, lighter at the top, with a soft halo.
                 float size = head * (accent ? 1.22f : 1) * scale * (1 + pop) * (0.75f + 0.25f * enter);
@@ -832,7 +1061,8 @@ namespace Kan.Ruleset.UI
                 flash.Alpha = flashAlpha;
 
                 float pulse = isNext ? 0.5f + 0.5f * MathF.Sin((float)(now / 110)) : 0;
-                headCircle.BorderThickness = isNext ? 3 + pulse : missed ? 0 : 1.5f;
+                headCircle.BorderColour = ringColour;
+                headCircle.BorderThickness = isNext ? 3 + pulse : missed ? 0 : verdict != null ? 3.5f : 1.5f;
 
                 // A sharp has points: told apart from its neighbours by its shape too, not only by "♯".
                 bool sharp = !n.PitchUnknown && KanNotation.IsSharp(n.Midi);
@@ -853,12 +1083,13 @@ namespace Kan.Ruleset.UI
 
                 glow.Position = headCircle.Position;
                 glow.Size = new Vector2(size * (isNext ? 2.1f + 0.3f * pulse : 1.7f) + pop * 40);
-                glow.Colour = colour;
-                glow.Alpha = missed ? 0 : isNext ? 0.22f + 0.12f * pulse : verdict != null ? 0.1f + 0.5f * pop : 0.1f;
+                glow.Colour = perfect ? perfect_glow : verdict != null && !missed ? ringColour : colour;
+                // A perfect keeps a soft halo after its pop: it reads at a glance among the played notes.
+                glow.Alpha = missed ? 0 : isNext ? 0.22f + 0.12f * pulse : verdict != null ? (perfect ? 0.3f : 0.1f) + 0.5f * pop : 0.1f;
 
                 name.Position = headCircle.Position;
                 name.Text = n.PitchUnknown ? @"?" : KanNotation.Name(n.Midi);
-                name.Font = OsuFont.GetFont(size: isNext ? 16 : 14, weight: FontWeight.Black);
+                name.Font = isNext ? next_name_font : name_font;
                 name.Scale = new Vector2(scale * (1 + pop * 0.6f));
                 name.Alpha = missed ? 0.6f : 1;
 

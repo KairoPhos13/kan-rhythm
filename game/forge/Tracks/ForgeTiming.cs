@@ -22,12 +22,28 @@ namespace Kan.Forge.Tracks
     /// <item><b>Transcriber delay</b> — how late the transcriber places notes
     /// in an audio file (slow attacks are recognised after they start);
     /// applied to every note transcribed from a file.</item>
+    /// <item><b>Player timing</b> — how far ahead of (or behind) the line the
+    /// player plays by habit; applied to every note they play live.</item>
     /// </list>
     /// Stored in kan-forge/timing.json.
     /// </summary>
     public static class ForgeTiming
     {
-        public static readonly BindableDouble MIC_DELAY_MS = new BindableDouble { MinValue = -300, MaxValue = 600, Precision = 1 };
+        /// <summary>
+        /// Never below 0 (owner 2026-10-19): microphone, driver and processing
+        /// can only make a note heard later. A measurement below 0 is the player
+        /// playing ahead, not the device; a saved value below 0 loads as 0.
+        /// </summary>
+        public static readonly BindableDouble MIC_DELAY_MS = new BindableDouble { MinValue = 0, MaxValue = 600, Precision = 1 };
+
+        /// <summary>
+        /// The player's habit, in ms: negative when they play ahead of the line
+        /// (owner 2026-10-21: a wind player sounds the attack before hearing the
+        /// note, ~45 ms ahead every time). Their notes are taken this much later
+        /// (earlier when positive) — the player's own offset, as osu!'s, and the
+        /// one a play corrects; unlike the mic delay, it may be negative.
+        /// </summary>
+        public static readonly BindableDouble PLAYER_TIMING_MS = new BindableDouble { MinValue = -200, MaxValue = 200, Precision = 1 };
 
         public static readonly BindableDouble TRANSCRIBER_DELAY_MS = new BindableDouble { MinValue = -200, MaxValue = 300, Precision = 1 };
 
@@ -59,6 +75,8 @@ namespace Kan.Forge.Tracks
 
             public double TranscriberDelayMs { get; set; }
 
+            public double PlayerTimingMs { get; set; }
+
             public double TuningCents { get; set; }
 
             public bool AutoTuning { get; set; } = true;
@@ -68,6 +86,7 @@ namespace Kan.Forge.Tracks
         {
             MIC_DELAY_MS.BindValueChanged(_ => save());
             TRANSCRIBER_DELAY_MS.BindValueChanged(_ => save());
+            PLAYER_TIMING_MS.BindValueChanged(_ => save());
             TUNING_CENTS.BindValueChanged(_ => save());
             AUTO_TUNING.BindValueChanged(_ => save());
         }
@@ -86,6 +105,7 @@ namespace Kan.Forge.Tracks
                 var doc = File.Exists(file) ? JsonSerializer.Deserialize<Document>(File.ReadAllText(file)) : null;
                 MIC_DELAY_MS.Value = doc?.MicDelayMs ?? 0;
                 TRANSCRIBER_DELAY_MS.Value = doc?.TranscriberDelayMs ?? 0;
+                PLAYER_TIMING_MS.Value = doc?.PlayerTimingMs ?? 0;
                 TUNING_CENTS.Value = doc?.TuningCents ?? 0;
                 AUTO_TUNING.Value = doc?.AutoTuning ?? true;
                 MicCalibratedAtUtc = doc?.MicCalibratedAtUtc ?? default;
@@ -124,6 +144,7 @@ namespace Kan.Forge.Tracks
                     MicCalibratedAtUtc = MicCalibratedAtUtc,
                     MicCalibratedInstrument = MicCalibratedInstrument,
                     TranscriberDelayMs = TRANSCRIBER_DELAY_MS.Value,
+                    PlayerTimingMs = PLAYER_TIMING_MS.Value,
                     TuningCents = TUNING_CENTS.Value,
                     AutoTuning = AUTO_TUNING.Value,
                 }, new JsonSerializerOptions { WriteIndented = true }));

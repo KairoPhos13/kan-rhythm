@@ -28,6 +28,9 @@ namespace Kan.Ruleset.Configuration
             lowest ??= config.GetBindable<int>(KanRulesetSetting.RangeLowest);
             highest ??= config.GetBindable<int>(KanRulesetSetting.RangeHighest);
             onlyPlayable ??= config.GetBindable<bool>(KanRulesetSetting.OnlyPlayableLevels);
+
+            // The editor greys what the player cannot play (it cannot see these settings).
+            RangeFit.PlayerRange = () => Instrument == null ? null : (Lowest, Highest);
         }
 
         /// <summary>

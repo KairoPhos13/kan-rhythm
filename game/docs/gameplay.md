@@ -60,6 +60,13 @@ microphone (BASS capture, 10 ms periods)
     note near each of the eight clicks does; a take playing all twelve
     measures the same 3 ms). Owner 2026-10-17: count-in notes, marked
     against the first click to play, looked like they spoiled it.
+  - **Never below 0 ms** (owner 2026-10-19): microphone, driver and
+    processing can only make a note heard later, so `MIC_DELAY_MS` has a
+    minimum of 0 (a saved negative loads as 0). A measurement below 0 says
+    so — "your notes landed 38 ms before the clicks: that is you playing
+    ahead, not the microphone" — and offers 0 ms at most; the last play's
+    correction stops at 0 too. Isolated check: answers 40 ms early measure
+    −38 ms and get that message.
   - **Known limit:** answering clicks, people play ahead of them
     (negative mean asynchrony, tens of ms — more with a ball announcing
     each); in a song they read and tend to land late. The owner's own
@@ -80,8 +87,8 @@ The judge listens **blind**: libkan's expected mode would help per note,
 but it does not work streamed yet and accepts octave-below expectations
 (measured in [transcription-quality.md](transcription-quality.md)).
 
-- A score note is answered by the closest unclaimed onset within ±200 ms
-  that has the note's pitch. Great ≤ 70 ms, ok ≤ 130 ms, meh ≤ 200 ms.
+- A score note is answered by the closest unclaimed onset within its meh
+  window that has the note's pitch (the grades below).
 - The pitch arrives after the onset (provisional ~45 ms; final when the
   played note ends — measured 2026-10-17, not ~200 ms as assumed before),
   so a note waits up to 300 ms past its window for it.
@@ -114,15 +121,121 @@ but it does not work streamed yet and accepts octave-below expectations
   meh, the streak kept), a chord's other notes, the next note come early
   (the score's notes within ±200 ms, `KanPlayState.ExpectedAround`).
   Alone they leave the note "not heard" at the window's end, not "wrong".
+- **Time and pitch are judged together** (owner 2026-10-22: "out of tune
+  and late may make a meh, a good in pitch and a perfect in time something
+  between … generalist, not hard-coded to my instrument"). A grade is an
+  ellipse in time × pitch: its timing window (below) on one axis, a pitch
+  budget on the other — perfect 35 cents, good 50 (`PitchToleranceCents`
+  and `PERFECT_PITCH_SHARE` 0.7 of it; Easy 52.5 / 75; the perfect was 25
+  until 2026-10-23: "a little more lax for a perfect by pitch, without a
+  bigger ellipse"). The first ellipse a hit lies in is its
+  grade; in tune the ellipses are exactly the timing windows. Any hit in
+  the meh window **within a semitone** (`ACCEPT_CENTS` 100) is the note,
+  at least a meh, whatever notes are around (owner: air pressure moves a
+  wind a semitone either way, and learning to place it should not cost the
+  streak); past a semitone it is another note. Pitches are read after the
+  instrument's learned tuning is taken off, so a detuned instrument plays
+  fair. Among several hits, the nearest a perfect in time × pitch is taken
+  (a slip a semitone off loses to the right note a moment later). The
+  words name the cost: early/late only off the perfect's window,
+  sharp/flat past the perfect's 35 cents. Wait mode releases on the same semitone.
+  Re-judging the owner's play of 2026-10-22 (its pitches: 73 % within 25
+  cents, 23 % 25–50, 2 % beyond): misses 21 → 16, perfects 226 → 147.
+- **The readings settle a pitch that has not come yet** (2026-10-23: a
+  C5 tongued out of an F5 took the F's leftover as its provisional pitch,
+  and libkan's final pitch — the centre of the whole note — came only when
+  the 738 ms note ended, past the judge's wait: "not heard"). A heard note
+  whose pitch is not final is the score's note once its readings hold it
+  for 160 ms (`SETTLE_READINGS` 16, about one cycle of a 5–7 Hz vibrato),
+  starting within 200 ms of the attack and before the next one. Every
+  reading path counts a reading within a semitone, unless it is nearer
+  another note the score has around (a semitone neighbour still sounding
+  is that neighbour). The pitch graded is the readings' median: a vibrato
+  is graded by its centre, not its swings. libkan also stopped reading a
+  tongued note's pitch in the dip before it speaks (measurement
+  invariants, "A tongued note is read where it speaks"). Re-judged, that
+  C5 is a meh (114 ms early, 50 cents sharp), and the streak holds.
+- **The microphone never holds the game** (owner 2026-10-23: with the
+  disk saturated by an update, a quick restart froze 5 s opening the
+  microphone, which then stopped giving sound 1.6 s in, and the level stood
+  still until the window lost focus). It opens off the game's thread
+  (`LiveSession.Open`); listening begins once it is open, from that moment
+  (`Begin` drops what arrived meanwhile, so the first sample is still "now"
+  and the mic delay keeps its meaning). "Opening the microphone…" shows
+  after a second. It closes off the game's thread too, and the play's
+  recording is kept after. A microphone gives samples all the time, silence
+  included: one that gives none for a second has stopped, and is opened
+  again ("The microphone stopped for a moment: it was opened again.").
+- **One sound, one try** (owner 2026-10-23: a C6 played 258 ms early and
+  held swelled twice; each swell came back as an attack and the one 100 ms
+  late was taken: "good · late" for an early note). An attack that only
+  goes on with an earlier one of the same pitch — no note took it, it is in
+  this note's window, and the readings held that pitch between them with
+  no break over 50 ms (`SAME_SOUND_GAP_MS`; a stopped note leaves ~150 ms)
+  — is no new try, as in osu!. A repeated note is no such case: its
+  previous attack was the previous note's.
+- **An attack's pitch may settle** (owner 2026-10-23: an ocarina's first
+  milliseconds take air pressure to find the pitch, "and it even sounds
+  nice"). The first pitch libkan reports reads ~45 ms of the attack. When
+  it is out of a perfect's budget (and the timing leaves room for one),
+  the judge waits for the readings: every run of 160 ms (16 readings, one
+  vibrato cycle) that starts within 200 ms of the attack, before the next
+  one, is a settling, graded by its median; the nearest of these and the
+  first pitch is graded. A final pitch is the note's centre already. The
+  wait ends at most 460 ms after the attack. Another note settles as
+  nothing: the ellipse's outer bound (a semitone) is unchanged, so a wrong
+  note is still told and punished. The owner's play of 2026-10-23 (provisional
+  vs final: n2 +34 → +2, n35 −48 → −2), re-graded with this, the 35 cents
+  and the ±20 %: 23 → 42 perfects, 73 % (C) → 88 % (B); with their timing
+  habit corrected too (median −27 ms, "Your timing"), 90.5 % (A).
+- **An early attack waits for a nearer one** (owner 2026-10-23: early
+  notes felt judged harder than late ones). The judge used to take the
+  first attack that answered a note, at once. A late attack has no rival
+  after it, but an early one did: an attack on the line, just after, lost
+  to it (and a tongue's cut, heard as an attack, once decided a note before
+  its start). Now an early attack that is no perfect is taken only once
+  the line is as far behind as the attack was ahead (plus the 100 ms an
+  attack takes to be heard), or once the pitch of a nearer attack came.
+  Perfects are still taken at once.
 - Misses drain health and an empty bar fails the level, as in osu!
   (owner 2026-10-15; it was no-fail before). "No fail" and "wait for me"
   keep it going.
-- **Grades: osu!mania's steps** (owner 2026-10-15: "chaining perfects is
-  the vice"): perfect ±35, great ±70, good ±100, ok ±130, meh ±200 ms —
-  great/ok/meh kept their bounds, perfect and good split them; wider than
-  osu!'s because an acoustic attack is detected within ~20–30 ms. The
+- **Accuracy and rank as in osu!, not osu!mania** (owner 2026-10-23:
+  a no-miss run of 25 perfects, 19 goods and 12 mehs was a C at 71 %).
+  A meh is still the right note, so it weighs as osu!'s ok: perfect 300,
+  good 200, meh 100, miss 0 (`KanScoreProcessor`; osu!mania's meh is 50).
+  Rank from accuracy: SS 100 %, S ≥ 95, A ≥ 90, B ≥ 80, C ≥ 70, else D;
+  as in osu!, an S or SS needs no miss (one miss: A at best). "Wait for
+  me" scales the points (0.02), never the accuracy or the rank.
+- **Grades: perfect, good, meh** (owner 2026-10-21: "five are too many —
+  less is more"; osu!mania's great and ok are gone), each **a share of the
+  note's pace** either side of it ("it should sound good, not stress"):
+  the time from its start to the nearest other note's start, before or
+  after (`LiveJudge.PaceOf`; notes within 30 ms are a chord; in a score
+  with no rests, a note's length). Perfect ±20 % (50–120 ms), good ±45 %
+  (135–450 ms), meh ±80 % (240–800 ms), set in `KanBeatmapConverter`
+  (`KanHitObject.PaceMs`). Notes a beat apart at 120 BPM: ±100, ±225,
+  ±400 ms. A note alone: a 500 ms pace. Until 2026-10-23 they were a share
+  of the tempo grid's beat, but a beat is how the music was written, not
+  how fast it goes: the owner's level, timed at 130 BPM in quarters where
+  its pulse is whole notes, would have judged four times apart had it been
+  timed right ("the current system is no use"). Fast notes are now judged
+  tighter, slow ones looser, never past ±120 ms for a perfect (an attack
+  further off is heard early or late however slow the song). The perfect
+  was ±15 % of the beat until 2026-10-23 (owner: early notes that "sound
+  good humanly" were goods).
+  **No window reaches past halfway to a neighbour** (the previous or next
+  note, chord mates aside): in eighths at 121 BPM every window stops at
+  ±124 ms, so a skipped note cannot take its neighbour's breath, and a miss
+  is told before the next note comes. A note is called not heard 100 ms
+  after its window closes (`LiveJudge.HEARING_MS`: libkan confirms an onset
+  some 30–90 ms after it sounds). Before (same day) they were osu!mania's
+  five steps, ±45/80/115/150/200 ms; re-grading the owner's first full
+  normal play (325 notes) with these: perfect 103 → 149, good 74, meh 3,
+  and 26 hits more than halfway to a neighbour (22 of them 130–195 ms
+  early) become misses. Wider than osu!'s: a breath is no button. The
   results list only these (`KanRuleset.GetValidHitResults`). Words at the
-  line: "perfect", "great", "good · early", … Only the attack is judged
+  line: "perfect", "good · early", "meh · late", … Only the attack is judged
   (timing and pitch); how long a note is held is not, so long notes at
   Half Time never need a full breath.
 - **A perfect is heard:** `KanPerfectChime` rings a small bell
@@ -135,9 +248,14 @@ but it does not work streamed yet and accepts octave-below expectations
   so the hit error meters and the results' timing graph added the
   detection wait (+50 ms or more). `DrawableKanHitObject` stamps the
   note's start + the judge's offset. Accuracy was never affected (it goes
-  by the result type: perfect/great 300, good 200, ok 100, meh 50); what
-  lowers it is a mic delay that is off (+45 ms late turns most "great"s
-  past ±70 ms into goods and oks).
+  by the result type: perfect 300, good 200, meh 50); what lowers it is a
+  mic delay that is off.
+- **The level ends when its last note ends** (owner 2026-10-23: the
+  results came up at the last attack, over a long final note). osu! shows
+  the results once every judgement is in, and a note is judged at its
+  attack. The note that sounds last carries a nested `KanLevelEnd` at its
+  end (`IgnoreHit`, scores nothing; the converter marks it), and its
+  drawable stays alive until then. Results come 1 s after the end.
 
 ## Mods (owner 2026-10-15)
 
@@ -145,7 +263,7 @@ Mods that need nothing from the level editor:
 
 | mod | what it does in kan! |
 |---|---|
-| Easy / Hard Rock | timing windows ×1.4 / ×0.7 (`LiveJudge.WindowScale`); Easy also accepts a note up to 75 cents out of tune instead of 50 (`LiveJudge.PitchToleranceCents`; a 65-cent-sharp player: 47 great + 3 meh of 50 on Easy, all wrong without it) |
+| Easy / Hard Rock | timing windows ×1.4 / ×0.7 (`LiveJudge.WindowScale`); Easy also accepts a note up to 75 cents out of tune instead of 50 (`LiveJudge.PitchToleranceCents`; a 65-cent-sharp player: 47 great + 3 meh of 50 on Easy, all wrong without it). Since 2026-10-22 these are the good's pitch budget, the perfect's half of it (see time × pitch above) |
 | No Fail, Sudden Death, Perfect | as in osu! |
 | Half Time / Daycore, Double Time / Nightcore | the level slower or faster, same notes (pitch kept): practise at 75 % or 90 % |
 | Hidden | notes fade out on the way to the line (gone 300 ms before it) |
@@ -341,6 +459,30 @@ kind × 100000 + delay, the coordinates hold the values. Verified: a full
 recorded play and its replay from the saved score gave the same 325
 verdicts (offsets within 1 ms, from whole-ms frame times).
 
+**The player is heard in their replay** (owner 2026-10-22: "in the replay
+I cannot hear myself, only see how I scored"). A live play records what
+the microphone hears (`PlayTake`: tapped on the describer's thread, a
+low-pass and every third sample — 16 kHz mono, about 2 MB a minute),
+with marks of where the level was as it was heard, placed as the judge
+places onsets (the mic delay) but without the player's timing habit, so
+the replay sounds as it was played. The take is kept when the level ends
+(so a replay watched straight from the results finds it), raised to a
+fixed peak (at most +20 dB), in `kan-forge/takes/{id}.wav` + `.json`;
+its id rides in the replay as a `Take` frame (two 16-bit halves in the
+coordinates). Kept: the last 20 plays and the best play of each level
+(owner 2026-10-22); only on this computer. The replay plays it with the
+level audio (`TakePart`, kept in place by `ChannelSync`), at the player's
+own pace under rate mods; silent where nothing was played (before
+listening, a pause, a wait). Verified isolated (a file played in real time
+as the player): the take lands where the judge placed the notes (within
+10 ms of its mean offset), and the replay found and played it.
+
+**Rewinding a replay** (owner 2026-10-22): the notes the judge decided
+after the new time are undecided again (osu!'s result revert →
+`KanPlayState.Unreport`), and the staff draws the notes behind the new
+time again (its first-visible cursor restarts when the time goes back),
+so their effects play as they did the first time.
+
 ## Song select preview (owner 2026-10-15)
 
 The level audio is the companion only, which alone is "too abstract" as a
@@ -399,13 +541,54 @@ section on now, the palette in force — eased between sections over
   vibrato. A ring closes on the head as it reaches the line. A sharp's
   head has eight points around it (owner 2026-10-17: so it reads as a
   different note at a glance, not only by "♯").
+- **The perfect window, shown** (owner 2026-10-22: "make the circle on the
+  line glow gold while a note arriving would be a perfect"; then "it covers
+  too much — put the effect on the vertical lines and drop the circle"):
+  the now line turns a light, bright gold and widens while an attack played
+  now would be graded perfect, and the window's note's grid line is gold too.
+  The attack is placed as the judge places what it hears (the player's
+  timing habit included) and graded on the note's own window (the beat's
+  share, Easy/Hard Rock's scale, narrowed by the neighbours;
+  `LiveJudge.WithinPerfect`, tested against `Judge` offset by offset). The
+  gold fades within 60 ms of the window closing, shows through a hit's
+  kick, and ignores verdicts (an early decision does not cut it short). The
+  width tells it from a palette's warm "hot" line colour. A note head's
+  centre is the note's start: the window is centred on it unless the player
+  timing moves it.
+- **The pulse** (owner 2026-10-22, after Sayonara Wild Hearts' colour flip,
+  "without being so psychedelic"): the grid's lines alternate between two
+  quiet tones (teal, violet), one line each, so the colour changes as each
+  line crosses the now line. A note on the grid is played on time on the
+  change; the gold window sits around it.
+- **Bar lines travel with the notes** (owner 2026-10-22: "the only way to
+  know the bars is listening… only the main ones, not what is between"): a
+  faint line across the staff where each bar starts, its number above,
+  fading in on the right and out just past the now line. Between them,
+  shorter lines centred on the staff (owner 2026-10-22: "show the
+  in-betweens as shorter lines… the smallest shown should be the smallest
+  in the piece"): each beat, and each part of a beat as fine as the notes
+  need (`Bars.DivisionOf`: halves, triplets, sixths… from where the notes
+  start; a part only a stray note or two uses, or unquantised notes, do
+  not count). Bars as compose's grid draws them (`Kan.Forge.Score.Bars`,
+  tested; the same bars for Page Up / Page Down). A tempo that breathes
+  changes on any beat, so a timing point landing on a beat of the tempo
+  before (within a quarter beat) goes on counting the bar it falls in
+  (owner 2026-10-22: the tempos were synced but "the lines don't show
+  it"); a change of beats per bar, or a point off the beats, starts a bar
+  as osu! counts every timing point. osu!'s own timing tab still restarts
+  the bar at each point (fork, unchanged).
 - **The notes look** (owner 2026-10-15: "not osu!'s level yet in effects,
   smooth transitions, clarity, flashes, colours"): lit beads in the
   palette — lighter at the top, a thin white rim, a soft halo — with
   **white names** (shadowed, readable on every colour). Every change plays
   from the moment it happened: a hit pops (+50 %), flashes white and
   turns its grade's colour over 160 ms, then settles a little smaller; a
-  miss shudders, sinks and greys. Notes fade and grow in at the right
+  miss shudders, sinks and turns into a shadow (black, half seen). Grade
+  colours: perfect white radiating faint gold (a lasting halo), good green,
+  meh grey. **Timing and pitch apart** (owner
+  2026-10-21: the player sees what they got right): a played note's ring
+  takes the timing's grade (white = perfect), its inside turns white when
+  the pitch was in tune (within 25 cents), else keeps the note's colour. Notes fade and grow in at the right
   edge and fade towards the left; a held tail fills white with light
   running along it.
 - **Reading the notes** (owner 2026-10-15: "note indicators aren't clear
@@ -418,7 +601,10 @@ section on now, the palette in force — eased between sections over
   circle** on the line at the same height (owner 2026-10-19: easier than
   judging by eye when a note is on the line) is a little wider than a note:
   the moment to play is when the note sits centred inside it; its inside
-  lights up over the note's last half second. Every natural
+  lights up over the note's last half second. It stays on a note being held
+  until the note ends (owner 2026-10-21: jumping ahead distracted), then
+  moves on; into a slurred (legato) note it glides over the held note's
+  last moments, as the pitch slides. Every natural
   guide line is named at the left edge, the Cs brighter.
 - **Trail:** the player's pitch every 10 ms. It is green while on a
   sounding note, white otherwise, so a miss shows why (above = sharp,
@@ -434,7 +620,7 @@ section on now, the palette in force — eased between sections over
 - **The now line is the reward** (`KanNowLine`, owner 2026-10-15: "one
   of our best resources to feed the dopamine loop"). A hit lands on it: a
   ring and sparks burst where the note met the line, with a white flash
-  for a great (14 / 8 / 4 sparks for great / ok / meh), and the line kicks
+  for a perfect (18 / 11 / 4 sparks for perfect / good / meh), and the line kicks
   wider in the hit's colour. A streak heats the line: wider, golden, a
   wider soft glow (fully hot at 32). Milestones (10, 25, 50, 75, 100, …)
   send a shockwave across the staff and "25 in a row" low on the line.
@@ -455,10 +641,11 @@ section on now, the palette in force — eased between sections over
 
 ## Stutters (owner 2026-10-19)
 
-`KanHitchMonitor` (on the playfield) logs every frame over 50 ms during a
+`KanHitchMonitor` (on the playfield) logs every frame over 25 ms during a
 play — `kan!: hitch at 12.3 s — update / draw / audio ms; GC pause and
 collections; describer ms per 10 ms block, ms of audio waiting` — and the
-play's totals when it ends (`kan!: play frames — …`). The describer's load
+play's totals when it ends (`kan!: play frames — …`: frames over 12, 25
+and 50 ms, the longest GC pause in one frame). The describer's load
 comes from `LiveSession.TakeLoad` (worker: slowest block, biggest backlog).
 Read the log after a play that stuttered before changing threads or
 priorities: the update, draw, audio and describer threads already run apart.
@@ -471,6 +658,52 @@ a time. It now measures the grid once and runs a series' harmonics side by
 side, bit-identical (libkan `note_stream_test` fixture 15). On the owner's
 ocarina take, the worst block fell from 97 ms to 6 ms (p99 30 → 5 ms; none
 over 10 ms).
+
+Second look (2026-10-19, "micro-stutters" at 180 Hz): 50 ms let the
+owner's 35-40 ms frames through — at 180 Hz a frame is 5.6 ms — so the
+threshold is 25 ms and the summary counts the slow frames. The GC runs
+~25 gen0 collections a second in play: osu!'s high-performance session
+puts the GC in `LowLatency` (small, frequent gen0 collections; upstream
+by design), so every allocation per frame counts at 360 fps. The staff
+named its notes and lines with new strings, and fonts, every frame; names
+are now spelled once (`KanNotation`), fonts built once, the interlude's
+"next" text set only when it reads differently. The first verdict of a
+play stuttered ~33 ms: the feedback font's glyphs load before the first
+note now (7 → 0.4 ms); most of the rest is first-run JIT in osu!'s
+judgement path (`ApplyResult` ~9 ms), once per play.
+
+## Play trace (owner 2026-10-21)
+
+"The trail lands on the note on time, yet the perfect comes late or a meh
+comes": every live play writes `kan-play-<date>.csv` to the logs folder
+(`KanPlayTrace`, the last 20 kept, written in the background). Rows: each
+heard onset (stream time, where it was placed on the level, when it
+arrived — a placement after the arrival is cut to the arrival), each pitch
+fact and reading, each verdict with the onset it took (`LiveVerdict.PlayedId`;
+empty when timed by the readings, a slur) and how long after the note's
+start it came, slow frames, the level clock against real time, waits. The
+summary line adds the clock gap and how many onsets were placed after
+their arrival.
+
+## Placing what is heard on the level (owner 2026-10-21)
+
+The trace of a real play showed 311 of 522 onsets placed *after* they
+reached the game: the stream was anchored to the level once, when
+listening began, and the level's clock then sat 0-40 ms off real time, so
+those onsets were cut to their arrival (~70 ms after they sounded — the
+describer's confirmation) while the rest kept their own time; two notes
+played alike graded apart. Now every frame remembers what the level's clock
+showed at that real moment (`KanPlayState.remember`/`levelAt`), real time
+starts with the stream's first sample, and a sound is placed at the level
+time shown when it sounded (minus the mic delay). Isolated runs: 0 onsets
+placed after their arrival (was 19 of 19).
+
+**Player timing** (`ForgeTiming.PLAYER_TIMING_MS`, the loader's Microphone
+group, saved in timing.json): the player's habit, negative when ahead of the
+line — a wind player's attack starts before they hear the note. Their notes
+are taken that much later. "Set your timing to …" after a play corrects it
+(it corrected the mic delay before, which cannot go below 0). Files played
+as the player (dev) ignore it.
 
 ## Testing without a microphone or a screen
 
@@ -486,6 +719,7 @@ over 10 ms).
 | `KAN_DEV_MODS=HT,NF` | play with those mods; `AT` plays through a replay player |
 | `KAN_DEV_PAUSE=12` | pause 12 s into the level and continue 2 s later (as after a window switch) |
 | `KAN_DEV_SCREEN=select` / `replay` / `design` | open song select on the level / play back its newest local score / open the editor on its design tab |
+| `KAN_DEV_SEEK="20:8"` | with `replay`: 20 s in, seek the level to 8 s (a replay rewound; 2026-10-22 it crashed: a frame's negative elapsed time sent the staff's eased pitch range to infinity — every easing now takes the step's size) |
 
 A dev run never opens the microphone: without `KAN_LIVE_INPUT` it listens
 to nothing. The test instance needs its own `/tmp` (mount namespace):

@@ -1,6 +1,9 @@
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
+using System.Threading;
+using osu.Game.Beatmaps;
+using osu.Game.Beatmaps.ControlPoints;
 using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.Scoring;
 using Kan.Forge.Score;
@@ -39,9 +42,38 @@ namespace Kan.Ruleset.Objects
 
         public double EndMs => StartTime + DurationMs;
 
+        /// <summary>The note that sounds last: the level is over when it ends, not when it is judged.</summary>
+        public bool EndsTheLevel { get; set; }
+
+        /// <summary>The note's pace (ms, <see cref="Kan.Forge.Play.LiveJudge.PaceOf"/>): it sizes the timing windows; 0 = unknown.</summary>
+        public double PaceMs { get; set; }
+
+        protected override void CreateNestedHitObjects(CancellationToken cancellationToken)
+        {
+            base.CreateNestedHitObjects(cancellationToken);
+            if (EndsTheLevel) AddNested(new KanLevelEnd { StartTime = EndMs });
+        }
+
         public override Judgement CreateJudgement() => new KanJudgement();
 
-        protected override HitWindows CreateHitWindows() => new KanHitWindows();
+        protected override HitWindows CreateHitWindows() => new KanHitWindows(this);
+    }
+
+    /// <summary>
+    /// The end of the level's last note. The game shows the results once every
+    /// judgement is in, and a note is judged at its attack: without this mark a
+    /// long last note would be cut by the results screen. It scores nothing.
+    /// </summary>
+    public class KanLevelEnd : osu.Game.Rulesets.Objects.HitObject
+    {
+        public override Judgement CreateJudgement() => new KanLevelEndJudgement();
+
+        protected override HitWindows CreateHitWindows() => HitWindows.Empty;
+    }
+
+    public class KanLevelEndJudgement : Judgement
+    {
+        public override HitResult MaxResult => HitResult.IgnoreHit;
     }
 
     public class KanJudgement : Judgement
@@ -52,20 +84,28 @@ namespace Kan.Ruleset.Objects
     /// <summary>The judge's windows (<see cref="Kan.Forge.Play.LiveJudge"/>), for the results screen.</summary>
     public class KanHitWindows : HitWindows
     {
-        public override bool IsHitResultAllowed(HitResult result) => result is HitResult.Perfect or HitResult.Great or HitResult.Good or HitResult.Ok or HitResult.Meh or HitResult.Miss;
+        private readonly KanHitObject? note;
+
+        public KanHitWindows(KanHitObject? note = null)
+        {
+            this.note = note;
+        }
+
+        private double paceMs => note?.PaceMs ?? 0;
+
+        public override bool IsHitResultAllowed(HitResult result) => result is HitResult.Perfect or HitResult.Good or HitResult.Meh or HitResult.Miss;
 
         public override void SetDifficulty(double difficulty)
         {
         }
 
+        // The pace's windows, before a neighbour narrows them (the judge does that per note).
         public override double WindowFor(HitResult result) => result switch
         {
-            HitResult.Perfect => Kan.Forge.Play.LiveJudge.PERFECT_MS,
-            HitResult.Great => Kan.Forge.Play.LiveJudge.GREAT_MS,
-            HitResult.Good => Kan.Forge.Play.LiveJudge.GOOD_MS,
-            HitResult.Ok => Kan.Forge.Play.LiveJudge.OK_MS,
-            HitResult.Meh => Kan.Forge.Play.LiveJudge.MEH_MS,
-            HitResult.Miss => Kan.Forge.Play.LiveJudge.MEH_MS + Kan.Forge.Play.LiveJudge.PITCH_WAIT_MS,
+            HitResult.Perfect => Kan.Forge.Play.LiveJudge.WindowMs(Kan.Forge.Play.LiveResult.Perfect, paceMs),
+            HitResult.Good => Kan.Forge.Play.LiveJudge.WindowMs(Kan.Forge.Play.LiveResult.Good, paceMs),
+            HitResult.Meh => Kan.Forge.Play.LiveJudge.WindowMs(Kan.Forge.Play.LiveResult.Meh, paceMs),
+            HitResult.Miss => Kan.Forge.Play.LiveJudge.WindowMs(Kan.Forge.Play.LiveResult.Meh, paceMs) + Kan.Forge.Play.LiveJudge.HEARING_MS + Kan.Forge.Play.LiveJudge.PITCH_WAIT_MS,
             _ => 0,
         };
     }

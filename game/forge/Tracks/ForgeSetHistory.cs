@@ -20,6 +20,18 @@ namespace Kan.Forge.Tracks
     /// </summary>
     public class ForgeSetHistory
     {
+        /// <summary>
+        /// State outside the set that a step carries with it (a timeline repair
+        /// moves the score and the design with the tracks, so undoing it in the
+        /// track tab brings them back too).
+        /// </summary>
+        public interface IStepState
+        {
+            object Capture();
+
+            void Restore(object state);
+        }
+
         private const int max_steps = 100;
 
         /// <summary>Changes with the same key within this window merge into one step (slider drags, typing).</summary>
@@ -41,6 +53,11 @@ namespace Kan.Forge.Tracks
             this.set = set;
         }
 
+        /// <summary>What the next undo carries with it (<see cref="IStepState"/>), or null.</summary>
+        public IStepState? UndoLink => undo.Count > 0 ? undo[^1].With : null;
+
+        public IStepState? RedoLink => redo.Count > 0 ? redo[^1].With : null;
+
         public bool CanUndo => undo.Count > 0;
 
         public bool CanRedo => redo.Count > 0;
@@ -49,7 +66,7 @@ namespace Kan.Forge.Tracks
         /// Call BEFORE a change. A non-null <paramref name="coalesceKey"/>
         /// merges repeated changes (same key, within a second) into one step.
         /// </summary>
-        public void Record(string? coalesceKey = null)
+        public void Record(string? coalesceKey = null, IStepState? with = null)
         {
             var now = Now();
 
@@ -62,7 +79,7 @@ namespace Kan.Forge.Tracks
             lastKey = coalesceKey;
             lastRecord = now;
 
-            undo.Add(Snapshot.Of(set));
+            undo.Add(Snapshot.Of(set, with));
             if (undo.Count > max_steps) undo.RemoveAt(0);
             redo.Clear();
         }
@@ -87,7 +104,7 @@ namespace Kan.Forge.Tracks
 
             var target = from[^1];
             from.RemoveAt(from.Count - 1);
-            to.Add(Snapshot.Of(set));
+            to.Add(Snapshot.Of(set, target.With));
             target.Restore(set, t => created.TryGetValue(t, out _));
             lastKey = null;
             return true;
@@ -95,19 +112,39 @@ namespace Kan.Forge.Tracks
 
         private sealed class Snapshot
         {
-            private readonly List<(ForgeTrack Track, ForgeTrack State)> tracks;
+            private readonly List<(ForgeTrack Track, ForgeTrack State, Analysis Analysis)> tracks;
             private readonly double songStart;
             private readonly double songEnd;
 
-            private Snapshot(List<(ForgeTrack, ForgeTrack)> tracks, double songStart, double songEnd)
+            public readonly IStepState? With;
+            private readonly object? withState;
+
+            private Snapshot(List<(ForgeTrack, ForgeTrack, Analysis)> tracks, double songStart, double songEnd, IStepState? with)
             {
                 this.tracks = tracks;
                 this.songStart = songStart;
                 this.songEnd = songEnd;
+                With = with;
+                withState = with?.Capture();
             }
 
-            public static Snapshot Of(ForgeTrackSet set)
-                => new Snapshot(set.Tracks.Select(t => (t, t.Clone())).ToList(), set.AudioStartMs, set.AudioEndMs);
+            public static Snapshot Of(ForgeTrackSet set, IStepState? with = null)
+                => new Snapshot(set.Tracks.Select(t => (t, t.Clone(), Analysis.Of(t))).ToList(), set.AudioStartMs, set.AudioEndMs, with);
+
+            /// <summary>A track's analysis, kept with its file (a repair renders a new file; undo brings the old one back).</summary>
+            private sealed record Analysis(float[]? Peaks, bool Failed, float PeakLevel, float RmsLevel, bool LikelyEmpty)
+            {
+                public static Analysis Of(ForgeTrack t) => new Analysis(t.Peaks, t.AnalysisFailed, t.PeakLevel, t.RmsLevel, t.LikelyEmpty);
+
+                public void ApplyTo(ForgeTrack t)
+                {
+                    t.Peaks = Peaks;
+                    t.AnalysisFailed = Failed;
+                    t.PeakLevel = PeakLevel;
+                    t.RmsLevel = RmsLevel;
+                    t.LikelyEmpty = LikelyEmpty;
+                }
+            }
 
             public void Restore(ForgeTrackSet set, Func<ForgeTrack, bool> createdByTab)
             {
@@ -118,8 +155,14 @@ namespace Kan.Forge.Tracks
 
                 set.Tracks.Clear();
 
-                foreach (var (track, state) in tracks)
+                foreach (var (track, state, analysis) in tracks)
                 {
+                    if (track.Path != state.Path)
+                    {
+                        track.Path = state.Path;
+                        analysis.ApplyTo(track);
+                    }
+
                     apply(state, track);
                     set.Tracks.Add(track);
                 }
@@ -127,6 +170,8 @@ namespace Kan.Forge.Tracks
                 set.Tracks.AddRange(kept);
                 set.AudioStartMs = songStart;
                 set.AudioEndMs = songEnd;
+
+                if (With != null && withState != null) With.Restore(withState);
             }
 
             private static void apply(ForgeTrack from, ForgeTrack to)

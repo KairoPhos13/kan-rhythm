@@ -188,5 +188,100 @@ namespace Kan.Forge.Tests
             var score = new KanScore { Notes = piano };
             Assert.That(score.FindRepeats(false), Is.Empty, "nothing left to remove");
         }
+
+        private static GridPoint[] grid(params (double time, double beat)[] points) => points.Select(p => new GridPoint { TimeMs = p.time, BeatMs = p.beat }).ToArray();
+
+        [Test]
+        public void NotesFollowTheTempoGrid()
+        {
+            // Owner 2026-10-22: timing changes did not reach compose.
+            var score = three();
+            Assert.That(score.FollowGrid(grid((0, 500))), Is.False, "first seen: nothing to follow yet");
+
+            Assert.That(score.FollowGrid(grid((40, 500))), Is.True, "the offset moved");
+            Assert.That(score.Notes.Select(n => n.StartMs), Is.EqualTo(new[] { 1040.0, 1540, 2040 }));
+
+            // A slower tempo keeps each note on its beat, counted from the point; lengths follow.
+            score.FollowGrid(grid((40, 600)));
+            Assert.That(score.Notes.Select(n => n.StartMs), Is.EqualTo(new[] { 1240.0, 1840, 2440 }));
+            Assert.That(score.Notes[0].DurationMs, Is.EqualTo(600));
+
+            Assert.That(score.FollowGrid(grid((40, 600))), Is.False, "unchanged");
+            Assert.That(score.FollowGrid(grid((40, 600), (1500, 500)), true), Is.False, "a point added moves nothing");
+
+            // Only the section of the point moved; the first one reaches back to the start.
+            score.FollowGrid(grid((40, 600), (1500, 500)));
+            score.FollowGrid(grid((40, 600), (1600, 500)));
+            Assert.That(score.Notes.Select(n => n.StartMs), Is.EqualTo(new[] { 1240.0, 1940, 2540 }));
+
+            // The option off: the grid is taken, the notes stay.
+            score.FollowGrid(grid((0, 600), (1600, 500)), move: false);
+            Assert.That(score.Notes[0].StartMs, Is.EqualTo(1240));
+
+            // An undo snapshot keeps its grid, so it follows the grid of now when it comes back.
+            var snapshot = score.Clone();
+            score.FollowGrid(grid((100, 600), (1600, 500)));
+            snapshot.FollowGrid(score.Grid!);
+            Assert.That(snapshot.Notes.Select(n => n.StartMs), Is.EqualTo(score.Notes.Select(n => n.StartMs)));
+
+            var copy = KanScore.FromJson(score.ToJson())!;
+            Assert.That(copy.Grid!.Select(p => p.TimeMs), Is.EqualTo(new[] { 100.0, 1600 }), "saved with the score");
+        }
+
+        [Test]
+        public void AGridFittedToTheMusicKeepsTheNotes()
+        {
+            string a = KanScore.GridKey(grid((0, 500))), b = KanScore.GridKey(grid((0, 510))), c = KanScore.GridKey(grid((0, 520)));
+            Assert.That(Kan.Forge.Editor.ScoreSession.KeepsNotes(a, b), Is.False);
+
+            Kan.Forge.Editor.ScoreSession.GridChangeKeepsNotes(a, b);
+            Kan.Forge.Editor.ScoreSession.GridChangeKeepsNotes(b, c);
+            Assert.That(Kan.Forge.Editor.ScoreSession.KeepsNotes(c, a), Is.True, "undone in one go, still fitted");
+            Assert.That(Kan.Forge.Editor.ScoreSession.KeepsNotes(a, KanScore.GridKey(grid((0, 600)))), Is.False);
+        }
+
+        [Test]
+        public void BarsFollowEachTempo()
+        {
+            var bars = Bars.Of(new[]
+            {
+                new Bars.Tempo(500, 500, 4),   // a bar every 2 s
+                new Bars.Tempo(5000, 400, 3),  // a new metre starts a bar
+            }, 8000);
+
+            Assert.That(bars, Is.EqualTo(new[] { 500.0, 2500, 4500, 5000, 6200, 7400 }));
+            Assert.That(Bars.Of(Array.Empty<Bars.Tempo>(), 8000), Is.Empty);
+
+            // A tempo changed on the bar's second beat (17 beats in): the bar goes on, its next one 3 beats later.
+            var breathing = Bars.Of(new[]
+            {
+                new Bars.Tempo(0, 500, 4),
+                new Bars.Tempo(8510, 400, 4), // 17.02 beats: on a beat, near enough
+                new Bars.Tempo(9910, 400, 4), // 3.5 beats in: off the beats, a new bar
+            }, 12000);
+
+            Assert.That(breathing, Is.EqualTo(new[] { 0.0, 2000, 4000, 6000, 8000, 9710, 9910, 11510 }));
+        }
+
+        [Test]
+        public void TheGridIsAsFineAsTheNotes()
+        {
+            var tempo = new[] { new Bars.Tempo(1000, 500, 4) };
+
+            Assert.That(Bars.DivisionOf(tempo, new[] { 1000.0, 1500, 2250, 3000, 3750 }), Is.EqualTo(2), "halves");
+            Assert.That(Bars.DivisionOf(tempo, new[] { 1000.0, 1500, 1666.7, 1833.3 }), Is.EqualTo(3), "triplets");
+            Assert.That(Bars.DivisionOf(tempo, new[] { 1000.0, 1250, 1500 + 500.0 / 3 }), Is.EqualTo(6), "halves and triplets: sixths");
+            Assert.That(Bars.DivisionOf(tempo, new[] { 1012.0, 1497, 2003 }), Is.EqualTo(1), "played a little off the beats");
+
+            // Halves: a bar, three beats, and a half between each.
+            var ticks = Bars.Ticks(tempo, 3100, 2);
+            Assert.That(ticks.Select(t => t.Kind), Is.EqualTo(new[]
+            {
+                Bars.TickKind.Bar, Bars.TickKind.Part, Bars.TickKind.Beat, Bars.TickKind.Part,
+                Bars.TickKind.Beat, Bars.TickKind.Part, Bars.TickKind.Beat, Bars.TickKind.Part, Bars.TickKind.Bar,
+            }));
+            Assert.That(ticks.Last().Bar, Is.EqualTo(2));
+            Assert.That(ticks[3].TimeMs, Is.EqualTo(1750));
+        }
     }
 }

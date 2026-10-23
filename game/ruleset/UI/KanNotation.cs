@@ -46,17 +46,19 @@ namespace Kan.Ruleset.UI
         private static int pitchClass(int midi) => ((midi % 12) + 12) % 12;
 
         /// <summary>The note's name with its octave ("G5", "Sol5"), or empty when names are off.</summary>
-        public static string Name(int midi) => Names switch
-        {
-            KanNoteNames.Solfege => $"{solfege[pitchClass(midi)]}{midi / 12 - 1}",
-            KanNoteNames.None => string.Empty,
-            _ => $"{letters[pitchClass(midi)]}{midi / 12 - 1}",
-        };
+        public static string Name(int midi) => Names == KanNoteNames.None ? string.Empty : Label(midi);
 
         /// <summary>The name even when names are off (the line labels, the feedback words).</summary>
-        public static string Label(int midi) => Names == KanNoteNames.Solfege
-            ? $"{solfege[pitchClass(midi)]}{midi / 12 - 1}"
-            : $"{letters[pitchClass(midi)]}{midi / 12 - 1}";
+        public static string Label(int midi) => midi is >= 0 and < 128
+            ? (Names == KanNoteNames.Solfege ? solfege_names : letter_names)[midi]
+            : spell(Names == KanNoteNames.Solfege ? solfege : letters, midi);
+
+        // Spelled once: the staff names its notes and lines every frame, and a
+        // new string each time was garbage at the display's rate (lag hunt 2026-10-19).
+        private static readonly string[] letter_names = Enumerable.Range(0, 128).Select(m => spell(letters, m)).ToArray();
+        private static readonly string[] solfege_names = Enumerable.Range(0, 128).Select(m => spell(solfege, m)).ToArray();
+
+        private static string spell(string[] names, int midi) => $"{names[pitchClass(midi)]}{midi / 12 - 1}";
 
         /// <summary>Whether the note is a sharp (a black key): drawn with points, not round (owner 2026-10-17).</summary>
         public static bool IsSharp(int midi) => pitchClass(midi) is 1 or 3 or 6 or 8 or 10;

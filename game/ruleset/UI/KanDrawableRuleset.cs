@@ -74,12 +74,23 @@ namespace Kan.Ruleset.UI
             state = new KanPlayState(notes, instrument)
             {
                 Design = design,
+                SetId = beatmap.BeatmapInfo.BeatmapSet?.ID ?? System.Guid.Empty,
+                Ticks = ticks(beatmap, notes),
                 // While practising, W decides (it starts from the selected mods).
                 WaitForPlayer = practiceOptions?.Wait ?? Mods.Any(m => m is Kan.Ruleset.Mods.KanModWait),
                 HideNotes = Mods.Any(m => m is Kan.Ruleset.Mods.KanModHidden),
                 // Listening while practising: the part played for the player, as autoplay does.
                 ReplaySource = listening ? () => listen ??= Kan.Ruleset.Mods.KanModAutoplay.Generate(notes) : () => ReplayScore?.Replay,
             };
+        }
+
+        /// <summary>The staff's grid: bars, beats, and beats cut as finely as the notes need (owner 2026-10-22).</summary>
+        private static IReadOnlyList<Kan.Forge.Score.Bars.Tick> ticks(osu.Game.Beatmaps.IBeatmap beatmap, List<KanHitObject> notes)
+        {
+            var tempos = beatmap.ControlPointInfo.TimingPoints.Select(t => new Kan.Forge.Score.Bars.Tempo(t.Time, t.BeatLength, t.TimeSignature.Numerator)).ToList();
+            double until = System.Math.Max(beatmap.BeatmapInfo.Length, notes.Count > 0 ? notes.Max(n => n.EndMs) + 4000 : 0);
+
+            return Kan.Forge.Score.Bars.Ticks(tempos, until, Kan.Forge.Score.Bars.DivisionOf(tempos, notes.Select(n => n.StartTime)));
         }
 
         [osu.Framework.Allocation.BackgroundDependencyLoader(true)]
@@ -155,6 +166,10 @@ namespace Kan.Ruleset.UI
             // Autoplay is heard: the perfect player's part plays with the level.
             if (Mods.Any(m => m is ModAutoplay) || listening)
                 AddInternal(new Kan.Forge.Play.AutoplayPart(KanLevelFiles.LoadScore, () => KanLevelFiles.ForgeRoot));
+
+            // A replay is heard too: what the player played, when its recording is kept (owner 2026-10-22).
+            if (ReplayScore?.Replay.Frames.OfType<KanReplayFrame>().FirstOrDefault(f => f.Kind == KanFactKind.Take) is { } take && KanLevelFiles.ForgeRoot is { } root)
+                AddInternal(new Kan.Forge.Play.TakePart(root, take.Index));
         }
 
         /// <summary>A play records what the judge heard (<see cref="KanReplayRecorder"/>).</summary>

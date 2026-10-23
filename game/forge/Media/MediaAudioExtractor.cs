@@ -241,6 +241,233 @@ namespace Kan.Forge.Media
             return true;
         }
 
+        /// <summary>
+        /// Repair a track's timing into a PCM16 WAV (owner 2026-10-22, see
+        /// <c>TimelineEdit</c>): the span [<paramref name="fromMs"/>,
+        /// <paramref name="toMs"/>) of the file becomes
+        /// <paramref name="newLengthMs"/> long — silence for an empty span
+        /// (inserted), nothing (cut), or the span itself played faster or
+        /// slower with its pitch kept (the BASS_FX tempo processor the pitch
+        /// shift uses). The joins fade over a few milliseconds, so they do
+        /// not click.
+        /// </summary>
+        public static bool TryRetimeToWav(string inputPath, string outWav, double fromMs, double toMs, double newLengthMs, out string error)
+        {
+            if (!tryDecode(inputPath, out float[] samples, out int channels, out int rate, out error))
+                return false;
+
+            int frames = samples.Length / channels;
+            int frameAt(double ms) => (int)Math.Clamp(Math.Round(ms * rate / 1000), 0, frames);
+
+            int a = frameAt(fromMs), b = frameAt(toMs);
+            int newFrames = (int)Math.Max(0, Math.Round(newLengthMs * rate / 1000));
+
+            float[] middle;
+
+            if (b <= a)
+                middle = new float[newFrames * channels]; // silence
+            else if (newFrames == 0)
+                middle = Array.Empty<float>(); // cut
+            else
+            {
+                var span = new float[(b - a) * channels];
+                Array.Copy(samples, a * channels, span, 0, span.Length);
+
+                if (!tryStretch(span, channels, rate, newFrames, out middle, out error))
+                    return false;
+            }
+
+            var result = new float[(a + newFrames + (frames - b)) * channels];
+            Array.Copy(samples, 0, result, 0, a * channels);
+            Array.Copy(middle, 0, result, a * channels, Math.Min(middle.Length, newFrames * channels));
+            Array.Copy(samples, b * channels, result, (a + newFrames) * channels, (frames - b) * channels);
+
+            // Soften the joins: the end of what comes before, both ends of what was put in, the start of what follows.
+            int fade = Math.Max(1, rate * join_fade_ms / 1000);
+            fadeOut(result, channels, a, fade);
+
+            if (newFrames > 0)
+            {
+                fadeIn(result, channels, a, Math.Min(fade, newFrames));
+                fadeOut(result, channels, a + newFrames, Math.Min(fade, newFrames));
+            }
+
+            fadeIn(result, channels, a + newFrames, fade);
+
+            writeWav(outWav, result, result.Length / channels, channels, rate);
+            return true;
+        }
+
+        private const int join_fade_ms = 4;
+
+        /// <summary>A track file's length (ms), or 0 when it cannot be read.</summary>
+        public static double LengthMs(string path)
+        {
+            ensureBass();
+
+            int handle = Bass.CreateStream(path, 0, 0, BassFlags.Decode | BassFlags.Float);
+            if (handle == 0) return 0;
+
+            try
+            {
+                long bytes = Bass.ChannelGetLength(handle, PositionFlags.Bytes);
+                return bytes > 0 ? Bass.ChannelBytes2Seconds(handle, bytes) * 1000 : 0;
+            }
+            finally
+            {
+                Bass.StreamFree(handle);
+            }
+        }
+
+        private static void fadeOut(float[] s, int channels, int atFrame, int frames)
+        {
+            int total = s.Length / channels;
+
+            for (int i = 0; i < frames; i++)
+            {
+                int f = atFrame - frames + i;
+                if (f < 0 || f >= total) continue;
+
+                float g = 1 - (float)(i + 1) / frames;
+                for (int c = 0; c < channels; c++) s[f * channels + c] *= g;
+            }
+        }
+
+        private static void fadeIn(float[] s, int channels, int atFrame, int frames)
+        {
+            int total = s.Length / channels;
+
+            for (int i = 0; i < frames; i++)
+            {
+                int f = atFrame + i;
+                if (f < 0 || f >= total) continue;
+
+                float g = (float)i / frames;
+                for (int c = 0; c < channels; c++) s[f * channels + c] *= g;
+            }
+        }
+
+        private static bool tryDecode(string path, out float[] samples, out int channels, out int rate, out string error)
+        {
+            samples = Array.Empty<float>();
+            channels = rate = 0;
+            error = string.Empty;
+            ensureBass();
+
+            int handle = Bass.CreateStream(path, 0, 0, BassFlags.Decode | BassFlags.Float);
+
+            if (handle == 0)
+            {
+                error = $"cannot open the track ({Bass.LastError})";
+                return false;
+            }
+
+            try
+            {
+                if (!Bass.ChannelGetInfo(handle, out ChannelInfo info) || info.Channels <= 0)
+                {
+                    error = $"cannot read track info ({Bass.LastError})";
+                    return false;
+                }
+
+                channels = info.Channels;
+                rate = info.Frequency;
+
+                long bytes = Bass.ChannelGetLength(handle, PositionFlags.Bytes);
+
+                if (bytes <= 0)
+                {
+                    error = "track has no audio data";
+                    return false;
+                }
+
+                var all = new float[(int)(bytes / (4L * channels)) * channels];
+                int read = Bass.ChannelGetData(handle, all, all.Length * 4);
+
+                if (read <= 0)
+                {
+                    error = $"track decode failed ({Bass.LastError})";
+                    return false;
+                }
+
+                samples = read / 4 == all.Length ? all : all[..(read / 4 / channels * channels)];
+                return true;
+            }
+            finally
+            {
+                Bass.StreamFree(handle);
+            }
+        }
+
+        /// <summary>Play <paramref name="span"/> to exactly <paramref name="frames"/> frames, its pitch kept.</summary>
+        private static bool tryStretch(float[] span, int channels, int rate, int frames, out float[] stretched, out string error)
+        {
+            stretched = Array.Empty<float>();
+            error = string.Empty;
+
+            // Through a file: BASS_FX's tempo stream reads a decoding source.
+            string tmp = Path.Combine(Path.GetTempPath(), $"kan-stretch-{Guid.NewGuid():N}.wav");
+
+            try
+            {
+                writeWav(tmp, span, span.Length / channels, channels, rate);
+
+                int source = Bass.CreateStream(tmp, 0, 0, BassFlags.Decode | BassFlags.Float);
+
+                if (source == 0)
+                {
+                    error = $"cannot open the span to stretch ({Bass.LastError})";
+                    return false;
+                }
+
+                int handle = ManagedBass.Fx.BassFx.TempoCreate(source, BassFlags.Decode | BassFlags.FxFreeSource);
+
+                if (handle == 0)
+                {
+                    Bass.StreamFree(source);
+                    error = $"cannot create the time stretcher ({Bass.LastError})";
+                    return false;
+                }
+
+                try
+                {
+                    // Tempo is a speed change in percent: longer = slower.
+                    double speed = (double)(span.Length / channels) / frames;
+
+                    if (!Bass.ChannelSetAttribute(handle, ChannelAttribute.Tempo, (speed - 1) * 100))
+                    {
+                        error = $"cannot set the stretch ({Bass.LastError})";
+                        return false;
+                    }
+
+                    var output = new System.Collections.Generic.List<float>(frames * channels);
+                    var buffer = new float[16384 * channels];
+                    int read;
+                    while ((read = Bass.ChannelGetData(handle, buffer, buffer.Length * 4)) > 0)
+                        output.AddRange(new ArraySegment<float>(buffer, 0, read / 4));
+
+                    // The processor's length is close, not exact: pad or trim to the frame.
+                    stretched = new float[frames * channels];
+                    output.CopyTo(0, stretched, 0, Math.Min(output.Count, stretched.Length));
+                    return true;
+                }
+                finally
+                {
+                    Bass.StreamFree(handle);
+                }
+            }
+            finally
+            {
+                try
+                {
+                    File.Delete(tmp);
+                }
+                catch (IOException)
+                {
+                }
+            }
+        }
+
         /// <summary>True when the file looks like a container we can pull audio from.</summary>
         public static bool CanExtract(string path)
         {

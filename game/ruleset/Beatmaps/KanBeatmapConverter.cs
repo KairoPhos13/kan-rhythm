@@ -42,6 +42,10 @@ namespace Kan.Ruleset.Beatmaps
             var beatmap = base.ConvertBeatmap(original, cancellationToken);
             if (score == null || KanLevelFiles.EditorLoading) return beatmap;
 
+            // A tempo grid changed after the score was last edited (the timing
+            // tab, without coming back to compose): the notes keep their beats.
+            score.FollowGrid(original.ControlPointInfo.TimingPoints.Select(p => new GridPoint { TimeMs = p.Time, BeatMs = p.BeatLength }).ToList());
+
             var notes = score.Notes.OrderBy(n => n.StartMs).ThenBy(n => n.Midi).ToList();
             beatmap.HitObjects = notes.Select((n, i) => new KanHitObject
             {
@@ -56,6 +60,12 @@ namespace Kan.Ruleset.Beatmaps
                 Vibrato = n.Vibrato,
                 PitchUnknown = n.PitchUnknown,
             }).ToList();
+            beatmap.HitObjects.MaxBy(h => h.EndMs)!.EndsTheLevel = true;
+
+            // Each note's windows follow how fast the notes around it go.
+            var starts = beatmap.HitObjects.Select(h => h.StartTime).ToList();
+            for (int i = 0; i < starts.Count; i++)
+                beatmap.HitObjects[i].PaceMs = Kan.Forge.Play.LiveJudge.PaceOf(starts, i);
 
             return beatmap;
         }

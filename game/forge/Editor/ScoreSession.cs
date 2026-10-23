@@ -2,6 +2,7 @@
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using osu.Game.Beatmaps;
@@ -37,6 +38,7 @@ namespace Kan.Forge.Editor
 
             LevelKey = levelKey;
             History.Clear();
+            sameNotes.Clear();
 
             var inLevel = loadFromLevel(working);
             var autosaved = KanScore.Load(autosavePath);
@@ -62,6 +64,30 @@ namespace Kan.Forge.Editor
             if (broken > 0)
                 RemovedBrokenNotes = broken;
         }
+
+        // Grids reached by fitting the grid to the music (compose's "the beat
+        // falls here"): between them the notes stay where they sound, also when
+        // the change is undone in the timing tab. Grids joined by such changes
+        // share a root.
+        private static readonly Dictionary<string, string> sameNotes = new Dictionary<string, string>();
+
+        private static string root(string key)
+        {
+            while (sameNotes.TryGetValue(key, out string? parent) && parent != key)
+                key = parent;
+            return key;
+        }
+
+        /// <summary>The grid changed from <paramref name="before"/> to <paramref name="after"/> (<see cref="KanScore.GridKey"/>) to fit the music: the notes stay.</summary>
+        public static void GridChangeKeepsNotes(string before, string after)
+        {
+            string a = root(before), b = root(after);
+            sameNotes[a] = a;
+            if (a != b) sameNotes[b] = a;
+        }
+
+        /// <summary>Whether going from one grid to the other keeps the notes where they are.</summary>
+        public static bool KeepsNotes(string from, string to) => from == to || root(from) == root(to);
 
         /// <summary>Notes dropped on opening because the transcription bug had zeroed them (0 = none).</summary>
         public static int RemovedBrokenNotes { get; set; }

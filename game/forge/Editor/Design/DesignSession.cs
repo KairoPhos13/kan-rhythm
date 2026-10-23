@@ -63,6 +63,9 @@ namespace Kan.Forge.Editor.Design
         /// <summary>Whether the level's design file matches the design being edited.</summary>
         public static bool SavedInLevel => savedToLevel == Design.ContentKey();
 
+        /// <summary>Replace the design (a timeline repair, or its undo).</summary>
+        public static void Replace(KanDesign design) => Design = design;
+
         /// <summary>Call before every change (undo snapshot).</summary>
         public static void Record()
         {

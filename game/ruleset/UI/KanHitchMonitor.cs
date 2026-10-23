@@ -21,8 +21,15 @@ namespace Kan.Ruleset.UI
     /// </summary>
     public partial class KanHitchMonitor : Component
     {
-        /// <summary>A frame this long is a stutter the player sees (about 3 frames at 60 Hz).</summary>
-        private const double hitch_ms = 50;
+        /// <summary>
+        /// A frame this long is a stutter the player sees: several refreshes
+        /// missed at 144-180 Hz (the owner plays at 180 Hz, where 50 ms — the
+        /// first threshold — let 35-40 ms micro-stutters through).
+        /// </summary>
+        private const double hitch_ms = 25;
+
+        /// <summary>The frame lengths the play's summary counts.</summary>
+        private static readonly double[] buckets = { 12, 25, 50 };
 
         /// <summary>The describer is behind when this much audio waits for it.</summary>
         private const double backlog_ms = 60;
@@ -33,13 +40,16 @@ namespace Kan.Ruleset.UI
         private GameThread? drawThread;
         private GameThread? audioThread;
 
-        private int[] collections = new int[3];
+        private readonly int[] collections = new int[3];
+        private readonly int[] nowCollections = new int[3];
         private TimeSpan pauses;
 
         private int hitches;
+        private readonly int[] slowFrames = new int[3];
+        private double worstGcInFrame;
         private double worstUpdate, worstDraw, worstAudio, worstChunk, worstBacklog;
         private TimeSpan pausesAtStart;
-        private int[] collectionsAtStart = new int[3];
+        private readonly int[] collectionsAtStart = new int[3];
         private long lastLog;
 
         public KanHitchMonitor(KanPlayState state)
@@ -60,8 +70,8 @@ namespace Kan.Ruleset.UI
         {
             base.LoadComplete();
 
-            collections = gcCounts();
-            collectionsAtStart = gcCounts();
+            countGc(collections);
+            countGc(collectionsAtStart);
             pauses = pausesAtStart = GC.GetTotalPauseDuration();
         }
 
@@ -74,7 +84,7 @@ namespace Kan.Ruleset.UI
             double audio = audioThread?.Clock.ElapsedFrameTime ?? 0;
             var (chunk, backlog) = state.Session?.TakeLoad() ?? (0, 0);
 
-            var nowCollections = gcCounts();
+            countGc(nowCollections);
             var nowPauses = GC.GetTotalPauseDuration();
             double gcMs = (nowPauses - pauses).TotalMilliseconds;
 
@@ -83,6 +93,17 @@ namespace Kan.Ruleset.UI
             worstAudio = Math.Max(worstAudio, audio);
             worstChunk = Math.Max(worstChunk, chunk);
             worstBacklog = Math.Max(worstBacklog, backlog);
+            worstGcInFrame = Math.Max(worstGcInFrame, gcMs);
+
+            double frame = Math.Max(update, draw);
+
+            if (frame > buckets[0] || gcMs > 2)
+                state.Trace?.Row(state.TraceRealMs, state.ClockMs, "frame", update, draw, gcMs);
+            for (int i = 0; i < buckets.Length; i++)
+            {
+                if (frame > buckets[i])
+                    slowFrames[i]++;
+            }
 
             if (update > hitch_ms || draw > hitch_ms || audio > hitch_ms || backlog > backlog_ms)
             {
@@ -98,19 +119,24 @@ namespace Kan.Ruleset.UI
                 }
             }
 
-            collections = nowCollections;
+            Array.Copy(nowCollections, collections, 3);
             pauses = nowPauses;
         }
 
-        private static int[] gcCounts() => new[] { GC.CollectionCount(0), GC.CollectionCount(1), GC.CollectionCount(2) };
+        // Into an array kept for it: this runs every frame, and garbage is what it watches.
+        private static void countGc(int[] into)
+        {
+            for (int g = 0; g < 3; g++)
+                into[g] = GC.CollectionCount(g);
+        }
 
         protected override void Dispose(bool isDisposing)
         {
             if (IsLoaded)
             {
-                var nowCollections = gcCounts();
-                Logger.Log($"kan!: play frames — {hitches} hitches over {hitch_ms:0} ms; worst update {worstUpdate:0} ms, draw {worstDraw:0} ms, audio {worstAudio:0} ms; "
-                           + $"GC paused {(GC.GetTotalPauseDuration() - pausesAtStart).TotalMilliseconds:0} ms in all (gen0 {nowCollections[0] - collectionsAtStart[0]}, gen1 {nowCollections[1] - collectionsAtStart[1]}, gen2 {nowCollections[2] - collectionsAtStart[2]}); "
+                countGc(nowCollections);
+                Logger.Log($"kan!: play frames — {hitches} hitches; frames over 12/25/50 ms: {slowFrames[0]}/{slowFrames[1]}/{slowFrames[2]}; worst update {worstUpdate:0} ms, draw {worstDraw:0} ms, audio {worstAudio:0} ms; "
+                           + $"GC paused {(GC.GetTotalPauseDuration() - pausesAtStart).TotalMilliseconds:0} ms in all, at most {worstGcInFrame:0.0} ms in one frame (gen0 {nowCollections[0] - collectionsAtStart[0]}, gen1 {nowCollections[1] - collectionsAtStart[1]}, gen2 {nowCollections[2] - collectionsAtStart[2]}); "
                            + $"describer worst {worstChunk:0.0} ms per 10 ms, {worstBacklog:0} ms waiting at most",
                     level: LogLevel.Important);
             }

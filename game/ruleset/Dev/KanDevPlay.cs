@@ -32,8 +32,12 @@ namespace Kan.Ruleset.Dev
     /// player goes through; owner 2026-10-15: it crashed there).
     /// KAN_DEV_MODS="HT,NF" plays with those mods (acronyms);
     /// KAN_DEV_SCREEN=replay plays back the level's newest local score;
-    /// KAN_DEV_SCREEN=design / setup opens the editor on that tab;
-    /// KAN_DEV_PAUSE=12 pauses 12 s in and continues 2 s later.
+    /// KAN_DEV_SCREEN=design / setup / compose opens the editor on that tab;
+    /// KAN_DEV_REPAIR="insert:10000:500;undo;cut:2000-3000" runs timeline
+    /// repairs in compose, one every 12 s (stretch:from-to:length, redo too);
+    /// KAN_DEV_PAUSE=12 pauses 12 s in and continues 2 s later;
+    /// KAN_DEV_RESTART=12 restarts the level quickly 12 s in;
+    /// KAN_DEV_SEEK="20:8" (with replay) seeks to 8 s, 20 s in.
     /// </summary>
     public partial class KanDevPlay : Component
     {
@@ -164,10 +168,12 @@ namespace Kan.Ruleset.Dev
 
                 Logger.Log($"kan! dev play: replaying the score of {score.Date:u} ({score.Accuracy:P1})", level: LogLevel.Important);
                 game.PresentScore(score, osu.Game.Screens.ScorePresentType.Gameplay);
+                scheduleSeeks();
+                scheduleScreenshots();
                 return;
             }
 
-            if (Environment.GetEnvironmentVariable(SCREEN_ENV) is @"design" or @"setup")
+            if (Environment.GetEnvironmentVariable(SCREEN_ENV) is @"design" or @"setup" or @"compose")
             {
                 // The editor on its design tab (the level's design, owner 2026-10-15).
                 game.PerformFromScreen(s => s.Push(new osu.Game.Screens.Edit.EditorLoader()), new[] { typeof(MainMenu) });
@@ -249,6 +255,7 @@ namespace Kan.Ruleset.Dev
 
             scheduleScreenshots();
             schedulePause();
+            scheduleRestart();
             schedulePracticeSteps();
         }
 
@@ -301,6 +308,25 @@ namespace Kan.Ruleset.Dev
             }, 2500);
         }
 
+        /// <summary>KAN_DEV_SEEK="20:8,30:2": that many seconds in, seek the level to that second (a replay rewound; owner 2026-10-22: it crashed).</summary>
+        private void scheduleSeeks()
+        {
+            foreach (string step in (Environment.GetEnvironmentVariable(@"KAN_DEV_SEEK") ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries))
+            {
+                string[] parts = step.Split(':');
+                if (parts.Length != 2 || !double.TryParse(parts[0], NumberStyles.Float, CultureInfo.InvariantCulture, out double at)
+                                      || !double.TryParse(parts[1], NumberStyles.Float, CultureInfo.InvariantCulture, out double to)) continue;
+
+                Scheduler.AddDelayed(() =>
+                {
+                    if (game.ScreenStack.CurrentScreen is not Player player) return;
+
+                    Logger.Log($"kan! dev play: seeking to {to} s", level: LogLevel.Important);
+                    player.Seek(to * 1000);
+                }, (at + 6) * 1000);
+            }
+        }
+
         private void schedulePause()
         {
             // KAN_DEV_PAUSE=wait: pause the first time the level waits for a note (wait mode).
@@ -325,6 +351,19 @@ namespace Kan.Ruleset.Dev
             }, (seconds + 6) * 1000);
         }
 
+        /// <summary>KAN_DEV_RESTART=12: a quick restart 12 s into the level (as the retry key does).</summary>
+        private void scheduleRestart()
+        {
+            if (!double.TryParse(Environment.GetEnvironmentVariable(@"KAN_DEV_RESTART"), NumberStyles.Float, CultureInfo.InvariantCulture, out double seconds)) return;
+
+            Scheduler.AddDelayed(() =>
+            {
+                if (game.ScreenStack.CurrentScreen is not Player player) return;
+
+                Logger.Log($"kan! dev play: quick restart ({player.Restart(true)})", level: LogLevel.Important);
+            }, (seconds + 6) * 1000);
+        }
+
         private void scheduleScreenshots()
         {
             foreach (string part in (Environment.GetEnvironmentVariable(SCREENSHOTS_ENV) ?? string.Empty).Split(','))
@@ -343,8 +382,22 @@ namespace Kan.Ruleset.Dev
             if (game.ScreenStack.CurrentScreen is osu.Game.Screens.Edit.Editor editor && editor.IsLoaded)
             {
                 bool setup = Environment.GetEnvironmentVariable(SCREEN_ENV) == @"setup";
-                editor.Mode.Value = setup ? osu.Game.Screens.Edit.EditorScreenMode.SongSetup : osu.Game.Screens.Edit.EditorScreenMode.Design;
-                Logger.Log($"kan! dev play: editor on the {(setup ? "setup" : "design")} tab", level: LogLevel.Important);
+                bool compose = Environment.GetEnvironmentVariable(SCREEN_ENV) == @"compose";
+                editor.Mode.Value = setup ? osu.Game.Screens.Edit.EditorScreenMode.SongSetup
+                    : compose ? osu.Game.Screens.Edit.EditorScreenMode.Compose
+                    : osu.Game.Screens.Edit.EditorScreenMode.Design;
+                Logger.Log($"kan! dev play: editor on the {editor.Mode.Value} tab", level: LogLevel.Important);
+
+                if (compose)
+                {
+                    string[] steps = (Environment.GetEnvironmentVariable(@"KAN_DEV_REPAIR") ?? string.Empty).Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                    for (int i = 0; i < steps.Length; i++)
+                    {
+                        string step = steps[i];
+                        Scheduler.AddDelayed(() => editor.ChildrenOfType<Kan.Forge.Editor.Compose.KanComposeScreen>().FirstOrDefault()?.DevRepair(step), 6000 + i * 12000);
+                    }
+                }
 
                 // KAN_DEV_SCROLL=credits: bring that setup section into view (for screenshots).
                 if (setup && Environment.GetEnvironmentVariable(@"KAN_DEV_SCROLL") == @"credits")

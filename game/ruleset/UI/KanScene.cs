@@ -94,13 +94,13 @@ namespace Kan.Ruleset.UI
                                && !anyNoteSounding(now);
             bool resting = restSection && NextNoteMs - now > REST_RELEASE_MS;
 
-            double restK = Math.Min(1, Time.Elapsed / rest_ease_ms);
+            double restK = Math.Min(1, Math.Abs(Time.Elapsed) / rest_ease_ms);
             Rest += ((resting ? 1 : 0) - Rest) * (float)restK;
 
-            double climaxK = Math.Min(1, Time.Elapsed / colour_ease_ms);
+            double climaxK = Math.Min(1, Math.Abs(Time.Elapsed) / colour_ease_ms);
             ClimaxAmount += ((section?.Climax == true ? 1 : 0) - ClimaxAmount) * (float)climaxK;
 
-            easeTo(Design.PaletteAt(now), Math.Min(1, Time.Elapsed / colour_ease_ms));
+            easeTo(Design.PaletteAt(now), Math.Min(1, Math.Abs(Time.Elapsed) / colour_ease_ms));
         }
 
         private bool anyNoteSounding(double now)

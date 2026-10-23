@@ -200,13 +200,13 @@ namespace Kan.Ruleset.UI
                 float low = 0;
                 for (int i = 1; i < Math.Min(8, amplitudes.Length); i++) low += amplitudes[i];
                 low = Math.Min(1, low / 7 * 2.5f);
-                lowEnd = low > lowEnd ? low : lowEnd - (lowEnd - low) * (float)Math.Min(1, Time.Elapsed / 180);
+                lowEnd = low > lowEnd ? low : lowEnd - (lowEnd - low) * (float)Math.Min(1, Math.Abs(Time.Elapsed) / 180);
             }
 
             climaxGlow.Colour = ColourInfo.GradientVertical(scene.Climax.Opacity(0), scene.Climax);
             climaxGlow.Alpha = scene.ClimaxAmount * (0.06f + 0.22f * lowEnd) * Math.Min(1, scene.Design.Glow);
 
-            missDip = Math.Max(0, missDip - Time.Elapsed / miss_recovery_ms);
+            missDip = Math.Max(0, missDip - Math.Abs(Time.Elapsed) / miss_recovery_ms);
             double dip = missDip * missDip; // sharp at once, easing back
 
             // Fully open near the top of the bloom; otherwise the higher frequencies come in with it.

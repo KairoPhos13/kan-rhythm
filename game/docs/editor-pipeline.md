@@ -418,10 +418,97 @@ cents), duration, intensity and playing style (normal / legato / staccato
     before this: **remove repeats** (toolbar, `Shift+U`), undoable.
   The draft itself stays raw, so the validation export's
   `transcription (automatic).mid` shows what the transcriber really said.
+- **Notes follow the tempo grid** (owner 2026-10-22: "timing changes do not
+  reach compose"): the score keeps its notes in ms, not as osu! objects, so
+  osu!'s "adjust existing objects on timing changes" never moved them. The
+  score now remembers the grid its notes were placed on (`KanScore.Grid`,
+  saved in `kan.score.json`) and `KanScore.FollowGrid` keeps them on their
+  beats when it changes: a moved timing point carries its section's notes
+  by as much (the first section reaches back to the start), a new tempo
+  keeps each note on its beat counted from the point and scales its length.
+  Points added or removed move nothing. Compose checks every frame (the
+  timing tab, the tempo bar, osu!'s undo) and honours osu!'s option (off:
+  the grid is taken, the notes stay); gameplay's converter follows too, for
+  a grid changed without coming back to compose. Not a compose undo step:
+  undo snapshots carry their grid and follow the grid of now when they come
+  back. A score written before this adopts the grid it first sees. Design
+  sections do not follow yet. Test: `KanScoreTest.NotesFollowTheTempoGrid`.
+- **A tempo that breathes** (owner 2026-10-22: the reference, a cover
+  played without a click, drifts — "the companion changes tempo because it
+  feels like it, the solo rushes it… it sounds fine until I want to learn
+  it"). Syncing is the level maker's job: kan! proposes no tempo map. The
+  tempo bar shows and edits the tempo **at the playhead** ("tempo 3/18";
+  BPM, tap and beats per bar change that timing point; the first beat stays
+  the first point's). **change** puts a tempo change at the playhead (a copy
+  of the one before), **beat here** stretches the tempo before the playhead
+  so its nearest beat lands on the playhead (at most ±50 %), **remove**
+  takes out the tempo change the playhead is in (the first stays). "Beat
+  here" fits the grid to the music, so the notes stay where they sound: the
+  grids before and after are joined (`ScoreSession.GridChangeKeepsNotes`),
+  and going between them — undo in the timing tab too — moves no note. The
+  other tempo edits follow osu!'s option like the timing tab.
+- **Repair the audio's timing** (owner 2026-10-22; section panel). When
+  the recording itself drifts, the audio is brought to the grid: **insert
+  silence at the playhead** (a part that came in early), **cut the section
+  out** (one that came in late, a pause too long), **play the section in the
+  length** (it sped up or slowed down: faster or slower, pitch kept),
+  **fit the section to the grid** (the nearest whole number of grid steps:
+  set the section from a beat the music is on to where the next should
+  be). The length (owner 2026-10-22: "1 beat, but also 1/2, 1/4, 1/8,
+  1/16, and custom") is a share of a beat of the tempo at the playhead, or
+  typed in ms; the shares follow the grid's family ("with triplets, triplet
+  lengths": 1/3, 1/6, 1/12; the odd splits their own). **Sync with the next tempo** (owner: "the metronome is
+  already fitted in the timing tab: it could tell how much syncs this tempo
+  with the next segment"): the next tempo change came in off the beats of
+  the tempo at the playhead by a fraction of one; the panel says by how
+  much and puts in that silence at the change (early) or cuts it just
+  before (late), the smaller (`TimelineEdit.SyncNext`, tested). On the
+  owner's level: the change at 10 481 ms, 9.84 beats after the one before,
+  took 81.8 ms of silence and landed at 10 562.8, 10 beats after it.
+  **The tempo changes after a repair move with the music** (they mark where
+  it is: `TimelineRepair.IGrid`; inside a cut they go), so the sections
+  after it keep their fit; the step brings them back on undo.
+  One `TimelineEdit` (unit-tested: `TimelineEditTest`) applies to the whole
+  level (owner: "the changes to the companion must be made to the reference
+  too — the level preview and autoplay play it"): every track of the set,
+  companion or not, is rendered again where the edit reaches its file
+  (`MediaAudioExtractor.TryRetimeToWav`: silence, cut, or BASS_FX tempo;
+  4 ms fades at the joins; a track the edit is before only moves), with
+  its side trims and pending edits moved along; the notes (a cut removes
+  those starting in it), the design's sections and the level audio's end
+  follow, and so do the tempo changes after the edit (the grid before it
+  stays). The new files are work files; the level audio is
+  rendered again. One undo step (`TimelineRepair`): the track set's history
+  carries the score and the design (`ForgeSetHistory.IStepState`, file
+  paths and waveforms restored), and the score's history links to it
+  (`ScoreHistory.UndoLink`), so Ctrl+Z in compose or the track tab undoes
+  all of it (compose asks to undo the track tab's later changes first).
+  The track tab's and compose's players reopen a track whose file changed.
+  Verified end to end in an isolated instance on the owner's level (dev
+  hook `KAN_DEV_SCREEN=compose`, `KAN_DEV_REPAIR`): insert / undo / redo /
+  cut / stretch moved all three tracks and the notes, the level audio grew
+  by the silence and came back on undo; the repaired tracks hold digital
+  silence in the gap and match the original shifted (correlation 1.0).
 - **Grid:** pick a family (straight / triplets / other), then one of its
   divisions; `G` / `Shift+G` cycle them.
 - **Keys:** listed in `ShortcutsPanel` (`K` or the "keys" button); the
   osu editor's own Space/C, X, Z, V and arrow seeks keep working.
+- **Copy and paste** (owner 2026-10-23: choruses are often alike):
+  Ctrl+C / X / V, and the osu editor's Edit menu (`EditorScreen.Copy`).
+  The copied notes keep their spacing from the first one; paste puts them
+  at the playhead, on the grid when snapping, selected so they move as one
+  (one undo step). The clipboard lasts while the game runs, so a phrase
+  can go to another level too.
+- **Out of range, greyed** (owner 2026-10-23: notes "I cannot use in
+  theory"): rows outside the playable range are dimmed under the notes,
+  and notes there are grey. The range is the player's own (game settings,
+  "My instrument"), else the level instrument's default
+  (`RangeFit.Playable`; the ruleset hands the player's range to the forge
+  as `RangeFit.PlayerRange`). The note as written is greyed; when the
+  level plays, the game may still move the whole level an octave to fit.
+  Dev hook steps `copy:from-to`, `paste:at`, `range:low-high`
+  (`KAN_DEV_REPAIR`), verified in an isolated instance: 25 notes copied
+  from 20–30 s pasted at 60 s, rows outside E5–D6 dimmed.
 - **Timing** (`Tracks/ForgeTiming`, kan-forge/timing.json, for gameplay too):
   **mic delay** = the play-along round trip (speakers + player + mic +
   transcriber), the player's, measured before playing a level (2026-10-17:

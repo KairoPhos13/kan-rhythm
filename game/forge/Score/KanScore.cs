@@ -65,6 +65,15 @@ namespace Kan.Forge.Score
         public ScoreNote Clone() => (ScoreNote)MemberwiseClone();
     }
 
+    /// <summary>A timing point of the level's tempo grid, as the score remembers it.</summary>
+    public class GridPoint
+    {
+        public double TimeMs { get; set; }
+
+        /// <summary>One beat (ms).</summary>
+        public double BeatMs { get; set; }
+    }
+
     /// <summary>
     /// The level's score (owner decision 2026-10-14): the notes gameplay
     /// judges, stored as a versioned file inside the level so it travels with
@@ -94,6 +103,13 @@ namespace Kan.Forge.Score
         /// <summary>When this copy was written (picks the newer of the level's copy and the editor's autosave).</summary>
         public DateTime SavedAtUtc { get; set; }
 
+        /// <summary>
+        /// The tempo grid (the level's timing points) the notes were last
+        /// placed on; null until first seen (scores written before it).
+        /// See <see cref="FollowGrid"/>.
+        /// </summary>
+        public List<GridPoint>? Grid { get; set; }
+
         public KanScore Clone() => new KanScore
         {
             Version = Version,
@@ -101,7 +117,63 @@ namespace Kan.Forge.Score
             SavedAtUtc = SavedAtUtc,
             TranscriptionAtUtc = TranscriptionAtUtc,
             Notes = Notes.Select(n => n.Clone()).ToList(),
+            Grid = Grid?.Select(p => new GridPoint { TimeMs = p.TimeMs, BeatMs = p.BeatMs }).ToList(),
         };
+
+        /// <summary>
+        /// Keep the notes on their beats when the level's tempo grid changed
+        /// (owner 2026-10-22: timing changes did not reach compose — the notes
+        /// are kept in ms in this file, not as osu! objects, so osu!'s "adjust
+        /// existing objects on timing changes" never moved them). Like osu!: a
+        /// timing point moved carries the notes of its section by as much; a
+        /// new tempo keeps each note on its beat, counted from the point (its
+        /// length scales too). The first section reaches back to the start.
+        /// Points added or removed move nothing (each point is matched with
+        /// the one in its place). <paramref name="move"/> false (the option
+        /// off): the grid is taken as it is. Undo snapshots carry their own
+        /// grid, so an older score follows the grid of now when it comes back.
+        /// </summary>
+        /// <summary>A grid as one comparable string.</summary>
+        public static string GridKey(IEnumerable<GridPoint> grid)
+            => string.Join(';', grid.Select(p => p.TimeMs.ToString("0.###", CultureInfo.InvariantCulture) + ":" + p.BeatMs.ToString("0.######", CultureInfo.InvariantCulture)));
+
+        /// <returns>Whether any note moved.</returns>
+        public bool FollowGrid(IReadOnlyList<GridPoint> grid, bool move = true)
+        {
+            var old = Grid;
+            Grid = grid.Select(p => new GridPoint { TimeMs = p.TimeMs, BeatMs = p.BeatMs }).ToList();
+
+            if (!move || old == null || old.Count != grid.Count || old.Count == 0) return false;
+
+            bool same = true;
+
+            for (int i = 0; i < old.Count && same; i++)
+                same = old[i].TimeMs == grid[i].TimeMs && old[i].BeatMs == grid[i].BeatMs;
+
+            if (same) return false;
+
+            bool moved = false;
+
+            foreach (var n in Notes)
+            {
+                int section = 0;
+                while (section + 1 < old.Count && old[section + 1].TimeMs <= n.StartMs + 0.5) section++;
+
+                var from = old[section];
+                var to = grid[section];
+                double ratio = from.BeatMs > 0 && to.BeatMs > 0 ? to.BeatMs / from.BeatMs : 1;
+
+                double start = to.TimeMs + (n.StartMs - from.TimeMs) * ratio;
+                double duration = Math.Max(MIN_DURATION_MS, n.DurationMs * ratio);
+
+                moved |= Math.Abs(start - n.StartMs) > 0.01 || Math.Abs(duration - n.DurationMs) > 0.01;
+                n.StartMs = start;
+                n.DurationMs = duration;
+            }
+
+            Sort();
+            return moved;
+        }
 
         public void Sort() => Notes.Sort((a, b) => a.StartMs != b.StartMs ? a.StartMs.CompareTo(b.StartMs) : a.Midi.CompareTo(b.Midi));
 
@@ -402,8 +474,8 @@ namespace Kan.Forge.Score
     {
         private const int max_steps = 200;
 
-        private readonly List<KanScore> undo = new List<KanScore>();
-        private readonly List<KanScore> redo = new List<KanScore>();
+        private readonly List<(KanScore Score, object? Link)> undo = new List<(KanScore, object?)>();
+        private readonly List<(KanScore Score, object? Link)> redo = new List<(KanScore, object?)>();
         private string? lastKey;
         private DateTime lastRecord;
 
@@ -413,11 +485,19 @@ namespace Kan.Forge.Score
 
         public bool CanRedo => redo.Count > 0;
 
-        /// <summary>Call BEFORE changing <paramref name="score"/>.</summary>
-        public void Record(KanScore score, string? coalesceKey = null)
+        /// <summary>
+        /// The next undo's link: a step taken together with another history
+        /// (a timeline repair is also a step of the track set's history), or null.
+        /// </summary>
+        public object? UndoLink => undo.Count > 0 ? undo[^1].Link : null;
+
+        public object? RedoLink => redo.Count > 0 ? redo[^1].Link : null;
+
+        /// <summary>Call BEFORE changing <paramref name="score"/>. <paramref name="link"/>: the step is also taken in another history (<see cref="UndoLink"/>).</summary>
+        public void Record(KanScore score, string? coalesceKey = null, object? link = null)
         {
             var now = Now();
-            if (coalesceKey != null && coalesceKey == lastKey && now - lastRecord < TimeSpan.FromSeconds(1))
+            if (link == null && coalesceKey != null && coalesceKey == lastKey && now - lastRecord < TimeSpan.FromSeconds(1))
             {
                 lastRecord = now;
                 return;
@@ -425,7 +505,7 @@ namespace Kan.Forge.Score
 
             lastKey = coalesceKey;
             lastRecord = now;
-            undo.Add(score.Clone());
+            undo.Add((score.Clone(), link));
             if (undo.Count > max_steps) undo.RemoveAt(0);
             redo.Clear();
         }
@@ -442,15 +522,15 @@ namespace Kan.Forge.Score
             lastKey = null;
         }
 
-        private KanScore? step(List<KanScore> from, List<KanScore> to, KanScore current)
+        private KanScore? step(List<(KanScore Score, object? Link)> from, List<(KanScore Score, object? Link)> to, KanScore current)
         {
             if (from.Count == 0) return null;
 
             var target = from[^1];
             from.RemoveAt(from.Count - 1);
-            to.Add(current.Clone());
+            to.Add((current.Clone(), target.Link));
             lastKey = null;
-            return target;
+            return target.Score;
         }
     }
 }

@@ -23,8 +23,12 @@ namespace Kan.Ruleset.Replays
         public KanReplayRecorder(Score target)
             : base(target)
         {
+            Target = target;
             replay = target.Replay;
         }
+
+        /// <summary>The play being recorded (its score, once it ends).</summary>
+        public Score Target { get; }
 
         public void Add(KanReplayFrame frame) => replay.Frames.Add(frame);
 

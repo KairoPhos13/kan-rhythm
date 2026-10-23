@@ -2,6 +2,7 @@
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
@@ -15,6 +16,7 @@ using osu.Framework.Input.Events;
 using osu.Framework.Platform;
 using osu.Framework.Screens;
 using osu.Game.Beatmaps;
+using osu.Game.Configuration;
 using osu.Game.Extensions;
 using osu.Game.Graphics;
 using osu.Game.Graphics.Containers;
@@ -57,6 +59,9 @@ namespace Kan.Forge.Editor.Compose
 
         [Resolved]
         private OsuColour colours { get; set; } = null!;
+
+        [Resolved]
+        private OsuConfigManager config { get; set; } = null!;
 
         [Resolved]
         private GameHost host { get; set; } = null!;
@@ -165,6 +170,7 @@ namespace Kan.Forge.Editor.Compose
         {
             base.LoadComplete();
             roll.RequestFit();
+            TimelineRepair.Restored += repairRestored;
 
             // A new transcriber delay moves every note by the difference (owner 2026-10-14:
             // the transcribed notes all suffer the same lateness).
@@ -206,6 +212,8 @@ namespace Kan.Forge.Editor.Compose
         {
             // Leaving the editor: the measurement goes with it.
             micTiming?.Expire();
+            TimelineRepair.Restored -= repairRestored;
+            if (grid != null) grid.Gone = true;
             base.Dispose(isDisposing);
         }
 
@@ -363,11 +371,15 @@ namespace Kan.Forge.Editor.Compose
         {
             base.Update();
 
+            followGrid();
+
             undoButton.Enabled.Value = ScoreSession.History.CanUndo;
             redoButton.Enabled.Value = ScoreSession.History.CanRedo;
             selectTool.Alpha = roll.Tool == RollTool.Select ? 1 : 0.55f;
             drawTool.Alpha = roll.Tool == RollTool.Draw ? 1 : 0.55f;
             snapButton.Alpha = roll.Snap ? 1 : 0.55f;
+            CanCut.Value = CanCopy.Value = roll.Selected.Count > 0;
+            CanPaste.Value = clipboard.Count > 0;
 
             emptyState.Alpha = ScoreSession.Score.Notes.Count == 0 ? 1 : 0;
 
@@ -421,6 +433,37 @@ namespace Kan.Forge.Editor.Compose
 
         private void record(string? key) => ScoreSession.History.Record(ScoreSession.Score, key);
 
+        /// <summary>
+        /// The notes stay on their beats when the timing tab (or the tempo bar)
+        /// changes the grid, as osu!'s "adjust existing objects on timing
+        /// changes" does for its own objects (<see cref="KanScore.FollowGrid"/>).
+        /// Not an undo step: undoing the timing change brings the notes back.
+        /// </summary>
+        private void followGrid()
+        {
+            var points = EditorBeatmap.ControlPointInfo.TimingPoints;
+            var known = ScoreSession.Score.Grid;
+
+            if (known != null && known.Count == points.Count)
+            {
+                bool same = true;
+
+                for (int i = 0; i < points.Count && same; i++)
+                    same = known[i].TimeMs == points[i].Time && known[i].BeatMs == points[i].BeatLength;
+
+                if (same) return;
+            }
+
+            var grid = points.Select(p => new GridPoint { TimeMs = p.Time, BeatMs = p.BeatLength }).ToList();
+
+            // The grid fitted to the music (the tempo bar's "the beat falls here"), or that undone: the notes stay.
+            bool fitted = known != null && ScoreSession.KeepsNotes(KanScore.GridKey(known), KanScore.GridKey(grid));
+            bool moved = ScoreSession.Score.FollowGrid(grid, !fitted && config.Get<bool>(OsuSetting.EditorAdjustExistingObjectsOnTimingChanges));
+
+            if (moved) roll.Invalidate();
+            changed();
+        }
+
         private void changed()
         {
             dirty = true;
@@ -429,9 +472,34 @@ namespace Kan.Forge.Editor.Compose
             monitor.NotesChanged();
         }
 
-        private void undo() => applyHistory(ScoreSession.History.Undo(ScoreSession.Score));
+        private void undo()
+        {
+            // A timeline repair is one step with the tracks: undo it there, all together.
+            if (ScoreSession.History.UndoLink is { } link)
+            {
+                if (ForgeTrackSession.History.UndoLink == link)
+                    ForgeTrackSession.History.Undo();
+                else
+                    ForgeNotify.Info(notifications, "Undo the track tab's later changes first: this step repaired the audio too.", FontAwesome.Solid.Undo);
+                return;
+            }
 
-        private void redo() => applyHistory(ScoreSession.History.Redo(ScoreSession.Score));
+            applyHistory(ScoreSession.History.Undo(ScoreSession.Score));
+        }
+
+        private void redo()
+        {
+            if (ScoreSession.History.RedoLink is { } link)
+            {
+                if (ForgeTrackSession.History.RedoLink == link)
+                    ForgeTrackSession.History.Redo();
+                else
+                    ForgeNotify.Info(notifications, "Redo the track tab's changes first: this step repaired the audio too.", FontAwesome.Solid.Redo);
+                return;
+            }
+
+            applyHistory(ScoreSession.History.Redo(ScoreSession.Score));
+        }
 
         private void applyHistory(KanScore? score)
         {
@@ -1027,13 +1095,12 @@ namespace Kan.Forge.Editor.Compose
         private void seekBar(bool forward)
         {
             double now = clock.CurrentTimeAccurate;
-            var tp = EditorBeatmap.ControlPointInfo.TimingPointAt(now);
-            double bar = tp.BeatLength * tp.TimeSignature.Numerator;
+            var tempos = EditorBeatmap.ControlPointInfo.TimingPoints.Select(p => new Bars.Tempo(p.Time, p.BeatLength, p.TimeSignature.Numerator)).ToList();
 
-            // Land on bar lines: from the timing point's first beat, in whole bars.
-            double bars = (now - tp.Time) / bar;
-            double target = forward ? Math.Floor(bars + 1e-6) + 1 : Math.Ceiling(bars - 1e-6) - 1;
-            clock.SeekSmoothlyTo(Math.Clamp(tp.Time + target * bar, 0, clock.TrackLength));
+            // Land on the bar lines the piano roll draws (Bars).
+            var bars = Bars.Of(tempos, clock.TrackLength);
+            double? target = forward ? bars.Cast<double?>().FirstOrDefault(b => b > now + 1) : bars.Cast<double?>().LastOrDefault(b => b < now - 1);
+            if (target is double to) clock.SeekSmoothlyTo(Math.Clamp(to, 0, clock.TrackLength));
         }
 
         /// <summary>The previous or next note's start (Ctrl + arrows).</summary>
@@ -1082,6 +1149,62 @@ namespace Kan.Forge.Editor.Compose
             changed();
 
             ForgeNotify.Info(notifications, $"Removed {ForgeFormat.Plural(repeats.Count, "repeated note", "repeated notes")}. Ctrl+Z brings them back.", FontAwesome.Solid.Clone);
+        }
+
+        // ------------------------------------------------------------------
+        // Copy and paste (owner 2026-10-23: choruses are often alike)
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// The notes copied, from the first one's start (kept while the game
+        /// runs, so a phrase can go to another level's score too).
+        /// </summary>
+        private static readonly List<ScoreNote> clipboard = new List<ScoreNote>();
+
+        public override void Copy()
+        {
+            if (roll.Selected.Count == 0) return;
+
+            double from = roll.Selected.Min(n => n.StartMs);
+            clipboard.Clear();
+
+            foreach (var n in roll.Selected.OrderBy(n => n.StartMs).ThenBy(n => n.Midi))
+            {
+                var copy = n.Clone();
+                copy.StartMs -= from;
+                clipboard.Add(copy);
+            }
+        }
+
+        public override void Cut()
+        {
+            if (roll.Selected.Count == 0) return;
+
+            Copy();
+            deleteSelection();
+        }
+
+        /// <summary>The copied notes at the playhead (on the grid when snapping), selected so they can be moved as one.</summary>
+        public override void Paste()
+        {
+            if (clipboard.Count == 0) return;
+
+            double at = Math.Max(0, roll.Snapped(clock.CurrentTime));
+
+            record(null);
+            roll.Selected.Clear();
+
+            foreach (var n in clipboard)
+            {
+                var pasted = n.Clone();
+                pasted.StartMs += at;
+                ScoreSession.Score.Notes.Add(pasted);
+                roll.Selected.Add(pasted);
+            }
+
+            ScoreSession.Score.Sort();
+            roll.Invalidate();
+            changed();
         }
 
         private void deleteSelection()

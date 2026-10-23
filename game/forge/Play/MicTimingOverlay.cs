@@ -263,12 +263,17 @@ namespace Kan.Forge.Play
 
                 case MicCalibrator.Phase.Done:
                     var r = calibrator.Result!.Value;
-                    double measured = Math.Round(r.DelayMs);
+                    double raw = Math.Round(r.DelayMs);
+                    // No device hears early (owner 2026-10-19): below 0 is the player ahead of the clicks.
+                    double measured = Math.Max(0, raw);
                     double off = measured - Math.Round(currentDelayMs);
 
-                    string verdict = Math.Abs(off) < 8
-                        ? $"With your mic delay ({currentDelayMs:0} ms) your notes landed on the clicks ({off:+0;-0;0} ms): it is right."
-                        : $"With your mic delay ({currentDelayMs:0} ms) your notes landed {Math.Abs(off):0} ms {(off > 0 ? "late" : "early")}: the right delay is {measured:0} ms.";
+                    string verdict = raw < 0
+                        ? $"Your notes landed {-raw:0} ms before the clicks: that is you playing ahead, not the microphone — no device hears a note early. "
+                          + (Math.Abs(off) < 1 ? "Your mic delay stays at 0 ms." : $"The mic delay can only go down to 0 ms (now {currentDelayMs:0} ms). Try again waiting for each click.")
+                        : Math.Abs(off) < 8
+                            ? $"With your mic delay ({currentDelayMs:0} ms) your notes landed on the clicks ({off:+0;-0;0} ms): it is right."
+                            : $"With your mic delay ({currentDelayMs:0} ms) your notes landed {Math.Abs(off):0} ms {(off > 0 ? "late" : "early")}: the right delay is {measured:0} ms.";
 
                     osu.Framework.Logging.Logger.Log($"kan!: mic timing says: {verdict}");
 
@@ -316,7 +321,7 @@ namespace Kan.Forge.Play
         {
             if (lastResult is not { Reliable: true } r) return;
 
-            ForgeTiming.SetCalibratedMicDelay(r.DelayMs, instrument());
+            ForgeTiming.SetCalibratedMicDelay(Math.Max(0, r.DelayMs), instrument());
             text.Text = $"Saved: mic delay {ForgeTiming.MIC_DELAY_MS.Value:0} ms.";
             useIt.Alpha = 0;
         }

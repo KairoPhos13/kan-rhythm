@@ -49,6 +49,7 @@ namespace Kan.Forge.Editor.Compose
             (@"Shift + U", @"remove repeated notes (one sound transcribed twice)"),
             (@"Esc", @"clear the selection"),
             (@"Delete / Backspace", @"delete the selected notes"),
+            (@"Ctrl + C / X / V", @"copy / cut / paste the selected notes (pasted at the playhead)"),
             (@"↑ / ↓", @"selected notes a semitone up / down (Shift: an octave)"),
             (@"← / →", @"selected notes one grid step earlier / later (Shift: 10 ms)"),
             (@"Ctrl + Z / Ctrl + Y", @"undo / redo"),

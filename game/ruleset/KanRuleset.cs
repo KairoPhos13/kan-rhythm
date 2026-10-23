@@ -78,9 +78,7 @@ namespace Kan.Ruleset
         public override IEnumerable<osu.Game.Rulesets.Scoring.HitResult> GetValidHitResults() => new[]
         {
             osu.Game.Rulesets.Scoring.HitResult.Perfect,
-            osu.Game.Rulesets.Scoring.HitResult.Great,
             osu.Game.Rulesets.Scoring.HitResult.Good,
-            osu.Game.Rulesets.Scoring.HitResult.Ok,
             osu.Game.Rulesets.Scoring.HitResult.Meh,
             osu.Game.Rulesets.Scoring.HitResult.Miss,
         };
@@ -130,6 +128,8 @@ namespace Kan.Ruleset
         public override Drawable CreateIcon() => new KanRulesetIcon();
 
         /// <summary>Misses cost health and an empty bar ends the level (owner 2026-10-15); "no fail" and "wait for me" keep it going.</summary>
+        public override osu.Game.Rulesets.Scoring.ScoreProcessor CreateScoreProcessor() => new Kan.Ruleset.Scoring.KanScoreProcessor(this);
+
         public override osu.Game.Rulesets.Scoring.HealthProcessor CreateHealthProcessor(double drainStartTime) => new Kan.Ruleset.Scoring.KanHealthProcessor(drainStartTime);
 
         public override DrawableRuleset CreateDrawableRulesetWith(IBeatmap beatmap, IReadOnlyList<Mod>? mods = null) => new KanDrawableRuleset(this, beatmap, mods);

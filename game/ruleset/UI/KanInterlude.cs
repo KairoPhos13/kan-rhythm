@@ -36,6 +36,8 @@ namespace Kan.Ruleset.UI
         private readonly Func<ITrack?> track;
         private readonly Box[] bars = new Box[bar_count];
         private readonly float[] levels = new float[bar_count];
+
+        private int shownSeconds = -1, shownNote = -1;
         private readonly Container barRow;
         private readonly Circle core;
         private readonly OsuSpriteText upNext;
@@ -125,7 +127,15 @@ namespace Kan.Ruleset.UI
             if (scene.NextNote >= 0 && double.IsFinite(toGo))
             {
                 var n = state.Notes[scene.NextNote];
-                upNext.Text = $"next: {(n.PitchUnknown ? "?" : KanStaff.NoteName(n.Midi))} in {Math.Ceiling(toGo / 1000):0} s";
+                int seconds = (int)Math.Ceiling(toGo / 1000);
+
+                // Only when it reads differently: a new string every frame is garbage.
+                if (seconds != shownSeconds || n.Index != shownNote)
+                {
+                    shownSeconds = seconds;
+                    shownNote = n.Index;
+                    upNext.Text = $"next: {(n.PitchUnknown ? "?" : KanStaff.NoteName(n.Midi))} in {seconds} s";
+                }
                 upNext.Colour = scene.NoteLight;
                 upNext.Alpha = 0.75f;
             }
@@ -138,7 +148,7 @@ namespace Kan.Ruleset.UI
         {
             var t = track();
             ReadOnlySpan<float> amplitudes = t != null ? t.CurrentAmplitudes.FrequencyAmplitudes.Span : ReadOnlySpan<float>.Empty;
-            float decay = (float)Math.Min(1, Time.Elapsed / 220);
+            float decay = (float)Math.Min(1, Math.Abs(Time.Elapsed) / 220);
             float total = 0;
 
             for (int i = 0; i < bar_count; i++)
@@ -154,7 +164,7 @@ namespace Kan.Ruleset.UI
             }
 
             float target = Math.Min(1, total / bar_count * 2.2f);
-            loudness += (target - loudness) * (float)Math.Min(1, Time.Elapsed / 120);
+            loudness += (target - loudness) * (float)Math.Min(1, Math.Abs(Time.Elapsed) / 120);
         }
     }
 

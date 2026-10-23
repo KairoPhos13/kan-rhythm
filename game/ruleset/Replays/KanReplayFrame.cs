@@ -21,6 +21,12 @@ namespace Kan.Ruleset.Replays
 
         /// <summary>A pitch reading (the trail): <see cref="KanReplayFrame.Midi"/>, <see cref="KanReplayFrame.Level"/>.</summary>
         Reading = 6,
+
+        /// <summary>
+        /// The play's recording (<see cref="Kan.Forge.Play.PlayTake"/>): <see cref="KanReplayFrame.Index"/>
+        /// is its id, so the replay finds what the player played (owner 2026-10-22).
+        /// </summary>
+        Take = 7,
     }
 
     /// <summary>
@@ -90,6 +96,12 @@ namespace Kan.Ruleset.Replays
                     y = Index;
                     break;
 
+                case KanFactKind.Take:
+                    // The id in two halves: each fits a coordinate exactly.
+                    x = Index & 0xFFFF;
+                    y = (Index >> 16) & 0xFFFF;
+                    break;
+
                 default:
                     x = Midi;
                     y = Level;
@@ -121,6 +133,10 @@ namespace Kan.Ruleset.Replays
                     Midi = System.MathF.Round(x);
                     Cents = (x - Midi) * 100f;
                     Index = (int)System.MathF.Round(y);
+                    break;
+
+                case KanFactKind.Take:
+                    Index = (int)System.MathF.Round(x) | ((int)System.MathF.Round(y) << 16);
                     break;
 
                 default:

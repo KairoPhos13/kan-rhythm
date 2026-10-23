@@ -56,6 +56,17 @@ namespace Kan.Ruleset.UI
         /// <summary>The music's bloom (0..1): the line glows with it.</summary>
         public double Bloom;
 
+        /// <summary>
+        /// An attack now would be a perfect (owner 2026-10-22: show the window
+        /// on the lines, not as a circle): the line turns gold at once and back
+        /// within 60 ms of the window closing. Set by the staff each frame.
+        /// </summary>
+        public bool PerfectWindow;
+
+        // Light, bright gold: told from a palette's warm "hot" colour by its lightness and the line's width.
+        private static readonly Color4 window_gold = Color4Extensions.FromHex(@"ffe36e");
+        private float windowLevel;
+
         public KanNowLine(float nowFraction, KanScene scene)
         {
             this.scene = scene;
@@ -142,7 +153,8 @@ namespace Kan.Ruleset.UI
             base.Update();
 
             // Heat follows the streak, easing up and (after a miss) snapping down.
-            heat += (targetHeat - heat) * (float)Math.Min(1, Time.Elapsed / (targetHeat > heat ? 350 : 120));
+            heat += (targetHeat - heat) * (float)Math.Min(1, Math.Abs(Time.Elapsed) / (targetHeat > heat ? 350 : 120));
+            windowLevel = PerfectWindow ? 1 : Math.Max(0, windowLevel - (float)(Math.Abs(Time.Elapsed) / 60));
 
             // At rest (no pulse running) the line shows its heat.
             if (core.LatestTransformEndTime <= Time.Current)
@@ -154,9 +166,9 @@ namespace Kan.Ruleset.UI
 
             // In a climax the line runs hotter; in a rest it calms down.
             float floor = 0.35f * scene.ClimaxAmount;
-            if (heat < floor) heat += (floor - heat) * (float)Math.Min(1, Time.Elapsed / 600);
+            if (heat < floor) heat += (floor - heat) * (float)Math.Min(1, Math.Abs(Time.Elapsed) / 600);
 
-            restingGlowAlpha = ((float)(0.03 + 0.09 * Bloom) + 0.16f * heat) * (1 - 0.6f * scene.Rest);
+            restingGlowAlpha = ((float)(0.03 + 0.09 * Bloom) + 0.16f * heat) * (1 - 0.6f * scene.Rest) + 0.25f * windowLevel;
             glow.Width = 40 + 90 * heat;
 
             if (glow.LatestTransformEndTime <= Time.Current)
@@ -164,13 +176,20 @@ namespace Kan.Ruleset.UI
                 glow.Alpha = restingGlowAlpha;
                 glow.Colour = restingColour;
             }
+
+            // The perfect window shows through a hit's kick too (its transforms set the colour each frame first).
+            if (windowLevel > 0 && core.LatestTransformEndTime > Time.Current)
+            {
+                core.Colour = Interpolation.ValueAt(windowLevel, (Color4)core.Colour, window_gold, 0, 1);
+                core.Width = Math.Max(core.Width, restingWidth);
+            }
         }
 
         private float restingGlowAlpha;
 
-        private float restingWidth => 3 + 3.5f * heat;
+        private float restingWidth => 3 + 3.5f * heat + 7 * windowLevel;
 
-        private Color4 restingColour => Interpolation.ValueAt(heat, Color4.White, hot, 0, 1);
+        private Color4 restingColour => Interpolation.ValueAt(windowLevel, Interpolation.ValueAt(heat, Color4.White, hot, 0, 1), window_gold, 0, 1);
 
         /// <summary>A judgement reached the line at height <paramref name="y"/>.</summary>
         public void Judged(LiveResult result, float y, Color4 colour, int streak)
@@ -186,9 +205,7 @@ namespace Kan.Ruleset.UI
             float power = result switch
             {
                 LiveResult.Perfect => 1.15f,
-                LiveResult.Great => 1f,
-                LiveResult.Good => 0.8f,
-                LiveResult.Ok => 0.65f,
+                LiveResult.Good => 0.85f,
                 _ => 0.4f,
             };
 
@@ -207,7 +224,7 @@ namespace Kan.Ruleset.UI
             glow.FadeTo(restingGlowAlpha, 450, Easing.OutQuint).FadeColour(restingColour, 450);
 
             if (scene.Sparkle > 0)
-                bursts[nextBurst++ % burst_pool].Fire(y, colour, power * Math.Min(1.5f, scene.Sparkle), result is LiveResult.Perfect or LiveResult.Great);
+                bursts[nextBurst++ % burst_pool].Fire(y, colour, power * Math.Min(1.5f, scene.Sparkle), result is LiveResult.Perfect);
 
             // The design sets how much it sparkles (a climax adds half again).
             float sparkle = scene.Sparkle;
@@ -215,9 +232,7 @@ namespace Kan.Ruleset.UI
             int count = (int)MathF.Round(sparkle * result switch
             {
                 LiveResult.Perfect => 18,
-                LiveResult.Great => 14,
-                LiveResult.Good => 10,
-                LiveResult.Ok => 8,
+                LiveResult.Good => 11,
                 _ => 4,
             });
 

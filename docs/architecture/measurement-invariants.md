@@ -116,9 +116,73 @@ Each entry: **what** the property is, **why** (the measured evidence),
   Real ocarina take against the owner's corrected score: F1 (±50 ms +
   pitch) 37.6 % → 57.0 %. Transcription is 25.2 s → 19.4 s for 220 s of
   audio (I11).
+- **A release tail is not an attack (mono profiles that rearticulate,
+  2026-10-22).** A real ocarina take had short repeated C6 (held ~170 ms
+  every ~500 ms). A faint reflection in each release tail, ~-20 dB under
+  the note, jumped the transient detector against the near silence before
+  it, or rose 4× over the room level once the record had closed. Either
+  way a note opened ~200 ms before the next one, and the game's judge took
+  it for that note (Meh/Good for notes played on time).
+
+  Now a sound far under the last note's level (bucket RMS below 0.2 of
+  it; that level fades with a 500 ms time constant) opens a note only
+  when it rises to that share. A quiet transient waits up to 60 ms for
+  the rise and then opens at its own time, so a soft attack keeps its
+  onset. Out of silence, the rise must also reach that share.
+
+  Results:
+  - fixture 16: 8 attacks found, 0 extra (was 8 extra);
+  - fixture 14: unchanged;
+  - the owner's take: onsets in release tails 28 → 6, and the 111
+    onsets that rise to a note are the same.
+- **A tongued note is read where it speaks (mono profiles that
+  rearticulate, 2026-10-23).** A real ocarina take: an F5 tongued into a
+  C5. The level came back at -10 dB with the F still in it, and the record
+  opened at the dip's bottom. The C sounded ~30 ms later, but the
+  provisional pitch read the window just after the onset: the F (77.39).
+  The final pitch, the centre of the whole note, came only when the 738 ms
+  note ended, and the game judged the note not heard.
+
+  Now a note out of a dip, or out of a quiet transient, speaks once its
+  bucket RMS reaches half the level of the note before (`kSpeakShare`).
+  A note that stays softer speaks after 100 ms (`kSpeakPatienceMs`). Its
+  provisional pitch, readings and fit windows start there; the HIT keeps
+  the onset time.
+
+  Results:
+  - fixture 17: one note after the dip, provisional C (was the F, 76.8–77.0,
+    then a second record for the C);
+  - that C in the owner's take: provisional 73.18 (C5 with its tuning);
+  - the whole take (469 attacks):
+    - provisional ≠ final 31 → 20;
+    - provisionals over a semitone off the score's note 70 → 49;
+    - provisional latency median 66 → 71 ms, p90 81 → 125 ms (soft
+      notes that wait out the patience).
+- **A tongue cutting a note is no attack (mono profiles that
+  rearticulate, 2026-10-23).** A real ocarina take of repeated D5s: the
+  tongue stops each note, the level falls to about -15 dB, and the cut
+  leaves a click of ~20 ms at about -9 dB before the silence. The click came
+  back above the release level (`end_drop_db`), so it was taken for a
+  tongued note, opened at the cut ~150 ms before the next attack. It carried
+  the same pitch, and the judge took it for the next note: an early good
+  instead of a perfect.
+
+  Now a level back from a dip opens a note only once it reaches half the
+  note's level (`kSpeakShare`) or holds for 40 ms (`kDipBackHoldMs`). A
+  level that falls back before that is the cut, and the release goes on.
+
+  Results:
+  - fixture 18: no attack at the cut for clicks of 35–40 % lasting
+    20–30 ms (the old rule opened one each time); a soft tongued note at
+    35 % that holds still opens at its dip;
+  - the owner's take (76 attacks): 10 attacks gone, each followed by
+    silence (about -47 dB) and the real attack 140–200 ms later; 2 real
+    attacks moved onto their rise.
 - **Re-check.** `libkan_note_stream_test` re-strike fixture, fixture 13
   (wind phrases: no record open when the next opens, no twins) and
-  fixture 14 (wind articulation recall and timing).
+  fixture 14 (wind articulation recall and timing), fixture 16 (release
+  tails), fixture 17 (a tongued note's pitch) and fixture 18 (a tongue's
+  cut).
 
 ### I6 — Similarity alone is not evidence of correctness; cents must gate
 

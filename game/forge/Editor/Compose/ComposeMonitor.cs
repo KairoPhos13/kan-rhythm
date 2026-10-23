@@ -55,6 +55,7 @@ namespace Kan.Forge.Editor.Compose
 
         private SetMonitor.Channel? reference;
         private ForgeTrack? referenceTrack;
+        private string? referencePath;
 
         private SetMonitor.Channel? notes;
         private string? notesPath;
@@ -186,11 +187,13 @@ namespace Kan.Forge.Editor.Compose
         {
             var track = Reference;
 
-            if (!ReferenceEquals(track, referenceTrack))
+            // A timeline repair gives the same track a new file.
+            if (!ReferenceEquals(track, referenceTrack) || track?.Path != referencePath)
             {
                 reference?.Dispose();
                 reference = null;
                 referenceTrack = track;
+                referencePath = track?.Path;
 
                 if (track != null)
                 {

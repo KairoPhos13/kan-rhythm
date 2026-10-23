@@ -1,7 +1,10 @@
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
+using System;
 using osu.Framework.Allocation;
+using osu.Framework.Graphics.Containers;
+using osu.Game.Rulesets.Objects;
 using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Rulesets.Scoring;
 using Kan.Forge.Play;
@@ -22,6 +25,48 @@ namespace Kan.Ruleset.Objects
         public DrawableKanHitObject(KanHitObject hitObject)
             : base(hitObject)
         {
+            // A replay rewound past the decision: the note is undecided again.
+            OnRevertResult += (judged, _) =>
+            {
+                if (judged != this) return;
+
+                resultTime = null;
+                state?.Unreport(HitObject);
+            };
+        }
+
+        private readonly Container<DrawableKanLevelEnd> ends = new Container<DrawableKanLevelEnd>();
+
+        [BackgroundDependencyLoader]
+        private void load()
+        {
+            AddInternal(ends);
+        }
+
+        protected override DrawableHitObject CreateNestedHitObject(HitObject hitObject) => hitObject switch
+        {
+            KanLevelEnd end => new DrawableKanLevelEnd(end),
+            _ => base.CreateNestedHitObject(hitObject),
+        };
+
+        protected override void AddNestedHitObject(DrawableHitObject hitObject)
+        {
+            base.AddNestedHitObject(hitObject);
+            ends.Add((DrawableKanLevelEnd)hitObject);
+        }
+
+        protected override void ClearNestedHitObjects()
+        {
+            base.ClearNestedHitObjects();
+            ends.Clear(false);
+        }
+
+        protected override void UpdateHitStateTransforms(ArmedState state)
+        {
+            base.UpdateHitStateTransforms(state);
+
+            // Judged at its attack, the last note stays alive until its end mark is.
+            if (HitObject.EndsTheLevel) LifetimeEnd = Math.Max(HitStateUpdateTime, HitObject.EndMs) + 1;
         }
 
         /// <summary>A hit's moment: the note's start plus the judge's offset (the attack, not the decision).</summary>
@@ -44,7 +89,8 @@ namespace Kan.Ruleset.Objects
             if (state.WrongTry(HitObject) is not { } v)
             {
                 var verdict = state.Judge.Judge(HitObject.StartTime, HitObject.Midi, HitObject.PitchUnknown, Time.Current,
-                    legato: HitObject.Articulation == Kan.Forge.Score.Articulation.Legato, expected: state.ExpectedAround(HitObject));
+                    legato: HitObject.Articulation == Kan.Forge.Score.Articulation.Legato, expected: state.ExpectedAround(HitObject), paceMs: HitObject.PaceMs,
+                    prevStartMs: state.PreviousStart(HitObject), nextStartMs: state.NextStart(HitObject));
                 if (verdict is not { } judged) return;
 
                 // The level waits for a note the player has not played yet, so
@@ -61,14 +107,26 @@ namespace Kan.Ruleset.Objects
             ApplyResult(v.Result switch
             {
                 LiveResult.Perfect => HitResult.Perfect,
-                LiveResult.Great => HitResult.Great,
                 LiveResult.Good => HitResult.Good,
-                LiveResult.Ok => HitResult.Ok,
                 LiveResult.Meh => HitResult.Meh,
                 _ => HitResult.Miss,
             });
 
             state.Report(HitObject, v);
+        }
+    }
+
+    /// <summary>Resolves when the last note's end passes (<see cref="KanLevelEnd"/>).</summary>
+    public partial class DrawableKanLevelEnd : DrawableHitObject<KanLevelEnd>
+    {
+        public DrawableKanLevelEnd(KanLevelEnd end)
+            : base(end)
+        {
+        }
+
+        protected override void CheckForResult(bool userTriggered, double timeOffset)
+        {
+            if (timeOffset >= 0) ApplyMaxResult();
         }
     }
 }
