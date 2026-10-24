@@ -66,6 +66,9 @@ namespace Kan.Core.Tracks
             public double AudioStartMs { get; set; }
             public double AudioEndMs { get; set; }
 
+            /// <summary>The level audio's loudness from the game's reference (dB, <see cref="LevelLoudness"/>).</summary>
+            public double LoudnessOffsetDb { get; set; }
+
             // Saved before the naming convention: the "song" window.
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
             public double SongStartMs { get => 0; set => AudioStartMs = value; }
@@ -75,6 +78,9 @@ namespace Kan.Core.Tracks
 
             /// <summary>What the level audio was last rendered from (skip re-rendering an unchanged mix).</summary>
             public string? LevelAudioSignature { get; set; }
+
+            /// <summary>The level audio's loudness as last rendered (LUFS).</summary>
+            public double? LevelAudioLufs { get; set; }
 
             /// <summary>Path of the track the transcription was made from (null = none).</summary>
             public string? TranscriptionSource { get; set; }
@@ -112,6 +118,7 @@ namespace Kan.Core.Tracks
                 }).ToList(),
                 AudioStartMs = set.AudioStartMs,
                 AudioEndMs = set.AudioEndMs,
+                LoudnessOffsetDb = set.LoudnessOffsetDb,
                 TranscriptionSource = draft != null ? transcriptionSource : null,
                 TranscriptionNotes = draft?.Notes.Select(n => n.Clone()).ToList() ?? new List<KanDraftNote>(),
             };

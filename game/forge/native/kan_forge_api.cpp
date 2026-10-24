@@ -6,6 +6,7 @@
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 #include "kan_forge_api.h"
 
+#include "libkan/loudness.hpp"
 #include "libkan/transcribe.hpp"
 
 #define MINIAUDIO_IMPLEMENTATION
@@ -568,5 +569,47 @@ int32_t kan_forge_live_expect(kan_forge_live* live, const float* midis, int32_t 
 }
 
 void kan_forge_live_close(kan_forge_live* live) { delete live; }
+
+kan_forge_status kan_forge_measure_loudness(const char* audio_path, float* out_lufs, float* out_peak,
+                                            char* err, int32_t err_cap) {
+    if (audio_path == nullptr || out_lufs == nullptr || out_peak == nullptr) {
+        set_err(err, err_cap, "loudness: missing audio path or outputs");
+        return KAN_FORGE_ERR_ARGS;
+    }
+    std::vector<float> sig;
+    if (!load_audio(audio_path, sig)) {
+        set_err(err, err_cap, "loudness: cannot decode audio (missing file or unsupported codec)");
+        return KAN_FORGE_ERR_DECODE;
+    }
+    *out_lufs = float(kan::integrated_loudness(sig.data(), sig.size(), 48000.0));
+    *out_peak = kan::sample_peak(sig.data(), sig.size());
+    return KAN_FORGE_OK;
+}
+
+kan_forge_status kan_forge_normalize_loudness(const char* audio_path, const char* out_wav,
+                                              float target_lufs, float ceiling_dbfs,
+                                              float* out_before, float* out_after,
+                                              char* err, int32_t err_cap) {
+    if (audio_path == nullptr || out_wav == nullptr) {
+        set_err(err, err_cap, "loudness: missing input or output path");
+        return KAN_FORGE_ERR_ARGS;
+    }
+    std::vector<float> sig;
+    if (!load_audio(audio_path, sig)) {
+        set_err(err, err_cap, "loudness: cannot decode audio (missing file or unsupported codec)");
+        return KAN_FORGE_ERR_DECODE;
+    }
+    const double before = kan::integrated_loudness(sig.data(), sig.size(), 48000.0);
+    const double gain = kan::loudness_gain(before, kan::sample_peak(sig.data(), sig.size()), target_lufs,
+                                           std::pow(10.0, ceiling_dbfs / 20.0));
+    for (float& s : sig) s = float(s * gain);
+    if (out_before != nullptr) *out_before = float(before);
+    if (out_after != nullptr) *out_after = float(std::isfinite(before) ? before + 20.0 * std::log10(gain) : before);
+    if (!write_wav_pcm16(out_wav, sig, 48000)) {
+        set_err(err, err_cap, "loudness: cannot write output file");
+        return KAN_FORGE_ERR_TRANSCRIBE;
+    }
+    return KAN_FORGE_OK;
+}
 
 } // extern "C"

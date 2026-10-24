@@ -115,21 +115,23 @@ namespace Kan.Core.Tracks
             private readonly List<(ForgeTrack Track, ForgeTrack State, Analysis Analysis)> tracks;
             private readonly double songStart;
             private readonly double songEnd;
+            private readonly double loudnessOffsetDb;
 
             public readonly IStepState? With;
             private readonly object? withState;
 
-            private Snapshot(List<(ForgeTrack, ForgeTrack, Analysis)> tracks, double songStart, double songEnd, IStepState? with)
+            private Snapshot(List<(ForgeTrack, ForgeTrack, Analysis)> tracks, double songStart, double songEnd, double loudnessOffsetDb, IStepState? with)
             {
                 this.tracks = tracks;
                 this.songStart = songStart;
                 this.songEnd = songEnd;
+                this.loudnessOffsetDb = loudnessOffsetDb;
                 With = with;
                 withState = with?.Capture();
             }
 
             public static Snapshot Of(ForgeTrackSet set, IStepState? with = null)
-                => new Snapshot(set.Tracks.Select(t => (t, t.Clone(), Analysis.Of(t))).ToList(), set.AudioStartMs, set.AudioEndMs, with);
+                => new Snapshot(set.Tracks.Select(t => (t, t.Clone(), Analysis.Of(t))).ToList(), set.AudioStartMs, set.AudioEndMs, set.LoudnessOffsetDb, with);
 
             /// <summary>A track's analysis, kept with its file (a repair renders a new file; undo brings the old one back).</summary>
             private sealed record Analysis(float[]? Peaks, bool Failed, float PeakLevel, float RmsLevel, bool LikelyEmpty)
@@ -170,6 +172,7 @@ namespace Kan.Core.Tracks
                 set.Tracks.AddRange(kept);
                 set.AudioStartMs = songStart;
                 set.AudioEndMs = songEnd;
+                set.LoudnessOffsetDb = loudnessOffsetDb;
 
                 if (With != null && withState != null) With.Restore(withState);
             }

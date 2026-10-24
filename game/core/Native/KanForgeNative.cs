@@ -146,6 +146,15 @@ namespace Kan.Core.Native
                                                         out float outPeak, out float outRms,
                                                         [Out] byte[] err, int errCap);
 
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_measure_loudness", CallingConvention = CallingConvention.Cdecl)]
+        public static extern KanForgeStatus MeasureLoudness(string audioPath, out float outLufs, out float outPeak,
+                                                           [Out] byte[] err, int errCap);
+
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_normalize_loudness", CallingConvention = CallingConvention.Cdecl)]
+        public static extern KanForgeStatus NormalizeLoudness(string audioPath, string outWav, float targetLufs, float ceilingDbfs,
+                                                             out float outBefore, out float outAfter,
+                                                             [Out] byte[] err, int errCap);
+
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_live_open", CallingConvention = CallingConvention.Cdecl)]
         public static extern IntPtr LiveOpen(string profile, float sampleRate);
 

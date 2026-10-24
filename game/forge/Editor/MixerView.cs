@@ -314,14 +314,121 @@ namespace Kan.Forge.Editor
                                 },
                             },
                         },
+                        createLoudness(),
                     },
                 },
             },
         };
 
+        private OsuTextFlowContainer loudnessText = null!;
+        private string? drawnLoudness;
+
+        /// <summary>
+        /// The level audio's loudness against the game's reference, and the
+        /// creator's offset from it (owner 2026-10-23: "0 dB is the reference;
+        /// louder or softer is my decision, but automatic if I never look at
+        /// the mix"). Levelled at every render (<see cref="BeatmapAudio"/>).
+        /// </summary>
+        private Drawable createLoudness() => new FillFlowContainer
+        {
+            RelativeSizeAxes = Axes.X,
+            AutoSizeAxes = Axes.Y,
+            Direction = FillDirection.Vertical,
+            Spacing = new Vector2(0, 6),
+            Margin = new MarginPadding { Top = 6 },
+            Children = new Drawable[]
+            {
+                new OsuSpriteText { Text = @"Loudness", Font = OsuFont.GetFont(size: 14, weight: FontWeight.Bold) },
+                loudnessText = new OsuTextFlowContainer(t =>
+                {
+                    t.Font = OsuFont.Style.Caption2;
+                    t.Colour = colourProvider.Content2;
+                })
+                {
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y,
+                },
+                new GridContainer
+                {
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y,
+                    ColumnDimensions = new[]
+                    {
+                        new Dimension(), new Dimension(GridSizeMode.Absolute, 6),
+                        new Dimension(), new Dimension(GridSizeMode.Absolute, 6),
+                        new Dimension(),
+                    },
+                    RowDimensions = new[] { new Dimension(GridSizeMode.AutoSize) },
+                    Content = new[]
+                    {
+                        new Drawable[]
+                        {
+                            new ForgeButton(FontAwesome.Solid.VolumeDown, @"-1 dB")
+                            {
+                                TooltipText = @"This level a little softer than the game's reference.",
+                                Action = () => setLoudnessOffset(set.LoudnessOffsetDb - 1),
+                            },
+                            Empty(),
+                            new ForgeButton(FontAwesome.Solid.Equals, @"0 dB")
+                            {
+                                TooltipText = @"Back to the game's reference: every level as loud as the others.",
+                                Action = () => setLoudnessOffset(0),
+                            },
+                            Empty(),
+                            new ForgeButton(FontAwesome.Solid.VolumeUp, @"+1 dB")
+                            {
+                                TooltipText = @"This level a little louder than the game's reference.",
+                                Action = () => setLoudnessOffset(set.LoudnessOffsetDb + 1),
+                            },
+                        },
+                    },
+                },
+            },
+        };
+
+        private void setLoudnessOffset(double db)
+        {
+            if (LevelLoudness.ClampOffset(db) == set.LoudnessOffsetDb) return;
+
+            ForgeTrackSession.History.Record();
+            set.LoudnessOffsetDb = db;
+            onChanged();
+        }
+
+        private void showLoudness()
+        {
+            double offset = set.LoudnessOffsetDb;
+            double? rendered = ForgeTrackSession.LevelAudioLufs;
+            bool upToDate = BeatmapAudio.IsUpToDate(set);
+
+            string key = $"{offset:0.0}|{rendered:0.0}|{upToDate}";
+            if (key == drawnLoudness) return;
+
+            drawnLoudness = key;
+
+            string setting = offset == 0
+                ? $"Set at the game's reference ({LevelLoudness.REFERENCE_LUFS:0} LUFS, 0 dB), like every level."
+                : $"Set {Math.Abs(offset):0.#} dB {(offset > 0 ? "louder" : "softer")} than the game's reference.";
+
+            string now;
+
+            if (!upToDate || rendered is not double lufs)
+                now = @"It is levelled when the level audio is rendered (on leaving this tab, or saving).";
+            else
+            {
+                now = $"As rendered: {lufs:0.0} LUFS, {LevelLoudness.FromReference(lufs):+0.0;-0.0;0} dB from the reference.";
+                if (lufs < LevelLoudness.TargetLufs(offset) - 0.5)
+                    now += @" Its peaks kept it from coming all the way up.";
+            }
+
+            loudnessText.Text = setting + " " + now;
+        }
+
         protected override void Update()
         {
             base.Update();
+
+            showLoudness();
 
             var tracks = set.Tracks.ToArray();
 

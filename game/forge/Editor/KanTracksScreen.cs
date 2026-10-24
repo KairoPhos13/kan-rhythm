@@ -570,6 +570,9 @@ namespace Kan.Forge.Editor
             },
         };
 
+        /// <summary>Show the mixing desk (also for developer tooling).</summary>
+        public void ShowMixView() => showView(true);
+
         private void showView(bool mix)
         {
             arrangeTab.Selected = !mix;

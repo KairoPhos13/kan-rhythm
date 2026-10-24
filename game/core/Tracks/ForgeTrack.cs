@@ -245,6 +245,19 @@ namespace Kan.Core.Tracks
 
         public bool HasAudioWindow => AudioStartMs > 0 || AudioEndMs > 0;
 
+        /// <summary>
+        /// How far (dB) the level audio is rendered from the game's reference
+        /// loudness (<see cref="LevelLoudness"/>): 0, the default, is the
+        /// reference; louder or softer is the creator's choice.
+        /// </summary>
+        public double LoudnessOffsetDb
+        {
+            get => loudnessOffsetDb;
+            set => loudnessOffsetDb = LevelLoudness.ClampOffset(value);
+        }
+
+        private double loudnessOffsetDb;
+
         /// <summary>The reference take (exactly one), if chosen.</summary>
         public ForgeTrack? Reference => Tracks.FirstOrDefault(t => t.IsReference);
 

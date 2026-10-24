@@ -32,7 +32,8 @@ namespace Kan.Ruleset.Dev
     /// player goes through; owner 2026-10-15: it crashed there).
     /// KAN_DEV_MODS="HT,NF" plays with those mods (acronyms);
     /// KAN_DEV_SCREEN=replay plays back the level's newest local score;
-    /// KAN_DEV_SCREEN=design / setup / compose / tracks opens the editor on that tab;
+    /// KAN_DEV_SCREEN=design / setup / compose / tracks opens the editor on that tab
+    /// (KAN_DEV_TRACKS=render: leaves it to render the level audio, back on its mixing desk);
     /// KAN_DEV_REPAIR="insert:10000:500;undo;cut:2000-3000" runs timeline
     /// repairs in compose, one every 12 s (stretch:from-to:length, redo too);
     /// KAN_DEV_PAUSE=12 pauses 12 s in and continues 2 s later;
@@ -399,6 +400,18 @@ namespace Kan.Ruleset.Dev
                         string step = steps[i];
                         Scheduler.AddDelayed(() => editor.ChildrenOfType<Kan.Forge.Editor.Compose.KanComposeScreen>().FirstOrDefault()?.DevRepair(step), 6000 + i * 12000);
                     }
+                }
+
+                // KAN_DEV_TRACKS=render: leave the track tab (the level audio is rendered
+                // if the mix changed) and come back to its mixing desk.
+                if (tracks && Environment.GetEnvironmentVariable(@"KAN_DEV_TRACKS") == @"render")
+                {
+                    Scheduler.AddDelayed(() => editor.Mode.Value = osu.Game.Screens.Edit.EditorScreenMode.Compose, 3000);
+                    Scheduler.AddDelayed(() =>
+                    {
+                        editor.Mode.Value = osu.Game.Screens.Edit.EditorScreenMode.Tracks;
+                        Scheduler.AddDelayed(() => editor.ChildrenOfType<Kan.Forge.Editor.KanTracksScreen>().FirstOrDefault()?.ShowMixView(), 1000);
+                    }, 20000);
                 }
 
                 // KAN_DEV_SCROLL=credits: bring that setup section into view (for screenshots).

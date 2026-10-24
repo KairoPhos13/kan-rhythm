@@ -336,5 +336,28 @@ namespace Kan.Forge.Pipeline
                     throw new ForgeException(KanForgeNative.ErrMessage(err));
                 return outWav;
             }, onProgress, uiScheduler);
+
+        /// <summary>A file's loudness (LUFS; -∞ for silence) and sample peak, or null when it cannot be read.</summary>
+        public static (double Lufs, float Peak)? MeasureLoudness(string audioPath)
+        {
+            var err = new byte[err_cap];
+            return KanForgeNative.MeasureLoudness(audioPath, out float lufs, out float peak, err, err_cap) == KanForgeStatus.Ok
+                ? (lufs, peak)
+                : null;
+        }
+
+        /// <summary>Level a file to <paramref name="targetLufs"/>, its peak under <see cref="LevelLoudness.CEILING_DBFS"/>. Returns its loudness before and after.</summary>
+        public static Task<(double Before, double After)> NormalizeLoudnessAsync(string audioPath, double targetLufs, string outWav,
+                                                                                Action<ForgeProgress>? onProgress = null,
+                                                                                Scheduler? uiScheduler = null)
+            => ForgeJobRunner.RunAsync(sink =>
+            {
+                var err = new byte[err_cap];
+                KanForgeStatus st = KanForgeNative.NormalizeLoudness(audioPath, outWav, (float)targetLufs, (float)LevelLoudness.CEILING_DBFS,
+                    out float before, out float after, err, err_cap);
+                if (st != KanForgeStatus.Ok)
+                    throw new ForgeException(KanForgeNative.ErrMessage(err));
+                return ((double)before, (double)after);
+            }, onProgress, uiScheduler);
     }
 }

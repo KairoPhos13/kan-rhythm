@@ -153,6 +153,23 @@ KAN_FORGE_API kan_forge_status kan_forge_analyze_track(const char* audio_path,
                                                        float* out_peak, float* out_rms,
                                                        char* err, int32_t err_cap);
 
+/* Programme loudness (ITU-R BS.1770-4, libkan/loudness.hpp) of a file,
+ * decoded to mono 48 kHz: out_lufs (-INFINITY for silence) and the sample
+ * peak (0..1). The editor shows how loud a track sits against the game's
+ * reference. */
+KAN_FORGE_API kan_forge_status kan_forge_measure_loudness(const char* audio_path,
+                                                          float* out_lufs, float* out_peak,
+                                                          char* err, int32_t err_cap);
+
+/* Level a file to target_lufs (mono 48 kHz WAV out), its peak held at or
+ * under ceiling_dbfs: a quiet file with sharp peaks comes up only as far as
+ * they allow. out_before / out_after: its loudness before and after
+ * (either may be NULL). Silence is written unchanged. */
+KAN_FORGE_API kan_forge_status kan_forge_normalize_loudness(const char* audio_path, const char* out_wav,
+                                                            float target_lufs, float ceiling_dbfs,
+                                                            float* out_before, float* out_after,
+                                                            char* err, int32_t err_cap);
+
 /* ---- Live description (gameplay) ---------------------------------------
  * The same libkan describer as kan_forge_transcribe_file, fed block by block
  * as audio arrives (microphone or a file played in real time), so live and

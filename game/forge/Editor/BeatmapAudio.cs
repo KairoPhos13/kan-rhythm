@@ -124,7 +124,8 @@ namespace Kan.Forge.Editor
                 $"{t.Path}|{t.Gain:0.000}|{t.OffsetMs:0}|{t.ClipStartMs:0}-{t.ClipEndMs:0}|{t.Edits.LowCutHz:0}/{t.Edits.HighCutHz:0}^{t.Edits.PitchSemitones}|"
                 + string.Join(';', t.Edits.Ranges.Select(r => $"{(int)r.Mode}:{r.FromMs:0}-{r.ToMs:0}")));
 
-            return $"{set.AudioStartMs:0}-{set.AudioEndMs:0}#" + string.Join('#', parts);
+            // The levelling too: a level rendered before it, or at another offset, is rendered again.
+            return $"{set.AudioStartMs:0}-{set.AudioEndMs:0}#L{LevelLoudness.VERSION}:{set.LoudnessOffsetDb:0.0}#" + string.Join('#', parts);
         }
 
         /// <summary>The level audio matches the companion mix as it is now.</summary>
@@ -166,12 +167,18 @@ namespace Kan.Forge.Editor
                         ForgeTrackSession.NewWorkPath("level-audio"), null, scheduler);
                 }
 
+                // Every level at the game's reference loudness (or the creator's offset from it).
+                string levelled = ForgeTrackSession.NewWorkPath("level-audio");
+                var (_, after) = await ForgeJobs.NormalizeLoudnessAsync(mix, LevelLoudness.TargetLufs(set.LoudnessOffsetDb), levelled, null, scheduler);
+                mix = levelled;
+
                 string? name = Apply(working, beatmaps, music, editor, mix, out string? error, replaceRendered: true,
                     targetName: LevelAudioFileName(working));
                 if (name == null)
                     throw new ForgeException($"could not set the level audio: {error}");
 
                 ForgeTrackSession.LevelAudioSignature = signature;
+                ForgeTrackSession.LevelAudioLufs = double.IsFinite(after) ? after : null;
                 ForgeTrackSession.Save();
                 return name;
             }

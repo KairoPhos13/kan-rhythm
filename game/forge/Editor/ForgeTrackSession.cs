@@ -49,6 +49,9 @@ namespace Kan.Forge.Editor
         /// <summary>What the level audio was last rendered from (<see cref="BeatmapAudio.Signature"/>).</summary>
         public static string? LevelAudioSignature { get; set; }
 
+        /// <summary>The level audio's loudness as last rendered (LUFS), null when unknown.</summary>
+        public static double? LevelAudioLufs { get; set; }
+
         /// <summary>The open level's key (beatmap set id), null before a level is opened.</summary>
         public static string? LevelKey { get; private set; }
 
@@ -97,12 +100,14 @@ namespace Kan.Forge.Editor
             Tracks.Tracks.Clear();
             Tracks.AudioStartMs = 0;
             Tracks.AudioEndMs = 0;
+            Tracks.LoudnessOffsetDb = 0;
             History.Clear();
             Draft = null;
             DraftSource = null;
             DraftAtUtc = default;
             Instrument = @"keyboard";
             LevelAudioSignature = null;
+            LevelAudioLufs = null;
             lastSaved = null;
             pending = null;
 
@@ -112,7 +117,9 @@ namespace Kan.Forge.Editor
             var loaded = new List<ForgeTrack>();
             Tracks.AudioStartMs = doc.AudioStartMs;
             Tracks.AudioEndMs = doc.AudioEndMs;
+            Tracks.LoudnessOffsetDb = doc.LoudnessOffsetDb;
             LevelAudioSignature = doc.LevelAudioSignature;
+            LevelAudioLufs = doc.LevelAudioLufs;
             if (!string.IsNullOrEmpty(doc.Instrument)) Instrument = doc.Instrument;
 
             foreach (var (track, fromVideo) in ForgeSetFile.ToTracks(doc))
@@ -145,6 +152,7 @@ namespace Kan.Forge.Editor
             {
                 var doc = ForgeSetFile.From(Tracks, IsVideoAudio, DraftSource, Draft);
                 doc.LevelAudioSignature = LevelAudioSignature;
+                doc.LevelAudioLufs = LevelAudioLufs;
                 doc.TranscriptionAtUtc = DraftAtUtc;
                 doc.Instrument = Instrument;
                 ForgeSetFile.Save(doc, setFile);
