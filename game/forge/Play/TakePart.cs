@@ -13,6 +13,7 @@ using osu.Framework.Graphics;
 using osu.Framework.Logging;
 using osu.Game.Beatmaps;
 using Kan.Forge.Editor;
+using Kan.Forge.Audio;
 
 namespace Kan.Forge.Play
 {
@@ -36,7 +37,7 @@ namespace Kan.Forge.Play
         [Resolved]
         private IBindable<WorkingBeatmap> working { get; set; } = null!;
 
-        private SetMonitor.Channel? channel;
+        private AudioChannel? channel;
         private PlayTake.Info? info;
 
         public TakePart(string forgeRoot, int id)
@@ -60,7 +61,7 @@ namespace Kan.Forge.Play
                 }
 
                 info = task.Result.Info;
-                channel = SetMonitor.Channel.Open(audio, $"kan-take-{id}.wav", task.Result.Item2);
+                channel = AudioChannel.Open(audio, $"kan-take-{id}.wav", task.Result.Item2);
                 Logger.Log($"kan!: the replay plays the player's recording ({id})");
             }), CancellationToken.None);
         }

@@ -12,6 +12,7 @@ using Kan.Forge.Editor;
 using Kan.Forge.Media;
 using Kan.Forge.Score;
 using Kan.Forge.Tracks;
+using Kan.Forge.Audio;
 
 namespace Kan.Forge.Play
 {
@@ -37,7 +38,7 @@ namespace Kan.Forge.Play
         /// <summary>The notes are a guide, not the real part: a little under the companion.</summary>
         private const float notes_volume = 0.8f;
 
-        private readonly SetMonitor.Channel channel;
+        private readonly AudioChannel channel;
         private readonly ForgeTrack? reference;
 
         /// <summary>Where the channel's audio starts on the level audio's timeline.</summary>
@@ -50,7 +51,7 @@ namespace Kan.Forge.Play
 
         public Source Kind => reference != null ? Source.Reference : Source.Notes;
 
-        private LevelPart(SetMonitor.Channel channel, ForgeTrack? reference, double offsetMs)
+        private LevelPart(AudioChannel channel, ForgeTrack? reference, double offsetMs)
         {
             this.channel = channel;
             this.reference = reference;
@@ -84,10 +85,10 @@ namespace Kan.Forge.Play
         /// <summary>A channel for the material, or null when there is nothing to play.</summary>
         public static LevelPart? Open(AudioManager audio, Material material, string name)
         {
-            if (material.Reference != null && SetMonitor.Channel.Open(audio, material.Reference) is { } referenceChannel)
+            if (material.Reference != null && AudioChannel.Open(audio, material.Reference) is { } referenceChannel)
                 return new LevelPart(referenceChannel, material.Reference, material.OffsetMs);
 
-            if (material.NotesWav != null && SetMonitor.Channel.Open(audio, $"{name}.wav", material.NotesWav) is { } notesChannel)
+            if (material.NotesWav != null && AudioChannel.Open(audio, $"{name}.wav", material.NotesWav) is { } notesChannel)
                 return new LevelPart(notesChannel, null, 0);
 
             return null;

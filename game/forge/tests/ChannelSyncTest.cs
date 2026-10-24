@@ -4,6 +4,7 @@
 using NUnit.Framework;
 using osu.Framework.Audio.Track;
 using Kan.Forge.Editor;
+using Kan.Forge.Audio;
 
 namespace Kan.Forge.Tests
 {

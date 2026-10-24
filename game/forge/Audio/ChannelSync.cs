@@ -4,7 +4,7 @@
 using System;
 using osu.Framework.Audio.Track;
 
-namespace Kan.Forge.Editor
+namespace Kan.Forge.Audio
 {
     /// <summary>
     /// Keeps one audio channel in step with the editor's timeline without

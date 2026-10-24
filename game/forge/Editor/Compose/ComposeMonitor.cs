@@ -14,6 +14,7 @@ using osu.Game.Screens.Edit;
 using Kan.Forge.Media;
 using Kan.Forge.Score;
 using Kan.Forge.Tracks;
+using Kan.Forge.Audio;
 
 namespace Kan.Forge.Editor.Compose
 {
@@ -53,11 +54,11 @@ namespace Kan.Forge.Editor.Compose
         private readonly BindableDouble silence = new BindableDouble(0);
         private Track? silenced;
 
-        private SetMonitor.Channel? reference;
+        private AudioChannel? reference;
         private ForgeTrack? referenceTrack;
         private string? referencePath;
 
-        private SetMonitor.Channel? notes;
+        private AudioChannel? notes;
         private string? notesPath;
         private int notesVersion, renderedVersion = -1;
         private double renderAfter;
@@ -148,7 +149,7 @@ namespace Kan.Forge.Editor.Compose
 
                 closeNotes();
                 notesPath = path;
-                notes = SetMonitor.Channel.Open(audio, new ForgeTrack(@"score notes", path));
+                notes = AudioChannel.Open(audio, new ForgeTrack(@"score notes", path));
                 notes?.Track.AddAdjustment(AdjustableProperty.Tempo, clock.AudioAdjustments.AggregateTempo);
                 notes?.Track.AddAdjustment(AdjustableProperty.Frequency, clock.AudioAdjustments.AggregateFrequency);
             }));
@@ -197,7 +198,7 @@ namespace Kan.Forge.Editor.Compose
 
                 if (track != null)
                 {
-                    reference = SetMonitor.Channel.Open(audio, track);
+                    reference = AudioChannel.Open(audio, track);
                     reference?.Track.AddAdjustment(AdjustableProperty.Tempo, clock.AudioAdjustments.AggregateTempo);
                     reference?.Track.AddAdjustment(AdjustableProperty.Frequency, clock.AudioAdjustments.AggregateFrequency);
                 }

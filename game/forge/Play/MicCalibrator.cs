@@ -10,6 +10,7 @@ using Kan.Forge.Editor;
 using Kan.Forge.Media;
 using Kan.Forge.Native;
 using Kan.Forge.Tracks;
+using Kan.Forge.Audio;
 
 namespace Kan.Forge.Play
 {
@@ -46,7 +47,7 @@ namespace Kan.Forge.Play
         }
 
         private readonly ILiveSource? source;
-        private SetMonitor.Channel? clicks;
+        private AudioChannel? clicks;
         private LiveSession? session;
         private double anchorMs;
         private readonly List<double> onsets = new List<double>();
@@ -90,7 +91,7 @@ namespace Kan.Forge.Play
             using var wav = new MemoryStream();
             MediaAudioExtractor.WriteWav(wav, samples, samples.Length, 1, SAMPLE_RATE);
 
-            clicks = SetMonitor.Channel.Open(audio, @"kan-mic-clicks.wav", wav.ToArray());
+            clicks = AudioChannel.Open(audio, @"kan-mic-clicks.wav", wav.ToArray());
 
             if (clicks == null)
                 return fail(@"the clicks could not be played");

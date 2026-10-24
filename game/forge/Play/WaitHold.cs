@@ -18,6 +18,7 @@ using osu.Game.Extensions;
 using Kan.Forge.Editor;
 using Kan.Forge.Media;
 using Kan.Forge.Tracks;
+using Kan.Forge.Audio;
 
 namespace Kan.Forge.Play
 {
@@ -49,7 +50,7 @@ namespace Kan.Forge.Play
         private Storage storage { get; set; } = null!;
 
         private string? path;
-        private SetMonitor.Channel? channel;
+        private AudioChannel? channel;
         private double heldAt = double.NaN;
         private CancellationTokenSource? preparing;
         private float level;
@@ -130,7 +131,7 @@ namespace Kan.Forge.Play
                 }
 
                 close();
-                channel = SetMonitor.Channel.Open(audio, $"kan-wait-hold-{stop:0}.wav", task.Result);
+                channel = AudioChannel.Open(audio, $"kan-wait-hold-{stop:0}.wav", task.Result);
                 if (channel == null) return;
 
                 // Softer and muffled: waiting is not playing.
