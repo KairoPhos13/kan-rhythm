@@ -30,6 +30,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-15 | `ca49bab` | `cc2ccac` (branch `agent/game`) | F-15 design screen | green (0 warnings / 0 errors; design tab verified in an isolated instance) |
 | 2026-10-16 | `cc2ccac` | `9e92011` (branch `agent/game`) | F-16 player loader settings | green (0 warnings / 0 errors; panel verified in an isolated instance) |
 | 2026-10-19 | `9e92011` | `e4f19a2` (branch `agent/game`) | F-17 ruleset-chosen result time | green (0 warnings / 0 errors; hit error meter verified in an isolated instance) |
+| 2026-10-23 | `e4f19a2` | `400efe6` (branch `agent/game`) | F-18 patched MessagePack and SignalR packages | green (0 warnings / 0 errors; gameplay verified in an isolated instance) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -276,6 +277,22 @@ Policy (rebase-ability first, ADR-0011 §4):
 - **Merge-conflict cost:** low — one virtual property and one changed
   assignment in `ApplyResult`.
 - **Upstream-PR:** candidate (any ruleset that decides after the input).
+
+### F-18 — patched MessagePack and SignalR packages
+
+- **What:** `osu.Game/osu.Game.csproj` — `MessagePack` 3.1.8 → 3.1.12;
+  `Microsoft.AspNetCore.SignalR.Client`, `.Protocols.MessagePack`,
+  `.Protocols.NewtonsoftJson` 10.0.12 → 10.0.13 (patch releases).
+- **Why:** owner report 2026-10-23 — every build printed NuGet security
+  advisories: GHSA-qhrr-8q5h-9q3h (MessagePack, moderate; fixed in 3.1.9),
+  GHSA-86xp-94pg-8r6r and GHSA-334f-vvp4-7g6p (SignalR, moderate and high;
+  fixed in 10.0.13). The build is now free of them. Left as upstream holds
+  them, silenced on purpose: AutoMapper 13.0.1 (its fix is 15.1.1, past
+  its licence change) and SixLabors.ImageSharp 3.1.11 (its fixes are in
+  4.1.2, a major version).
+- **Merge-conflict cost:** low — version numbers; take upstream's when it
+  has moved past them.
+- **Upstream-PR:** not needed (upstream bumps these routinely).
 
 ## String sweep — remaining scope (deferred, game/TODO.md)
 

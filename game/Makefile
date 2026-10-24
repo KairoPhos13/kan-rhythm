@@ -74,7 +74,8 @@ test-csharp: native
 # One gate before a commit: kan's own C# (core, forge, ruleset) must build
 # without a warning (the fork's is upstream's), and every test must pass.
 # NuGet's security audit of the fork's dependencies (NU190x) is shown, not
-# fatal: it is fixed by updating the fork from upstream, not in kan's code.
+# fatal: a new advisory is fixed in the fork (fork-divergence.md F-18) or by
+# updating it from upstream, not in kan's code.
 STRICT := -warnaserror -p:WarningsNotAsErrors="NU1901%3BNU1902%3BNU1903%3BNU1904"
 
 check: native client
