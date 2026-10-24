@@ -7,7 +7,7 @@ using Kan.Core.Play;
 
 namespace Kan.Core.Tests
 {
-    /// <summary>Any level on any instrument: the octave that fits, then folding (owner 2026-10-15).</summary>
+    /// <summary>Any level on any instrument: the octave that fits, then folding.</summary>
     [TestFixture]
     public class RangeFitTest
     {

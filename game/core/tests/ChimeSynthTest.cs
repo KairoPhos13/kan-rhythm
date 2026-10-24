@@ -8,7 +8,7 @@ using Kan.Core.Score;
 
 namespace Kan.Core.Tests
 {
-    /// <summary>The perfect chime: the played note an octave up, short, soft, clean (owner 2026-10-15).</summary>
+    /// <summary>The perfect chime: the played note an octave up, short, soft, clean.</summary>
     [TestFixture]
     public class ChimeSynthTest
     {

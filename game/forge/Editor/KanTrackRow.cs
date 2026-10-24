@@ -114,7 +114,7 @@ namespace Kan.Forge.Editor
         [BackgroundDependencyLoader]
         private void load()
         {
-            // Volume in dB: silence (-60) up to +20 dB (owner 2026-10-14).
+            // Volume in dB: silence (-60) up to +20 dB.
             var gain = new BindableDouble(ForgeFormat.GainToDb(Track.Gain))
             {
                 MinValue = ForgeFormat.SILENT_DB,

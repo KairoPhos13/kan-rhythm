@@ -17,7 +17,7 @@ namespace Kan.Forge.Editor
     /// resources — imported in Resources, arranged/edited in the "track"
     /// tab. Both surfaces read and write this set.
     ///
-    /// Saved with its level (owner 2026-10-14): <see cref="Open"/> switches
+    /// Saved with its level: <see cref="Open"/> switches
     /// to a level's set (saving the previous one), changes are saved
     /// automatically (<see cref="AutoSave"/>), and every file the editor
     /// derives (stems, edits, renders, video audio) lives in the level's work

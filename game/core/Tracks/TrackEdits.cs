@@ -39,7 +39,7 @@ namespace Kan.Core.Tracks
     /// and only become a file when the user saves them as a NEW track — the
     /// source is never modified.
     ///
-    /// Preview and render agree on one rule set (owner 2026-10-14), all in
+    /// Preview and render agree on one rule set, all in
     /// the track's own time so the order of the edits doesn't matter:
     /// - <b>keep this</b>: kept parts stay audible, everything outside every
     ///   kept part is muted (several keeps add up); timing is preserved;
@@ -173,7 +173,7 @@ namespace Kan.Core.Tracks
         }
 
         /// <summary>
-        /// Combinations that make no sense (owner 2026-10-14): errors make
+        /// Combinations that make no sense: errors make
         /// saving impossible; warnings flag edits that have no effect.
         /// </summary>
         public IReadOnlyList<EditIssue> Validate()

@@ -17,7 +17,7 @@ using Kan.Forge.Media;
 namespace Kan.Forge.Editor.Compose
 {
     /// <summary>
-    /// One source's sound drawn behind the notes (owner 2026-10-14): the
+    /// One source's sound drawn behind the notes: the
     /// companion and the reference each get a layer in their role colour,
     /// blended additively so overlaps stay readable, and they follow the
     /// listen toggles. Lives in the piano roll's grid (time × pitch).

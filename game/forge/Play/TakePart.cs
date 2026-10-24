@@ -19,7 +19,7 @@ using Kan.Core.Play;
 namespace Kan.Forge.Play
 {
     /// <summary>
-    /// The player heard in their replay (owner 2026-10-22): the play's
+    /// The player heard in their replay: the play's
     /// <see cref="PlayTake"/> plays with the level audio, each moment where
     /// the level was when it was played. It runs at the player's own pace
     /// (rate mods change the level, not what they played); where nothing

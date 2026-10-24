@@ -8,7 +8,7 @@ using Kan.Core.Tracks;
 namespace Kan.Core.Tests
 {
     /// <summary>
-    /// Tracks on a shared timeline (owner 2026-10-14): every track can be
+    /// Tracks on a shared timeline: every track can be
     /// moved in time; edits keep the result where its audio was.
     /// </summary>
     [TestFixture]

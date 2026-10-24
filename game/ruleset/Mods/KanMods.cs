@@ -12,7 +12,7 @@ using Kan.Ruleset.Replays;
 
 namespace Kan.Ruleset.Mods
 {
-    // Mods that need nothing from the level editor (owner 2026-10-15). The
+    // Mods that need nothing from the level editor. The
     // rate mods keep the pitch (the player plays the same notes, slower or
     // faster): practice at 75 % or 90 %.
 
@@ -115,7 +115,7 @@ namespace Kan.Ruleset.Mods
     }
 
     /// <summary>
-    /// "Wait for me" (owner 2026-10-15): the level never runs ahead of the
+    /// "Wait for me": the level never runs ahead of the
     /// player; a little past each note (<see cref="KanPlayState.WAIT_GRACE_MS"/>)
     /// it stops until the note is played. A gentle walk for learning: while
     /// it waits, the music is held as a soft sustained sound and the player's pitch shows live

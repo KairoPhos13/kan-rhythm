@@ -85,7 +85,7 @@ namespace Kan.Ruleset.UI
             };
         }
 
-        /// <summary>The staff's grid: bars, beats, and beats cut as finely as the notes need (owner 2026-10-22).</summary>
+        /// <summary>The staff's grid: bars, beats, and beats cut as finely as the notes need.</summary>
         private static IReadOnlyList<Kan.Core.Score.Bars.Tick> ticks(osu.Game.Beatmaps.IBeatmap beatmap, List<KanHitObject> notes)
         {
             var tempos = beatmap.ControlPointInfo.TimingPoints.Select(t => new Kan.Core.Score.Bars.Tempo(t.Time, t.BeatLength, t.TimeSignature.Numerator)).ToList();
@@ -97,7 +97,7 @@ namespace Kan.Ruleset.UI
         [osu.Framework.Allocation.BackgroundDependencyLoader(true)]
         private void load(Player? player)
         {
-            // Practice has no score to rank (owner 2026-10-19): no leaderboard, set
+            // Practice has no score to rank: no leaderboard, set
             // before the HUD shows it (the practice bar keeps Tab from toggling it).
             if (player != null && Mods.Any(m => m is Kan.Ruleset.Mods.KanModPractice))
                 player.Configuration.ShowLeaderboard = false;
@@ -121,7 +121,7 @@ namespace Kan.Ruleset.UI
             base.Update();
 
             // The level was prepared while the player loader showed; an instrument or
-            // range set there (owner 2026-10-17) fits it again as the play starts. A
+            // range set there fits it again as the play starts. A
             // replay or autoplay keeps the fit its frames were made with.
             if (fitChecked || this.FindClosestParent<Player>() is not { } player || !player.IsCurrentScreen()) return;
 
@@ -168,7 +168,7 @@ namespace Kan.Ruleset.UI
             if (Mods.Any(m => m is ModAutoplay) || listening)
                 AddInternal(new Kan.Forge.Play.AutoplayPart(KanLevelFiles.LoadScore, () => KanLevelFiles.ForgeRoot));
 
-            // A replay is heard too: what the player played, when its recording is kept (owner 2026-10-22).
+            // A replay is heard too: what the player played, when its recording is kept.
             if (ReplayScore?.Replay.Frames.OfType<KanReplayFrame>().FirstOrDefault(f => f.Kind == KanFactKind.Take) is { } take && KanLevelFiles.ForgeRoot is { } root)
                 AddInternal(new Kan.Forge.Play.TakePart(root, take.Index));
         }

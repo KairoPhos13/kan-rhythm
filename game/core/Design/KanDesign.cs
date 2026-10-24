@@ -34,7 +34,7 @@ namespace Kan.Core.Design
         Outro,
     }
 
-    /// <summary>What the screen shows while there is nothing to play (owner 2026-10-15).</summary>
+    /// <summary>What the screen shows while there is nothing to play.</summary>
     public enum BreakStyle
     {
         /// <summary>The music as light (the companion's spectrum), then a countdown to the next note.</summary>
@@ -90,7 +90,7 @@ namespace Kan.Core.Design
     /// The sections a player can practise — the ones with notes — and the
     /// names they go by: numbered within their kind, in order ("Phrase 1",
     /// "Phrase 2", "Chorus 1"), so the numbers have no gaps where an intro or
-    /// a break was left out (owner 2026-10-17). A kind that comes once is not
+    /// a break was left out. A kind that comes once is not
     /// numbered; an author's own name is kept as it is.
     /// </summary>
     public static class DesignParts
@@ -122,7 +122,7 @@ namespace Kan.Core.Design
     }
 
     /// <summary>
-    /// The level's design (owner 2026-10-15): how the level looks and
+    /// The level's design: how the level looks and
     /// rewards, stretch by stretch — sections (breaks, climaxes), the
     /// palette, and how strong the effects are. Stored as a versioned file
     /// inside the level (<see cref="FILE_NAME"/>); a level without one gets

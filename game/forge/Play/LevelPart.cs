@@ -23,7 +23,7 @@ namespace Kan.Forge.Play
     /// (the companion): the reference take when it is on this computer (the
     /// level's author has it; it sounds best), else the level's notes as
     /// plain tones (<see cref="ScoreSynth"/>). Heard in the song select
-    /// preview and in autoplay (owner 2026-10-15).
+    /// preview and in autoplay.
     /// </summary>
     public sealed class LevelPart : IDisposable
     {

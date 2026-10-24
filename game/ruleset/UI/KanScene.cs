@@ -11,7 +11,7 @@ using Kan.Core.Design;
 namespace Kan.Ruleset.UI
 {
     /// <summary>
-    /// The level's design as it plays (owner 2026-10-15): which section is
+    /// The level's design as it plays: which section is
     /// on, the colours in force — eased from one section's palette to the
     /// next, never jumping — and how far the screen is into a rest or a
     /// climax. Everything that draws gameplay reads it.

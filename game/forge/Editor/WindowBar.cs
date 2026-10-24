@@ -25,7 +25,7 @@ namespace Kan.Forge.Editor
 {
     /// <summary>
     /// A start/end window with handles, "start/end here" (at the playhead)
-    /// and "whole" (owner 2026-10-14). Used for the level audio's final
+    /// and "whole". Used for the level audio's final
     /// start/end (<see cref="ForLevelAudio"/>) and for each track's side
     /// trims (<see cref="ForTrack"/>) — the same control everywhere.
     /// </summary>

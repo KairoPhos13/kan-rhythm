@@ -58,7 +58,7 @@ namespace Kan.Ruleset.Beatmaps
         }
 
         /// <summary>
-        /// The level's design (owner 2026-10-15): the copy inside the level, or
+        /// The level's design: the copy inside the level, or
         /// the editor's newer autosave; null when the level has none (the
         /// caller generates one from the notes, <see cref="AutoDesign"/>).
         /// </summary>

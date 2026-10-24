@@ -1,33 +1,25 @@
-# game/forge/ — kan!forge level-creation pipeline (KAN editor × libkan)
+# game/forge/ — kan!forge (Kan.Forge)
 
-The creation half of kan!forge: audio fetch, source separation, offline
-transcription and the transcription draft with temporal-edit propagation —
-feeding the KAN editor. Implementation notes of record:
-[../docs/editor-pipeline.md](../docs/editor-pipeline.md) (dispatch decision,
-edit semantics, error states, remaining slices). Prompt of record:
-`docs/implementation/kan-editor-agent-prompt.md` (monorepo root).
+The level editor's own tabs and the audio played along a level, on top of
+[Kan.Core](../core/). Implementation notes:
+[../docs/editor-pipeline.md](../docs/editor-pipeline.md).
 
-**Status:** slice 1 complete and tested (2026-10-13) — entry-window pipeline
-with live progress, C-ABI bridge, draft model + edit propagation. The NLE
-timeline UI and the transcription editor UI are next (`../TODO.md`).
-
-## Layout
-
-| Path | Content |
+| Folder | Content |
 |---|---|
-| `native/` | `libkan_forge_native` — thin C-ABI adapter over libkan (`kan_forge_api.h` is the contract) + offline self-test; standalone CMake |
-| `Native/` | P/Invoke bindings (POD structs, status codes, progress delegate) |
-| `Pipeline/` | `ForgeJobRunner` (serialized background jobs, progress marshalled to the UI thread) + the fetch/separate/transcribe jobs |
-| `Transcription/` | `KanDraftNote` (measurements + "unjudged" semantics) and `TranscriptionDraft` (cut/move/delete → shift/split/remove) |
-| `Editor/` | `KanCreationSection` — the entry-window panel (buttons + progress bars), registered by the kan! ruleset |
-| `tests/` | NUnit: propagation semantics + P/Invoke smoke tests |
+| `Editor/` | The editor tabs kan! adds to osu!'s: **tracks** (`KanTracksScreen`: arrange, mix, separate, transcribe, render the level audio), **compose** (`Compose/`: the piano roll, tempo grid, timeline repairs, copy and paste), **design** (`Design/`), and the setup tab's sections (resources, instrument, cover credits). `LevelSession` opens the level for all of them (tracks, then score, then design); `ScoreSession`, `DesignSession` and `ForgeTrackSession` hold what is being edited; `LevelFile` reads and writes kan!'s files inside the level. Shared widgets (`ForgeButton`, `RoleChip`, `TagPill`, …) give every surface one look. |
+| `Audio/` | `AudioChannel` — one track played along the level (its own mixer for filters and gain), and `ChannelSync`, which keeps it on the timeline without audible corrections. Every sound kan! plays with a level goes through them. |
+| `Play/` | Pieces of the game that live outside the ruleset: the live session on the microphone (`LiveSession`), the parts heard along a level (reference, notes, take, the song select preview), the wait mode's held sound, mic delay measurement |
+| `Media/` | Decoding and processing with BASS: audio from video, filters, pitch shift, retiming; spectrograms; recording |
+| `Pipeline/` | `ForgeJobRunner` — background jobs (separation, transcription) with progress reported to the UI thread |
+| `Tracks/` | `ForgeTiming` — the player's timing settings (mic delay, timing habit, instrument tuning), saved in `timing.json` |
+| `native/` | `libkan_forge_native`: the thin C ABI over libkan (`kan_forge_api.h` is the contract) and its self-test; its own CMake project |
+| `tests/` | NUnit tests that need the game client (audio, media, sessions); the rest live in `core/tests` |
 
 ## Ground rules
 
-- **libkan describes, the game judges** — this component forwards
-  measurements and never re-derives verdicts from raw audio
-  (docs/architecture/measurement-invariants.md I1–I12).
-- libkan is invoked **only** through `native/` + `Native/` (thin adapter
-  rule — keeps upstream osu! merges feasible).
-- Progress is a callback contract, never console scraping.
+- **libkan describes, the game judges** — measurements are forwarded, never
+  re-derived from raw audio (docs/architecture/measurement-invariants.md).
+- libkan is reached **only** through `native/` and `Kan.Core.Native`.
+- Background jobs never touch the editor's state directly: they hand their
+  results to the update thread (the UI reads it every frame).
 - The native ABI is fixed-size POD; no allocations cross the boundary.

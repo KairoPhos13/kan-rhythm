@@ -9,7 +9,7 @@ using Kan.Core.Score;
 
 namespace Kan.Core.Tests
 {
-    /// <summary>A level nobody designed already has breaks, phrases and a climax (owner 2026-10-15).</summary>
+    /// <summary>A level nobody designed already has breaks, phrases and a climax.</summary>
     [TestFixture]
     public class KanDesignTest
     {

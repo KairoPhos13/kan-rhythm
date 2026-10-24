@@ -154,7 +154,7 @@ namespace Kan.Ruleset.UI
         /// Whether an attack played at <paramref name="now"/> would be a perfect
         /// for <paramref name="note"/>: placed as the judge places what it hears
         /// (with the player's timing habit), graded on the note's own window.
-        /// The staff lights the target with it (owner 2026-10-22).
+        /// The staff lights the target with it.
         /// </summary>
         public bool PerfectNow(KanHitObject note, double now)
             => Judge.WithinPerfect(PlacedAt(now) - note.StartTime, note.PaceMs, note.StartTime, PreviousStart(note), NextStart(note));

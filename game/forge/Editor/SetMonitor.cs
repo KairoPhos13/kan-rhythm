@@ -445,16 +445,7 @@ namespace Kan.Forge.Editor
         /// <summary>Open a channel for every track of the set; close the ones that left.</summary>
         private ForgeTrack[] reconcileChannels()
         {
-            ForgeTrack[] tracks;
-
-            try
-            {
-                tracks = set.Tracks.ToArray();
-            }
-            catch
-            {
-                return Array.Empty<ForgeTrack>();
-            }
+            var tracks = set.Tracks.ToArray();
 
             foreach (var track in tracks)
             {

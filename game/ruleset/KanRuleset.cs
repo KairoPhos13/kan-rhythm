@@ -72,7 +72,7 @@ namespace Kan.Ruleset
         public override string ShortName => @"kan";
 
         /// <summary>
-        /// The grades a note can get: osu!mania's steps (owner 2026-10-15).
+        /// The grades a note can get: osu!mania's steps.
         /// Only these are listed in the results.
         /// </summary>
         public override IEnumerable<osu.Game.Rulesets.Scoring.HitResult> GetValidHitResults() => new[]
@@ -91,7 +91,7 @@ namespace Kan.Ruleset
         /// </summary>
         public override string RulesetAPIVersionSupported => CURRENT_RULESET_API_VERSION;
 
-        /// <summary>Mods that need nothing from the level editor (owner 2026-10-15).</summary>
+        /// <summary>Mods that need nothing from the level editor.</summary>
         public override IEnumerable<Mod> GetModsFor(ModType type) => type switch
         {
             ModType.DifficultyReduction => new Mod[]
@@ -128,7 +128,7 @@ namespace Kan.Ruleset
         /// <summary>The music note icon; loading it also lets the converter read level files (<see cref="KanLevelFiles"/>).</summary>
         public override Drawable CreateIcon() => new KanRulesetIcon();
 
-        /// <summary>Misses cost health and an empty bar ends the level (owner 2026-10-15); "no fail" and "wait for me" keep it going.</summary>
+        /// <summary>Misses cost health and an empty bar ends the level; "no fail" and "wait for me" keep it going.</summary>
         public override osu.Game.Rulesets.Scoring.ScoreProcessor CreateScoreProcessor() => new Kan.Ruleset.Scoring.KanScoreProcessor(this);
 
         public override osu.Game.Rulesets.Scoring.HealthProcessor CreateHealthProcessor(double drainStartTime) => new Kan.Ruleset.Scoring.KanHealthProcessor(drainStartTime);
@@ -155,7 +155,7 @@ namespace Kan.Ruleset
         /// </summary>
         public override IEnumerable<Drawable> CreateEditorSetupSections() =>
         [
-            // Cover credits right under the song's metadata (owner 2026-10-14).
+            // Cover credits right under the song's metadata.
             new FillFlowContainer
             {
                 AutoSizeAxes = Axes.Y,
@@ -180,7 +180,7 @@ namespace Kan.Ruleset
                 Spacing = new osuTK.Vector2(25),
                 Children = new Drawable[]
                 {
-                    // What the level is played on (owner 2026-10-15), first thing on the right.
+                    // What the level is played on, first thing on the right.
                     new Kan.Forge.Editor.KanInstrumentSection
                     {
                         RelativeSizeAxes = Axes.X,

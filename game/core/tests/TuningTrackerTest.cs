@@ -7,7 +7,7 @@ using Kan.Core.Play;
 
 namespace Kan.Core.Tests
 {
-    /// <summary>An instrument tuned off A440 is followed, a wrong note is not (owner 2026-10-15).</summary>
+    /// <summary>An instrument tuned off A440 is followed, a wrong note is not.</summary>
     [TestFixture]
     public class TuningTrackerTest
     {

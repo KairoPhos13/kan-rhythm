@@ -8,7 +8,7 @@ using Kan.Core.Media;
 
 namespace Kan.Core.Tests
 {
-    /// <summary>The wait mode holds the tone (owner 2026-10-15): the freeze keeps pitch and loudness, and loops without a seam.</summary>
+    /// <summary>The wait mode holds the tone: the freeze keeps pitch and loudness, and loops without a seam.</summary>
     [TestFixture]
     public class SpectralFreezeTest
     {

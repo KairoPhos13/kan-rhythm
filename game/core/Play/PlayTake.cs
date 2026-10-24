@@ -18,7 +18,7 @@ namespace Kan.Core.Play
     /// the update thread); <see cref="Save"/> keeps it next to the level's
     /// files, found again by its id (<see cref="Id"/>, carried in the replay).
     /// Kept: the last <see cref="KEPT_RECENT"/> plays and the best play of each
-    /// level (owner 2026-10-22). Only on this computer.
+    /// level. Only on this computer.
     ///
     /// The recording stays in real time (the player's own pace, rate mods and
     /// waits included); the marks put it on the level's timeline, as the judge

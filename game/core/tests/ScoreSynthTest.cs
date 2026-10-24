@@ -8,7 +8,7 @@ using Kan.Core.Score;
 
 namespace Kan.Core.Tests
 {
-    /// <summary>Hearing the score (owner 2026-10-14): known notes in, known sound out.</summary>
+    /// <summary>Hearing the score: known notes in, known sound out.</summary>
     [TestFixture]
     public class ScoreSynthTest
     {

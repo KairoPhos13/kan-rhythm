@@ -50,7 +50,7 @@ namespace Kan.Core.Tests
             judge.Heard(1, 1000);
             judge.Pitch(1, 70, 0, final: true); // a whole tone off: another note (a semitone is the note out of tune)
 
-            // A confirmed wrong try is a miss at once, while the window is still open (owner 2026-10-17).
+            // A confirmed wrong try is a miss at once, while the window is still open.
             var wrong = judge.Judge(1000, 72, false, 1150)!.Value;
             Assert.That(wrong.Result, Is.EqualTo(LiveResult.Miss));
             Assert.That(wrong.Reason, Is.EqualTo(LiveReason.WrongNote));
@@ -223,7 +223,7 @@ namespace Kan.Core.Tests
         [Test]
         public void AnAttacksPitchMaySettle()
         {
-            // An ocarina's attack (owner 2026-10-23): 45 cents sharp for 60 ms as
+            // An ocarina's attack: 45 cents sharp for 60 ms as
             // the air pressure finds the note, then 5 cents. The settled pitch is graded.
             var judge = new LiveJudge();
             judge.Heard(1, 1000);
@@ -298,7 +298,7 @@ namespace Kan.Core.Tests
 
         /// <summary>
         /// The windows are a share of the note's pace, the time to its nearest
-        /// neighbour (owner 2026-10-23): perfect 20 % within 50–120 ms, good
+        /// neighbour: perfect 20 % within 50–120 ms, good
         /// 45 % within 135–450, meh 80 % within 240–800.
         /// </summary>
         [TestCase(500, 95, LiveResult.Perfect)]   // a beat apart at 120 BPM: perfect ±100
@@ -321,7 +321,7 @@ namespace Kan.Core.Tests
         [Test]
         public void APaceIsTheTimeToTheNearestNeighbour()
         {
-            // The same notes, however the tempo was written (owner 2026-10-23).
+            // The same notes, however the tempo was written.
             double[] starts = { 0, 461, 922, 2579, 2590, 4236 };
             Assert.That(LiveJudge.PaceOf(starts, 0), Is.EqualTo(461), "the first note: its next");
             Assert.That(LiveJudge.PaceOf(starts, 2), Is.EqualTo(461), "the nearer of the two");
@@ -402,7 +402,7 @@ namespace Kan.Core.Tests
         [Test]
         public void TheShownPerfectWindowIsTheJudgesOwn()
         {
-            // The target's gold (owner 2026-10-22) must light exactly where the judge gives a perfect.
+            // The target's gold must light exactly where the judge gives a perfect.
             foreach (double scale in new[] { 1.0, 0.7 })
             {
                 foreach (double next in new[] { double.PositiveInfinity, 1120 })

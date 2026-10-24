@@ -21,7 +21,7 @@ using Kan.Forge.Tracks;
 namespace Kan.Forge.Editor.Compose
 {
     /// <summary>
-    /// Work on one section of the score at a time (owner 2026-10-14): set it
+    /// Work on one section of the score at a time: set it
     /// at the playhead or from the selected notes, then fill it by playing
     /// it into the microphone or by transcribing that part of the reference
     /// again. Only the notes inside the section are replaced (undoable).

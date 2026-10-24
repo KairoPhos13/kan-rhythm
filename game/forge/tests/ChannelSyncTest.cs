@@ -8,7 +8,7 @@ using Kan.Forge.Audio;
 
 namespace Kan.Forge.Tests
 {
-    /// <summary>Channels follow the timeline from their first start (owner 2026-10-14).</summary>
+    /// <summary>Channels follow the timeline from their first start.</summary>
     [TestFixture]
     public class ChannelSyncTest
     {

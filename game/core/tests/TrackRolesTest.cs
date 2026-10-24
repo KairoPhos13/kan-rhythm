@@ -8,7 +8,7 @@ using Kan.Core.Tracks;
 namespace Kan.Core.Tests
 {
     /// <summary>
-    /// The unified track-list roles (owner 2026-10-13): one list, roles
+    /// The unified track-list roles: one list, roles
     /// chosen per track — reference (exclusive), accompaniment (many), demux
     /// (queue). Separated/mixdown tracks are never demuxable again. Nothing
     /// is mandatory: demux and transcription are independent optional steps.

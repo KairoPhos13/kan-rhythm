@@ -1,10 +1,45 @@
-# Gameplay MVP (owner 2026-10-14)
+# Gameplay
 
 The first playable kan!: a level plays the score written in the compose tab,
 the player plays a real instrument into the microphone, and the game judges
 and shows each note. Design intent (owner discussion 2026-10-14): learning
 over pure reaction, a reward that is the music itself, no game over, and
 feedback in musical words.
+
+## At a glance (how a play works today)
+
+The rules as they stand; the sections below give each one in detail, with
+the reason it was chosen and what it replaced.
+
+- **The score** is the level's `kan.score.json`: each note's pitch, start,
+  length and playing style.
+- **Listening.** The microphone opens off the game's thread; libkan
+  describes what it hears (attacks, pitches, a reading every 10 ms).
+  `ListeningTimeline` places each heard moment on the level, taking off the
+  mic delay and the player's timing habit. A microphone that stops giving
+  sound is opened again.
+- **A note's try** is the attack, within its window, nearest a perfect in
+  time × pitch. An early attack waits for a nearer one; a held sound is one
+  try (its swells are no new attacks); the previous note still sounding, a
+  chord mate or the next note come early are no wrong tries.
+- **Timing windows** are a share of the note's *pace* — the time to its
+  nearest neighbour — not of the tempo grid: perfect ±20 % (50–120 ms),
+  good ±45 % (135–450 ms), meh ±80 % (240–800 ms), and never past halfway
+  to a neighbour.
+- **Pitch** is judged with timing: each grade is an ellipse in time × pitch
+  (perfect 35 cents, good 50). Within a semitone a hit is the note (at
+  least a meh); past it, another note. An attack's pitch is graded once it
+  settles (a wind's first milliseconds), or by the note's centre. The
+  instrument's own tuning is learnt and taken off.
+- **Score.** Perfect 300, good 200, meh 100, miss 0; accuracy is their
+  average. Rank: SS 100 %, S ≥ 95, A ≥ 90, B ≥ 80, C ≥ 70, else D; an S or
+  SS needs no miss. Misses drain health; an empty bar fails the level.
+- **Mods.** Easy and Hard Rock widen or narrow the windows; Hidden fades
+  the notes; By heart shows each only for a moment; Wait for me stops at
+  each note until it is played; Practice loops a section; Half Time and
+  Double Time change the speed.
+- **The staff** shows about five notes ahead at the pace of what comes
+  (1.6–3.2 s). The level ends when its last note ends.
 
 ## Data flow
 
@@ -28,7 +63,7 @@ microphone (BASS capture, 10 ms periods)
 - **Live = offline:** the bridge drives the describer exactly as
   `transcribe_audio` does (128-sample blocks, measurements drained after
   each), so the selftest checks that live onsets equal the offline ones.
-  libkan describes; the game judges (`LiveJudge` lives in `forge/Play`).
+  libkan describes; the game judges (`LiveJudge` lives in `core/Play`).
 - **Time:** a fact's gameplay time = the clock when listening started +
   its stream time − the mic delay (`ForgeTiming.MIC_DELAY_MS`, the
   player's, kan-forge/timing.json).
@@ -81,7 +116,7 @@ microphone (BASS capture, 10 ms periods)
   - Dev: `KAN_DEV_SCREEN=mictiming` measures in the player loader, the
     clicks answered by `KAN_LIVE_INPUT` (never the microphone).
 
-## Judging (`Kan.Forge.Play.LiveJudge`)
+## Judging (`Kan.Core.Play.LiveJudge`)
 
 The judge listens **blind**: libkan's expected mode would help per note,
 but it does not work streamed yet and accepts octave-below expectations

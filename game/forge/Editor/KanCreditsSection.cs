@@ -25,7 +25,7 @@ using Kan.Core.Score;
 namespace Kan.Forge.Editor
 {
     /// <summary>
-    /// Setup → "Cover credits" (owner 2026-10-14): who made the cover the
+    /// Setup → "Cover credits": who made the cover the
     /// level is built on, what each of them did, and links to their pages so
     /// players can go and thank and support them. Saved into the level's
     /// files (<see cref="KanCredits.FILE_NAME"/>) a moment after each change.
@@ -320,37 +320,14 @@ namespace Kan.Forge.Editor
             // Nothing written yet and nothing to write: keep the level clean.
             if (credits.IsEmpty && working.Value.BeatmapSetInfo.GetFile(KanCredits.FILE_NAME) == null) return;
 
-            try
-            {
-                using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(json)))
-                    beatmaps.AddFile(working.Value.BeatmapSetInfo, stream, KanCredits.FILE_NAME);
-
+            if (LevelFile.Write(working.Value, beatmaps, KanCredits.FILE_NAME, json) is string error)
+                osu.Framework.Logging.Logger.Log($"kan!forge: could not save the cover credits: {error}", level: osu.Framework.Logging.LogLevel.Important);
+            else
                 savedJson = json;
-            }
-            catch (Exception e)
-            {
-                osu.Framework.Logging.Logger.Log($"kan!forge: could not save the cover credits: {e.Message}", level: osu.Framework.Logging.LogLevel.Important);
-            }
         }
 
         private KanCredits? loadFromLevel()
-        {
-            try
-            {
-                var file = working.Value.BeatmapSetInfo.GetFile(KanCredits.FILE_NAME);
-                if (file == null) return null;
-
-                using var stream = working.Value.GetStream(file.File.GetStoragePath());
-                if (stream == null) return null;
-
-                using var reader = new StreamReader(stream);
-                return KanCredits.FromJson(reader.ReadToEnd());
-            }
-            catch
-            {
-                return null;
-            }
-        }
+            => LevelFile.Read(working.Value, KanCredits.FILE_NAME) is string json ? KanCredits.FromJson(json) : null;
 
     }
 }

@@ -9,7 +9,7 @@ using Kan.Core.Play;
 
 namespace Kan.Core.Tests
 {
-    /// <summary>A play's recording, heard in its replay (owner 2026-10-22).</summary>
+    /// <summary>A play's recording, heard in its replay.</summary>
     [TestFixture]
     public class PlayTakeTest
     {

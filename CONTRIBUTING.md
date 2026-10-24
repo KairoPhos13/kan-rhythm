@@ -67,6 +67,10 @@ cmake --build build -j
 ctest --test-dir build --output-on-failure
 ```
 
+For the game, run `make check` in `game/`: it builds kan!'s C# with warnings
+as errors and runs the native self-test and both C# suites
+(see `game/README.md`).
+
 Every PR must build cleanly with `-Wall -Wextra` (warnings are errors in
 spirit — do not add new ones) and pass all tests. DSP changes must include
 an offline test with a known expected result (see `libkan/tests/dsp_test.cpp`).

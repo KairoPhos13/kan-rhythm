@@ -28,7 +28,7 @@ namespace Kan.Forge.Editor.Compose
 {
     /// <summary>
     /// The beat grid and the song's tempo, right where the notes are written
-    /// (owner 2026-10-14): grid divisions (straight, triplets, odd), BPM with
+    ///: grid divisions (straight, triplets, odd), BPM with
     /// tap tempo, the first beat (to line the grid up with the song) and beats
     /// per bar. The same data the timing tab edits.
     ///

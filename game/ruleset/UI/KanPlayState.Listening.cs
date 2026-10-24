@@ -35,7 +35,7 @@ namespace Kan.Ruleset.UI
         /// <summary>KAN_LIVE_INPUT_REALTIME=1: the recording plays in real time, as a player would (rate and wait modes).</summary>
         public const string INPUT_REALTIME_ENV = @"KAN_LIVE_INPUT_REALTIME";
 
-        /// <summary>What the player played, kept with the play to be heard in its replay (owner 2026-10-22).</summary>
+        /// <summary>What the player played, kept with the play to be heard in its replay.</summary>
         private PlayTake? take;
 
         /// <summary>One reading of the player's pitch, stamped with real time (it keeps coming while the level stands still).</summary>
@@ -51,7 +51,7 @@ namespace Kan.Ruleset.UI
         /// <summary>The i-th newest live reading (0 = newest).</summary>
         public LivePoint LiveAt(int i) => live[(liveHead - 1 - i + live.Length * 2) % live.Length];
 
-        /// <summary>The player's instrument tuning, taken off everything heard live (owner 2026-10-15).</summary>
+        /// <summary>The player's instrument tuning, taken off everything heard live.</summary>
         private TuningTracker tuning = new TuningTracker();
 
         /// <summary>The instrument's tuning in use (cents from A440).</summary>

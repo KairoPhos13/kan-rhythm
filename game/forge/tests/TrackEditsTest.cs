@@ -38,7 +38,7 @@ namespace Kan.Forge.Tests
         public void TestSeveralKeepsAddUp()
         {
             // "keep this" twice: both parts stay, everything else is muted
-            // (owner 2026-10-14), and the timing is preserved.
+            //, and the timing is preserved.
             var e = new TrackEdits();
             e.Ranges.Add(new PendingRange(KanForgeEditMode.Keep, 1000, 2000));
             e.Ranges.Add(new PendingRange(KanForgeEditMode.Keep, 5000, 6000));

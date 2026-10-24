@@ -14,7 +14,7 @@ using Kan.Core;
 namespace Kan.Forge.Editor.Design
 {
     /// <summary>
-    /// The open level's design (owner 2026-10-15), kept like the score
+    /// The open level's design, kept like the score
     /// (<see cref="ScoreSession"/>): the source of truth is the file inside
     /// the level (<see cref="KanDesign.FILE_NAME"/>), written when the user
     /// saves or leaves the design tab; every change is also autosaved to the

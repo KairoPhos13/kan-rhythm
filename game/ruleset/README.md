@@ -1,15 +1,9 @@
-# game/ruleset/ — the kan! ruleset plugin
+# game/ruleset/ — the kan! game mode
 
 The kan! game mode, compiled **against** the osu!lazer fork (`../client/`)
 and loaded at runtime by the fork's ruleset plugin loader — never built
 inside the fork tree (ADR-0010, [osu-integration.md](../../docs/architecture/osu-integration.md)).
-
-**Status:** gameplay MVP (2026-10-14, [../docs/gameplay.md](../docs/gameplay.md)):
-a level plays its score (`kan.score.json`), the microphone is described live
-by libkan through the bridge, the game judges each note (timing + the right
-note) and draws the living staff. Remaining judgment work (sustain and
-technique scoring, latency budget) is in [../TODO.md](../TODO.md) under
-"Input & judgment core".
+How a play works and is judged: [../docs/gameplay.md](../docs/gameplay.md).
 
 ## Naming constraints (read before renaming anything)
 
@@ -19,36 +13,29 @@ technique scoring, latency budget) is in [../TODO.md](../TODO.md) under
 | C# namespaces | `Kan.Ruleset.*` | ADR-0011: all new kan! code uses `Kan.*` |
 | Ruleset short name / display name | `kan` / `kan!` | Product identity |
 
-Note: inside `Kan.Ruleset` namespaces the bare type name `Ruleset` resolves
-to our own namespace — upstream types are spelled fully qualified
+Inside `Kan.Ruleset` namespaces the bare type name `Ruleset` resolves to
+our own namespace — upstream types are spelled fully qualified
 (`osu.Game.Rulesets.Ruleset`) on purpose.
 
 ## Build & load
 
-```bash
-dotnet build -c Release          # also copies the DLL next to the client
-```
-
-The post-build step drops `osu.Game.Rulesets.Kan.dll` into
-`../client/osu.Desktop/bin/<Config>/net10.0/` (dev convenience). For
-installed builds, put the DLL in the game's `rulesets/` storage folder
-instead (see [../docs/environment.md](../docs/environment.md) §4).
+`make` (in `game/`) builds and deploys everything. The ruleset's
+post-build step copies `osu.Game.Rulesets.Kan.dll`, `Kan.Forge.dll`,
+`Kan.Core.dll` and the native bridge next to the client
+(`../client/osu.Desktop/bin/<Config>/net10.0/`). For installed builds, the
+DLLs go in the game's `rulesets/` storage folder instead (see
+[../docs/environment.md](../docs/environment.md) §4).
 
 ## Layout
 
-| File | Content |
+| Path | Content |
 |---|---|
-| `KanRuleset.cs` | ruleset metadata + plugin entry (name "kan!", tagline "You kan!") |
-| `Instruments/KanInstrument.cs` | instrument catalog: category ↔ instrument tie, display names (provisional taxonomy) |
-| `Configuration/KanRulesetSetting.cs`, `Configuration/KanRulesetConfigManager.cs` | persisted selection (client.realm — remembered across runs) |
-| `UI/KanSettingsSubsection.cs` | v0 instrument selector (category-tied dropdowns) in Settings → Rulesets → kan! |
-| `Objects/KanHitObject.cs` | one score note (pitch, duration, style) + judgement and hit windows |
-| `Objects/DrawableKanHitObject.cs` | judging side of a note: asks the live judge, applies the result (draws nothing) |
-| `Beatmaps/KanBeatmapConverter.cs` | the level's score → hit objects; timing-only placeholders without a score |
-| `Beatmaps/KanLevelFiles.cs` | reads the score from the level (or the editor's newer autosave); the ruleset icon hands it the game storage |
-| `Difficulty/KanDifficultyCalculator.cs` | zero-skill placeholder |
-| `UI/KanDrawableRuleset.cs` | drawable ruleset + input manager (replay recording; no key bindings) |
-| `UI/KanPlayState.cs` | live session, judge, pitch trail, bloom; one log line per play |
-| `UI/KanPlayfield.cs`, `UI/KanStaff.cs` | background + the living staff; the bloom's low-pass on the music |
-| `Scoring/KanHealthProcessor.cs` | no game over |
-| `Dev/KanDevPlay.cs` | developer tooling (env vars): play a level unattended, recording as input, screenshots |
+| `KanRuleset.cs` | The ruleset: name, mods, the editor tabs it provides, processors |
+| `Objects/` | `KanHitObject` — one score note (pitch, duration, style, its pace); `DrawableKanHitObject` asks the live judge and applies its verdict (draws nothing) |
+| `Beatmaps/` | `KanBeatmapConverter` — the level's score to hit objects (each note's pace set here); `KanLevelFiles` reads the score and design from a level where no dependency injection reaches |
+| `UI/` | The play: `KanPlayState` (split by concern: listening, tries, wait mode, diagnostics), `KanPlayfield`, `KanStaff` (the living staff; its markers and note views in their own files), `KanScene` (the level's design as it plays), the player loader's microphone settings, notation, the perfect chime |
+| `Mods/` | kan!'s mods: Easy, Hard Rock, Hidden, By heart, Wait for me, Practice, … and their score multipliers |
+| `Scoring/` | `KanScoreProcessor` (accuracy and rank as in osu!), `KanHealthProcessor` |
+| `Replays/` | A replay holds what the judge heard, not inputs (`KanReplayFrame`) |
+| `Configuration/` | The player's settings: instrument and range, notation |
+| `Dev/` | `KanDevPlay` — developer tooling driven by environment variables; inert without `KAN_DEV_PLAY` (see `../README.md`) |

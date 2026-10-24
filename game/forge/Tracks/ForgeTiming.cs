@@ -11,7 +11,7 @@ using osu.Framework.Bindables;
 namespace Kan.Forge.Tracks
 {
     /// <summary>
-    /// The player's timing corrections (owner 2026-10-14), shared by every
+    /// The player's timing corrections, shared by every
     /// level and kept for gameplay, which will judge microphone input with
     /// the same numbers:
     /// <list type="bullet">
@@ -30,7 +30,7 @@ namespace Kan.Forge.Tracks
     public static class ForgeTiming
     {
         /// <summary>
-        /// Never below 0 (owner 2026-10-19): microphone, driver and processing
+        /// Never below 0: microphone, driver and processing
         /// can only make a note heard later. A measurement below 0 is the player
         /// playing ahead, not the device; a saved value below 0 loads as 0.
         /// </summary>

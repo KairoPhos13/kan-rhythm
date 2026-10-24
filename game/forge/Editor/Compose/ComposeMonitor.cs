@@ -217,7 +217,7 @@ namespace Kan.Forge.Editor.Compose
             bool inside = filePos >= 0 && filePos < t.Length;
 
             double heardAt = t.IsRunning ? t.CurrentTime : filePos;
-            // The track tab's mute/solo don't apply here (owner 2026-10-14): in
+            // The track tab's mute/solo don't apply here: in
             // compose the reference toggle alone decides whether it is heard.
             bool heard = track.InClip(heardAt) && track.Edits.IsAudibleAt(heardAt);
             t.Volume.Value = heard ? Math.Clamp(track.Gain, 0, 1) : 0;

@@ -86,7 +86,7 @@ namespace Kan.Ruleset.Objects
             }
 
             // "Wait for me": a wrong try is a miss the moment it is confirmed
-            // (owner 2026-10-17), even while the level waits for the right note.
+            //, even while the level waits for the right note.
             if (state.WrongTry(HitObject) is not { } v)
             {
                 var verdict = state.Judge.Judge(HitObject.StartTime, HitObject.Midi, HitObject.PitchUnknown, Time.Current,

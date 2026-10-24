@@ -7,7 +7,7 @@ using Kan.Forge.Tracks;
 
 namespace Kan.Forge.Tests
 {
-    /// <summary>Mic delay from a play-along take (owner 2026-10-14).</summary>
+    /// <summary>Mic delay from a play-along take.</summary>
     [TestFixture]
     public class MicCalibrationTest
     {

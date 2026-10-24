@@ -414,7 +414,7 @@ namespace Kan.Forge.Editor
             => Task.Run(() => TrackAnalysis.Analyze(track));
 
         /// <summary>
-        /// The whole set as a compact explorer (owner 2026-10-13): every
+        /// The whole set as a compact explorer: every
         /// track with its waveform as the row background and its roles as
         /// chips — selected tracks framed in their role's colour, never just
         /// a count. Rebuilt only when the set actually changes.

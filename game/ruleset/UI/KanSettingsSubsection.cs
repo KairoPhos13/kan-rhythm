@@ -38,7 +38,7 @@ namespace Kan.Ruleset.UI
                 if (!string.IsNullOrEmpty(v.NewValue)) (lowest.Value, highest.Value) = Kan.Core.Play.RangeFit.DefaultRange(v.NewValue);
             });
 
-            // The instrument's tuning (owner 2026-10-15): learnt while playing, or set by hand.
+            // The instrument's tuning: learnt while playing, or set by hand.
             if (Beatmaps.KanLevelFiles.ForgeRoot is { } root)
                 Kan.Forge.Tracks.ForgeTiming.Load(root);
 

@@ -59,7 +59,7 @@ kan::InstrumentProfile profile_for(const char* name) {
             p = kan::InstrumentProfile::plucked();
     }
 
-    // Open pitch range in the editor (owner 2026-10-14): one name covers
+    // Open pitch range in the editor: one name covers
     // many sizes (bass to sopranino ocarinas), so the family keeps only
     // its attack/legato behaviour; wrong notes are deleted by hand later.
     p.min_freq_hz = 27.0f;    // A0

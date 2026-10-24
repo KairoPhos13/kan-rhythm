@@ -25,7 +25,7 @@ using Kan.Ruleset.Objects;
 namespace Kan.Ruleset.Mods
 {
     /// <summary>
-    /// Practice (owner 2026-10-15): play one part of the level — a range of
+    /// Practice: play one part of the level — a range of
     /// its design's sections — over and over, without score, then play the
     /// whole song for real. Scored play keeps the genre's rule (earn the hard
     /// part by getting there); practice is apart from it, as in other music
@@ -42,7 +42,7 @@ namespace Kan.Ruleset.Mods
                                           IApplicableToDrawableRuleset<KanHitObject>, IApplicableToTrack, IApplicableToRate
     {
         /// <summary>
-        /// Switched on and off while practising (owner 2026-10-16), apart from
+        /// Switched on and off while practising, apart from
         /// the selected mods (which cannot change during play): wait for the
         /// player, a slower speed, or listening to the part played for them.
         /// Kept until the player leaves practice.

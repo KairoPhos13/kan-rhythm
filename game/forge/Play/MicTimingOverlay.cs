@@ -192,7 +192,7 @@ namespace Kan.Forge.Play
         {
             base.Update();
 
-            // The song about to start is silent while this is open (owner 2026-10-17),
+            // The song about to start is silent while this is open,
             // whichever track is playing now.
             if (State.Value == Visibility.Visible && !ReferenceEquals(silenced, music.CurrentTrack))
             {
@@ -264,7 +264,7 @@ namespace Kan.Forge.Play
                 case MicCalibrator.Phase.Done:
                     var r = calibrator.Result!.Value;
                     double raw = Math.Round(r.DelayMs);
-                    // No device hears early (owner 2026-10-19): below 0 is the player ahead of the clicks.
+                    // No device hears early: below 0 is the player ahead of the clicks.
                     double measured = Math.Max(0, raw);
                     double off = measured - Math.Round(currentDelayMs);
 

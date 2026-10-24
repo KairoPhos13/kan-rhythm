@@ -26,7 +26,7 @@ namespace Kan.Forge.Editor
 {
     /// <summary>
     /// Waveform of a track — activity is visible before selecting anything
-    /// (owner 2026-10-13). One mirrored bar per analysis bucket, coloured by
+    ///. One mirrored bar per analysis bucket, coloured by
     /// the track's highlight; a pulsing skeleton while the analysis runs.
     ///
     /// Optional layers (the strip is meant to grow into a timeline cell):

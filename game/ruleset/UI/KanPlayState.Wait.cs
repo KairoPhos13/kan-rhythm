@@ -39,13 +39,13 @@ namespace Kan.Ruleset.UI
         /// Where the level picks up once the waited note is played (gameplay
         /// ms): the note's start plus the detection's moment. The sound held
         /// while waiting is the music at this point, so the song re-engages
-        /// from exactly what was being held (owner 2026-10-15).
+        /// from exactly what was being held.
         /// </summary>
         public double WaitResumeTime { get; private set; }
 
         /// <summary>
         /// Wait mode: the level runs this far past a note before it stops
-        /// (owner 2026-10-15). A note played on time is heard within it, so
+        ///. A note played on time is heard within it, so
         /// the level never stutters for the detection's own delay.
         /// </summary>
         public const double WAIT_GRACE_MS = 200;
@@ -93,7 +93,7 @@ namespace Kan.Ruleset.UI
 
             // The next note to wait for, in order: skip notes already decided or heard.
             // A note missed for a wrong try is still waited for: the miss is the
-            // penalty, finding the right note is still the walk (owner 2026-10-17).
+            // penalty, finding the right note is still the walk.
             while (nextWait < Notes.Count && (Verdicts[Notes[nextWait].Index] != null && !wrongTry.ContainsKey(Notes[nextWait].Index) || Notes[nextWait].StartTime <= now
                                                                                      && heard(Notes[nextWait])))
                 nextWait++;
@@ -189,7 +189,7 @@ namespace Kan.Ruleset.UI
                 // A wrong note — its confirmed pitch only, a gentle mod forgives a
                 // provisional slip; an octave off is the detector's, not the
                 // player's, and the previous note still sounding is a learner's
-                // lag, not a try (owner 2026-10-17).
+                // lag, not a try.
                 if (f.Kind == KanFactKind.PitchFinal && LiveJudge.IsWrongTry(played, n.Midi, ExpectedAround(n)) && isTryAt(f, n))
                     noteWrongTry(n, played, onsetOf.GetValueOrDefault(f.Index, clockMs));
 

@@ -66,7 +66,7 @@ namespace Kan.Ruleset.UI
         private const double trail_ms = 2200;
 
         private static readonly Color4 unknown_colour = Color4Extensions.FromHex(@"8a8a99");
-        // Three grades (owner 2026-10-21): perfect white, radiating faint gold
+        // Three grades: perfect white, radiating faint gold
         // (it was orchid, and before that a near-white that read like the old
         // lilac meh), good green, meh grey. White is "right": a played note's
         // ring is white when its timing was perfect, its inside white when its
@@ -393,7 +393,7 @@ namespace Kan.Ruleset.UI
                 float fadeOut = Math.Clamp((x - (nowX - 160)) / 160f, 0, 1);
                 float alpha = fadeIn * fadeOut * presence;
 
-                // The beats and their parts as shorter lines, centred on the staff (owner 2026-10-22).
+                // The beats and their parts as shorter lines, centred on the staff.
                 float length = tick.Kind switch
                 {
                     Kan.Core.Score.Bars.TickKind.Bar => full,

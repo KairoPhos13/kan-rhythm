@@ -31,7 +31,7 @@ using Kan.Forge.Editor.Compose;
 namespace Kan.Forge.Editor.Design
 {
     /// <summary>
-    /// kan!'s design tab (owner 2026-10-15, fork F-15): how the level looks
+    /// kan!'s design tab (fork F-15): how the level looks
     /// and rewards, stretch by stretch. A timeline of sections over the
     /// notes (drag a boundary to move it, click to select and seek), the
     /// selected section's settings (what it is, climax, what a rest shows,

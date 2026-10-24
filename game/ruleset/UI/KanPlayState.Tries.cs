@@ -97,7 +97,7 @@ namespace Kan.Ruleset.UI
         /// <summary>
         /// Wait mode: a wrong pitch held since an attack made for the note is a
         /// wrong try, without waiting for libkan's final pitch — that comes
-        /// when the note ends, i.e. when the right note is found (owner 2026-10-17).
+        /// when the note ends, i.e. when the right note is found.
         /// </summary>
         private void trackWrongPitch(KanHitObject n, KanReplayFrame f)
         {

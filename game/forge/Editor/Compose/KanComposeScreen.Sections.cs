@@ -285,7 +285,7 @@ namespace Kan.Forge.Editor.Compose
                }));
         }
 
-        // Validation export (owner 2026-10-14)
+        // Validation export
         // ------------------------------------------------------------------
 
         // Section tools: record with the mic, re-transcribe from the reference

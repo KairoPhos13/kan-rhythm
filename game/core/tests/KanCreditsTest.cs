@@ -6,7 +6,7 @@ using Kan.Core.Score;
 
 namespace Kan.Core.Tests
 {
-    /// <summary>Cover credits stored in the level (owner 2026-10-14).</summary>
+    /// <summary>Cover credits stored in the level.</summary>
     [TestFixture]
     public class KanCreditsTest
     {

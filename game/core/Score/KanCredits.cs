@@ -10,7 +10,7 @@ using System.Text.Json.Serialization;
 namespace Kan.Core.Score
 {
     /// <summary>
-    /// Who made the cover a level is built on (owner 2026-10-14): levels
+    /// Who made the cover a level is built on: levels
     /// often come from covers that people record for the love of it —
     /// sometimes together — and upload. The song's artist stays in the
     /// level's metadata; this credits the performers and links to their

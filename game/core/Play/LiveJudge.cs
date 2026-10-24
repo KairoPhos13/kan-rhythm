@@ -139,7 +139,7 @@ namespace Kan.Core.Play
         /// the other — in tune, exactly the timing windows. This is the good's
         /// budget (cents); the perfect's is <see cref="PERFECT_PITCH_SHARE"/> of it, and any pitch within
         /// <see cref="ACCEPT_CENTS"/> is the note, at least a meh. The Easy
-        /// mod widens it (owner 2026-10-15). Pitches are read after the
+        /// mod widens it. Pitches are read after the
         /// instrument's learned tuning is taken off (any instrument plays fair).
         /// </summary>
         public double PitchToleranceCents { get; set; } = 50;
@@ -216,7 +216,7 @@ namespace Kan.Core.Play
             meh = WindowMs(LiveResult.Meh, paceMs) * WindowScale;
 
             // No window reaches past halfway to the next note or back to the
-            // previous one (owner 2026-10-21): a skipped note cannot take its
+            // previous one: a skipped note cannot take its
             // neighbour's breath, and a missed one is told before the next comes.
             earlyReach = (startMs - prevStartMs) / 2;
             lateReach = (nextStartMs - startMs) / 2;
@@ -226,7 +226,7 @@ namespace Kan.Core.Play
         /// Whether an attack <paramref name="offsetMs"/> from a note's start
         /// is within its perfect window, as <see cref="Judge"/> would grade it
         /// (the pace's share, this judge's scale, narrowed by the neighbours).
-        /// Leaves the judge as it was: for showing the window (owner 2026-10-22).
+        /// Leaves the judge as it was: for showing the window.
         /// </summary>
         public bool WithinPerfect(double offsetMs, double paceMs, double startMs, double prevStartMs = double.NegativeInfinity, double nextStartMs = double.PositiveInfinity)
         {
@@ -257,7 +257,7 @@ namespace Kan.Core.Play
         /// A wrong pitch held this many readings in a row (10 ms each) is
         /// confirmed. libkan's final pitch comes only when a note ends — for a
         /// wrong note held until the right one is found, at the very moment of
-        /// finding it (owner 2026-10-17) — so the readings confirm it sooner.
+        /// finding it — so the readings confirm it sooner.
         /// </summary>
         public const int WRONG_HOLD_READINGS = 15;
 
@@ -276,7 +276,7 @@ namespace Kan.Core.Play
 
         /// <summary>
         /// Whether a played pitch is a wrong try at <paramref name="midi"/>,
-        /// not one of the ones a learner forgives (owner 2026-10-17): the note
+        /// not one of the ones a learner forgives: the note
         /// an octave off (the detector's slip, not the player's), or a note
         /// the score expects around it — the previous note still sounding
         /// (a typical learner's lag), a chord's other notes, the next note

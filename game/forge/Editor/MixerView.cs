@@ -323,16 +323,7 @@ namespace Kan.Forge.Editor
         {
             base.Update();
 
-            ForgeTrack[] tracks;
-
-            try
-            {
-                tracks = set.Tracks.ToArray().Where(t => t != null).ToArray();
-            }
-            catch
-            {
-                return;
-            }
+            var tracks = set.Tracks.ToArray();
 
             string order = string.Join(',', tracks.Select(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode));
 

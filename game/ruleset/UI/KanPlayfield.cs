@@ -187,7 +187,7 @@ namespace Kan.Ruleset.UI
             background.Colour = ColourInfo.GradientVertical(Interpolation.ValueAt(lit, scene.BackgroundDark, scene.BackgroundLit, 0, 1), scene.BackgroundDark);
 
             // A level with a picture (or video): the palette becomes a veil over it,
-            // thinner as the player plays well and in rests (owner 2026-10-15).
+            // thinner as the player plays well and in rests.
             if (hasPicture)
             {
                 float shown = Math.Clamp(scene.Design.Picture + 0.2f * (float)lit + 0.25f * scene.Rest, 0, 1);

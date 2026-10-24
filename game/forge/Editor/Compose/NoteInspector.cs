@@ -277,7 +277,7 @@ namespace Kan.Forge.Editor.Compose
             return text;
         }
 
-        /// <summary>Playing styles named with a short meaning (owner 2026-10-14).</summary>
+        /// <summary>Playing styles named with a short meaning.</summary>
         private partial class ArticulationDropdown : FormDropdown<Articulation>
         {
             public ArticulationDropdown()

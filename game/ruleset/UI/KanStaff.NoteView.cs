@@ -124,7 +124,7 @@ namespace Kan.Ruleset.UI
                             flash = new Circle { RelativeSizeAxes = Axes.Both, Colour = Color4.White, Alpha = 0 },
                         },
                     },
-                    // White names, readable on every colour (owner 2026-10-15).
+                    // White names, readable on every colour.
                     name = new OsuSpriteText
                     {
                         Origin = Anchor.Centre,

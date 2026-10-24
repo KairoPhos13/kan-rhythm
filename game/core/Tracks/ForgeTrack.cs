@@ -33,7 +33,7 @@ namespace Kan.Core.Tracks
         /// <summary>File path of the track's audio.</summary>
         public string Path;
 
-        /// <summary>Highest gain: +20 dB (owner 2026-10-14).</summary>
+        /// <summary>Highest gain: +20 dB.</summary>
         public const float MAX_GAIN = 10f;
 
         /// <summary>Linear gain, 0..<see cref="MAX_GAIN"/> (render and playback).</summary>
@@ -216,6 +216,11 @@ namespace Kan.Core.Tracks
     /// </summary>
     public class ForgeTrackSet
     {
+        /// <summary>
+        /// The tracks, in the order shown. Changed only on the game's update
+        /// thread: background jobs (demux, transcription, render) hand their
+        /// results to it (the UI reads the set every frame).
+        /// </summary>
         public List<ForgeTrack> Tracks { get; } = new();
 
         /// <summary>
@@ -260,7 +265,7 @@ namespace Kan.Core.Tracks
         /// <summary>
         /// Import any audio the user has (reference take, stems, extras…).
         /// Returns <see langword="null"/> when the same file is already in
-        /// the set — a track is never added twice (owner 2026-10-13).
+        /// the set — a track is never added twice.
         /// </summary>
         public ForgeTrack? Import(string name, string path)
         {

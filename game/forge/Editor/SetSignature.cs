@@ -42,18 +42,7 @@ namespace Kan.Forge.Editor
     {
         public static SetSignature Of(ForgeTrackSet set, Func<ForgeTrack, string>? extra = null)
         {
-            // The demux worker adds stems from its own thread: snapshot first
-            // (List.ToArray never throws on concurrent modification).
-            ForgeTrack[] tracks;
-
-            try
-            {
-                tracks = set.Tracks.ToArray();
-            }
-            catch
-            {
-                return new SetSignature(@"?", @"?");
-            }
+            var tracks = set.Tracks.ToArray();
 
             var order = new StringBuilder();
             var state = new StringBuilder();

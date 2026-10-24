@@ -24,7 +24,7 @@ namespace Kan.Ruleset.Replays
 
         /// <summary>
         /// The play's recording (<see cref="Kan.Core.Play.PlayTake"/>): <see cref="KanReplayFrame.Index"/>
-        /// is its id, so the replay finds what the player played (owner 2026-10-22).
+        /// is its id, so the replay finds what the player played.
         /// </summary>
         Take = 7,
     }

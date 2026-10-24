@@ -34,7 +34,7 @@ namespace Kan.Forge.Editor.Compose
     }
 
     /// <summary>
-    /// The score as a piano roll (owner 2026-10-14): time across, pitch up.
+    /// The score as a piano roll: time across, pitch up.
     /// Notes snap to the timing tab's beat grid (hold Shift for free
     /// placement). Select tool: click / Ctrl+click / drag a box to select,
     /// drag notes to move them together in time and pitch, drag a note's

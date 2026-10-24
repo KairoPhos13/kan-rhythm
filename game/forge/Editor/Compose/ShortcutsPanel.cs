@@ -13,7 +13,7 @@ using osuTK;
 namespace Kan.Forge.Editor.Compose
 {
     /// <summary>
-    /// The compose tab's keyboard shortcuts (owner 2026-10-14), shown over
+    /// The compose tab's keyboard shortcuts, shown over
     /// the piano roll with the "keys" button or the K key.
     /// </summary>
     internal partial class ShortcutsPanel : VisibilityContainer

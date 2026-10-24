@@ -20,7 +20,7 @@ using Kan.Core.Score;
 namespace Kan.Forge.Editor.Compose
 {
     /// <summary>
-    /// Keep a pitch range (owner 2026-10-14): e.g. a level for a piano's
+    /// Keep a pitch range: e.g. a level for a piano's
     /// right hand keeps G4–A8 and drops the rest; the removed notes stay
     /// listed by pitch so the keys that belong to the hand can be added back.
     /// </summary>
