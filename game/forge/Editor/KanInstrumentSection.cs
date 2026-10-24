@@ -40,9 +40,7 @@ namespace Kan.Forge.Editor
         [BackgroundDependencyLoader]
         private void load()
         {
-            string key = working.Value.BeatmapSetInfo.ID.ToString("N");
-            ForgeTrackSession.Open(storage.GetFullPath(@"kan-forge"), key);
-            ScoreSession.Open(working.Value, key);
+            LevelSession.Open(storage, working.Value);
             saved = ScoreSession.Score.Instrument;
 
             Children = new Drawable[]

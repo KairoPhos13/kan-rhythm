@@ -136,13 +136,6 @@ namespace Kan.Forge.Editor.Compose
                 return;
             }
 
-            // The design follows the edit when it is open; open it so it does.
-            if (Kan.Forge.Editor.Design.DesignSession.LevelKey != ScoreSession.LevelKey && ScoreSession.LevelKey != null)
-            {
-                double length = working.Value.TrackLoaded ? working.Value.Track.Length : 0;
-                Kan.Forge.Editor.Design.DesignSession.Open(working.Value, ScoreSession.LevelKey, ScoreSession.Score.Notes, length);
-            }
-
             var setEdit = edit.Shifted(set.AudioStartMs);
             var jobs = set.Tracks.Select(t => (t, ForgeTrackSession.NewWorkPath(@"repaired"))).ToList();
 

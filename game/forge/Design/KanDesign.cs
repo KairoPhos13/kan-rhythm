@@ -128,7 +128,7 @@ namespace Kan.Forge.Design
     /// inside the level (<see cref="FILE_NAME"/>); a level without one gets
     /// <see cref="AutoDesign"/> from its notes, so it looks right untouched.
     /// </summary>
-    public class KanDesign
+    public class KanDesign : ILevelDocument
     {
         public const int VERSION = 2;
 

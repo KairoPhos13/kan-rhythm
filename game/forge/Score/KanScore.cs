@@ -81,7 +81,7 @@ namespace Kan.Forge.Score
     /// duration. Every editing operation of the compose tab lives here so it
     /// is testable without the UI.
     /// </summary>
-    public class KanScore
+    public class KanScore : ILevelDocument
     {
         public const int VERSION = 1;
 

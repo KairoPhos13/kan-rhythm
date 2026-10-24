@@ -54,7 +54,7 @@ namespace Kan.Ruleset.Beatmaps
             var inLevel = readLevelFile(set, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json) : null;
             var autosaved = loadAutosave(set, @"score.json", KanScore.Load);
 
-            return autosaved != null && (inLevel == null || autosaved.SavedAtUtc > inLevel.SavedAtUtc) ? autosaved : inLevel;
+            return Kan.Forge.LevelDocument.Newer(inLevel, autosaved);
         }
 
         /// <summary>
@@ -69,7 +69,7 @@ namespace Kan.Ruleset.Beatmaps
             var inLevel = readLevelFile(set, KanDesign.FILE_NAME) is string json ? KanDesign.FromJson(json) : null;
             var autosaved = loadAutosave(set, @"design.json", KanDesign.Load);
 
-            return autosaved != null && (inLevel == null || autosaved.SavedAtUtc > inLevel.SavedAtUtc) ? autosaved : inLevel;
+            return Kan.Forge.LevelDocument.Newer(inLevel, autosaved);
         }
 
         /// <summary>The design to play: the level's, else one generated from its notes.</summary>

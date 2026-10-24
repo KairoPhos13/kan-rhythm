@@ -645,7 +645,7 @@ namespace Kan.Forge.Editor
         /// <summary>Load the open level's saved set (no-op if already open) and re-analyse what came back.</summary>
         private void openLevelSet()
         {
-            foreach (var track in ForgeTrackSession.Open(storage.GetFullPath(@"kan-forge"), working.Value.BeatmapSetInfo.ID.ToString("N")))
+            foreach (var track in LevelSession.Open(storage, working.Value))
                 analyzeLater(track);
         }
 

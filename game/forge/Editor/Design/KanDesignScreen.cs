@@ -76,7 +76,7 @@ namespace Kan.Forge.Editor.Design
         {
         }
 
-        private double levelLengthMs => working.Value.TrackLoaded && working.Value.Track.Length > 0 ? working.Value.Track.Length : 0;
+        private double levelLengthMs => LevelSession.LengthOf(working.Value);
 
         [BackgroundDependencyLoader]
         private void load(OverlayColourProvider colourProvider)
@@ -137,10 +137,7 @@ namespace Kan.Forge.Editor.Design
 
         private void open()
         {
-            string key = working.Value.BeatmapSetInfo.ID.ToString("N");
-            ForgeTrackSession.Open(storage.GetFullPath(@"kan-forge"), key);
-            ScoreSession.Open(working.Value, key);
-            DesignSession.Open(working.Value, key, ScoreSession.Score.Notes, levelLengthMs);
+            LevelSession.Open(storage, working.Value); // the design's automatic sections follow the notes as they are now
         }
 
         private static FillFlowContainer fields() => new FillFlowContainer

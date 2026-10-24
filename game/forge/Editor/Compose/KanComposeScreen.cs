@@ -92,10 +92,8 @@ namespace Kan.Forge.Editor.Compose
         [BackgroundDependencyLoader]
         private void load(OverlayColourProvider colourProvider)
         {
-            // The level's track set (for the transcription) and its score.
-            string key = working.Value.BeatmapSetInfo.ID.ToString("N");
-            ForgeTrackSession.Open(storage.GetFullPath(@"kan-forge"), key);
-            ScoreSession.Open(working.Value, key);
+            // The level's track set (for the transcription), its score and design.
+            LevelSession.Open(storage, working.Value);
 
             roll = new PianoRoll
             {

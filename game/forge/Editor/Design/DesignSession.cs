@@ -47,12 +47,10 @@ namespace Kan.Forge.Editor.Design
                 undo.Clear();
                 redo.Clear();
 
-                var inLevel = loadFromLevel(working);
+                var inLevel = LevelFile.Read(working, KanDesign.FILE_NAME) is string json ? KanDesign.FromJson(json) : null;
                 var autosaved = KanDesign.Load(autosavePath);
 
-                Design = autosaved != null && (inLevel == null || autosaved.SavedAtUtc > inLevel.SavedAtUtc)
-                    ? autosaved
-                    : inLevel ?? AutoDesign.Generate(notes, levelLengthMs);
+                Design = LevelDocument.Newer(inLevel, autosaved) ?? AutoDesign.Generate(notes, levelLengthMs);
 
                 savedToLevel = inLevel?.ContentKey();
             }
@@ -123,39 +121,12 @@ namespace Kan.Forge.Editor.Design
         {
             if (LevelKey == null) return null;
 
-            try
-            {
-                string json = Design.ToJsonStamped();
-                using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(json)))
-                    beatmaps.AddFile(working.BeatmapSetInfo, stream, KanDesign.FILE_NAME);
+            string? error = LevelFile.Write(working, beatmaps, KanDesign.FILE_NAME, Design.ToJsonStamped());
+            if (error != null) return error;
 
-                savedToLevel = Design.ContentKey();
-                AutoSave();
-                return null;
-            }
-            catch (Exception e)
-            {
-                return e.Message;
-            }
-        }
-
-        private static KanDesign? loadFromLevel(WorkingBeatmap working)
-        {
-            try
-            {
-                var file = working.BeatmapSetInfo.GetFile(KanDesign.FILE_NAME);
-                if (file == null) return null;
-
-                using var stream = working.GetStream(file.File.GetStoragePath());
-                if (stream == null) return null;
-
-                using var reader = new StreamReader(stream);
-                return KanDesign.FromJson(reader.ReadToEnd());
-            }
-            catch
-            {
-                return null;
-            }
+            savedToLevel = Design.ContentKey();
+            AutoSave();
+            return null;
         }
     }
 }

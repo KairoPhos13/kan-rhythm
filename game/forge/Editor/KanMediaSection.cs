@@ -84,7 +84,7 @@ namespace Kan.Forge.Editor
         private void loadKan()
         {
             // The level's saved set (no-op if the track tab opened it first).
-            foreach (var track in ForgeTrackSession.Open(storage.GetFullPath(@"kan-forge"), working.Value.BeatmapSetInfo.ID.ToString("N")))
+            foreach (var track in LevelSession.Open(storage, working.Value))
                 analyzeLater(track);
 
             // The stock rows (background, video, audio, samples) are already

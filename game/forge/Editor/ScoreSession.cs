@@ -40,12 +40,10 @@ namespace Kan.Forge.Editor
             History.Clear();
             sameNotes.Clear();
 
-            var inLevel = loadFromLevel(working);
+            var inLevel = LevelFile.Read(working, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json) : null;
             var autosaved = KanScore.Load(autosavePath);
 
-            Score = autosaved != null && (inLevel == null || autosaved.SavedAtUtc > inLevel.SavedAtUtc)
-                ? autosaved
-                : inLevel ?? new KanScore();
+            Score = LevelDocument.Newer(inLevel, autosaved) ?? new KanScore();
 
             savedToLevel = inLevel?.ContentKey();
 
@@ -119,39 +117,12 @@ namespace Kan.Forge.Editor
         {
             if (LevelKey == null) return null;
 
-            try
-            {
-                string json = Score.ToJsonStamped();
-                using (var stream = new MemoryStream(Encoding.UTF8.GetBytes(json)))
-                    beatmaps.AddFile(working.BeatmapSetInfo, stream, KanScore.FILE_NAME);
+            string? error = LevelFile.Write(working, beatmaps, KanScore.FILE_NAME, Score.ToJsonStamped());
+            if (error != null) return error;
 
-                savedToLevel = Score.ContentKey();
-                AutoSave();
-                return null;
-            }
-            catch (Exception e)
-            {
-                return e.Message;
-            }
-        }
-
-        private static KanScore? loadFromLevel(WorkingBeatmap working)
-        {
-            try
-            {
-                var file = working.BeatmapSetInfo.GetFile(KanScore.FILE_NAME);
-                if (file == null) return null;
-
-                using var stream = working.GetStream(file.File.GetStoragePath());
-                if (stream == null) return null;
-
-                using var reader = new StreamReader(stream);
-                return KanScore.FromJson(reader.ReadToEnd());
-            }
-            catch
-            {
-                return null;
-            }
+            savedToLevel = Score.ContentKey();
+            AutoSave();
+            return null;
         }
     }
 }
