@@ -32,7 +32,7 @@ namespace Kan.Ruleset.Dev
     /// player goes through; owner 2026-10-15: it crashed there).
     /// KAN_DEV_MODS="HT,NF" plays with those mods (acronyms);
     /// KAN_DEV_SCREEN=replay plays back the level's newest local score;
-    /// KAN_DEV_SCREEN=design / setup / compose opens the editor on that tab;
+    /// KAN_DEV_SCREEN=design / setup / compose / tracks opens the editor on that tab;
     /// KAN_DEV_REPAIR="insert:10000:500;undo;cut:2000-3000" runs timeline
     /// repairs in compose, one every 12 s (stretch:from-to:length, redo too);
     /// KAN_DEV_PAUSE=12 pauses 12 s in and continues 2 s later;
@@ -173,7 +173,7 @@ namespace Kan.Ruleset.Dev
                 return;
             }
 
-            if (Environment.GetEnvironmentVariable(SCREEN_ENV) is @"design" or @"setup" or @"compose")
+            if (Environment.GetEnvironmentVariable(SCREEN_ENV) is @"design" or @"setup" or @"compose" or @"tracks")
             {
                 // The editor on its design tab (the level's design, owner 2026-10-15).
                 game.PerformFromScreen(s => s.Push(new osu.Game.Screens.Edit.EditorLoader()), new[] { typeof(MainMenu) });
@@ -383,8 +383,10 @@ namespace Kan.Ruleset.Dev
             {
                 bool setup = Environment.GetEnvironmentVariable(SCREEN_ENV) == @"setup";
                 bool compose = Environment.GetEnvironmentVariable(SCREEN_ENV) == @"compose";
+                bool tracks = Environment.GetEnvironmentVariable(SCREEN_ENV) == @"tracks";
                 editor.Mode.Value = setup ? osu.Game.Screens.Edit.EditorScreenMode.SongSetup
                     : compose ? osu.Game.Screens.Edit.EditorScreenMode.Compose
+                    : tracks ? osu.Game.Screens.Edit.EditorScreenMode.Tracks
                     : osu.Game.Screens.Edit.EditorScreenMode.Design;
                 Logger.Log($"kan! dev play: editor on the {editor.Mode.Value} tab", level: LogLevel.Important);
 
