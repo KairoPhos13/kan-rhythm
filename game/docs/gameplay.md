@@ -263,10 +263,11 @@ Mods that need nothing from the level editor:
 
 | mod | what it does in kan! |
 |---|---|
-| Easy / Hard Rock | timing windows ×1.4 / ×0.7 (`LiveJudge.WindowScale`); Easy also accepts a note up to 75 cents out of tune instead of 50 (`LiveJudge.PitchToleranceCents`; a 65-cent-sharp player: 47 great + 3 meh of 50 on Easy, all wrong without it). Since 2026-10-22 these are the good's pitch budget, the perfect's half of it (see time × pitch above) |
+| Easy / Hard Rock | timing windows ×1.4 / ×0.7 (`LiveJudge.WindowScale`); Easy also accepts a note up to 75 cents out of tune instead of 50 (`LiveJudge.PitchToleranceCents`; a 65-cent-sharp player: 47 great + 3 meh of 50 on Easy, all wrong without it). Since 2026-10-22 these are the good's pitch budget, the perfect's 0.7 of it (see time × pitch above) |
 | No Fail, Sudden Death, Perfect | as in osu! |
 | Half Time / Daycore, Double Time / Nightcore | the level slower or faster, same notes (pitch kept): practise at 75 % or 90 % |
 | Hidden | notes fade out on the way to the line (gone 300 ms before it) |
+| By heart (BH) | each note shows only for a moment as it comes into view (500 ms by default, the mod's "Seen for" setting, 150–2000 ms), then is gone until played; no next-note marker; score ×1.12, ranked at 500 ms or less (ranked mods are otherwise only at their defaults, as in osu!), not with Hidden (owner 2026-10-23: Hidden showed them how much better they play by ear, "but to learn the songs I need to see the notes less — to play them practically from memory") |
 | Wait for me (WT) | the level waits at each note until it is played — a gentle walk for learning (see below); score ×0.02, cannot fail |
 | Auto / Cinema | a perfect performance, played as a replay, and heard: the reference take when it is on this computer, else the notes as tones — one of the two, never both (owner 2026-10-15; `AutoplayPart`, shared with the song select preview as `LevelPart`) |
 | Muted | as in osu! |
@@ -635,7 +636,14 @@ section on now, the palette in force — eased between sections over
 - **Size:** the staff (and the wait overlay) is designed for a 900-pixel
   high screen and scaled to the real one, times Settings → kan! → Note
   size (120 % by default; owner 2026-10-15: "on a 2K screen I can barely
-  see it"). The time shown ahead stays the same at any size.
+  see it"). The time shown ahead does not depend on the size.
+- **The staff zooms to the notes** (owner 2026-10-23: "the shorter the
+  notes, the wider the horizontal scale … the more they are squeezed, the
+  harder they are to play right"). The time shown ahead is about five
+  notes at the shortest pace coming in the next 3.2 s (`KanHitObject.PaceMs`),
+  between 1.6 and 3.2 s, eased over ~0.8 s: fast passages come in
+  wider, slow ones as before. The owner's level: 2.3 s for its notes
+  461 ms apart, 3.2 s for its long ones.
 - Everything is drawn from fixed pools, so any length of score costs the
   same per frame.
 

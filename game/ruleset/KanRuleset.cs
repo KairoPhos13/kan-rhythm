@@ -108,6 +108,7 @@ namespace Kan.Ruleset
                 new MultiMod(new Kan.Ruleset.Mods.KanModSuddenDeath(), new Kan.Ruleset.Mods.KanModPerfect()),
                 new MultiMod(new Kan.Ruleset.Mods.KanModDoubleTime(), new Kan.Ruleset.Mods.KanModNightcore()),
                 new Kan.Ruleset.Mods.KanModHidden(),
+                new Kan.Ruleset.Mods.KanModByHeart(),
             },
             ModType.Automation => new Mod[] { new MultiMod(new Kan.Ruleset.Mods.KanModAutoplay(), new Kan.Ruleset.Mods.KanModCinema()) },
             ModType.Fun => new Mod[] { new Kan.Ruleset.Mods.KanModMuted() },

@@ -192,6 +192,21 @@ namespace Kan.Forge.Tests
         private static GridPoint[] grid(params (double time, double beat)[] points) => points.Select(p => new GridPoint { TimeMs = p.time, BeatMs = p.beat }).ToArray();
 
         [Test]
+        public void ABeatCountedInAnotherNoteValueMovesNothing()
+        {
+            // Owner 2026-10-23: 130 → 32.5 BPM, then undone to 65 elsewhere; played, the notes were squeezed to half.
+            var score = three();
+            double[] starts = score.Notes.Select(n => n.StartMs).ToArray();
+            score.FollowGrid(grid((698, 461.5), (2544, 434.8)));
+
+            Assert.That(score.FollowGrid(grid((698, 1846), (2544, 1739.2))), Is.False, "×4");
+            Assert.That(score.FollowGrid(grid((698, 923), (2544, 869.6))), Is.False, "½");
+            Assert.That(score.Notes.Select(n => n.StartMs), Is.EqualTo(starts));
+
+            Assert.That(score.FollowGrid(grid((698, 900), (2544, 869.6))), Is.True, "a real tempo change still moves them");
+        }
+
+        [Test]
         public void NotesFollowTheTempoGrid()
         {
             // Owner 2026-10-22: timing changes did not reach compose.

@@ -79,6 +79,7 @@ namespace Kan.Ruleset.UI
                 // While practising, W decides (it starts from the selected mods).
                 WaitForPlayer = practiceOptions?.Wait ?? Mods.Any(m => m is Kan.Ruleset.Mods.KanModWait),
                 HideNotes = Mods.Any(m => m is Kan.Ruleset.Mods.KanModHidden),
+                SeenForMs = Mods.OfType<Kan.Ruleset.Mods.KanModByHeart>().FirstOrDefault()?.SeenForMs.Value,
                 // Listening while practising: the part played for the player, as autoplay does.
                 ReplaySource = listening ? () => listen ??= Kan.Ruleset.Mods.KanModAutoplay.Generate(notes) : () => ReplayScore?.Replay,
             };

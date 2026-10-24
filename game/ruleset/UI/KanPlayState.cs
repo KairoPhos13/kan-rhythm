@@ -75,6 +75,9 @@ namespace Kan.Ruleset.UI
         /// <summary>"Hidden": notes fade out before they reach the line.</summary>
         public bool HideNotes { get; init; }
 
+        /// <summary>"By heart": how long (ms) a note shows as it comes into view; null = as long as it is in view.</summary>
+        public double? SeenForMs { get; init; }
+
         /// <summary>The level's design (sections, palette, effects): the level's own, or generated from its notes.</summary>
         public Kan.Forge.Design.KanDesign Design { get; init; } = new Kan.Forge.Design.KanDesign();
 

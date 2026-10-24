@@ -42,7 +42,18 @@ namespace Kan.Ruleset.UI
     public partial class KanStaff : CompositeDrawable
     {
         private const float now_fraction = 0.22f;
-        private const double ahead_ms = 3200; // time shown to the right of the line
+        /// <summary>
+        /// Time shown to the right of the line: about <see cref="notes_ahead"/>
+        /// notes at the pace of what comes, within these bounds (owner
+        /// 2026-10-23: "the shorter the notes, the wider the horizontal scale:
+        /// the more they are squeezed, the harder they are to play right").
+        /// </summary>
+        private const double max_ahead_ms = 3200, min_ahead_ms = 1600;
+
+        private const double notes_ahead = 5;
+
+        /// <summary>The time shown to the right of the line now (eased toward the pace of what comes).</summary>
+        private double ahead = max_ahead_ms;
         private const double approach_ms = 900;
         private const float head = 36;
         private const float tail_height = 12;
@@ -221,7 +232,7 @@ namespace Kan.Ruleset.UI
 
         public KanScene Scene => scene;
 
-        private float speed => (float)(DrawWidth * (1 - now_fraction) / ahead_ms);
+        private float speed => (float)(DrawWidth * (1 - now_fraction) / ahead);
 
         private float xAt(double timeMs, double now) => nowX + (float)(timeMs - now) * speed;
 
@@ -242,6 +253,7 @@ namespace Kan.Ruleset.UI
             double now = displayNow = state.DisplayTime(Clock.CurrentTime, Time.Elapsed);
 
             followRange(now);
+            followPace(now);
             drawLines();
             drawBars(now);
             trackHolding(now);
@@ -280,6 +292,24 @@ namespace Kan.Ruleset.UI
 
             if (!double.IsFinite(lo) || !double.IsFinite(hi) || hi - lo < 1)
                 (lo, hi) = (targetLo, targetHi);
+        }
+
+        /// <summary>The time shown ahead follows the shortest pace coming (the notes' <see cref="KanHitObject.PaceMs"/>), eased so the staff zooms smoothly.</summary>
+        private void followPace(double now)
+        {
+            double pace = double.PositiveInfinity;
+
+            for (int i = firstVisible; i < notes.Count && notes[i].StartTime < now + max_ahead_ms; i++)
+            {
+                if (notes[i].StartTime >= now - 200 && notes[i].PaceMs > 0)
+                    pace = Math.Min(pace, notes[i].PaceMs);
+            }
+
+            double target = double.IsPositiveInfinity(pace) ? max_ahead_ms : Math.Clamp(pace * notes_ahead, min_ahead_ms, max_ahead_ms);
+            double k = Math.Min(1, Math.Abs(Time.Elapsed) / 800);
+
+            ahead += (target - ahead) * k;
+            if (!double.IsFinite(ahead)) ahead = target;
         }
 
         private void drawLines()
@@ -333,7 +363,7 @@ namespace Kan.Ruleset.UI
         private void drawBars(double now)
         {
             var ticks = state.Ticks;
-            double from = now - nowX / speed, until = now + ahead_ms;
+            double from = now - nowX / speed, until = now + ahead;
 
             // The time only moves forward in a play; a seek back starts the search again.
             if (firstBar >= ticks.Count || (firstBar > 0 && ticks[firstBar - 1].TimeMs >= from)) firstBar = 0;
@@ -436,7 +466,7 @@ namespace Kan.Ruleset.UI
         private void drawNotes(double now)
         {
             double from = now - nowX / speed - 200; // what has scrolled off to the left
-            double to = now + ahead_ms + 200;
+            double to = now + ahead + 200;
 
             // A replay rewound: the notes behind come back (owner 2026-10-22: they never did).
             if (now < lastDrawnMs - 1) firstVisible = 0;
@@ -481,13 +511,17 @@ namespace Kan.Ruleset.UI
                 // "Hidden": a note fades out on its way to the line (gone 300 ms before it).
                 if (state.HideNotes && state.Verdicts[i] == null)
                     view.Alpha *= (float)Math.Clamp((n.StartTime - now - 300) / 500, 0, 1);
+
+                // "By heart": a note shows only for a moment as it comes into view (the last 150 ms of it fading).
+                if (state.SeenForMs is { } seen && state.Verdicts[i] == null)
+                    view.Alpha *= (float)Math.Clamp((n.StartTime - now - (ahead - seen)) / Math.Min(150, seen), 0, 1);
             }
 
             for (int i = used; i < note_pool; i++)
                 views[i].Alpha = 0;
 
             // Where the next note will cross the line, marked on the line itself.
-            if (next >= 0 && !state.HideNotes)
+            if (next >= 0 && !state.HideNotes && state.SeenForMs == null)
             {
                 nextMarker.Point(nowX - head / 2 - 6, yAt(notes[next].Midi), notes[next], notes[next].StartTime - now, scene.NoteLight);
                 pointTarget(now, next);

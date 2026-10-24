@@ -66,6 +66,8 @@ namespace Kan.Ruleset.Mods
     {
         public override LocalisableString Description => @"Notes fade out before they reach the line.";
 
+        public override System.Type[] IncompatibleMods => base.IncompatibleMods.Append(typeof(KanModByHeart)).ToArray();
+
         // The staff draws every note (KanStaff, KanPlayState.HideNotes); the
         // judging objects draw nothing.
         protected override void ApplyIncreasedVisibilityState(osu.Game.Rulesets.Objects.Drawables.DrawableHitObject hitObject, osu.Game.Rulesets.Objects.Drawables.ArmedState state)
@@ -75,6 +77,34 @@ namespace Kan.Ruleset.Mods
         protected override void ApplyNormalVisibilityState(osu.Game.Rulesets.Objects.Drawables.DrawableHitObject hitObject, osu.Game.Rulesets.Objects.Drawables.ArmedState state)
         {
         }
+    }
+
+    /// <summary>
+    /// "By heart" (owner 2026-10-23: hidden showed them how much better they
+    /// play by ear, "but to learn the songs I need to see the notes less —
+    /// to play them practically from memory"): each note shows only for a
+    /// moment as it comes into view, then is gone until it is played. How
+    /// long it shows is the player's, to shorten as the song is learnt.
+    /// </summary>
+    public class KanModByHeart : Mod, IApplicableMod // read by the staff (KanDrawableRuleset), as Hidden is
+    {
+        public override string Name => @"By heart";
+        public override string Acronym => @"BH";
+        public override LocalisableString Description => @"Each note shows only for a moment as it comes into view: play the song by heart.";
+        public override ModType Type => ModType.DifficultyIncrease;
+        public override osu.Framework.Graphics.Sprites.IconUsage? Icon => osu.Framework.Graphics.Sprites.FontAwesome.Solid.Brain;
+        public override System.Type[] IncompatibleMods => new[] { typeof(KanModHidden) };
+
+        // Ranked as Hidden is, and also seen for less: shortening it as the song is learnt is the point.
+        public override bool Ranked => SeenForMs.Value <= SeenForMs.Default;
+
+        [osu.Game.Configuration.SettingSource("Seen for (ms)", "How long each note shows as it comes into view.")]
+        public osu.Framework.Bindables.BindableDouble SeenForMs { get; } = new osu.Framework.Bindables.BindableDouble(500)
+        {
+            MinValue = 150,
+            MaxValue = 2000,
+            Precision = 50,
+        };
     }
 
     /// <summary>Autoplay without the interface: listen to the level played perfectly.</summary>
@@ -137,6 +167,7 @@ namespace Kan.Ruleset.Mods
             Single<KanModEasy>(0.5);
             Single<KanModHardRock>(1.1);
             Single<KanModHidden>(1.06);
+            Single<KanModByHeart>(1.12);
         }
     }
 

@@ -150,7 +150,11 @@ namespace Kan.Forge.Score
             for (int i = 0; i < old.Count && same; i++)
                 same = old[i].TimeMs == grid[i].TimeMs && old[i].BeatMs == grid[i].BeatMs;
 
-            if (same) return false;
+            // The same music counted in another note value (every beat ×2, ×4, ½…:
+            // GridTempoBar.ScaleBeat, or that undone): nothing moves (owner
+            // 2026-10-23: a level put from 130 to 32.5 BPM, its timing undone
+            // to 65 elsewhere, played with its notes squeezed to half).
+            if (same || countedOtherwise(old, grid)) return false;
 
             bool moved = false;
 
@@ -173,6 +177,20 @@ namespace Kan.Forge.Score
 
             Sort();
             return moved;
+        }
+
+        /// <summary>Whether two grids have the same points with every beat a power of two of the other's.</summary>
+        private static bool countedOtherwise(IReadOnlyList<GridPoint> a, IReadOnlyList<GridPoint> b)
+        {
+            for (int i = 0; i < a.Count; i++)
+            {
+                if (Math.Abs(a[i].TimeMs - b[i].TimeMs) > 0.05 || a[i].BeatMs <= 0 || b[i].BeatMs <= 0) return false;
+
+                double power = Math.Log2(b[i].BeatMs / a[i].BeatMs);
+                if (Math.Abs(power - Math.Round(power)) > 1e-6) return false;
+            }
+
+            return true;
         }
 
         public void Sort() => Notes.Sort((a, b) => a.StartMs != b.StartMs ? a.StartMs.CompareTo(b.StartMs) : a.Midi.CompareTo(b.Midi));

@@ -447,6 +447,14 @@ cents), duration, intensity and playing style (normal / legato / staccato
   grids before and after are joined (`ScoreSession.GridChangeKeepsNotes`),
   and going between them — undo in the timing tab too — moves no note. The
   other tempo edits follow osu!'s option like the timing tab.
+  **The beat is ½ / ×2** (owner 2026-10-23: a level timed at 130 BPM in
+  quarters, whose pulse is whole notes) makes every beat half or twice as
+  long: the same music counted in another note value. Beats per bar and the
+  grid's division follow, so bars and lines stay put. A grid whose beats are
+  all a power of two of the score's, at the same points, never moves a note
+  (`KanScore.FollowGrid`), wherever it comes from — the tool, an undo in
+  another tab, a level played before compose saw it. That once squeezed a
+  level to half: put to 32.5 BPM, undone to 65 in the design tab, played.
 - **Repair the audio's timing** (owner 2026-10-22; section panel). When
   the recording itself drifts, the audio is brought to the grid: **insert
   silence at the playhead** (a part that came in early), **cut the section
