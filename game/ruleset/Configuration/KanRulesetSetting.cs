@@ -29,5 +29,8 @@ namespace Kan.Ruleset.Configuration
 
         /// <summary>Song select lists only the levels the player's instrument can play.</summary>
         OnlyPlayableLevels,
+
+        /// <summary>The staff zooms passage by passage (to the pace of what comes) instead of one scale for the whole level.</summary>
+        StaffFollowsPassage,
     }
 }

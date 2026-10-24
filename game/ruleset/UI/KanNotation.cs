@@ -138,6 +138,11 @@ namespace Kan.Ruleset.UI
                     DisplayAsPercentage = true,
                     Current = config.GetBindable<double>(KanRulesetSetting.NoteSize),
                 },
+                new PlayerCheckbox
+                {
+                    LabelText = @"Zoom passage by passage",
+                    Current = config.GetBindable<bool>(KanRulesetSetting.StaffFollowsPassage),
+                },
             };
 
             // A new instrument starts from its usual range (adjustable in the game's settings).

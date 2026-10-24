@@ -77,6 +77,12 @@ namespace Kan.Ruleset.UI
                 }),
                 new SettingsItemV2(new FormCheckBox
                 {
+                    Caption = @"Zoom the staff passage by passage",
+                    HintText = @"Fast passages come in wider and slow ones narrower, easing between them. Off: one scale for the whole level, set by its fast notes.",
+                    Current = config.GetBindable<bool>(KanRulesetSetting.StaffFollowsPassage),
+                }),
+                new SettingsItemV2(new FormCheckBox
+                {
                     Caption = @"Follow my instrument's tuning",
                     HintText = @"Learn how far your instrument sits from A440 while you play, so a slightly sharp or flat instrument still plays the right notes.",
                     Current = Kan.Forge.Tracks.ForgeTiming.AUTO_TUNING,

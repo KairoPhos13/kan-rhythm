@@ -32,6 +32,7 @@ namespace Kan.Ruleset.Configuration
             SetDefault(KanRulesetSetting.NoteNames, Kan.Ruleset.UI.KanNoteNames.Letters);
             SetDefault(KanRulesetSetting.ColourByNote, false);
             SetDefault(KanRulesetSetting.OnlyPlayableLevels, true);
+            SetDefault(KanRulesetSetting.StaffFollowsPassage, false);
         }
     }
 }

@@ -3,6 +3,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Extensions.Color4Extensions;
 using osu.Framework.Graphics;
@@ -45,16 +46,31 @@ namespace Kan.Ruleset.UI
         private const float now_fraction = 0.22f;
         /// <summary>
         /// Time shown to the right of the line: about <see cref="notes_ahead"/>
-        /// notes at the pace of what comes, within these bounds (owner
+        /// notes at the level's fast pace, within these bounds (owner
         /// 2026-10-23: "the shorter the notes, the wider the horizontal scale:
         /// the more they are squeezed, the harder they are to play right").
+        /// One scale for the whole level, set when it loads: a scale that
+        /// followed each passage "made me lose the sense of time" — yet
+        /// "someone may like it": it stays, as a setting (StaffFollowsPassage).
         /// </summary>
         private const double max_ahead_ms = 3200, min_ahead_ms = 1600;
 
         private const double notes_ahead = 5;
 
-        /// <summary>The time shown to the right of the line now (eased toward the pace of what comes).</summary>
-        private double ahead = max_ahead_ms;
+        /// <summary>The level's fast pace: the pace (<see cref="KanHitObject.PaceMs"/>) a tenth of its notes are quicker than, so one stray quick note does not set it.</summary>
+        private const double fast_pace_percentile = 0.1;
+
+        /// <summary>The time shown to the right of the line now.</summary>
+        private double ahead;
+
+        /// <summary>The whole level's scale (<see cref="aheadFor"/>).</summary>
+        private readonly double levelAhead;
+
+        // The player's choice (Settings → kan!): zoom passage by passage, as it was first.
+        [Resolved(CanBeNull = true)]
+        private Kan.Ruleset.Configuration.KanRulesetConfigManager? config { get; set; }
+
+        private osu.Framework.Bindables.IBindable<bool>? followsPassage;
         private const double approach_ms = 900;
         private const float head = 36;
         private const float tail_height = 12;
@@ -121,6 +137,9 @@ namespace Kan.Ruleset.UI
         /// <summary>When each note was judged (its pop or shudder plays from there); NaN = not yet.</summary>
         private readonly double[] judgedAt;
 
+        /// <summary>When each note came into view ("By heart" shows it for a moment from then); NaN until it does.</summary>
+        private readonly double[] shownSince;
+
         private readonly Container lines = new Container { RelativeSizeAxes = Axes.Both };
         private readonly Container noteLayer = new Container { RelativeSizeAxes = Axes.Both };
         private readonly Container trailLayer = new Container { RelativeSizeAxes = Axes.Both };
@@ -157,15 +176,20 @@ namespace Kan.Ruleset.UI
             this.state = state;
             this.scene = scene;
             notes = state.Notes;
+            ahead = levelAhead = aheadFor(notes);
             heldUntil = new double[notes.Count];
             judgedAt = new double[notes.Count];
             Array.Fill(judgedAt, double.NaN);
+            shownSince = new double[notes.Count];
+            Array.Fill(shownSince, double.NaN);
             RelativeSizeAxes = Axes.Both;
         }
 
         [BackgroundDependencyLoader]
         private void load()
         {
+            followsPassage = config?.GetBindable<bool>(Kan.Ruleset.Configuration.KanRulesetSetting.StaffFollowsPassage);
+
             for (int i = 0; i < line_pool; i++)
             {
                 lines.Add(lineBoxes[i] = new Box { RelativeSizeAxes = Axes.X, Height = 1, Origin = Anchor.CentreLeft, Alpha = 0 });
@@ -254,7 +278,12 @@ namespace Kan.Ruleset.UI
             double now = displayNow = state.DisplayTime(Clock.CurrentTime, Time.Elapsed);
 
             followRange(now);
-            followPace(now);
+
+            if (followsPassage?.Value == true)
+                followPace(now);
+            else
+                ahead = levelAhead;
+
             drawLines();
             drawBars(now);
             trackHolding(now);
@@ -295,7 +324,7 @@ namespace Kan.Ruleset.UI
                 (lo, hi) = (targetLo, targetHi);
         }
 
-        /// <summary>The time shown ahead follows the shortest pace coming (the notes' <see cref="KanHitObject.PaceMs"/>), eased so the staff zooms smoothly.</summary>
+        /// <summary>Zooming passage by passage: the time shown ahead follows the shortest pace coming, eased so the staff zooms smoothly.</summary>
         private void followPace(double now)
         {
             double pace = double.PositiveInfinity;
@@ -311,6 +340,16 @@ namespace Kan.Ruleset.UI
 
             ahead += (target - ahead) * k;
             if (!double.IsFinite(ahead)) ahead = target;
+        }
+
+        /// <summary>The time shown ahead for a level: about <see cref="notes_ahead"/> notes at its fast pace.</summary>
+        private static double aheadFor(IReadOnlyList<KanHitObject> notes)
+        {
+            var paces = notes.Select(n => n.PaceMs).Where(p => p > 0).OrderBy(p => p).ToList();
+            if (paces.Count == 0) return max_ahead_ms;
+
+            double fast = paces[(int)Math.Floor((paces.Count - 1) * fast_pace_percentile)];
+            return Math.Clamp(fast * notes_ahead, min_ahead_ms, max_ahead_ms);
         }
 
         private void drawLines()
@@ -513,9 +552,17 @@ namespace Kan.Ruleset.UI
                 if (state.HideNotes && state.Verdicts[i] == null)
                     view.Alpha *= (float)Math.Clamp((n.StartTime - now - 300) / 500, 0, 1);
 
-                // "By heart": a note shows only for a moment as it comes into view (the last 150 ms of it fading).
+                // "By heart": a note shows only for a moment from when it comes into view
+                // (the last 150 ms of it fading) — also the notes already in view when
+                // the level starts (owner 2026-10-23: they began hidden, never seen).
                 if (state.SeenForMs is { } seen && state.Verdicts[i] == null)
-                    view.Alpha *= (float)Math.Clamp((n.StartTime - now - (ahead - seen)) / Math.Min(150, seen), 0, 1);
+                {
+                    if (n.StartTime - now <= ahead && (double.IsNaN(shownSince[i]) || now < shownSince[i]))
+                        shownSince[i] = now; // in view now (or again, after a rewind)
+
+                    double shownFor = double.IsNaN(shownSince[i]) ? 0 : now - shownSince[i];
+                    view.Alpha *= double.IsNaN(shownSince[i]) ? 0 : (float)Math.Clamp((seen - shownFor) / Math.Min(150, seen), 0, 1);
+                }
             }
 
             for (int i = used; i < note_pool; i++)
