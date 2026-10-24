@@ -5,6 +5,7 @@
 #
 #   make            # everything: native bridge + C# (forge, game client, ruleset, deploy)
 #   make test       # native self-test + C# suite
+#   make check      # before a commit: kan's C# built with warnings as errors, then every test
 #   make run        # launch the client (pass ARGS=path/to/file.osz)
 #   make clean      # remove build outputs
 #
@@ -30,7 +31,7 @@ NATIVE_BUILD := $(NATIVE_DIR)/build
 RULESET_DIR := ruleset
 CLIENT_OUT := client/osu.Desktop/bin/$(BUILD_TYPE)/net10.0
 
-.PHONY: all native forge client ruleset deploy test test-native test-csharp run clean
+.PHONY: all native forge client ruleset deploy test test-native test-csharp check run clean
 
 all: native forge client ruleset deploy
 
@@ -68,6 +69,13 @@ test-native: native
 
 test-csharp: native
 	cd forge/tests && $(DOTNET) test -c $(BUILD_TYPE)
+
+# One gate before a commit: kan's own C# must build without a warning
+# (the fork's is upstream's), and every test must pass.
+check: native client
+	cd forge && $(DOTNET) build -c $(BUILD_TYPE) -warnaserror
+	cd $(RULESET_DIR) && $(DOTNET) build -c $(BUILD_TYPE) -warnaserror
+	$(MAKE) test
 
 # --- run -------------------------------------------------------------------
 run: all

@@ -299,7 +299,6 @@ namespace Kan.Ruleset.UI
         private const double jump_ms = 400;
         private readonly System.Collections.Generic.Dictionary<uint, int> heardIndex = new System.Collections.Generic.Dictionary<uint, int>();
         private KanHitObject? waitingFor;
-        private float frozenStreamMs;
         private GameplayClockContainer? clockContainer;
         private uint sessionBase;
         private double anchorMs;
@@ -449,7 +448,7 @@ namespace Kan.Ruleset.UI
 
             if (session != null && !filePacedByLevel && waitingFor == null && !resuming && gameplayClock.IsRunning)
             {
-                double expected = listenedFrom + (listeningFor.Elapsed.TotalMilliseconds - frozenStreamMs) * rate;
+                double expected = listenedFrom + (listeningFor.Elapsed.TotalMilliseconds - timeline.FrozenMs) * rate;
 
                 // How far the level's clock sits from real time since listening began
                 // (diagnostics: a hit is placed by that real time, so a gap moves every hit).
@@ -496,7 +495,7 @@ namespace Kan.Ruleset.UI
 
                 if (session != null)
                 {
-                    remember(listeningFor.Elapsed.TotalMilliseconds, now);
+                    timeline.Remember(listeningFor.Elapsed.TotalMilliseconds, now);
 
                     // Where the level was as the take was heard: as the judge places it, without the player's habit.
                     if (waitingFor != null || resuming)
@@ -569,7 +568,6 @@ namespace Kan.Ruleset.UI
             // Rate mods: the player's time runs at the real pace, the level's at the rate.
             rate = gameplayClock!.GetTrueGameplayRate();
             if (!(rate > 0) || filePacedByLevel) rate = 1; // a file paced by the level's clock is already in its time
-            frozenStreamMs = 0;
 
             // The player's instrument as it is now (it can change in the player loader), else the level's.
             string listenAs = Configuration.KanPlayer.Instrument ?? instrument;
@@ -640,12 +638,12 @@ namespace Kan.Ruleset.UI
 
             session = s;
             listenedFrom = now;
-            seenCount = 0;
-            playerTimingMs = micPlay ? ForgeTiming.PLAYER_TIMING_MS.Value : 0; // a recording plays as it was recorded
+            // A recording plays as it was recorded: no player's habit to take off.
+            timeline.Begin(anchorMs, rate, micDelayMs, micPlay ? ForgeTiming.PLAYER_TIMING_MS.Value : 0, filePacedByLevel);
 
             Trace ??= KanPlayTrace.Start(new[]
             {
-                $"kan! play trace {DateTime.Now:yyyy-MM-dd HH:mm:ss}; {Notes.Count} notes; instrument {listenAs}; mic delay {micDelayMs:0} ms; player timing {playerTimingMs:+0;-0;0} ms; rate {rate:0.##}; wait for the player {WaitForPlayer}; source {(micPlay ? "microphone" : "file")}",
+                $"kan! play trace {DateTime.Now:yyyy-MM-dd HH:mm:ss}; {Notes.Count} notes; instrument {listenAs}; mic delay {micDelayMs:0} ms; player timing {timeline.PlayerTimingMs:+0;-0;0} ms; rate {rate:0.##}; wait for the player {WaitForPlayer}; source {(micPlay ? "microphone" : "file")}",
                 "rows: listen,anchor_ms | hit,heard,stream_ms,placed_ms,stamp_ms | pitch,heard,stage,raw_midi,corrected_midi,cents | unresolved,heard,stage | read,stream_ms,placed_ms,midi,level",
                 "      verdict,note,start_ms,midi,result,reason,offset_ms,played_midi,heard (empty: timed by readings),late_ms (verdict after the note's start)",
                 "      frame,update_ms,draw_ms,gc_ms | clock,level_minus_real_ms | wait,note | release,note",
@@ -1061,7 +1059,7 @@ namespace Kan.Ruleset.UI
             if (!resuming || gameplayClock is not { IsRunning: true } || now <= resumeAt + 1) return;
 
             double real = waitingClock.Elapsed.TotalMilliseconds;
-            frozenStreamMs += (float)(real - (now - WaitStopTime) / rate);
+            timeline.Freeze(real - (now - WaitStopTime) / rate);
             resuming = false;
         }
 
@@ -1153,7 +1151,7 @@ namespace Kan.Ruleset.UI
             if (micPlay && !WaitForPlayer && timings.Count >= LastPlayTiming.MIN_NOTES)
             {
                 timings.Sort();
-                LastPlay = new LastPlayTiming(timings[timings.Count / 2], timings.Count, playerTimingMs);
+                LastPlay = new LastPlayTiming(timings[timings.Count / 2], timings.Count, timeline.PlayerTimingMs);
             }
 
             if (judged == 0)
@@ -1167,82 +1165,24 @@ namespace Kan.Ruleset.UI
                                              + $"wrong note {wrong}, not heard {notHeard}, pitch unclear {unclear}; "
                                              + $"mean offset {(hits > 0 ? offsets / hits : 0):0} ms; instrument tuning {tuning.Cents:+0;-0;0} cents; "
                                              + $"clock vs listening {(lagFrames > 0 ? lagSum / lagFrames : 0):+0;-0;0} ms ({(lagFrames > 0 ? lagMin : 0):+0;-0;0}..{(lagFrames > 0 ? lagMax : 0):+0;-0;0}), "
-                                             + $"hits placed after now {hitsInFuture} of {hitsHeard}, mic delay {micDelayMs:0} ms, player timing {playerTimingMs:+0;-0;0} ms; {(failed ? Status.Value : "listening")}",
+                                             + $"hits placed after now {hitsInFuture} of {hitsHeard}, mic delay {micDelayMs:0} ms, player timing {timeline.PlayerTimingMs:+0;-0;0} ms; {(failed ? Status.Value : "listening")}",
                 level: osu.Framework.Logging.LogLevel.Important);
         }
 
         /// <summary>
-        /// A stream time (real ms since listening started) on the level's timeline:
-        /// scaled by the rate, minus the time the level stood still waiting, minus
-        /// the mic delay. While waiting, everything lands where the level waits.
+        /// A stream time (real ms since listening started) on the level's timeline
+        /// (<see cref="ListeningTimeline"/>). While waiting, everything lands where the level waits.
         /// </summary>
         private double toGameplay(float streamMs)
         {
             if (waitingFor != null) return waitingFor.StartTime;
             if (resuming) return resumeAt;
 
-            // The player's habit (ahead of the line, most of us): their notes taken as meant.
-            double habit = -playerTimingMs * rate;
-
-            if (filePacedByLevel || seenCount < 2)
-                return anchorMs + (streamMs - frozenStreamMs - micDelayMs) * rate + habit;
-
-            return levelAt(streamMs - micDelayMs) + habit;
+            return timeline.Place(streamMs);
         }
 
-        // What the level's clock showed at each real moment while listening (owner 2026-10-21:
-        // a fixed anchor drifted 0-40 ms from the clock, so 60 % of the onsets were cut to
-        // their arrival — two notes played alike could grade differently).
-        private const int seen_size = 4096;
-        private readonly double[] seenReal = new double[seen_size];
-        private readonly double[] seenLevel = new double[seen_size];
-        private int seenHead, seenCount;
-        private double playerTimingMs;
-
-        private void remember(double realMs, double levelMs)
-        {
-            if (seenCount > 0 && realMs <= seenReal[(seenHead - 1 + seen_size) % seen_size]) return;
-
-            seenReal[seenHead] = realMs;
-            seenLevel[seenHead] = levelMs;
-            seenHead = (seenHead + 1) % seen_size;
-            seenCount = Math.Min(seenCount + 1, seen_size);
-        }
-
-        /// <summary>
-        /// The level's time at a real moment since listening began: between the
-        /// frames that saw it, else carried on at the rate from the nearest one
-        /// (a sound newer than the last frame, or across a stop).
-        /// </summary>
-        private double levelAt(double realMs)
-        {
-            int oldest = (seenHead - seenCount + seen_size) % seen_size;
-            int newest = (seenHead - 1 + seen_size) % seen_size;
-
-            if (realMs >= seenReal[newest])
-                return seenLevel[newest] + (realMs - seenReal[newest]) * rate;
-            if (realMs <= seenReal[oldest])
-                return seenLevel[oldest] + (realMs - seenReal[oldest]) * rate;
-
-            // Binary search over the ring, in age order.
-            int lo = 0, hi = seenCount - 1;
-
-            while (hi - lo > 1)
-            {
-                int mid = (lo + hi) / 2;
-                if (seenReal[(oldest + mid) % seen_size] <= realMs) lo = mid;
-                else hi = mid;
-            }
-
-            int a = (oldest + lo) % seen_size, b = (oldest + hi) % seen_size;
-            double span = seenReal[b] - seenReal[a];
-
-            // Frames far apart (the level stood still between): carry on from the later one.
-            if (span > 100)
-                return seenLevel[b] + (realMs - seenReal[b]) * rate;
-
-            return seenLevel[a] + (seenLevel[b] - seenLevel[a]) * (realMs - seenReal[a]) / span;
-        }
+        /// <summary>Where heard moments fall on the level (owner 2026-10-21: a fixed anchor drifted from the clock).</summary>
+        private readonly ListeningTimeline timeline = new ListeningTimeline();
 
         [Resolved(CanBeNull = true)]
         private osu.Game.Rulesets.Scoring.ScoreProcessor? scoreProcessor { get; set; }
