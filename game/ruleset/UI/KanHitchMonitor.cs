@@ -137,8 +137,7 @@ namespace Kan.Ruleset.UI
                 countGc(nowCollections);
                 Logger.Log($"kan!: play frames — {hitches} hitches; frames over 12/25/50 ms: {slowFrames[0]}/{slowFrames[1]}/{slowFrames[2]}; worst update {worstUpdate:0} ms, draw {worstDraw:0} ms, audio {worstAudio:0} ms; "
                            + $"GC paused {(GC.GetTotalPauseDuration() - pausesAtStart).TotalMilliseconds:0} ms in all, at most {worstGcInFrame:0.0} ms in one frame (gen0 {nowCollections[0] - collectionsAtStart[0]}, gen1 {nowCollections[1] - collectionsAtStart[1]}, gen2 {nowCollections[2] - collectionsAtStart[2]}); "
-                           + $"describer worst {worstChunk:0.0} ms per 10 ms, {worstBacklog:0} ms waiting at most",
-                    level: LogLevel.Important);
+                           + $"describer worst {worstChunk:0.0} ms per 10 ms, {worstBacklog:0} ms waiting at most");
             }
 
             base.Dispose(isDisposing);

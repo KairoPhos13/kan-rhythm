@@ -264,7 +264,7 @@ namespace Kan.Ruleset.UI
 
                 if (session != null && micPlay && session.SilentForMs > mic_stall_ms)
                 {
-                    osu.Framework.Logging.Logger.Log($"kan!: the microphone gave nothing for {session.SilentForMs:0} ms; opening it again", level: osu.Framework.Logging.LogLevel.Important);
+                    osu.Framework.Logging.Logger.Log($"kan!: the microphone gave nothing for {session.SilentForMs:0} ms; opening it again"); // the player reads it on screen
                     Trace?.Row(TraceRealMs, now, "reopen");
                     stopListening();
                     micReopened = true;

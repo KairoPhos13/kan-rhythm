@@ -64,7 +64,7 @@ namespace Kan.Ruleset
             // One-shot breadcrumb so logs prove the plugin path worked (and so
             // user bug reports show whether their ruleset was picked up).
             if (Interlocked.Exchange(ref loadLogged, 1) == 0)
-                Logger.Log(@"kan! ruleset loaded (Phase 0 skeleton — judgment core pending)", level: LogLevel.Important);
+                Logger.Log(@"kan! ruleset loaded");
         }
 
         public override string Description => @"kan!";

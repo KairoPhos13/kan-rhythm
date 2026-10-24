@@ -212,7 +212,7 @@ namespace Kan.Ruleset.UI
             failed = true;
             bloomTarget = 1; // nothing to judge by: never muffle the music for it
             Status.Value = $"Not listening: {error}.";
-            osu.Framework.Logging.Logger.Log($"kan!: live input failed: {error}", level: osu.Framework.Logging.LogLevel.Important);
+            osu.Framework.Logging.Logger.Log($"kan!: live input failed: {error}"); // the player reads it on screen (Status)
         }
 
         /// <summary>Start hearing an open session: its first sample is now.</summary>

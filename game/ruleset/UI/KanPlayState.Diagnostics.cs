@@ -102,8 +102,7 @@ namespace Kan.Ruleset.UI
                                              + $"wrong note {wrong}, not heard {notHeard}, pitch unclear {unclear}; "
                                              + $"mean offset {(hits > 0 ? offsets / hits : 0):0} ms; instrument tuning {tuning.Cents:+0;-0;0} cents; "
                                              + $"clock vs listening {(lagFrames > 0 ? lagSum / lagFrames : 0):+0;-0;0} ms ({(lagFrames > 0 ? lagMin : 0):+0;-0;0}..{(lagFrames > 0 ? lagMax : 0):+0;-0;0}), "
-                                             + $"hits placed after now {hitsInFuture} of {hitsHeard}, mic delay {micDelayMs:0} ms, player timing {timeline.PlayerTimingMs:+0;-0;0} ms; {(failed ? Status.Value : "listening")}",
-                level: osu.Framework.Logging.LogLevel.Important);
+                                             + $"hits placed after now {hitsInFuture} of {hitsHeard}, mic delay {micDelayMs:0} ms, player timing {timeline.PlayerTimingMs:+0;-0;0} ms; {(failed ? Status.Value : "listening")}");
         }
     }
 }
