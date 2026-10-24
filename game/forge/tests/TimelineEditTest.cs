@@ -5,11 +5,13 @@ using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
-using Kan.Forge.Design;
+using Kan.Core.Design;
 using Kan.Forge.Media;
-using Kan.Forge.Native;
-using Kan.Forge.Score;
+using Kan.Core.Native;
+using Kan.Core.Score;
 using Kan.Forge.Tracks;
+using Kan.Core.Tracks;
+using Kan.Core.Media;
 
 namespace Kan.Forge.Tests
 {
@@ -129,7 +131,7 @@ namespace Kan.Forge.Tests
             // 1 s of 440 Hz.
             var tone = new float[rate];
             for (int i = 0; i < tone.Length; i++) tone[i] = 0.5f * MathF.Sin(2 * MathF.PI * 440 * i / rate);
-            MediaAudioExtractor.WriteWav(src, tone, tone.Length, 1, rate);
+            WavFile.Write(src, tone, tone.Length, 1, rate);
 
             float[] retime(double from, double to, double length)
             {

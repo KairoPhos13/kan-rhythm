@@ -10,12 +10,13 @@ using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Game.Replays;
 using osu.Game.Screens.Play;
-using Kan.Forge.Native;
+using Kan.Core.Native;
 using Kan.Forge.Play;
 using Kan.Forge.Tracks;
 using Kan.Ruleset.Beatmaps;
 using Kan.Ruleset.Objects;
 using Kan.Ruleset.Replays;
+using Kan.Core.Play;
 
 namespace Kan.Ruleset.UI
 {

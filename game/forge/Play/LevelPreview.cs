@@ -14,7 +14,7 @@ using osu.Game.Beatmaps;
 using osu.Game.Overlays;
 using osu.Game.Screens.Play;
 using osu.Game.Screens.Select;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 
 namespace Kan.Forge.Play
 {

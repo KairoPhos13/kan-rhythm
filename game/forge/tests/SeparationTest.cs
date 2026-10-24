@@ -21,7 +21,7 @@ namespace Kan.Forge.Tests
         [Test]
         public async Task TestSeparationProducesTheSixStems()
         {
-            if (!Kan.Forge.Native.KanForgeNative.HasSeparator())
+            if (!Kan.Core.Native.KanForgeNative.HasSeparator())
                 Assert.Ignore("no separator runtime in this build");
 
             // 1 s of a 440 Hz tone is enough to exercise the whole path.
@@ -47,10 +47,10 @@ namespace Kan.Forge.Tests
             // Whatever the machine provides, the bridge answers with a
             // controlled status and a human-readable message.
             var err = new byte[512];
-            var st = Kan.Forge.Native.KanForgeNative.SeparateStems("/tmp/does-not-exist.wav",
+            var st = Kan.Core.Native.KanForgeNative.SeparateStems("/tmp/does-not-exist.wav",
                                                                   "/tmp/kan-forge-test-stems",
                                                                   err, err.Length);
-            Assert.That(st, Is.EqualTo(Native.KanForgeStatus.ErrSeparator).Or.EqualTo(Native.KanForgeStatus.Ok),
+            Assert.That(st, Is.EqualTo(Kan.Core.Native.KanForgeStatus.ErrSeparator).Or.EqualTo(Kan.Core.Native.KanForgeStatus.Ok),
                         "controlled statuses only — never a crash");
         }
 

@@ -10,12 +10,13 @@ using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Game.Replays;
 using osu.Game.Screens.Play;
-using Kan.Forge.Native;
+using Kan.Core.Native;
 using Kan.Forge.Play;
 using Kan.Forge.Tracks;
 using Kan.Ruleset.Beatmaps;
 using Kan.Ruleset.Objects;
 using Kan.Ruleset.Replays;
+using Kan.Core.Play;
 
 namespace Kan.Ruleset.UI
 {
@@ -70,10 +71,10 @@ namespace Kan.Ruleset.UI
         public double? SeenForMs { get; init; }
 
         /// <summary>The level's design (sections, palette, effects): the level's own, or generated from its notes.</summary>
-        public Kan.Forge.Design.KanDesign Design { get; init; } = new Kan.Forge.Design.KanDesign();
+        public Kan.Core.Design.KanDesign Design { get; init; } = new Kan.Core.Design.KanDesign();
 
-        /// <summary>The level's bars, beats and parts of a beat (in order; <see cref="Kan.Forge.Score.Bars"/>): the staff marks them.</summary>
-        public IReadOnlyList<Kan.Forge.Score.Bars.Tick> Ticks { get; init; } = Array.Empty<Kan.Forge.Score.Bars.Tick>();
+        /// <summary>The level's bars, beats and parts of a beat (in order; <see cref="Kan.Core.Score.Bars"/>): the staff marks them.</summary>
+        public IReadOnlyList<Kan.Core.Score.Bars.Tick> Ticks { get; init; } = Array.Empty<Kan.Core.Score.Bars.Tick>();
 
         /// <summary>A replay (or autoplay) to read the facts from instead of listening.</summary>
         public Func<Replay?>? ReplaySource { get; set; }

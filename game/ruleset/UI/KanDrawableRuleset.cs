@@ -37,7 +37,7 @@ namespace Kan.Ruleset.UI
         private osu.Game.Replays.Replay? listen;
 
         /// <summary>How the level was fitted to the player's instrument range.</summary>
-        public Kan.Forge.Play.RangeFit.Fit Fit { get; private set; }
+        public Kan.Core.Play.RangeFit.Fit Fit { get; private set; }
 
         /// <summary>The notes as written, and the range they were fitted to (to fit them again).</summary>
         private readonly List<(KanHitObject Note, int Midi)> written;
@@ -52,7 +52,7 @@ namespace Kan.Ruleset.UI
             var set = beatmap.BeatmapInfo.BeatmapSet as osu.Game.Beatmaps.BeatmapSetInfo;
             var score = notes.Count > 0 ? KanLevelFiles.LoadScore(set) : null;
             string instrument = score?.Instrument ?? @"keyboard";
-            var design = KanLevelFiles.DesignFor(set, score?.Notes ?? new List<Kan.Forge.Score.ScoreNote>(), beatmap.BeatmapInfo.Length);
+            var design = KanLevelFiles.DesignFor(set, score?.Notes ?? new List<Kan.Core.Score.ScoreNote>(), beatmap.BeatmapInfo.Length);
 
             osu.Framework.Logging.Logger.Log($"kan! design ({(design.Generated ? "generated" : "the level's")}, {design.Palette}): "
                                              + string.Join(@", ", design.Sections.Select(s => $"{s.DisplayName}{(s.Climax ? "*" : "")} {s.StartMs / 1000:0.0}-{s.EndMs / 1000:0.0}s")));
@@ -86,12 +86,12 @@ namespace Kan.Ruleset.UI
         }
 
         /// <summary>The staff's grid: bars, beats, and beats cut as finely as the notes need (owner 2026-10-22).</summary>
-        private static IReadOnlyList<Kan.Forge.Score.Bars.Tick> ticks(osu.Game.Beatmaps.IBeatmap beatmap, List<KanHitObject> notes)
+        private static IReadOnlyList<Kan.Core.Score.Bars.Tick> ticks(osu.Game.Beatmaps.IBeatmap beatmap, List<KanHitObject> notes)
         {
-            var tempos = beatmap.ControlPointInfo.TimingPoints.Select(t => new Kan.Forge.Score.Bars.Tempo(t.Time, t.BeatLength, t.TimeSignature.Numerator)).ToList();
+            var tempos = beatmap.ControlPointInfo.TimingPoints.Select(t => new Kan.Core.Score.Bars.Tempo(t.Time, t.BeatLength, t.TimeSignature.Numerator)).ToList();
             double until = System.Math.Max(beatmap.BeatmapInfo.Length, notes.Count > 0 ? notes.Max(n => n.EndMs) + 4000 : 0);
 
-            return Kan.Forge.Score.Bars.Ticks(tempos, until, Kan.Forge.Score.Bars.DivisionOf(tempos, notes.Select(n => n.StartTime)));
+            return Kan.Core.Score.Bars.Ticks(tempos, until, Kan.Core.Score.Bars.DivisionOf(tempos, notes.Select(n => n.StartTime)));
         }
 
         [osu.Framework.Allocation.BackgroundDependencyLoader(true)]

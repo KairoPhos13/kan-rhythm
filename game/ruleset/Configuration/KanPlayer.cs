@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Linq;
 using osu.Framework.Bindables;
 using Kan.Forge.Play;
+using Kan.Core.Play;
 
 namespace Kan.Ruleset.Configuration
 {
@@ -59,7 +60,7 @@ namespace Kan.Ruleset.Configuration
             if (string.IsNullOrEmpty(choice)) return @"As the level";
 
             string name = Kan.Forge.Pipeline.ForgeJobs.ProfileLabel(choice);
-            return $"{char.ToUpperInvariant(name[0])}{name[1..]} · {(Kan.Forge.Score.KanScore.IsMonophonic(choice) ? "one note at a time" : "chords too")}";
+            return $"{char.ToUpperInvariant(name[0])}{name[1..]} · {(Kan.Core.Score.KanScore.IsMonophonic(choice) ? "one note at a time" : "chords too")}";
         }
 
         // As the level: every note is in range (nothing moves).

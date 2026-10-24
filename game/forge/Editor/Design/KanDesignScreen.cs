@@ -25,7 +25,7 @@ using osu.Game.Overlays;
 using osu.Game.Screens.Edit;
 using osuTK;
 using osuTK.Graphics;
-using Kan.Forge.Design;
+using Kan.Core.Design;
 using Kan.Forge.Editor.Compose;
 
 namespace Kan.Forge.Editor.Design

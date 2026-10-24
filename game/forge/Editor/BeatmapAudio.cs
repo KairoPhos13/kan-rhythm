@@ -8,9 +8,10 @@ using osu.Framework.Threading;
 using osu.Game.Beatmaps;
 using osu.Game.Overlays;
 using System.Threading.Tasks;
-using Kan.Forge.Native;
+using Kan.Core.Native;
 using Kan.Forge.Pipeline;
 using Kan.Forge.Tracks;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Editor
 {

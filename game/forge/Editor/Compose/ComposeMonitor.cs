@@ -12,9 +12,11 @@ using osu.Framework.Graphics;
 using osu.Game.Beatmaps;
 using osu.Game.Screens.Edit;
 using Kan.Forge.Media;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 using Kan.Forge.Tracks;
 using Kan.Forge.Audio;
+using Kan.Core.Tracks;
+using Kan.Core.Media;
 
 namespace Kan.Forge.Editor.Compose
 {
@@ -135,7 +137,7 @@ namespace Kan.Forge.Editor.Compose
             Task.Run(() =>
             {
                 float[] samples = ScoreSynth.Render(snapshot);
-                MediaAudioExtractor.WriteWav(path, samples, samples.Length, 1, ScoreSynth.SAMPLE_RATE);
+                WavFile.Write(path, samples, samples.Length, 1, ScoreSynth.SAMPLE_RATE);
             }).ContinueWith(task => Schedule(() =>
             {
                 rendering = false;

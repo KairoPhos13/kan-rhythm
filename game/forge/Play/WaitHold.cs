@@ -19,6 +19,8 @@ using Kan.Forge.Editor;
 using Kan.Forge.Media;
 using Kan.Forge.Tracks;
 using Kan.Forge.Audio;
+using Kan.Core.Tracks;
+using Kan.Core.Media;
 
 namespace Kan.Forge.Play
 {
@@ -165,7 +167,7 @@ namespace Kan.Forge.Play
                 var held = SpectralFreeze.Render(before.AsSpan(0, read / 4), rate, hold_seconds);
 
                 using var wav = new MemoryStream();
-                MediaAudioExtractor.WriteWav(wav, held, held.Length, 1, rate);
+                WavFile.Write(wav, held, held.Length, 1, rate);
                 return wav.ToArray();
             }
             finally

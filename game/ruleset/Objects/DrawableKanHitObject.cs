@@ -9,6 +9,7 @@ using osu.Game.Rulesets.Objects.Drawables;
 using osu.Game.Rulesets.Scoring;
 using Kan.Forge.Play;
 using Kan.Ruleset.UI;
+using Kan.Core.Play;
 
 namespace Kan.Ruleset.Objects
 {
@@ -89,7 +90,7 @@ namespace Kan.Ruleset.Objects
             if (state.WrongTry(HitObject) is not { } v)
             {
                 var verdict = state.Judge.Judge(HitObject.StartTime, HitObject.Midi, HitObject.PitchUnknown, Time.Current,
-                    legato: HitObject.Articulation == Kan.Forge.Score.Articulation.Legato, expected: state.ExpectedAround(HitObject), paceMs: HitObject.PaceMs,
+                    legato: HitObject.Articulation == Kan.Core.Score.Articulation.Legato, expected: state.ExpectedAround(HitObject), paceMs: HitObject.PaceMs,
                     prevStartMs: state.PreviousStart(HitObject), nextStartMs: state.NextStart(HitObject));
                 if (verdict is not { } judged) return;
 

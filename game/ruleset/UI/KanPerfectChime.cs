@@ -14,7 +14,9 @@ using osu.Framework.Graphics;
 using osu.Framework.IO.Stores;
 using Kan.Forge.Media;
 using Kan.Forge.Play;
-using Kan.Forge.Score;
+using Kan.Core.Score;
+using Kan.Core.Play;
+using Kan.Core.Media;
 
 namespace Kan.Ruleset.UI
 {
@@ -45,7 +47,7 @@ namespace Kan.Ruleset.UI
             {
                 float[] chime = ChimeSynth.Render(midi);
                 using var wav = new MemoryStream();
-                MediaAudioExtractor.WriteWav(wav, chime, chime.Length, 1, ChimeSynth.SAMPLE_RATE);
+                WavFile.Write(wav, chime, chime.Length, 1, ChimeSynth.SAMPLE_RATE);
                 wavs[midi] = wav.ToArray();
             }
 

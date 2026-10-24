@@ -18,7 +18,7 @@
         │
         ▼
 Kan.Forge.Pipeline.ForgeJobRunner            background jobs, serialized
-        │  P/Invoke (Kan.Forge.Native)
+        │  P/Invoke (Kan.Core.Native)
         ▼
 libkan_forge_native (game/forge/native)      thin C-ABI adapter, fixed POD
         │
@@ -27,7 +27,7 @@ libkan (C++): fetch / separate_stems / transcribe_audio
 ```
 
 - **Thin adapter rule** (prompt §3): all libkan invocation lives behind
-  `game/forge/native` (C ABI) + `Kan.Forge.Native` (P/Invoke). Nothing else in
+  `game/forge/native` (C ABI) + `Kan.Core.Native` (P/Invoke). Nothing else in
   the game calls libkan — upstream osu! merges stay feasible and the eventual
   live path (NoteEventStream) has one place to land.
 - **ABI contract:** `kan_forge_api.h` — fixed-size POD note struct
@@ -53,7 +53,7 @@ libkan (C++): fetch / separate_stems / transcribe_audio
 
 ## 3. Temporal edits → transcription (the hard requirement)
 
-`Kan.Forge.Transcription.TranscriptionDraft` implements the propagation rules
+`Kan.Core.Transcription.TranscriptionDraft` implements the propagation rules
 (prompt §2.2: "shifts/splits/removes … hard requirement"). Semantics are
 **physically faithful to the audio edit** (v1, tested in
 `tests/TranscriptionDraftTest.cs`):
@@ -342,7 +342,7 @@ cents), duration, intensity and playing style (normal / legato / staccato
 / accent, vibrato). It is the data that drives the game's feedback loop.
 
 - **Where it lives:** `kan.score.json` inside the level's files
-  (`Kan.Forge.Score.KanScore`, versioned), so it travels with the level.
+  (`Kan.Core.Score.KanScore`, versioned), so it travels with the level.
   The osu!-format file can't hold pitch or duration (kan! claims legacy
   ruleset ID 0). It is written on save, when leaving the tab and on editor
   exit, and autosaved to the level's work folder; on opening, the newer copy
@@ -547,7 +547,7 @@ a new score takes the work folder's.
 
 ### 6g. The design tab: the level's look (owner 2026-10-15, fork F-15)
 
-The design (`Kan.Forge.Design.KanDesign`, file `kan.design.json` in the
+The design (`Kan.Core.Design.KanDesign`, file `kan.design.json` in the
 level; autosave `kan-forge/<set>/design.json`, the newer copy wins, like
 the score) says how the level looks and rewards, stretch by stretch:
 

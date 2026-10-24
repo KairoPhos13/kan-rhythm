@@ -19,7 +19,7 @@ using osu.Game.Graphics.UserInterfaceV2;
 using osu.Game.Overlays;
 using osuTK;
 using osuTK.Graphics;
-using Kan.Forge.Native;
+using Kan.Core.Native;
 using Kan.Forge.Tracks;
 
 namespace Kan.Forge.Editor

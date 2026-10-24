@@ -6,6 +6,7 @@ using osu.Framework.Platform;
 using osu.Game.Beatmaps;
 using Kan.Forge.Editor.Design;
 using Kan.Forge.Tracks;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Editor
 {

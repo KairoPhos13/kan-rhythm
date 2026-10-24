@@ -14,6 +14,7 @@ using osu.Framework.Bindables;
 using osu.Framework.IO.Stores;
 using osu.Game.Audio.Effects;
 using Kan.Forge.Tracks;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Audio
 {

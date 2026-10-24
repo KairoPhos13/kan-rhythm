@@ -8,9 +8,10 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using osu.Framework.Threading;
-using Kan.Forge.Native;
+using Kan.Core.Native;
 using Kan.Forge.Tracks;
-using Kan.Forge.Transcription;
+using Kan.Core.Transcription;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Pipeline
 {

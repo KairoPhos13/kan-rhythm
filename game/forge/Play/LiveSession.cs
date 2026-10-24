@@ -8,7 +8,8 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using ManagedBass;
 using Kan.Forge.Media;
-using Kan.Forge.Native;
+using Kan.Core.Native;
+using Kan.Core.Play;
 
 namespace Kan.Forge.Play
 {

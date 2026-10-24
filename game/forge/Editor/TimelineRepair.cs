@@ -5,12 +5,13 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using Kan.Forge.Design;
+using Kan.Core.Design;
 using Kan.Forge.Editor.Design;
 using Kan.Forge.Media;
 using Kan.Forge.Pipeline;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 using Kan.Forge.Tracks;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Editor
 {

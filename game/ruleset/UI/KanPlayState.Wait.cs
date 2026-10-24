@@ -10,12 +10,13 @@ using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Game.Replays;
 using osu.Game.Screens.Play;
-using Kan.Forge.Native;
+using Kan.Core.Native;
 using Kan.Forge.Play;
 using Kan.Forge.Tracks;
 using Kan.Ruleset.Beatmaps;
 using Kan.Ruleset.Objects;
 using Kan.Ruleset.Replays;
+using Kan.Core.Play;
 
 namespace Kan.Ruleset.UI
 {
@@ -134,7 +135,7 @@ namespace Kan.Ruleset.UI
         /// </summary>
         private bool needsAttack(KanHitObject n)
         {
-            if (n.PitchUnknown || n.Articulation == Kan.Forge.Score.Articulation.Legato || n.Index == 0) return false;
+            if (n.PitchUnknown || n.Articulation == Kan.Core.Score.Articulation.Legato || n.Index == 0) return false;
 
             var previous = Notes[n.Index - 1];
             return previous.Midi == n.Midi && previous.EndMs <= n.StartTime + 1;
@@ -207,7 +208,7 @@ namespace Kan.Ruleset.UI
             bool right = f.Midi > 0 && (n.PitchUnknown || LiveJudge.Accepts(f.Midi, n.Midi));
             rightReadings = right ? rightReadings + 1 : 0;
 
-            if (rightReadings >= right_readings_to_release || (right && n.Articulation == Kan.Forge.Score.Articulation.Legato))
+            if (rightReadings >= right_readings_to_release || (right && n.Articulation == Kan.Core.Score.Articulation.Legato))
                 release(n, (f.Midi - n.Midi) * 100);
         }
 

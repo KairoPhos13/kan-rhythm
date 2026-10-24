@@ -35,7 +35,7 @@ namespace Kan.Ruleset.UI
             // A new instrument starts from its usual range (the player can then adjust it).
             instrument.BindValueChanged(v =>
             {
-                if (!string.IsNullOrEmpty(v.NewValue)) (lowest.Value, highest.Value) = Kan.Forge.Play.RangeFit.DefaultRange(v.NewValue);
+                if (!string.IsNullOrEmpty(v.NewValue)) (lowest.Value, highest.Value) = Kan.Core.Play.RangeFit.DefaultRange(v.NewValue);
             });
 
             // The instrument's tuning (owner 2026-10-15): learnt while playing, or set by hand.

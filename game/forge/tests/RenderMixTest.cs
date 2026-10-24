@@ -9,6 +9,7 @@ using System.Threading.Tasks;
 using NUnit.Framework;
 using Kan.Forge.Pipeline;
 using Kan.Forge.Tracks;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Tests
 {
@@ -159,8 +160,8 @@ namespace Kan.Forge.Tests
             string outWav = Path.Combine(Path.GetDirectoryName(a)!, "heard-out.wav");
 
             var track = new ForgeTrack("heard", a) { OffsetMs = 1000, ClipStartMs = 50, ClipEndMs = 900 };
-            track.Edits.Ranges.Add(new PendingRange(Kan.Forge.Native.KanForgeEditMode.Keep, 100, 200));
-            track.Edits.Ranges.Add(new PendingRange(Kan.Forge.Native.KanForgeEditMode.Keep, 600, 700));
+            track.Edits.Ranges.Add(new PendingRange(Kan.Core.Native.KanForgeEditMode.Keep, 100, 200));
+            track.Edits.Ranges.Add(new PendingRange(Kan.Core.Native.KanForgeEditMode.Keep, 600, 700));
 
             double start = await ForgeJobs.RenderTrackAsync(track, outWav);
 

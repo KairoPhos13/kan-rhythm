@@ -6,7 +6,7 @@ using osu.Framework.Extensions.Color4Extensions;
 using osu.Framework.Graphics;
 using osu.Framework.Utils;
 using osuTK.Graphics;
-using Kan.Forge.Design;
+using Kan.Core.Design;
 
 namespace Kan.Ruleset.UI
 {

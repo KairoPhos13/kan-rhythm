@@ -22,7 +22,7 @@ using osu.Game.Graphics.UserInterface;
 using osu.Game.Overlays;
 using osu.Game.Screens.Edit;
 using osuTK;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 
 namespace Kan.Forge.Editor.Compose
 {

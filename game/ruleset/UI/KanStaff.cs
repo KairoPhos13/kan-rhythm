@@ -15,10 +15,11 @@ using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osuTK;
 using osuTK.Graphics;
-using Kan.Forge.Design;
+using Kan.Core.Design;
 using Kan.Forge.Play;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 using Kan.Ruleset.Objects;
+using Kan.Core.Play;
 
 namespace Kan.Ruleset.UI
 {
@@ -395,27 +396,27 @@ namespace Kan.Ruleset.UI
                 // The beats and their parts as shorter lines, centred on the staff (owner 2026-10-22).
                 float length = tick.Kind switch
                 {
-                    Kan.Forge.Score.Bars.TickKind.Bar => full,
-                    Kan.Forge.Score.Bars.TickKind.Beat => full * 0.45f,
+                    Kan.Core.Score.Bars.TickKind.Bar => full,
+                    Kan.Core.Score.Bars.TickKind.Beat => full * 0.45f,
                     _ => full * 0.2f,
                 };
 
                 var line = barBoxes[used++];
                 line.X = x;
                 line.Y = top + (full - length) / 2;
-                line.Width = tick.Kind == Kan.Forge.Score.Bars.TickKind.Bar ? 2 : 1.5f;
+                line.Width = tick.Kind == Kan.Core.Score.Bars.TickKind.Bar ? 2 : 1.5f;
                 line.Height = length;
                 // Two quiet tones, one line each (owner 2026-10-22, after Sayonara Wild Hearts,
                 // calmer): the colour changes as each line crosses the now line — the perfect is on the change.
                 bool golden = window != null && Math.Abs(tick.TimeMs - window.StartTime) < 2;
                 Color4 tone = golden ? window_gold : i % 2 == 0 ? pulse_a : pulse_b;
-                float kindAlpha = tick.Kind == Kan.Forge.Score.Bars.TickKind.Bar ? 0.35f : tick.Kind == Kan.Forge.Score.Bars.TickKind.Beat ? 0.3f : 0.25f;
+                float kindAlpha = tick.Kind == Kan.Core.Score.Bars.TickKind.Bar ? 0.35f : tick.Kind == Kan.Core.Score.Bars.TickKind.Beat ? 0.3f : 0.25f;
 
                 line.Width = golden ? 4 : line.Width;
                 line.Alpha = (golden ? 0.95f : kindAlpha) * alpha;
-                line.Colour = tick.Kind == Kan.Forge.Score.Bars.TickKind.Bar && !golden ? ColourInfo.GradientVertical(tone.Opacity(0.4f), tone) : tone;
+                line.Colour = tick.Kind == Kan.Core.Score.Bars.TickKind.Bar && !golden ? ColourInfo.GradientVertical(tone.Opacity(0.4f), tone) : tone;
 
-                if (tick.Kind != Kan.Forge.Score.Bars.TickKind.Bar || labelled >= bar_pool) continue;
+                if (tick.Kind != Kan.Core.Score.Bars.TickKind.Bar || labelled >= bar_pool) continue;
 
                 var label = barLabels[labelled];
                 label.X = x;

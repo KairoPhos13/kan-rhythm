@@ -5,6 +5,7 @@ using System;
 using System.IO;
 using NUnit.Framework;
 using Kan.Forge.Media;
+using Kan.Core.Media;
 
 namespace Kan.Forge.Tests
 {
@@ -84,7 +85,7 @@ namespace Kan.Forge.Tests
             var tone = new float[frames];
             for (int i = 0; i < frames; i++)
                 tone[i] = 0.5f * MathF.Sin(2 * MathF.PI * 440 * i / rate);
-            MediaAudioExtractor.WriteWav(src, tone, frames, 1, rate);
+            WavFile.Write(src, tone, frames, 1, rate);
 
             bool ok = MediaAudioExtractor.TryPitchShiftToWav(src, outWav, semitones, out string error);
             Assert.That(ok, Is.True, error);

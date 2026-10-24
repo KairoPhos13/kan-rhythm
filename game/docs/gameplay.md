@@ -570,7 +570,7 @@ section on now, the palette in force — eased between sections over
   in the piece"): each beat, and each part of a beat as fine as the notes
   need (`Bars.DivisionOf`: halves, triplets, sixths… from where the notes
   start; a part only a stray note or two uses, or unquantised notes, do
-  not count). Bars as compose's grid draws them (`Kan.Forge.Score.Bars`,
+  not count). Bars as compose's grid draws them (`Kan.Core.Score.Bars`,
   tested; the same bars for Page Up / Page Down). A tempo that breathes
   changes on any beat, so a timing point landing on a beat of the tempo
   before (within a quarter beat) goes on counting the bar it falls in

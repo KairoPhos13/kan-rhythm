@@ -25,7 +25,7 @@ using osu.Game.Overlays;
 using osu.Game.Screens.Edit;
 using osuTK;
 using osuTK.Input;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 using Kan.Forge.Tracks;
 
 namespace Kan.Forge.Editor.Compose

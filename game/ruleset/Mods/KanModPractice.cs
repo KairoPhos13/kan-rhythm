@@ -18,7 +18,7 @@ using osu.Game.Graphics.UserInterface;
 using osu.Game.Overlays.Settings;
 using osu.Game.Rulesets.Mods;
 using osu.Game.Screens.Play;
-using Kan.Forge.Design;
+using Kan.Core.Design;
 using Kan.Ruleset.Beatmaps;
 using Kan.Ruleset.Objects;
 
@@ -279,7 +279,7 @@ namespace Kan.Ruleset.Mods
         /// <summary>The level's design (the same one the play uses).</summary>
         internal static KanDesign DesignOf(BeatmapSetInfo? set, IReadOnlyCollection<KanHitObject> notes)
         {
-            var scoreNotes = KanLevelFiles.LoadScore(set)?.Notes ?? new List<Kan.Forge.Score.ScoreNote>();
+            var scoreNotes = KanLevelFiles.LoadScore(set)?.Notes ?? new List<Kan.Core.Score.ScoreNote>();
             return KanLevelFiles.DesignFor(set, scoreNotes, 0);
         }
 

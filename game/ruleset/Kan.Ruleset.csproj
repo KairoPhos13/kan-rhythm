@@ -37,6 +37,7 @@
       <KanClientOutputDirs Include="..\client\osu.Desktop\bin\$(Configuration)\net10.0\" />
       <KanPluginFiles Include="$(TargetPath)" />
       <KanPluginFiles Include="$(TargetDir)Kan.Forge.dll" Condition="Exists('$(TargetDir)Kan.Forge.dll')" />
+      <KanPluginFiles Include="$(TargetDir)Kan.Core.dll" Condition="Exists('$(TargetDir)Kan.Core.dll')" />
       <KanPluginFiles Include="$(TargetDir)libkan_forge_native.so" Condition="Exists('$(TargetDir)libkan_forge_native.so')" />
       <KanPluginFiles Include="$(TargetDir)libkan_forge_native.dylib" Condition="Exists('$(TargetDir)libkan_forge_native.dylib')" />
     </ItemGroup>

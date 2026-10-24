@@ -6,7 +6,7 @@ using System.Linq;
 using System.Threading;
 using osu.Game.Beatmaps;
 using osu.Game.Rulesets.Objects;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 using Kan.Ruleset.Objects;
 
 namespace Kan.Ruleset.Beatmaps
@@ -65,7 +65,7 @@ namespace Kan.Ruleset.Beatmaps
             // Each note's windows follow how fast the notes around it go.
             var starts = beatmap.HitObjects.Select(h => h.StartTime).ToList();
             for (int i = 0; i < starts.Count; i++)
-                beatmap.HitObjects[i].PaceMs = Kan.Forge.Play.LiveJudge.PaceOf(starts, i);
+                beatmap.HitObjects[i].PaceMs = Kan.Core.Play.LiveJudge.PaceOf(starts, i);
 
             return beatmap;
         }

@@ -20,7 +20,7 @@ using osu.Game.Graphics.UserInterfaceV2;
 using osu.Game.Overlays;
 using osu.Game.Screens.Edit.Setup;
 using osuTK;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 
 namespace Kan.Forge.Editor
 {

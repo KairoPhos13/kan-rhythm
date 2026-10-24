@@ -143,7 +143,7 @@ namespace Kan.Ruleset.UI
             // A new instrument starts from its usual range (adjustable in the game's settings).
             instrument.BindValueChanged(v =>
             {
-                if (v.OldValue != null && !string.IsNullOrEmpty(v.NewValue)) (lowest.Value, highest.Value) = Kan.Forge.Play.RangeFit.DefaultRange(v.NewValue);
+                if (v.OldValue != null && !string.IsNullOrEmpty(v.NewValue)) (lowest.Value, highest.Value) = Kan.Core.Play.RangeFit.DefaultRange(v.NewValue);
             });
 
             instrument.BindValueChanged(_ => fit.Text = fitText());

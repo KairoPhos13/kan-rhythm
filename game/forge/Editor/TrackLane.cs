@@ -19,7 +19,8 @@ using osu.Game.Screens.Edit;
 using osuTK;
 using osuTK.Graphics;
 using Kan.Forge.Tracks;
-using Kan.Forge.Transcription;
+using Kan.Core.Transcription;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Editor
 {

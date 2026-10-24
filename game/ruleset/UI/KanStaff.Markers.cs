@@ -15,9 +15,9 @@ using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osuTK;
 using osuTK.Graphics;
-using Kan.Forge.Design;
+using Kan.Core.Design;
 using Kan.Forge.Play;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 using Kan.Ruleset.Objects;
 
 namespace Kan.Ruleset.UI

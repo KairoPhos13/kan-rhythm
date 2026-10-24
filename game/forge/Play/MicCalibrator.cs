@@ -8,9 +8,10 @@ using System.Linq;
 using osu.Framework.Audio;
 using Kan.Forge.Editor;
 using Kan.Forge.Media;
-using Kan.Forge.Native;
+using Kan.Core.Native;
 using Kan.Forge.Tracks;
 using Kan.Forge.Audio;
+using Kan.Core.Media;
 
 namespace Kan.Forge.Play
 {
@@ -89,7 +90,7 @@ namespace Kan.Forge.Play
         {
             float[] samples = ClickTrack();
             using var wav = new MemoryStream();
-            MediaAudioExtractor.WriteWav(wav, samples, samples.Length, 1, SAMPLE_RATE);
+            WavFile.Write(wav, samples, samples.Length, 1, SAMPLE_RATE);
 
             clicks = AudioChannel.Open(audio, @"kan-mic-clicks.wav", wav.ToArray());
 

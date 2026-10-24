@@ -7,7 +7,8 @@ using System.IO;
 using System.Text;
 using osu.Game.Beatmaps;
 using osu.Game.Extensions;
-using Kan.Forge.Score;
+using Kan.Core.Score;
+using Kan.Core;
 
 namespace Kan.Forge.Editor
 {

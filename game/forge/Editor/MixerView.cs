@@ -21,6 +21,7 @@ using osu.Game.Overlays;
 using osuTK;
 using osuTK.Graphics;
 using Kan.Forge.Tracks;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Editor
 {

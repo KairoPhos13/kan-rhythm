@@ -32,6 +32,7 @@ using osu.Game.Utils;
 using Kan.Forge.Media;
 using Kan.Forge.Tracks;
 using osuTK.Graphics;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Editor
 {

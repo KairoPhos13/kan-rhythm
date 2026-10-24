@@ -4,10 +4,11 @@
 using System;
 using System.IO;
 using System.Linq;
-using Kan.Forge.Native;
+using Kan.Core.Native;
 using NUnit.Framework;
 using Kan.Forge.Media;
 using Kan.Forge.Pipeline;
+using Kan.Core.Media;
 
 namespace Kan.Forge.Tests
 {
@@ -43,7 +44,7 @@ namespace Kan.Forge.Tests
             }
 
             string path = Path.Combine(Path.GetTempPath(), "kan-forge-tests", Guid.NewGuid().ToString("N")[..8], "melody.wav");
-            MediaAudioExtractor.WriteWav(path, sig, sig.Length, 1, rate);
+            WavFile.Write(path, sig, sig.Length, 1, rate);
             return path;
         }
 

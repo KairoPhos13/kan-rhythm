@@ -4,7 +4,7 @@
 # Everything the client build needs is defaulted here — no flags to remember:
 #
 #   make            # everything: native bridge + C# (forge, game client, ruleset, deploy)
-#   make test       # native self-test + C# suite
+#   make test       # native self-test + C# suites (core: no osu! needed; forge)
 #   make check      # before a commit: kan's C# built with warnings as errors, then every test
 #   make run        # launch the client (pass ARGS=path/to/file.osz)
 #   make clean      # remove build outputs
@@ -68,13 +68,19 @@ test-native: native
 	ctest --test-dir $(NATIVE_BUILD) --output-on-failure
 
 test-csharp: native
+	cd core/tests && $(DOTNET) test -c $(BUILD_TYPE)
 	cd forge/tests && $(DOTNET) test -c $(BUILD_TYPE)
 
-# One gate before a commit: kan's own C# must build without a warning
-# (the fork's is upstream's), and every test must pass.
+# One gate before a commit: kan's own C# (core, forge, ruleset) must build
+# without a warning (the fork's is upstream's), and every test must pass.
+# NuGet's security audit of the fork's dependencies (NU190x) is shown, not
+# fatal: it is fixed by updating the fork from upstream, not in kan's code.
+STRICT := -warnaserror -p:WarningsNotAsErrors="NU1901%3BNU1902%3BNU1903%3BNU1904"
+
 check: native client
-	cd forge && $(DOTNET) build -c $(BUILD_TYPE) -warnaserror
-	cd $(RULESET_DIR) && $(DOTNET) build -c $(BUILD_TYPE) -warnaserror
+	cd core && $(DOTNET) build -c $(BUILD_TYPE) $(STRICT)
+	cd forge && $(DOTNET) build -c $(BUILD_TYPE) $(STRICT)
+	cd $(RULESET_DIR) && $(DOTNET) build -c $(BUILD_TYPE) $(STRICT)
 	$(MAKE) test
 
 # --- run -------------------------------------------------------------------
@@ -83,5 +89,6 @@ run: all
 
 # --- clean -----------------------------------------------------------------
 clean:
-	rm -rf $(NATIVE_BUILD) forge/bin forge/obj forge/tests/bin forge/tests/obj \
+	rm -rf $(NATIVE_BUILD) core/bin core/obj core/tests/bin core/tests/obj \
+		forge/bin forge/obj forge/tests/bin forge/tests/obj \
 		$(RULESET_DIR)/bin $(RULESET_DIR)/obj

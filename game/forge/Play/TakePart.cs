@@ -14,6 +14,7 @@ using osu.Framework.Logging;
 using osu.Game.Beatmaps;
 using Kan.Forge.Editor;
 using Kan.Forge.Audio;
+using Kan.Core.Play;
 
 namespace Kan.Forge.Play
 {

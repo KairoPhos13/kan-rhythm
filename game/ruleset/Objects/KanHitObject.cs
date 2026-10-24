@@ -6,7 +6,7 @@ using osu.Game.Beatmaps;
 using osu.Game.Beatmaps.ControlPoints;
 using osu.Game.Rulesets.Judgements;
 using osu.Game.Rulesets.Scoring;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 
 namespace Kan.Ruleset.Objects
 {
@@ -45,7 +45,7 @@ namespace Kan.Ruleset.Objects
         /// <summary>The note that sounds last: the level is over when it ends, not when it is judged.</summary>
         public bool EndsTheLevel { get; set; }
 
-        /// <summary>The note's pace (ms, <see cref="Kan.Forge.Play.LiveJudge.PaceOf"/>): it sizes the timing windows; 0 = unknown.</summary>
+        /// <summary>The note's pace (ms, <see cref="Kan.Core.Play.LiveJudge.PaceOf"/>): it sizes the timing windows; 0 = unknown.</summary>
         public double PaceMs { get; set; }
 
         protected override void CreateNestedHitObjects(CancellationToken cancellationToken)
@@ -81,7 +81,7 @@ namespace Kan.Ruleset.Objects
         public override HitResult MaxResult => HitResult.Perfect;
     }
 
-    /// <summary>The judge's windows (<see cref="Kan.Forge.Play.LiveJudge"/>), for the results screen.</summary>
+    /// <summary>The judge's windows (<see cref="Kan.Core.Play.LiveJudge"/>), for the results screen.</summary>
     public class KanHitWindows : HitWindows
     {
         private readonly KanHitObject? note;
@@ -102,10 +102,10 @@ namespace Kan.Ruleset.Objects
         // The pace's windows, before a neighbour narrows them (the judge does that per note).
         public override double WindowFor(HitResult result) => result switch
         {
-            HitResult.Perfect => Kan.Forge.Play.LiveJudge.WindowMs(Kan.Forge.Play.LiveResult.Perfect, paceMs),
-            HitResult.Good => Kan.Forge.Play.LiveJudge.WindowMs(Kan.Forge.Play.LiveResult.Good, paceMs),
-            HitResult.Meh => Kan.Forge.Play.LiveJudge.WindowMs(Kan.Forge.Play.LiveResult.Meh, paceMs),
-            HitResult.Miss => Kan.Forge.Play.LiveJudge.WindowMs(Kan.Forge.Play.LiveResult.Meh, paceMs) + Kan.Forge.Play.LiveJudge.HEARING_MS + Kan.Forge.Play.LiveJudge.PITCH_WAIT_MS,
+            HitResult.Perfect => Kan.Core.Play.LiveJudge.WindowMs(Kan.Core.Play.LiveResult.Perfect, paceMs),
+            HitResult.Good => Kan.Core.Play.LiveJudge.WindowMs(Kan.Core.Play.LiveResult.Good, paceMs),
+            HitResult.Meh => Kan.Core.Play.LiveJudge.WindowMs(Kan.Core.Play.LiveResult.Meh, paceMs),
+            HitResult.Miss => Kan.Core.Play.LiveJudge.WindowMs(Kan.Core.Play.LiveResult.Meh, paceMs) + Kan.Core.Play.LiveJudge.HEARING_MS + Kan.Core.Play.LiveJudge.PITCH_WAIT_MS,
             _ => 0,
         };
     }

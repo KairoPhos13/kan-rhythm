@@ -27,10 +27,11 @@ using osu.Game.Overlays;
 using osu.Game.Screens.Edit;
 using osu.Game.Screens.Edit.Setup;
 using Kan.Forge.Media;
-using Kan.Forge.Native;
+using Kan.Core.Native;
 using Kan.Forge.Pipeline;
 using Kan.Forge.Tracks;
-using Kan.Forge.Transcription;
+using Kan.Core.Transcription;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Editor
 {

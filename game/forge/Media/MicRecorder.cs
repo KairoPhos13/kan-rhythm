@@ -5,6 +5,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Threading;
 using ManagedBass;
+using Kan.Core.Media;
 
 namespace Kan.Forge.Media
 {
@@ -93,7 +94,7 @@ namespace Kan.Forge.Media
         }
 
         /// <summary>Write mono samples as a PCM16 WAV (what the transcriber reads).</summary>
-        public static void WriteWav(string path, float[] mono) => MediaAudioExtractor.WriteWav(path, mono, mono.Length, 1, SAMPLE_RATE);
+        public static void WriteWav(string path, float[] mono) => WavFile.Write(path, mono, mono.Length, 1, SAMPLE_RATE);
 
         public void Dispose()
         {

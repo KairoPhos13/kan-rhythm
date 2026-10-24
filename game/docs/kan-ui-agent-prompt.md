@@ -47,8 +47,8 @@ changing behavior.
 | `game/forge/Editor/KanMediaSection.cs` | the **Resources** section of the editor's setup tab (subclass of the stock `ResourcesSection`): the ONLY file-reading surface — "Import audio tracks (multiple)" navigator, "video provides the audio" toggle, and **"The set"** explorer (compact rows: waveform background + name + role badges + ✕) |
 | `game/forge/Editor/KanTracksScreen.cs` | the **"track" tab** (second tab, lowercase — see §2.4): the full track rows (roles, volume/mute, track editor, ✕) and the optional actions (demux / transcribe / render) with progress bars and a status line |
 | `game/forge/Editor/WaveformPreview.cs` | shared waveform drawable (96 peak buckets from `TrackAnalysis`) |
-| `game/forge/Tracks/ForgeTrack.cs` | the track model: roles (music/reference/accompaniment/demux), volume, mute, material class (separated/mixdown), duplicate-import refusal |
-| `game/forge/Tracks/TrackAnalysis.cs` | waveform data + the "no meaningful audio" rule (peak/RMS below noise floor) |
+| `game/core/Tracks/ForgeTrack.cs` | the track model: roles (music/reference/accompaniment/demux), volume, mute, material class (separated/mixdown), duplicate-import refusal |
+| `game/core/Tracks/TrackAnalysis.cs` | waveform data + the "no meaningful audio" rule (peak/RMS below noise floor) |
 | `game/forge/Editor/ForgeTrackSession.cs` | the shared track set between the two surfaces |
 | fork (do not touch) | `EditorScreenMode.Tracks`, `Ruleset.CreateTracksEditorScreen()` hook (fork-divergence F-11); the stock "Audio Track" row is hidden via a documented reflection call in `KanMediaSection.hideStockAudioSelector()` |
 

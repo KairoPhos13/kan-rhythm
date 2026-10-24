@@ -11,6 +11,7 @@ using osu.Framework.Testing;
 using osu.Game.Overlays;
 using Kan.Forge.Pipeline;
 using Kan.Forge.Tracks;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Editor.Compose
 {
@@ -262,7 +263,7 @@ namespace Kan.Forge.Editor.Compose
                 case @"range":
                 {
                     var (low, high) = span(p[1]);
-                    Kan.Forge.Play.RangeFit.PlayerRange = () => ((int)low, (int)high);
+                    Kan.Core.Play.RangeFit.PlayerRange = () => ((int)low, (int)high);
                     break;
                 }
 
@@ -333,8 +334,8 @@ namespace Kan.Forge.Editor.Compose
                                                                           .ToList());
             }
 
-            public System.Collections.Generic.IReadOnlyList<Kan.Forge.Score.GridPoint> Points
-                => beatmap.ControlPointInfo.TimingPoints.Select(p => new Kan.Forge.Score.GridPoint { TimeMs = p.Time, BeatMs = p.BeatLength }).ToList();
+            public System.Collections.Generic.IReadOnlyList<Kan.Core.Score.GridPoint> Points
+                => beatmap.ControlPointInfo.TimingPoints.Select(p => new Kan.Core.Score.GridPoint { TimeMs = p.Time, BeatMs = p.BeatLength }).ToList();
 
             private void set(System.Collections.Generic.List<Point> points)
             {

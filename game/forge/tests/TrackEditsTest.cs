@@ -5,10 +5,10 @@ using System;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
+using Kan.Core.Native;
+using Kan.Core.Transcription;
+using Kan.Core.Tracks;
 using Kan.Forge.Media;
-using Kan.Forge.Native;
-using Kan.Forge.Tracks;
-using Kan.Forge.Transcription;
 
 namespace Kan.Forge.Tests
 {

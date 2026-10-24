@@ -8,11 +8,13 @@
     <!-- The tests/ subfolder is its own project: keep its sources (and its
          generated obj files) out of this project's default glob. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
-    <Description>kan!forge — level-creation pipeline: libkan C-ABI bridge, transcription draft &amp; edit propagation, editor entry-window UI</Description>
+    <Description>kan!forge — the level editor's tabs (tracks, compose, design), the audio played along a level, and the media pipeline, on top of Kan.Core</Description>
     <Version>0.0.0</Version>
   </PropertyGroup>
 
   <ItemGroup Label="Project References">
+    <!-- What a level is and how a play is judged (no osu! inside); it also brings libkan's native bridge. -->
+    <ProjectReference Include="..\core\Kan.Core.csproj" />
     <!-- Compiles against the fork (game/client) like the ruleset does. -->
     <ProjectReference Include="..\client\osu.Game\osu.Game.csproj" />
   </ItemGroup>
@@ -24,21 +26,5 @@
       osu!framework — no new dependency surface (see game/docs/bass-licensing.md).
     -->
     <PackageReference Include="ppy.ManagedBass" Version="2022.1216.0" />
-  </ItemGroup>
-
-  <ItemGroup Label="Native bridge">
-    <!--
-      libkan_forge_native is built by CMake (see native/CMakeLists.txt):
-        cmake -S game/forge/native -B game/forge/native/build -DCMAKE_BUILD_TYPE=Release
-        then build the "game/forge/native/build" directory with your generator.
-      The library rides along to the output ROOT (Link flattens the path) so
-      P/Invoke can find it next to the assemblies.
-    -->
-    <None Include="native\build\libkan_forge_native.so" Condition="Exists('native\build\libkan_forge_native.so')"
-          Link="libkan_forge_native.so" CopyToOutputDirectory="PreserveNewest" Visible="false" />
-    <None Include="native\build\libkan_forge_native.dylib" Condition="Exists('native\build\libkan_forge_native.dylib')"
-          Link="libkan_forge_native.dylib" CopyToOutputDirectory="PreserveNewest" Visible="false" />
-    <None Include="native\build\kan_forge_native.dll" Condition="Exists('native\build\kan_forge_native.dll')"
-          Link="kan_forge_native.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 </Project>

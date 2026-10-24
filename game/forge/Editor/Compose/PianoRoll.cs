@@ -19,7 +19,7 @@ using osu.Game.Screens.Edit;
 using osuTK;
 using osuTK.Graphics;
 using osuTK.Input;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 
 namespace Kan.Forge.Editor.Compose
 {
@@ -198,7 +198,7 @@ namespace Kan.Forge.Editor.Compose
         /// The pitches the player can play (owner 2026-10-23: notes out of range
         /// "in theory I cannot use"): rows outside are dimmed, notes outside greyed.
         /// </summary>
-        public (int Lowest, int Highest) Range => Kan.Forge.Play.RangeFit.Playable(ForgeTrackSession.Instrument);
+        public (int Lowest, int Highest) Range => Kan.Core.Play.RangeFit.Playable(ForgeTrackSession.Instrument);
 
         private bool inRange(int midi) => midi >= Range.Lowest && midi <= Range.Highest;
 

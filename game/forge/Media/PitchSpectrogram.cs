@@ -4,6 +4,7 @@
 using System;
 using System.IO;
 using ManagedBass;
+using Kan.Core.Media;
 
 namespace Kan.Forge.Media
 {
@@ -75,7 +76,7 @@ namespace Kan.Forge.Media
                     im[i] = 0;
                 }
 
-                Fft(re, im);
+                Fft.Transform(re, im);
 
                 int row = fr * PITCHES;
                 for (int k = 1; k < fftSize / 2; k++)
@@ -145,52 +146,6 @@ namespace Kan.Forge.Media
         {
             sampleRate = 0;
             return File.Exists(path) ? DecodeMono(File.ReadAllBytes(path), out sampleRate) : null;
-        }
-
-        /// <summary>In-place iterative radix-2 FFT (length must be a power of two).</summary>
-        internal static void Fft(float[] re, float[] im)
-        {
-            int n = re.Length;
-
-            for (int i = 1, j = 0; i < n; i++)
-            {
-                int bit = n >> 1;
-                for (; (j & bit) != 0; bit >>= 1) j ^= bit;
-                j ^= bit;
-
-                if (i < j)
-                {
-                    (re[i], re[j]) = (re[j], re[i]);
-                    (im[i], im[j]) = (im[j], im[i]);
-                }
-            }
-
-            for (int len = 2; len <= n; len <<= 1)
-            {
-                double angle = -2 * Math.PI / len;
-                float wr = (float)Math.Cos(angle), wi = (float)Math.Sin(angle);
-
-                for (int i = 0; i < n; i += len)
-                {
-                    float cr = 1, ci = 0;
-
-                    for (int k = 0; k < len / 2; k++)
-                    {
-                        int a = i + k, b = a + len / 2;
-                        float tr = re[b] * cr - im[b] * ci;
-                        float ti = re[b] * ci + im[b] * cr;
-
-                        re[b] = re[a] - tr;
-                        im[b] = im[a] - ti;
-                        re[a] += tr;
-                        im[a] += ti;
-
-                        float ncr = cr * wr - ci * wi;
-                        ci = cr * wi + ci * wr;
-                        cr = ncr;
-                    }
-                }
-            }
         }
     }
 }

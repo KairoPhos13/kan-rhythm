@@ -20,6 +20,7 @@ using osu.Game.Beatmaps;
 using osu.Game.Screens.Edit;
 using Kan.Forge.Tracks;
 using Kan.Forge.Audio;
+using Kan.Core.Tracks;
 
 namespace Kan.Forge.Editor
 {

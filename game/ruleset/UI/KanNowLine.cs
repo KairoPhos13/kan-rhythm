@@ -13,6 +13,7 @@ using osu.Game.Graphics.Sprites;
 using osuTK;
 using osuTK.Graphics;
 using Kan.Forge.Play;
+using Kan.Core.Play;
 
 namespace Kan.Ruleset.UI
 {

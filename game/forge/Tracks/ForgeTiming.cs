@@ -54,7 +54,7 @@ namespace Kan.Forge.Tracks
         /// </summary>
         public static readonly BindableDouble TUNING_CENTS = new BindableDouble { MinValue = -80, MaxValue = 80, Precision = 1 };
 
-        /// <summary>Learn <see cref="TUNING_CENTS"/> while playing (<see cref="Kan.Forge.Play.TuningTracker"/>).</summary>
+        /// <summary>Learn <see cref="TUNING_CENTS"/> while playing (<see cref="Kan.Core.Play.TuningTracker"/>).</summary>
         public static readonly BindableBool AUTO_TUNING = new BindableBool(true);
 
         /// <summary>When the mic delay was last measured, and with which instrument (empty = never).</summary>

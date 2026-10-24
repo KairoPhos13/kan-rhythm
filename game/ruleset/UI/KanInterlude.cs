@@ -12,7 +12,7 @@ using osu.Game.Graphics;
 using osu.Game.Graphics.Sprites;
 using osuTK;
 using osuTK.Graphics;
-using Kan.Forge.Design;
+using Kan.Core.Design;
 
 namespace Kan.Ruleset.UI
 {

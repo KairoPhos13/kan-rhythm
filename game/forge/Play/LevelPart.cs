@@ -10,9 +10,11 @@ using osu.Framework.Audio.Track;
 using osu.Game.Beatmaps;
 using Kan.Forge.Editor;
 using Kan.Forge.Media;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 using Kan.Forge.Tracks;
 using Kan.Forge.Audio;
+using Kan.Core.Tracks;
+using Kan.Core.Media;
 
 namespace Kan.Forge.Play
 {
@@ -78,7 +80,7 @@ namespace Kan.Forge.Play
 
             float[] samples = ScoreSynth.Render(score.Notes);
             using var wav = new MemoryStream();
-            MediaAudioExtractor.WriteWav(wav, samples, samples.Length, 1, ScoreSynth.SAMPLE_RATE);
+            WavFile.Write(wav, samples, samples.Length, 1, ScoreSynth.SAMPLE_RATE);
             return new Material(null, 0, wav.ToArray());
         }
 

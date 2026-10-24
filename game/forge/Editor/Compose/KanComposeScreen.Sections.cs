@@ -25,7 +25,7 @@ using osu.Game.Overlays;
 using osu.Game.Screens.Edit;
 using osuTK;
 using osuTK.Input;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 using Kan.Forge.Tracks;
 
 namespace Kan.Forge.Editor.Compose
@@ -231,7 +231,7 @@ namespace Kan.Forge.Editor.Compose
             Busy = true;
             string cut = ForgeTrackSession.NewWorkPath("reference-section");
 
-            Kan.Forge.Pipeline.ForgeJobs.EditTrackAsync(reference.Path, Kan.Forge.Native.KanForgeEditMode.Trim, (float)fileFrom, (float)fileTo, cut, null, Scheduler)
+            Kan.Forge.Pipeline.ForgeJobs.EditTrackAsync(reference.Path, Kan.Core.Native.KanForgeEditMode.Trim, (float)fileFrom, (float)fileTo, cut, null, Scheduler)
                .ContinueWith(t => Schedule(() =>
                {
                    Busy = false;

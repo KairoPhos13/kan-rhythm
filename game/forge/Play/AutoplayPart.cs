@@ -10,7 +10,7 @@ using osu.Framework.Bindables;
 using osu.Framework.Graphics;
 using osu.Framework.Logging;
 using osu.Game.Beatmaps;
-using Kan.Forge.Score;
+using Kan.Core.Score;
 
 namespace Kan.Forge.Play
 {
