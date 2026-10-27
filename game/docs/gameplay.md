@@ -665,9 +665,11 @@ section on now, the palette in force — eased between sections over
   cools it at once: red, a short shake, dull sparks falling.
 - **Notation** (owner 2026-10-15: "notes as letters are easy to
   confuse"): note names as letters (C D E), Do-Re-Mi, or none; and a
-  colour per note — the twelve notes around the colour wheel (C red,
-  D orange, E yellow…), whatever the palette — so a note is known at a
-  glance on any instrument. Chosen in the player loader's side panel
+  colour per note — the twelve in rainbow order (C red, D amber,
+  E green, F mint, G blue, A lilac, B pink, sharps between), chosen to
+  be as far apart as they can be to the eye, lightness included (owner
+  2026-10-26: E and F looked alike) — so a note is known at a glance on
+  any instrument. Chosen in the player loader's side panel
   ("Notation", fork F-16) or Settings → kan!; followed live.
 - **Size:** the staff (and the wait overlay) is designed for a 900-pixel
   high screen and scaled to the real one, times Settings → kan! → Note

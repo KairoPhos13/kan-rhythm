@@ -5,6 +5,7 @@ using System.ComponentModel;
 using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Bindables;
+using osu.Framework.Extensions.Color4Extensions;
 using osu.Framework.Graphics;
 using osu.Game.Overlays.Settings;
 using osu.Game.Screens.Play.PlayerSettings;
@@ -30,7 +31,7 @@ namespace Kan.Ruleset.UI
     /// How the staff writes a note (owner 2026-10-15: "notes as letters are
     /// easy to confuse"): its name as letters or as Do-Re-Mi, or none; and,
     /// optionally, its own colour — each of the twelve notes always the same
-    /// hue around the colour wheel (C red, D orange, E yellow…), so a note is
+    /// colour, in rainbow order (C red, D amber, E green…), so a note is
     /// known at a glance, on any instrument. Set right before playing (the
     /// player loader's Notation group) or in the ruleset settings.
     /// </summary>
@@ -63,12 +64,30 @@ namespace Kan.Ruleset.UI
         /// <summary>Whether the note is a sharp (a black key): drawn with points, not round.</summary>
         public static bool IsSharp(int midi) => pitchClass(midi) is 1 or 3 or 6 or 8 or 10;
 
-        /// <summary>The note's own colour: its place on the colour wheel (sharps between their neighbours).</summary>
-        public static Color4 Colour(int midi)
+        /// <summary>The note's own colour (sharps between their neighbours on the wheel).</summary>
+        public static Color4 Colour(int midi) => colours[pitchClass(midi)];
+
+        // Twelve hues evenly around the wheel looked alike where the eye tells
+        // hues apart least: E and F were both green, and close on the staff
+        // (owner 2026-10-26). Chosen instead to be as far apart as they can be
+        // in a perceptual space (OKLab), in rainbow order from C, with lightness
+        // varying too, and clear of the unknown pitch's grey and the perfect's
+        // white: every two notes are now at least twice as far apart as E and F were.
+        private static readonly Color4[] colours =
         {
-            float hue = pitchClass(midi) / 12f;
-            return Color4.FromHsv(new osuTK.Vector4(hue, 0.62f, 1f, 1f));
-        }
+            Color4Extensions.FromHex(@"ff451d"), // C   red
+            Color4Extensions.FromHex(@"ffbf78"), // C♯  peach
+            Color4Extensions.FromHex(@"c68e15"), // D   amber
+            Color4Extensions.FromHex(@"02fb0b"), // D♯  lime
+            Color4Extensions.FromHex(@"30c05e"), // E   green
+            Color4Extensions.FromHex(@"61fcc4"), // F   mint
+            Color4Extensions.FromHex(@"74cbf0"), // F♯  sky
+            Color4Extensions.FromHex(@"1897fd"), // G   blue
+            Color4Extensions.FromHex(@"a66cff"), // G♯  violet
+            Color4Extensions.FromHex(@"e2a6ff"), // A   lilac
+            Color4Extensions.FromHex(@"f300ff"), // A♯  magenta
+            Color4Extensions.FromHex(@"ff5eb0"), // B   pink
+        };
     }
 
     /// <summary>
