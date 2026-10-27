@@ -18,14 +18,18 @@
 //   3. ggml is PINNED in libkan/CMakeLists.txt (see also
 //      docs/porting/ggml-vulkan-int-dot-product.md).
 #include "libkan/roformer_runtime.hpp"
+#include "libkan/verbose.hpp"
 
 #include "bs_roformer/audio.h"
 #include "bs_roformer/inference.h"
+#include "ggml.h"
 
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <iostream>
+#include <streambuf>
 #include <string>
 #include <vector>
 
@@ -44,10 +48,42 @@ void set_env(const char* k, const char* v) {
 const char* get_env(const char* k) { return std::getenv(k); }
 
 // Called before ANY Inference construction (backend init reads env).
+// ggml's own lines (devices found, backend chosen, graph sizes) only when
+// verbose; its warnings and errors always.
+void quiet_ggml_log(enum ggml_log_level level, const char* text, void*) {
+    static enum ggml_log_level last = GGML_LOG_LEVEL_INFO;
+    if (level != GGML_LOG_LEVEL_CONT) last = level;
+    if (last >= GGML_LOG_LEVEL_WARN) std::fputs(text, stderr);
+}
+
+/// BSRoformer prints its progress on std::cout/std::cerr: held silent while it runs, unless verbose.
+class QuietStreams {
+public:
+    QuietStreams() {
+        if (verbose()) return;
+        out_ = std::cout.rdbuf(&null_);
+        err_ = std::cerr.rdbuf(&null_);
+    }
+    ~QuietStreams() {
+        if (out_ != nullptr) std::cout.rdbuf(out_);
+        if (err_ != nullptr) std::cerr.rdbuf(err_);
+    }
+    QuietStreams(const QuietStreams&) = delete;
+    QuietStreams& operator=(const QuietStreams&) = delete;
+
+private:
+    struct Null : std::streambuf {
+        int overflow(int c) override { return c; }
+    } null_;
+    std::streambuf* out_ = nullptr;
+    std::streambuf* err_ = nullptr;
+};
+
 void ensure_runtime_configured() {
     static bool done = false;
     if (done) return;
     done = true;
+    if (!verbose()) ggml_log_set(quiet_ggml_log, nullptr);
     // Safe by default (user override respected if already set).
     if (get_env("GGML_VK_DISABLE_INTEGER_DOT_PRODUCT") == nullptr) {
         set_env("GGML_VK_DISABLE_INTEGER_DOT_PRODUCT", "1");
@@ -119,6 +155,7 @@ void parity_marker_write(const std::string& model) {
 
 bool run_probe(const std::string& model_path, bool force_cpu,
                std::vector<std::vector<float>>& stems) {
+    QuietStreams quiet;
     if (force_cpu) set_env("BSR_FORCE_CPU", "1");
     try {
         Inference engine(model_path);
@@ -229,6 +266,7 @@ bool roformer_separate_wav(const std::string& input_wav,
                            const std::string& model_path,
                            const std::function<void(float)>& progress) {
     ensure_runtime_configured();
+    QuietStreams quiet;
     // Correctness gate: if this (model, build, device) combination does not
     // match CPU, the session falls back to CPU — a broken GPU path can
     // never silently produce a level's stems.
@@ -239,7 +277,7 @@ bool roformer_separate_wav(const std::string& input_wav,
                              "falling back to CPU\n", why.c_str());
         force_cpu_session = true;
     } else if (!why.empty()) {
-        std::printf("[roformer] parity gate: %s\n", why.c_str());
+        if (verbose()) std::printf("[roformer] parity gate: %s\n", why.c_str());
     }
     if (force_cpu_session) set_env("BSR_FORCE_CPU", "1");
 

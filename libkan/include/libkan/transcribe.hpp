@@ -6,6 +6,7 @@
 // (release-bias constant measured on 1.5M+ notes) with the raw end and
 // `end_faded` preserved for the editor. The facts are measurements, not
 // verdicts — a transcribed chart is a DRAFT for human review.
+#include "libkan/verbose.hpp"
 #include "libkan/note_stream.hpp"
 #ifdef KAN_HAVE_ROFORMER_RUNTIME
 #include "libkan/roformer_runtime.hpp"
@@ -50,8 +51,9 @@ inline void fs_rename(const std::string& a, const std::string& b) {
 // ---- progress protocol (game-facing, user request 2026-10-12) ---------
 // The game shows a progress notice for downloads AND processing. Two
 // channels, same numbers:
-//   1. machine line on stdout:  PROGRESS <phase> <percent>   (subprocess)
-//   2. in-process callback:     set_progress(fn, user)
+//   1. in-process callback:     set_progress(fn, user)   (the game)
+//   2. machine line on stdout:  PROGRESS <phase> <percent>
+//      when no callback listens (a run from a terminal), or KAN_VERBOSE
 // Phases: "download", "separate". Percent 0..100.
 using ProgressFn = void (*)(void* user, const char* phase, int percent);
 inline ProgressFn g_progress_fn = nullptr;
@@ -64,8 +66,10 @@ inline void report_progress(const char* phase, int percent) {
     if (percent < 0) percent = 0;
     if (percent > 100) percent = 100;
     if (g_progress_fn != nullptr) g_progress_fn(g_progress_user, phase, percent);
-    std::printf("PROGRESS %s %d\n", phase, percent);
-    std::fflush(stdout);
+    if (g_progress_fn == nullptr || verbose()) {
+        std::printf("PROGRESS %s %d\n", phase, percent);
+        std::fflush(stdout);
+    }
 }
 
 /// Run a command, scanning its output for "NN%" progress tokens and
@@ -196,7 +200,7 @@ inline std::string separate_stems(const std::string& audio,
         const std::string model = sep.substr(8);
         const std::string dir = out_dir + "/roformer";
         fs_create_all(dir);
-        std::printf("[separate] in-process runtime: %s\n", model.c_str());
+        if (verbose()) std::printf("[separate] in-process runtime: %s\n", model.c_str());
         const bool okrun = roformer_separate_wav(
             audio, dir, model, [](float p) {
                 report_progress("separate", int(p * 100.0f + 0.5f));
@@ -212,7 +216,7 @@ inline std::string separate_stems(const std::string& audio,
     fs_create_all(out_dir);
     const std::string stem_out = out_dir + "/roformer_out.wav";
     const std::string cmd = cli + " '" + gguf + "' '" + audio + "' '" + stem_out + "'";
-    std::printf("[separate] %s\n", cmd.c_str());
+    if (verbose()) std::printf("[separate] %s\n", cmd.c_str());
     if (!run_with_progress(cmd, "separate")) return "";
     static const char* N[6] = {"bass", "drums", "other", "vocals", "guitar", "piano"};
     const std::string dir = out_dir + "/roformer";
