@@ -4,6 +4,60 @@ The **kan!** client on osu!lazer (ADR-0010) + integrated **kan!forge** editor.
 Integration architecture: [docs/architecture/osu-integration.md](../docs/architecture/osu-integration.md).
 Gates: [docs/ROADMAP.md](../docs/ROADMAP.md).
 
+## First public release (owner 2026-10-27)
+
+The goal is modest: publish kan! as it is, free, for whoever wants to use
+it. It is already useful and fun; it may grow later, by its owner or by a
+community that finds it valuable. Income and who maintains it are
+secondary. What it is for: making practice fun, so players take what they
+learn to their churches, friends and communities.
+
+**Design stance:** kan! does not chase anxiety. osu!'s higher difficulties
+are frantic and built to be compulsive; a song may be intense, but the game
+itself never aims at pressure or compulsion. Forgiving defaults, calm
+feedback, strictness only as an opt-in.
+
+Blocking (legal and safety):
+
+- [ ] Own identity: logo, icons (`lazer.ico`, `beatmap.ico`,
+      `assets/lazer*.png`), menu logo and backgrounds, intro, its music and
+      voice — osu!'s are CC BY-NC 4.0 (`ppy/osu-resources`) and its name and
+      logo are trademarks. New art made from scratch; wiring it in is a
+      small fork hook (a resource store ahead of `osu.Game.Resources`).
+      Intro music: undecided (owner)
+- [ ] Online off without removing it: point `ProductionEndpointConfiguration`
+      at no server (kan!'s own osu-web instance later is a URL change)
+- [ ] Updater: point at kan!'s releases or turn it off (it reads
+      `github.com/ppy/osu` today and would install osu!lazer)
+- [ ] User-facing "osu!" strings (list in `docs/fork-divergence.md`)
+- [ ] Bundled songs free to distribute (public domain, Creative Commons or
+      original): none popular. Players share their own levels as files
+- [ ] Separation model shipped by default: weights with a clear licence
+      (see chart-transcription-evaluation.md, "Verified license reality");
+      Basic Pitch (Apache-2.0) listed in the notices
+- [ ] Push the fork commits to github.com/KairoPhos13/kan (owner: this build
+      machine has no credentials) — the submodule must resolve for others
+- [ ] No donations until BASS is settled (`docs/bass-licensing.md`): a free,
+      non-commercial release needs no licence
+
+Important for a first impression:
+
+- [ ] Tried on more instruments (a recorder or flute, voice, a bowed and a
+      plucked one) and on other microphones (laptop, headset, Windows'
+      noise suppression)
+- [ ] Windows build and installer verified; macOS if possible
+- [ ] First run: choose the instrument, test the microphone, calibrate,
+      play an easy level
+- [ ] Hide osu!'s own game modes (osu!, taiko, catch, mania) or decide to keep them
+- [ ] A short demo video; the root README for players (game/README.md
+      is done, 2026-10-27)
+
+Later, if it grows: kan!'s own server from osu!'s open ones (osu-web,
+osu-server-spectator), shared levels with terms of use and a takedown
+process, rankings. Cheating is accepted as out of scope (owner: whoever
+cares about it can fix it); osu!lazer's model — ranked scores only from
+official builds, replays kept — is the reference.
+
 ## Milestone 2 — Fork + ruleset vertical slice
 
 ### Setup & compliance (do first)

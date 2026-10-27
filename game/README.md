@@ -1,12 +1,76 @@
-# game/
+# game/ — the kan! game
 
-The **kan!** game: [osu!lazer](https://github.com/ppy/osu) (MIT) forked and
-rebranded ([ADR-0010](../docs/adr/0010-osu-lazer-base-client.md),
-ADR-0011), plus kan!'s own game mode and level editor. You play a level's
-score on a real instrument; the microphone is described live by
-[libkan](../libkan/) and the game judges each note by its timing and its
-pitch. Integration architecture:
+**kan!** is a rhythm game you play on a real instrument. A level is a song's
+score: notes scroll along a staff toward a line, and you play each one on your
+own instrument as it reaches the line. The microphone is all it needs. Each
+note is judged by its timing and its pitch together, and scored the way osu!
+scores a hit: perfect, good, meh or miss.
+
+The game is a fork of [osu!lazer](https://github.com/ppy/osu) (MIT), with
+kan!'s own game mode and level editor
+([ADR-0010](../docs/adr/0010-osu-lazer-base-client.md), ADR-0011). Live
+listening is [libkan](../libkan/)'s: it describes what it hears, and the game
+judges it. Integration architecture:
 [docs/architecture/osu-integration.md](../docs/architecture/osu-integration.md).
+
+## What it does
+
+**Play**
+
+- **Any instrument that plays notes.** The level's notes are fitted to your
+  instrument's range, and its own tuning is learnt and taken off: a slightly
+  flat or sharp instrument is not punished. So far it has been played mostly
+  on an alto ocarina.
+- **Forgiving by default.** Timing windows follow the music's pace (how close
+  the notes are), not its tempo. A note in tune and on time is a perfect; one
+  a little out on either is still a hit. Strictness is opt-in, with mods.
+- **The staff.** One scale for the whole level (an option zooms passage by
+  passage). Notes are named as letters or Do-Re-Mi, or not at all, and can
+  each have their own colour.
+- **Mods for learning:** *Wait for me* stops at each note until it is played,
+  *Practice* loops a section, *By heart* shows each note only for a moment,
+  *Half Time* slows the level. osu!'s Easy, Hard Rock, Hidden, Sudden Death,
+  Perfect, Double Time and Auto work as there.
+- **Every level at one loudness.** The level audio is rendered at a reference
+  loudness (−20 LUFS), so no level is much louder than the next; each can
+  still be set louder or softer.
+- **Replays**, a song-select preview, and a trace of each play.
+
+**Make levels (kan!forge, in the editor)**
+
+- **Tracks:** import a song, separate it into instruments on your own
+  computer, and choose what plays along with you (the companion). Cut, move
+  and fade, with undo.
+- **Compose:** a piano roll to write the score, or to correct a draft
+  transcribed from the song. Click a key to hear its note. Tempo grid with
+  sync points placed where you choose.
+- **Design:** the level's look while it is played.
+- **Verify:** a checklist before sharing a level: notes the instrument
+  cannot reach, two notes at once on a one-note instrument, guessed pitches,
+  notes past the end of the audio, level audio out of date or off its
+  loudness.
+
+Everything runs locally: no account or connection is needed to play or make
+levels, and nothing heard by the microphone is recorded or sent.
+
+## Status
+
+Playable and in daily testing, not yet released. Before a public release:
+
+- **Identity:** the logos, menu art, intro music and sounds are still
+  osu!'s (they are not covered by osu!'s MIT licence, and its name and logo
+  are trademarks). Some on-screen texts still say osu!.
+- **Online:** the client still points at osu!'s servers (accounts, chat,
+  rankings) and its updater at osu!'s releases. kan! needs its own server
+  ([server/](../server/)) before any online feature.
+- **Instruments and platforms:** tested mostly on ocarina, and on Linux.
+  Windows and macOS builds are unverified.
+- **Levels to share:** songs bundled with the game must be free to
+  distribute (public domain, freely licensed, or original).
+- **BASS** (osu!'s audio library) is free only for non-commercial use: see
+  [docs/bass-licensing.md](docs/bass-licensing.md) before taking donations.
+
+Open work in detail: [TODO.md](TODO.md).
 
 ## Projects
 
@@ -57,6 +121,10 @@ microphone; `KAN_LIVE_INPUT_OFFSET_MS` aligns it), `KAN_DEV_MODS`,
 `KAN_DEV_REPAIR` (scripted editor steps), `KAN_DEV_SCREENSHOTS`,
 `KAN_DEV_PAUSE`, `KAN_DEV_RESTART`. The class comment lists them all.
 
+`KAN_VERBOSE=1` brings back libkan's console lines (progress as text,
+the separation's device and model, ggml's backend): the game shows its own
+progress, so they stay quiet otherwise. Failures always print.
+
 Test runs belong in an isolated instance (a headless compositor, a copy of
 the game's data, volume 0, its own network namespace): a developer's own
 game and microphone are never touched. A test instance never opens the
@@ -64,6 +132,8 @@ microphone — without `KAN_LIVE_INPUT` it listens to nothing.
 
 ## Ground rules
 
+- **Calm by design**: practice made fun, never anxiety or compulsion as
+  the hook; forgiving defaults, strictness only by choice.
 - English only ([CONTRIBUTING.md](../CONTRIBUTING.md)).
 - **Minimal fork divergence**: prefer ruleset code over fork edits; record
   every fork change in `docs/fork-divergence.md`.
