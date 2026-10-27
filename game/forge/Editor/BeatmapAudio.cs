@@ -24,7 +24,7 @@ namespace Kan.Forge.Editor
     /// beatmap (so the change survives leaving the editor) and reload the
     /// current track (so the editor clock and the playback bar play it).
     /// </summary>
-    internal static class BeatmapAudio
+    public static class BeatmapAudio
     {
         /// <summary>Returns the beatmap file name, or null (with <paramref name="error"/>) on failure.</summary>
         public static string? Apply(WorkingBeatmap working, BeatmapManager beatmaps, MusicController music, osu.Game.Screens.Edit.Editor? editor,

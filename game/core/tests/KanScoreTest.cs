@@ -207,6 +207,27 @@ namespace Kan.Core.Tests
         }
 
         [Test]
+        public void NotesSoundingTogetherAreFound()
+        {
+            // Owner 2026-10-25: two pitches at once on a one-note instrument.
+            var score = new KanScore
+            {
+                Notes =
+                {
+                    new ScoreNote { StartMs = 0, DurationMs = 500, Midi = 72 },
+                    new ScoreNote { StartMs = 490, DurationMs = 500, Midi = 74 },   // a legato's 10 ms seam: fine
+                    new ScoreNote { StartMs = 1200, DurationMs = 1000, Midi = 76 },
+                    new ScoreNote { StartMs = 1200, DurationMs = 300, Midi = 79 },  // a chord
+                    new ScoreNote { StartMs = 1600, DurationMs = 200, Midi = 77 },  // inside the long one
+                    new ScoreNote { StartMs = 2400, DurationMs = 100, Midi = 72 },
+                },
+            };
+
+            var together = score.SoundingTogether().Select(p => (p.Sounding.Midi, p.Starting.Midi)).ToList();
+            Assert.That(together, Is.EquivalentTo(new[] { (76, 79), (76, 77) }));
+        }
+
+        [Test]
         public void NotesFollowTheTempoGrid()
         {
             // Owner 2026-10-22: timing changes did not reach compose.

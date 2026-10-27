@@ -129,6 +129,12 @@ namespace Kan.Ruleset
         public override Drawable CreateIcon() => new KanRulesetIcon();
 
         /// <summary>Misses cost health and an empty bar ends the level; "no fail" and "wait for me" keep it going.</summary>
+        /// <summary>The verify tab: kan!'s checklist before a level is shared.</summary>
+        public override osu.Game.Rulesets.Edit.IBeatmapVerifier CreateBeatmapVerifier() => new Kan.Ruleset.Edit.KanBeatmapVerifier();
+
+        /// <summary>osu!'s general checks that count the beatmap's hit objects do not apply: kan!'s notes live in its score (fork F-19).</summary>
+        public override bool AppliesGeneralCheck(osu.Game.Rulesets.Edit.Checks.Components.ICheck check) => Kan.Ruleset.Edit.KanBeatmapVerifier.AppliesGeneralCheck(check);
+
         public override osu.Game.Rulesets.Scoring.ScoreProcessor CreateScoreProcessor() => new Kan.Ruleset.Scoring.KanScoreProcessor(this);
 
         public override osu.Game.Rulesets.Scoring.HealthProcessor CreateHealthProcessor(double drainStartTime) => new Kan.Ruleset.Scoring.KanHealthProcessor(drainStartTime);

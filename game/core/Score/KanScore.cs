@@ -236,6 +236,28 @@ namespace Kan.Core.Score
         }
 
         /// <summary>Instruments that sound one note at a time (one air column / one bow).</summary>
+        /// <summary>
+        /// The notes that start while another still sounds — two pitches at once,
+        /// which an instrument that plays one note at a time cannot (owner
+        /// 2026-10-25). Each with the note it overlaps. Overlaps shorter than
+        /// <paramref name="seamMs"/> are a legato's seam, not two notes at once.
+        /// </summary>
+        public IEnumerable<(ScoreNote Sounding, ScoreNote Starting)> SoundingTogether(double seamMs = 20)
+        {
+            ScoreNote? sounding = null;
+
+            foreach (var n in Notes.OrderBy(n => n.StartMs))
+            {
+                if (sounding != null && n.StartMs < sounding.EndMs - seamMs)
+                {
+                    yield return (sounding, n);
+                    if (n.EndMs <= sounding.EndMs) continue; // the longer one still sounds
+                }
+
+                sounding = n;
+            }
+        }
+
         public static bool IsMonophonic(string instrument) => instrument is @"ocarina" or @"flute" or @"recorder" or @"wind_bowed";
 
         /// <summary>

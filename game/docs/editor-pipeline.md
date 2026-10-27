@@ -502,6 +502,11 @@ cents), duration, intensity and playing style (normal / legato / staccato
   divisions; `G` / `Shift+G` cycle them.
 - **Keys:** listed in `ShortcutsPanel` (`K` or the "keys" button); the
   osu editor's own Space/C, X, Z, V and arrow seeks keep working.
+- **Try a note by ear** (owner 2026-10-25: placing a note and playing it
+  back was clumsy): clicking a key of the keyboard on the left sounds it,
+  and sliding along the keys sounds each one reached, as on a piano. The
+  score's own tone (`ScoreSynth`), one sample per pitch made the first time
+  (`KeyAudition`), in the effects volume; the key flashes.
 - **Copy and paste** (owner 2026-10-23: choruses are often alike):
   Ctrl+C / X / V, and the osu editor's Edit menu (`EditorScreen.Copy`).
   The copied notes keep their spacing from the first one; paste puts them
@@ -590,6 +595,27 @@ the score) says how the level looks and rewards, stretch by stretch:
 The editor loads a level without converting its score into objects
 (`KanLevelFiles.EditorLoading`): the osu! format it saves cannot hold a
 kan! note (it crashed on opening a level with a score, 2026-10-15).
+
+### 6h. The verify tab: the checklist before a level is shared (owner 2026-10-25, fork F-19)
+
+osu!'s general checks counted the beatmap's hit objects — none in a kan!
+level, whose notes live in its score — and reported no drain time and all
+the audio unused. The ruleset turns those off (`AppliesGeneralCheck`) and
+adds its own (`KanBeatmapVerifier`), reading the score and the mix being
+edited, else the level's files. Clicking an issue with a time goes there.
+
+| Check | Type |
+|---|---|
+| The level has no notes | problem |
+| A note outside the usual range of the level's instrument (`RangeFit.DefaultRange`) | warning, per note |
+| Two notes at once on an instrument that plays one at a time (`KanScore.SoundingTogether`; overlaps under 20 ms are a legato's seam) | warning, per note |
+| A note whose pitch is only a guess (the transcription could not hear it) | warning, per note |
+| A note starting after the level audio ends | problem, per note |
+| The audio goes on 10 s and 20 % past the last note (osu!'s check, from the score) | warning |
+| The level audio is older than the mix, or more than 1.5 dB from its loudness target | warning (while the level is open) |
+| No tempo grid | warning |
+
+osu!'s other general checks stay (preview point, background, metadata…).
 
 ## 7. URL / YouTube policy (owner direction, 2026-10-13)
 
