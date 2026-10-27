@@ -51,6 +51,13 @@ namespace Kan.Forge.Editor.Compose
 
         public Action? Changed { get; set; }
 
+        /// <summary>
+        /// A key of the keyboard was pressed, or slid onto (its MIDI note): the
+        /// screen sounds it, to try a note by ear before writing it (owner
+        /// 2026-10-25: placing a note and playing it back was clumsy).
+        /// </summary>
+        public Action<int>? KeyPlayed { get; set; }
+
         public RollTool Tool { get; set; }
 
         /// <summary>Snap to the beat grid (Shift during a drag overrides it).</summary>
@@ -98,6 +105,8 @@ namespace Kan.Forge.Editor.Compose
         private Box band = null!;
         private Box rowHighlight = null!;
         private Box keyHighlight = null!;
+        private Box keyPressed = null!;
+        private int lastKeyPlayed = -1;
         private Box timeMarker = null!;
         private Container ghost = null!;
         private OsuSpriteText ghostLabel = null!;
@@ -162,6 +171,7 @@ namespace Kan.Forge.Editor.Compose
                 },
                 keys = new Container { RelativeSizeAxes = Axes.Y, Width = KEYS_WIDTH },
                 keyHighlight = new Box { Width = KEYS_WIDTH, Colour = colours.Pink, Alpha = 0 },
+                keyPressed = new Box { Width = KEYS_WIDTH, Colour = Color4.White, Alpha = 0 },
             };
         }
 
@@ -453,6 +463,7 @@ namespace Kan.Forge.Editor.Compose
             Resize,
             Band,
             DrawNew,
+            Keys,
         }
 
         private DragMode dragMode;
@@ -554,9 +565,31 @@ namespace Kan.Forge.Editor.Compose
             if (e.Button != MouseButton.Left) return false;
 
             var pos = gridPos(e.ScreenSpaceMousePosition);
-            if (pos.X < 0) return false; // the keyboard
+
+            if (pos.X < 0)
+            {
+                // The keyboard: sound the key.
+                lastKeyPlayed = -1;
+                playKeyAt(pos.Y);
+                return true;
+            }
 
             return true; // take the press; clicks and drags decide
+        }
+
+        private void playKeyAt(float y)
+        {
+            if (y < 0 || y > DrawHeight) return;
+
+            int midi = MidiAt(y);
+            if (midi == lastKeyPlayed) return;
+
+            lastKeyPlayed = midi;
+            KeyPlayed?.Invoke(midi);
+
+            keyPressed.Y = YOf(midi);
+            keyPressed.Height = RowHeight;
+            keyPressed.FadeTo(0.6f).FadeOut(400, Easing.OutQuint);
         }
 
         protected override bool OnClick(ClickEvent e)
@@ -628,7 +661,13 @@ namespace Kan.Forge.Editor.Compose
             if (e.Button != MouseButton.Left) return false;
 
             var pos = gridPos(e.ScreenSpaceMouseDownPosition);
-            if (pos.X < 0) return false;
+
+            if (pos.X < 0)
+            {
+                // Sliding along the keyboard sounds each key reached, as on a piano.
+                dragMode = DragMode.Keys;
+                return true;
+            }
 
             dragOrigin = pos;
             changedThisDrag = false;
@@ -672,6 +711,10 @@ namespace Kan.Forge.Editor.Compose
 
             switch (dragMode)
             {
+                case DragMode.Keys:
+                    playKeyAt(pos.Y);
+                    return;
+
                 case DragMode.Move:
                 {
                     // Restore, then move the whole group by the snapped delta of the grabbed note.

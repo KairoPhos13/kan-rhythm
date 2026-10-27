@@ -46,11 +46,14 @@ namespace Kan.Core.Tracks
         /// <summary>
         /// The edit that puts a tempo change at <paramref name="nextMs"/> back on
         /// the beats of the tempo before it (starting at <paramref name="tempoMs"/>,
-        /// <paramref name="beatMs"/> a beat): silence put in at the change when
-        /// the music after it came early, the bit just before it cut when late
-        /// — whichever is smaller. Null when it is already on a beat.
+        /// <paramref name="beatMs"/> a beat): silence put in when the music after
+        /// it came early, a bit cut when late — whichever is smaller. Null when
+        /// it is already on a beat. It goes at <paramref name="atMs"/>, where the
+        /// creator says it fits best (owner 2026-10-25: always at the change was
+        /// "not exactly where that time goes best"), within the tempo; a cut too
+        /// long to fit after it ends at the change. Without one, at the change.
         /// </summary>
-        public static TimelineEdit? SyncNext(double tempoMs, double beatMs, double nextMs)
+        public static TimelineEdit? SyncNext(double tempoMs, double beatMs, double nextMs, double? atMs = null)
         {
             if (beatMs <= 0 || nextMs <= tempoMs) return null;
 
@@ -60,7 +63,12 @@ namespace Kan.Core.Tracks
 
             if (Math.Min(early, late) < 1) return null;
 
-            return early <= late ? InsertSilence(nextMs, early) : Cut(nextMs - late, nextMs);
+            double at = atMs is double a && double.IsFinite(a) ? Math.Clamp(a, tempoMs, nextMs) : nextMs;
+
+            if (early <= late) return InsertSilence(at, early);
+
+            double from = Math.Max(tempoMs, Math.Min(at, nextMs - late));
+            return Cut(from, from + late);
         }
 
         public double LengthMs => ToMs - FromMs;

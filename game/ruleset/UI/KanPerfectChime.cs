@@ -32,7 +32,7 @@ namespace Kan.Ruleset.UI
         private const double volume = 0.35;
 
         private readonly KanPlayState state;
-        private readonly Dictionary<int, byte[]> wavs = new Dictionary<int, byte[]>();
+        private readonly Kan.Forge.Audio.MemoryFiles chimes = new Kan.Forge.Audio.MemoryFiles();
         private ISampleStore? samples;
 
         public KanPerfectChime(KanPlayState state)
@@ -48,10 +48,10 @@ namespace Kan.Ruleset.UI
                 float[] chime = ChimeSynth.Render(midi);
                 using var wav = new MemoryStream();
                 WavFile.Write(wav, chime, chime.Length, 1, ChimeSynth.SAMPLE_RATE);
-                wavs[midi] = wav.ToArray();
+                chimes.Add(name(midi), wav.ToArray());
             }
 
-            samples = audio.GetSampleStore(new ChimeStore(wavs), audio.SampleMixer);
+            samples = audio.GetSampleStore(chimes, audio.SampleMixer);
             samples.Volume.Value = volume;
             state.Judged += onJudged;
         }
@@ -82,29 +82,6 @@ namespace Kan.Ruleset.UI
             state.Judged -= onJudged;
             samples?.Dispose();
             base.Dispose(isDisposing);
-        }
-
-        /// <summary>The chimes, held in memory.</summary>
-        private sealed class ChimeStore : IResourceStore<byte[]>
-        {
-            private readonly Dictionary<int, byte[]> wavs;
-
-            public ChimeStore(Dictionary<int, byte[]> wavs) => this.wavs = wavs;
-
-            private byte[]? find(string name)
-                => name.StartsWith(@"kan-chime-", StringComparison.Ordinal) && int.TryParse(name[10..^4], out int midi) && wavs.TryGetValue(midi, out var wav) ? wav : null;
-
-            public byte[] Get(string name) => find(name)!;
-
-            public Task<byte[]> GetAsync(string name, CancellationToken cancellationToken = default) => Task.FromResult(Get(name));
-
-            public Stream GetStream(string name) => find(name) is { } wav ? new MemoryStream(wav, false) : null!;
-
-            public IEnumerable<string> GetAvailableResources() => wavs.Keys.Select(name);
-
-            public void Dispose()
-            {
-            }
         }
     }
 }

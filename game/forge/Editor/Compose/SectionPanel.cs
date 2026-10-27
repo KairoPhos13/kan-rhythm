@@ -62,8 +62,8 @@ namespace Kan.Forge.Editor.Compose
             /// <summary>The length in use (ms).</summary>
             double RepairLength { get; }
 
-            /// <summary>What puts the next tempo change in step with the tempo at the playhead (+ silence, − cut), or null.</summary>
-            (double AtMs, double DeltaMs)? NextTempoSync { get; }
+            /// <summary>What puts the next tempo change (at TempoMs) in step with the tempo at the playhead: + silence, − cut, at AtMs (the playhead); or null.</summary>
+            (double TempoMs, double DeltaMs, double AtMs)? NextTempoSync { get; }
 
             void SyncWithNextTempo();
 
@@ -278,7 +278,8 @@ namespace Kan.Forge.Editor.Compose
                     syncText = new OsuSpriteText { Font = OsuFont.Style.Caption2, Colour = colourProvider.Content2, Margin = new MarginPadding { Top = 4 } },
                     sync = small(FontAwesome.Solid.Link, @"sync with the next tempo",
                         @"The tempos are fitted in the timing tab: the next tempo change came in off the beats of the one at the playhead. "
-                        + @"This puts in the silence (or cuts the bit) that brings it back on them; the change and everything after move with the music.", tools.SyncWithNextTempo),
+                        + @"This puts in the silence (or cuts the bit) that brings it back on them — at the playhead: put it where that time fits best (a pause, a held note). "
+                        + @"Everything after it moves with the music.", tools.SyncWithNextTempo),
                     new OsuSpriteText { Text = @"Timing", Font = OsuFont.GetFont(size: 15, weight: FontWeight.Bold), Margin = new MarginPadding { Top = 8 } },
                     new FormSliderBar<double>
                     {
@@ -330,8 +331,8 @@ namespace Kan.Forge.Editor.Compose
             sync.Enabled.Value = free && next != null;
             syncText.Text = next is { } n
                 ? n.DeltaMs > 0
-                    ? $"next tempo ({ForgeFormat.Time(n.AtMs / 1000)}) is {n.DeltaMs:0} ms early: +{n.DeltaMs:0} ms"
-                    : $"next tempo ({ForgeFormat.Time(n.AtMs / 1000)}) is {-n.DeltaMs:0} ms late: cut {-n.DeltaMs:0} ms"
+                    ? $"next tempo ({ForgeFormat.Time(n.TempoMs / 1000)}) is {n.DeltaMs:0} ms early: +{n.DeltaMs:0} ms at {ForgeFormat.Time(n.AtMs / 1000)}"
+                    : $"next tempo ({ForgeFormat.Time(n.TempoMs / 1000)}) is {-n.DeltaMs:0} ms late: cut {-n.DeltaMs:0} ms at {ForgeFormat.Time(n.AtMs / 1000)}"
                 : @"next tempo: none, or already on the beat";
         }
     }

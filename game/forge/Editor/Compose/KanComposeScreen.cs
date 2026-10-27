@@ -67,6 +67,7 @@ namespace Kan.Forge.Editor.Compose
         private GameHost host { get; set; } = null!;
 
         private PianoRoll roll = null!;
+        private KeyAudition audition = null!;
         private Box sectionShade = null!;
         private ComposeMonitor monitor = null!;
         private SpectrogramLayer companionLayer = null!, referenceLayer = null!;
@@ -95,10 +96,13 @@ namespace Kan.Forge.Editor.Compose
             // The level's track set (for the transcription), its score and design.
             LevelSession.Open(storage, working.Value);
 
+            Add(audition = new KeyAudition());
+
             roll = new PianoRoll
             {
                 BeforeChange = () => record(null),
                 Changed = changed,
+                KeyPlayed = midi => audition.Play(midi),
             };
             inspector = new NoteInspector(roll, k => record(k), changed, new SectionPanel(this, changed));
 

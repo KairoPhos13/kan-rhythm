@@ -48,14 +48,15 @@ namespace Kan.Forge.Editor.Compose
         /// playhead (owner 2026-10-22: "the metronome is already fitted in the
         /// timing tab: it could tell how much syncs this tempo with the next
         /// segment"): the music from the next change on came in off this
-        /// tempo's beats by a fraction of one. Silence put in at the change
-        /// (it came early), or that much cut just before it (late) — the
-        /// smaller; the change and everything after move with the music. Null
-        /// when there is no next change, or it is already on a beat.
+        /// tempo's beats by a fraction of one. Silence put in (it came early),
+        /// or that much cut (late) — the smaller — at the playhead, where the
+        /// creator says the time fits; everything after moves with the music.
+        /// Null when there is no next change, or it is already on a beat.
         /// </summary>
-        public (double AtMs, double DeltaMs)? NextTempoSync => nextTempoSync() is { } e ? (e.ToMs, e.DeltaMs) : null;
+        public (double TempoMs, double DeltaMs, double AtMs)? NextTempoSync => nextTempoSync() is { } s ? (s.TempoMs, s.Edit.DeltaMs, s.Edit.FromMs) : null;
 
-        private TimelineEdit? nextTempoSync()
+        /// <summary>The next tempo change put back on the beats of the one at the playhead, by an edit at the playhead (where the creator says the time fits).</summary>
+        private (double TempoMs, TimelineEdit Edit)? nextTempoSync()
         {
             var points = EditorBeatmap.ControlPointInfo.TimingPoints;
             if (points.Count < 2) return null;
@@ -65,18 +66,18 @@ namespace Kan.Forge.Editor.Compose
             while (i + 1 < points.Count && points[i + 1].Time <= now + 0.5) i++;
             if (i + 1 >= points.Count) return null;
 
-            return TimelineEdit.SyncNext(points[i].Time, points[i].BeatLength, points[i + 1].Time);
+            return TimelineEdit.SyncNext(points[i].Time, points[i].BeatLength, points[i + 1].Time, now) is { } edit ? (points[i + 1].Time, edit) : null;
         }
 
         public void SyncWithNextTempo()
         {
-            if (nextTempoSync() is not { } edit) return;
+            if (nextTempoSync() is not { } sync) return;
 
-            var sync = (AtMs: edit.ToMs, edit.DeltaMs);
+            var edit = sync.Edit;
 
-            repair(edit, sync.DeltaMs > 0
-                ? $"Put in {sync.DeltaMs:0} ms of silence at the tempo change at {ForgeFormat.Time(sync.AtMs / 1000)}: it is in step with the tempo before"
-                : $"Cut {-sync.DeltaMs:0} ms before the tempo change at {ForgeFormat.Time(sync.AtMs / 1000)}: it is in step with the tempo before");
+            repair(edit, edit.DeltaMs > 0
+                ? $"Put in {edit.DeltaMs:0} ms of silence at {ForgeFormat.Time(edit.FromMs / 1000)}: the tempo change at {ForgeFormat.Time(sync.TempoMs / 1000)} is in step with the tempo before"
+                : $"Cut {-edit.DeltaMs:0} ms at {ForgeFormat.Time(edit.FromMs / 1000)}: the tempo change at {ForgeFormat.Time(sync.TempoMs / 1000)} is in step with the tempo before");
         }
 
         // Before the first tempo, its beat (not osu!'s default).
@@ -225,6 +226,11 @@ namespace Kan.Forge.Editor.Compose
 
                 case @"scale":
                     this.ChildrenOfType<GridTempoBar>().First().ScaleBeat(num(p[1]));
+                    break;
+
+                case @"key":
+                    bool sounded = audition.Play((int)num(p[1]));
+                    osu.Framework.Logging.Logger.Log($"kan! dev repair: key {p[1]} {(sounded ? "sounded" : "had no sample")}", osu.Framework.Logging.LoggingTarget.Runtime, osu.Framework.Logging.LogLevel.Important);
                     break;
 
                 case @"firstbeat":

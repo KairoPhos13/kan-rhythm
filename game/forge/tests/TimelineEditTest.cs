@@ -57,6 +57,20 @@ namespace Kan.Forge.Tests
         }
 
         [Test]
+        public void TheTempoSyncGoesWhereTheCreatorSays()
+        {
+            // Owner 2026-10-25: at the playhead, where that time fits best.
+            Assert.That(TimelineEdit.SyncNext(1000, 500, 3380, atMs: 2200), Is.EqualTo(TimelineEdit.InsertSilence(2200, 120)));
+            Assert.That(TimelineEdit.SyncNext(1000, 500, 3120, atMs: 2200), Is.EqualTo(TimelineEdit.Cut(2200, 2320)));
+            Assert.That(TimelineEdit.SyncNext(1000, 500, 3120, atMs: 3100), Is.EqualTo(TimelineEdit.Cut(3000, 3120)), "a cut too long to fit after it ends at the change");
+            Assert.That(TimelineEdit.SyncNext(1000, 500, 3380, atMs: 5000), Is.EqualTo(TimelineEdit.InsertSilence(3380, 120)), "held within the tempo");
+
+            // Wherever it goes, the change lands on a beat.
+            foreach (var e in new[] { TimelineEdit.SyncNext(1000, 500, 3380, 2200)!, TimelineEdit.SyncNext(1000, 500, 3120, 2200)! })
+                Assert.That((e.Map(e.Kind == TimelineEditKind.Cut ? 3120 : 3380) - 1000) % 500, Is.EqualTo(0).Within(0.01));
+        }
+
+        [Test]
         public void TheScoreAndTheDesignFollow()
         {
             var score = new KanScore
