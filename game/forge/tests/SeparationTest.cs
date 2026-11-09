@@ -47,9 +47,10 @@ namespace Kan.Forge.Tests
             // Whatever the machine provides, the bridge answers with a
             // controlled status and a human-readable message.
             var err = new byte[512];
-            var st = Kan.Core.Native.KanForgeNative.SeparateStems("/tmp/does-not-exist.wav",
-                                                                  "/tmp/kan-forge-test-stems",
-                                                                  err, err.Length);
+            var st = Kan.Core.Native.KanForgeNative.SeparateStems(
+                Path.Combine(Path.GetTempPath(), "kan-forge-tests", "does-not-exist.wav"),
+                Path.Combine(Path.GetTempPath(), "kan-forge-tests", "sep-stems"),
+                err, err.Length);
             Assert.That(st, Is.EqualTo(Kan.Core.Native.KanForgeStatus.ErrSeparator).Or.EqualTo(Kan.Core.Native.KanForgeStatus.Ok),
                         "controlled statuses only — never a crash");
         }
