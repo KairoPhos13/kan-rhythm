@@ -35,6 +35,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-27 | `9a6beeb` | `5e3d1b2` (branch `agent/game`) | F-20 offline until kan!'s servers, F-21 brand resources, string sweep first pass | green (0 warnings / 0 errors; no ppy.sh request and a brand logo in an isolated instance) |
 | 2026-11-09 | `5e3d1b2` | `2c3660d` (branch `agent/game`) | F-22 no osu! voice or theme music, gold logo disc, provisional icons | green (0 warnings / 0 errors; isolated run: kan! intro outline, gold menu logo, kan! backgrounds) |
 | 2026-11-09 | `2c3660d` | `e32d2a3` (branch `agent/game`) | F-24 kan!'s own server, never osu!'s | green (0 warnings / 0 errors; isolated run logged in against the local kan! server, no ppy.sh request) |
+| 2026-11-09 | `e32d2a3` | `e012336` (branch `agent/game`) | F-24 updater reads kan-rhythm releases | green (0 warnings / 0 errors) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
