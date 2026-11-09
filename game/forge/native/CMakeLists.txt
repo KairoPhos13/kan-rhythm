@@ -66,6 +66,12 @@ endif()
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../libkan libkan_build)
 
 add_library(kan_forge_native SHARED kan_forge_api.cpp)
+# P/Invoke resolves "kan_forge_native" to kan_forge_native.dll on Windows:
+# MinGW's CMake would name the DLL libkan_forge_native.dll — drop the lib
+# prefix there (MSVC has none; POSIX keeps libkan_forge_native.{so,dylib}).
+if(WIN32)
+    set_target_properties(kan_forge_native PROPERTIES PREFIX "")
+endif()
 target_include_directories(kan_forge_native PRIVATE ${miniaudio_SOURCE_DIR})
 target_link_libraries(kan_forge_native PRIVATE libkan)
 target_compile_options(kan_forge_native PRIVATE ${KAN_WARNING_FLAGS})

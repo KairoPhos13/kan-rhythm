@@ -156,13 +156,14 @@ jobs:
           ctest --test-dir build --build-config Release --output-on-failure
 
       # --- kan!'s C# (make check equivalents) ------------------------------
-      # Warnings are errors for kan's own code (Makefile STRICT).
+      # Warnings are errors for kan's own code (Makefile STRICT). %3B is
+      # MSBuild's escape for ';' inside a property value (MSB1006 otherwise).
       - name: kan! C# — warnings as errors
         shell: bash
         run: |
           for p in game/core/Kan.Core.csproj game/forge/Kan.Forge.csproj game/ruleset/Kan.Ruleset.csproj; do
             dotnet build "$p" -c Release -maxcpucount:4 -warnaserror \
-              -p:WarningsNotAsErrors="NU1901;NU1902;NU1903;NU1904"
+              -p:WarningsNotAsErrors="NU1901%3BNU1902%3BNU1903%3BNU1904"
           done
 
       # Unit tests that need no audio device. KAN_ROFORMER_GGUF points at a
@@ -189,38 +190,14 @@ jobs:
 
       # --- packaging --------------------------------------------------------
       # Self-contained publish of the game (Velopack stays dormant: the zip
-      # is the installer for now). The ruleset plugin, Kan.Forge/Kan.Core and
-      # the native bridge ride along (the plugin is loaded from next to the
-      # executable); brand/ is copied by the fork's csproj (fork F-21).
-      - name: Publish osu.Desktop (self-contained)
+      # is the installer for now) plus the kan! payload: ruleset plugin,
+      # Kan.Forge/Kan.Core, the native bridge and brand/ (fork F-21),
+      # checked so a missing piece fails the job. The steps live in
+      # game/packaging/windows/assemble.sh so a local build (see
+      # platform-builds.md §4) produces the identical payload.
+      - name: Assemble the payload (publish + kan! files)
         shell: bash
-        run: |
-          dotnet publish game/client/osu.Desktop/osu.Desktop.csproj \
-            -c Release -r "${{ matrix.rid }}" --self-contained true \
-            -p:Version="$KAN_VERSION" -maxcpucount:4 -o dist/game
-
-      - name: Collect kan! files into the payload
-        shell: bash
-        run: |
-          out=dist/game
-          cp game/ruleset/bin/Release/net10.0/osu.Game.Rulesets.Kan.dll "$out/"
-          cp game/ruleset/bin/Release/net10.0/Kan.Forge.dll "$out/"
-          cp game/ruleset/bin/Release/net10.0/Kan.Core.dll "$out/"
-
-          # P/Invoke resolves "kan_forge_native" to libkan_forge_native.so /
-          # .dylib / kan_forge_native.dll — whatever the CMake build produced.
-          found=
-          for f in kan_forge_native.dll libkan_forge_native.dylib libkan_forge_native.so; do
-            for d in game/forge/native/build game/forge/native/build/Release; do
-              if [ -f "$d/$f" ]; then cp "$d/$f" "$out/"; found="$f"; fi
-            done
-          done
-          if [ -z "$found" ]; then echo "no native bridge library found" >&2; exit 1; fi
-
-          for f in osu.Game.Rulesets.Kan.dll Kan.Forge.dll Kan.Core.dll ppy.ManagedBass.dll brand; do
-            test -e "$out/$f" || { echo "missing from the payload: $f" >&2; exit 1; }
-          done
-          echo "payload complete (native: $found)"
+        run: game/packaging/windows/assemble.sh "${{ matrix.rid }}" dist/game
 
       # --- macOS: kan!.app, icon, (optional) signing + notarization ---------
       - name: macOS app bundle

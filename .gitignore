@@ -2,6 +2,11 @@ build/
 .cache/
 compile_commands.json
 
+# Release payloads (kan-win-x64.zip and friends) and the MinGW cross build
+# of the native bridge (game/packaging/windows/cross-build-native.sh).
+dist/
+game/forge/native/build-win-x64/
+
 # Test results and analysis artifacts (audio + descriptors) — generated,
 # not committed. Regenerate with apps/kan_analyze/run_reference_set.sh.
 test_results/

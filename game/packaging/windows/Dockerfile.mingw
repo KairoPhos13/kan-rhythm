@@ -1,0 +1,16 @@
+# MinGW-w64 toolchain for cross-compiling game/forge/native to Windows x64
+# (kan_forge_native.dll) — used by cross-build-native.sh. Kept as a local
+# image (kan-mingw-w64:bookworm) so repeated builds skip the package
+# install; build containers are always --rm.
+#
+# The posix threading variant is required: the RoFormer runtime uses
+# std::thread, which the win32-threads variant of libstdc++ does not
+# provide. binutils brings x86_64-w64-mingw32-objdump for the post-build
+# verification (imported DLLs + exported kan_forge_* symbols).
+FROM debian:bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        cmake make git ca-certificates \
+        gcc-mingw-w64-x86-64-posix g++-mingw-w64-x86-64-posix \
+        binutils-mingw-w64-x86-64 \
+    && rm -rf /var/lib/apt/lists/*
