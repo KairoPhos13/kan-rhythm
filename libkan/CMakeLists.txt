@@ -75,6 +75,12 @@ if(KAN_BUILD_TESTS)
     target_link_libraries(libkan_tap_test PRIVATE libkan)
     add_test(NAME libkan_tap_test COMMAND libkan_tap_test)
 
+    # Shell-command construction for the model download and the yt-dlp
+    # lookup (transcribe.hpp): pure string building, no network.
+    add_executable(libkan_transcribe_cmd_test tests/transcribe_cmd_test.cpp)
+    target_link_libraries(libkan_transcribe_cmd_test PRIVATE libkan)
+    add_test(NAME libkan_transcribe_cmd_test COMMAND libkan_transcribe_cmd_test)
+
     add_executable(libkan_range_test tests/range_test.cpp)
     target_link_libraries(libkan_range_test PRIVATE libkan)
     if(TARGET libkan_bacf)
@@ -227,6 +233,18 @@ if(KAN_ENABLE_ROFORMER)
         GIT_REPOSITORY https://github.com/ggerganov/ggml.git
         GIT_TAG ${KAN_GGML_PIN} GIT_SHALLOW FALSE)
     FetchContent_MakeAvailable(ggml)
+
+    # MinGW compatibility (Windows cross builds, e.g. the kan! test build —
+    # game/packaging/windows/cross-build-native.sh): the pinned ggml's CPU
+    # backend opts worker threads out of Windows 11 power throttling with
+    # THREAD_POWER_THROTTLING_STATE / ThreadPowerThrottling (Windows 10 RS3
+    # SDK types) when _WIN32_WINNT >= 0x0602, but mingw-w64 headers (up to
+    # 12.x) declare neither — the compile fails on the unknown types.
+    # Win7-level headers compile that opt-out away (it is a scheduling
+    # nicety, not correctness). MSVC has the SDK types and keeps the code.
+    if(MINGW AND TARGET ggml-cpu)
+        target_compile_definitions(ggml-cpu PRIVATE _WIN32_WINNT=0x0601)
+    endif()
     FetchContent_Declare(bsroformer
         GIT_REPOSITORY https://github.com/chenmozhijin/BSRoformer.cpp.git
         GIT_TAG ${KAN_BSR_PIN} GIT_SHALLOW FALSE

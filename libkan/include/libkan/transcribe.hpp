@@ -77,11 +77,15 @@ inline void report_progress(const char* phase, int percent) {
 inline bool run_with_progress(const std::string& cmd, const char* phase) {
     // Force unbuffered child output (stdbuf) so NN% tokens arrive live:
     // block-buffered children would flush their whole progress at exit and
-    // the game would only ever see 100%.
+    // the game would only ever see 100%. stdbuf is a POSIX tool and
+    // `command -v` a POSIX probe — on Windows (cmd.exe) skip both; the
+    // children there (curl.exe, yt-dlp) write progress unbuffered already.
     std::string full = cmd + " 2>&1";
+#ifndef _WIN32
     if (std::system("command -v stdbuf > /dev/null 2>&1") == 0) {
         full = "stdbuf -o0 -e0 " + full; // -o0: unbuffered (\r bars need it)
     }
+#endif
 #ifdef _WIN32
     FILE* p = _popen(full.c_str(), "r");
 #else
@@ -131,6 +135,51 @@ inline std::string roformer_model_url(const std::string& grade) {
            "/resolve/main/gguf/BS-RoFormer-SW-6stem-q8_0.gguf";
 }
 
+/// ---- shell command construction (pure; unit-tested, no network) ------
+/// std::system() runs cmd.exe on Windows and /bin/sh elsewhere. Quoting
+/// differs: single quotes are literal characters in cmd.exe (it needs
+/// double quotes), and the PATH probe is `command -v` on POSIX but `where`
+/// on Windows (Windows 10 1803+ ships curl.exe; wget is not standard).
+/// `windows` selects the shell; the runtime #ifdefs pick the real one.
+
+/// Quote one argument for the target shell.
+inline std::string shell_quote(const std::string& s, bool windows) {
+    std::string out;
+    if (windows) {
+        out = "\""; // cmd.exe: double quotes, backslash-escaped inner quotes
+        for (char c : s) {
+            if (c == '"') out += '\\'; // MSVCRT argv rules
+            out += c;
+        }
+        out += '"';
+    } else {
+        out = "'"; // POSIX: single quotes quote everything
+        out += s;
+        out += "'";
+    }
+    return out;
+}
+
+/// Probe that answers "is this tool installed?" in the target shell.
+inline std::string tool_probe_cmd(const std::string& tool, bool windows) {
+    return windows ? "where " + tool + " > NUL 2>&1"
+                   : "command -v " + tool + " > /dev/null 2>&1";
+}
+
+/// Download `url` to `path` with curl (both platforms) or wget (POSIX).
+inline std::string curl_download_cmd(const std::string& path, const std::string& url,
+                                     bool windows) {
+    return std::string(windows ? "curl.exe" : "curl") +
+           " -L --fail --progress-bar -o " + shell_quote(path, windows) +
+           " " + shell_quote(url, windows);
+}
+inline std::string wget_download_cmd(const std::string& path, const std::string& url,
+                                     bool windows) {
+    return std::string(windows ? "wget.exe" : "wget") +
+           " -q --show-progress -O " + shell_quote(path, windows) +
+           " " + shell_quote(url, windows);
+}
+
 /// Find the GGUF model, downloading it to models/ if missing. "" on fail.
 inline std::string ensure_roformer_model() {
     std::error_code ec;
@@ -151,14 +200,25 @@ inline std::string ensure_roformer_model() {
     if (std::filesystem::exists(path, ec)) return path;
     const std::string url = roformer_model_url(grade);
     std::printf("[model] downloading %s model...\n", grade.c_str());
-    std::string cmd = "curl -L --fail --progress-bar -o '" + path + "' '" + url + "'";
-    if (std::system("command -v curl > /dev/null 2>&1") != 0) {
-        cmd = "wget -q --show-progress -O '" + path + "' '" + url + "'";
-        if (std::system("command -v wget > /dev/null 2>&1") != 0) {
+#ifdef _WIN32
+    // Windows 10 (1803+) ships curl.exe; cmd.exe has no `command -v` and no
+    // wget by default, so probe with `where` and quote for cmd.exe.
+    if (std::system(tool_probe_cmd("curl.exe", true).c_str()) != 0) {
+        std::fprintf(stderr, "[model] need curl.exe to download "
+                             "(ships with Windows 10 1803+)\n");
+        return "";
+    }
+    const std::string cmd = curl_download_cmd(path, url, /*windows=*/true);
+#else
+    std::string cmd = curl_download_cmd(path, url, /*windows=*/false);
+    if (std::system(tool_probe_cmd("curl", false).c_str()) != 0) {
+        cmd = wget_download_cmd(path, url, /*windows=*/false);
+        if (std::system(tool_probe_cmd("wget", false).c_str()) != 0) {
             std::fprintf(stderr, "[model] need curl or wget to download\n");
             return "";
         }
     }
+#endif
     if (!run_with_progress(cmd, "download") || !std::filesystem::exists(path, ec)) {
         std::fprintf(stderr, "[model] download failed (set KAN_MODEL_URL "
                              "or KAN_ROFORMER_GGUF)\n");
@@ -235,6 +295,15 @@ inline std::string separate_stems(const std::string& audio,
 /// Find a usable audio downloader for URLs (yt-dlp on PATH, user install,
 /// python module, or youtube-dl). Empty string = none available.
 inline std::string find_audio_downloader() {
+#ifdef _WIN32
+    // cmd.exe: `where` is the PATH probe; the Python launcher `py` and
+    // `python` host the yt_dlp module (POSIX probes python3).
+    if (std::system(tool_probe_cmd("yt-dlp.exe", true).c_str()) == 0) return "yt-dlp";
+    if (std::system("py -m yt_dlp --version > NUL 2>&1") == 0) return "py -m yt_dlp";
+    if (std::system("python -m yt_dlp --version > NUL 2>&1") == 0) return "python -m yt_dlp";
+    if (std::system(tool_probe_cmd("youtube-dl.exe", true).c_str()) == 0) return "youtube-dl";
+    return "";
+#else
     if (std::system("command -v yt-dlp > /dev/null 2>&1") == 0) return "yt-dlp";
     if (std::system("test -x \"$HOME/.local/bin/yt-dlp\"") == 0) {
         return "\"$HOME/.local/bin/yt-dlp\"";
@@ -244,6 +313,7 @@ inline std::string find_audio_downloader() {
     }
     if (std::system("command -v youtube-dl > /dev/null 2>&1") == 0) return "youtube-dl";
     return "";
+#endif
 }
 
 /// One struck note as transcribed from audio.
