@@ -2,6 +2,7 @@
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
 using System;
+using System.IO;
 using NUnit.Framework;
 using Kan.Core.Native;
 
@@ -40,17 +41,19 @@ namespace Kan.Core.Tests
         [Test]
         public void TestMissingSeparatorReportsRecoverableError()
         {
-            // Separation depends on external tooling (bs_roformer-cli + GGUF
-            // model). Whatever the machine provides, the bridge must answer
-            // with a controlled, human-readable status — never a crash.
+            // Separation depends on the compiled RoFormer runtime (libkan
+            // KAN_ENABLE_ROFORMER) plus its GGUF model. Whatever the machine
+            // provides, the bridge must answer with a controlled, human-readable
+            // status — never a crash.
             var err = new byte[512];
-            KanForgeStatus st = KanForgeNative.SeparateStems("whatever.wav", "/tmp/kan-forge-test-stems",
-                                                            err, err.Length);
+            string outDir = Path.Combine(Path.GetTempPath(), "kan-forge-test-stems");
+            KanForgeStatus st = KanForgeNative.SeparateStems("definitely-not-here.wav", outDir,
+                                                             err, err.Length);
 
             if (!KanForgeNative.HasSeparator())
             {
                 Assert.That(st, Is.EqualTo(KanForgeStatus.ErrSeparator));
-                Assert.That(KanForgeNative.ErrMessage(err), Does.Contain("bs_roformer"));
+                Assert.That(KanForgeNative.ErrMessage(err), Does.Contain("separator"));
             }
             else
             {

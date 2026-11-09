@@ -40,28 +40,41 @@ FetchContent_MakeAvailable(miniaudio)
 # runtime (KAN_ENABLE_ROFORMER, default ON — the self-contained separation
 # of editor-pipeline §7b). Consumers get everything via the libkan target.
 #
-# ggml backend: build the Vulkan backend so the runtime's
-# `ggml_backend_init_best()` takes the GPU when present (single stack:
-# Vulkan/GPU, CPU fallback — chart-transcription-evaluation.md). BSR_FORCE_CPU
-# stays as the runtime escape hatch. FORCE wins over stale cache values from
-# CPU-only configure runs; the monorepo root build should follow suit
-# (tracked as a libkan-lane note).
-if(NOT DEFINED KAN_DISABLE_VULKAN)
-    find_package(Vulkan QUIET)
-    find_program(KAN_GLSLC glslc)
-    if(Vulkan_FOUND AND KAN_GLSLC)
-        set(GGML_VULKAN ON CACHE BOOL "ggml Vulkan backend (GPU inference)" FORCE)
-    else()
-        message(STATUS "kan_forge_native: Vulkan tools not found — RoFormer runs on CPU")
-    endif()
+# ggml backend: chosen by KAN_GGML_BACKEND = AUTO | VULKAN | METAL | CPU
+# (default AUTO: Metal on Apple — the platform CI builds macOS with —
+# Vulkan on Linux/Windows when its tools are found, CPU otherwise; single
+# stack: GPU with inherent CPU fallback, BSR_FORCE_CPU stays as the runtime
+# escape hatch). The decision is made in libkan/CMakeLists.txt, which owns
+# ggml; this file only supplies the default by platform.
+# KAN_DISABLE_VULKAN=1 is the pre-KAN_GGML_BACKEND spelling of CPU.
+if(DEFINED KAN_DISABLE_VULKAN AND NOT DEFINED KAN_GGML_BACKEND)
+    set(KAN_GGML_BACKEND "CPU" CACHE STRING
+        "ggml GPU backend for the RoFormer runtime: AUTO, VULKAN, METAL or CPU")
+endif()
+
+# Warning policy: -Wall -Wextra (repo rule, CONTRIBUTING §4). MSVC has no
+# such flags (/Wall there would enable the SDK's noisy informational
+# warnings), so it gets /W4 plus the _USE_MATH_DEFINES that libkan headers
+# using M_PI need.
+if(MSVC)
+    set(KAN_WARNING_FLAGS /W4)
+    add_compile_definitions(_USE_MATH_DEFINES)
+else()
+    set(KAN_WARNING_FLAGS -Wall -Wextra)
 endif()
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../libkan libkan_build)
 
 add_library(kan_forge_native SHARED kan_forge_api.cpp)
+# P/Invoke resolves "kan_forge_native" to kan_forge_native.dll on Windows:
+# MinGW's CMake would name the DLL libkan_forge_native.dll — drop the lib
+# prefix there (MSVC has none; POSIX keeps libkan_forge_native.{so,dylib}).
+if(WIN32)
+    set_target_properties(kan_forge_native PROPERTIES PREFIX "")
+endif()
 target_include_directories(kan_forge_native PRIVATE ${miniaudio_SOURCE_DIR})
 target_link_libraries(kan_forge_native PRIVATE libkan)
-target_compile_options(kan_forge_native PRIVATE -Wall -Wextra)
+target_compile_options(kan_forge_native PRIVATE ${KAN_WARNING_FLAGS})
 if(UNIX AND NOT APPLE)
     target_link_libraries(kan_forge_native PRIVATE pthread m dl)
 elseif(APPLE)
@@ -73,7 +86,7 @@ endif()
 add_executable(kan_forge_selftest kan_forge_selftest.cpp)
 target_include_directories(kan_forge_selftest PRIVATE ${miniaudio_SOURCE_DIR})
 target_link_libraries(kan_forge_selftest PRIVATE kan_forge_native)
-target_compile_options(kan_forge_selftest PRIVATE -Wall -Wextra)
+target_compile_options(kan_forge_selftest PRIVATE ${KAN_WARNING_FLAGS})
 add_test(NAME kan_forge_selftest COMMAND kan_forge_selftest)
 
 # Detection quality against ground truth (validation exports of the compose
@@ -81,5 +94,5 @@ add_test(NAME kan_forge_selftest COMMAND kan_forge_selftest)
 # exactly as the game calls it. Not a test: a measurement tool
 # (game/docs/transcription-quality.md).
 add_executable(kan_forge_bench kan_forge_bench.cpp)
-target_compile_options(kan_forge_bench PRIVATE -Wall -Wextra)
+target_compile_options(kan_forge_bench PRIVATE ${KAN_WARNING_FLAGS})
 target_link_libraries(kan_forge_bench PRIVATE kan_forge_native)

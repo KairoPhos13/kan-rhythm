@@ -40,6 +40,8 @@
       <KanPluginFiles Include="$(TargetDir)Kan.Core.dll" Condition="Exists('$(TargetDir)Kan.Core.dll')" />
       <KanPluginFiles Include="$(TargetDir)libkan_forge_native.so" Condition="Exists('$(TargetDir)libkan_forge_native.so')" />
       <KanPluginFiles Include="$(TargetDir)libkan_forge_native.dylib" Condition="Exists('$(TargetDir)libkan_forge_native.dylib')" />
+      <!-- Windows (MSVC) names the DLL without the lib prefix. -->
+      <KanPluginFiles Include="$(TargetDir)kan_forge_native.dll" Condition="Exists('$(TargetDir)kan_forge_native.dll')" />
     </ItemGroup>
     <Copy SourceFiles="@(KanPluginFiles)" DestinationFolder="%(KanClientOutputDirs.Identity)" SkipUnchangedFiles="true" />
   </Target>

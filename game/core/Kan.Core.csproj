@@ -17,13 +17,23 @@
     <!--
       libkan_forge_native is built by CMake from game/forge/native (make native).
       It rides along to the output ROOT (Link flattens the path) so P/Invoke
-      finds it next to the assemblies.
+      finds it next to the assemblies. P/Invoke resolves "kan_forge_native" to
+      libkan_forge_native.so (Linux) / libkan_forge_native.dylib (macOS) /
+      kan_forge_native.dll (Windows). Single-config CMake generators (Make,
+      Ninja) place the library in the build root; multi-config ones (Visual
+      Studio) in build/<Configuration>/ — both are picked up below.
     -->
     <None Include="..\forge\native\build\libkan_forge_native.so" Condition="Exists('..\forge\native\build\libkan_forge_native.so')"
           Link="libkan_forge_native.so" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     <None Include="..\forge\native\build\libkan_forge_native.dylib" Condition="Exists('..\forge\native\build\libkan_forge_native.dylib')"
           Link="libkan_forge_native.dylib" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     <None Include="..\forge\native\build\kan_forge_native.dll" Condition="Exists('..\forge\native\build\kan_forge_native.dll')"
+          Link="kan_forge_native.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="..\forge\native\build\$(Configuration)\libkan_forge_native.so" Condition="Exists('..\forge\native\build\$(Configuration)\libkan_forge_native.so')"
+          Link="libkan_forge_native.so" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="..\forge\native\build\$(Configuration)\libkan_forge_native.dylib" Condition="Exists('..\forge\native\build\$(Configuration)\libkan_forge_native.dylib')"
+          Link="libkan_forge_native.dylib" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+    <None Include="..\forge\native\build\$(Configuration)\kan_forge_native.dll" Condition="Exists('..\forge\native\build\$(Configuration)\kan_forge_native.dll')"
           Link="kan_forge_native.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
   </ItemGroup>
 </Project>

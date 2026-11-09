@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  kan! macOS app bundle metadata (game/docs/platform-builds.md).
+  Assembled by .github/workflows/build.yml into kan!.app/Contents/Info.plist;
+  %%VERSION%% is replaced there with the release version.
+
+  NSMicrophoneUsageDescription is REQUIRED: without it macOS silently feeds
+  silence to the microphone instead of prompting the player. The text is the
+  owner's wording (2026-11-09); keep it truthful if the audio handling ever
+  changes.
+
+  LSMinimumSystemVersion follows the .NET 10 runtime's macOS floor (Microsoft
+  lists macOS 15/26/27 as supported; 14 reached end of support 2026-09-14).
+-->
+<plist version="1.0">
+<dict>
+    <key>CFBundleDevelopmentRegion</key>
+    <string>en</string>
+    <key>CFBundleDisplayName</key>
+    <string>kan!</string>
+    <key>CFBundleExecutable</key>
+    <string>kan</string>
+    <key>CFBundleIconFile</key>
+    <string>kan</string>
+    <key>CFBundleIdentifier</key>
+    <string>org.kairophos.kan</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>CFBundleName</key>
+    <string>kan!</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleShortVersionString</key>
+    <string>%%VERSION%%</string>
+    <key>CFBundleVersion</key>
+    <string>%%VERSION%%</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>13.0</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>kan! listens to your instrument to judge your playing. Audio never leaves your computer.</string>
+    <key>NSHumanReadableCopyright</key>
+    <string>Copyright (c) KairoPhos and kan-rhythm contributors (MIT). Built on osu!lazer (MIT) — ppy/osu contributors.</string>
+</dict>
+</plist>

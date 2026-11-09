@@ -5,6 +5,10 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(KAN_BUILD_TESTS "Build component tests" ON)
+# The apps/ and tools/ executables are developer tools; the game release
+# builds (and CI) turn them off to stay bounded and portable.
+option(KAN_BUILD_APPS "Build the apps/ executables" ON)
+option(KAN_BUILD_TOOLS "Build the tools/ executables" ON)
 
 if(KAN_BUILD_TESTS)
     enable_testing()
@@ -13,6 +17,7 @@ endif()
 # Maximum optimization for real-time DSP
 if(MSVC)
     add_compile_options(/O2 /arch:AVX2)
+    add_compile_definitions(_USE_MATH_DEFINES) # libkan headers use M_PI
 else()
     add_compile_options(-O3 -march=native -Wall -Wextra)
 endif()
@@ -109,7 +114,11 @@ endif()
 
 # Components (each top-level folder is designed to be splittable into its own repo)
 add_subdirectory(libkan)
-add_subdirectory(apps)
-add_subdirectory(tools/dataset_bench)
-add_subdirectory(tools/chart_scribe)
-add_subdirectory(tools/stem_split)
+if(KAN_BUILD_APPS)
+    add_subdirectory(apps)
+endif()
+if(KAN_BUILD_TOOLS)
+    add_subdirectory(tools/dataset_bench)
+    add_subdirectory(tools/chart_scribe)
+    add_subdirectory(tools/stem_split)
+endif()
