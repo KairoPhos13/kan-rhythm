@@ -1,0 +1,53 @@
+{
+  "name": "kan-server",
+  "version": "0.1.0",
+  "private": true,
+  "description": "kan! server MVP: accounts, level downloads and leaderboards speaking the osu!lazer client protocol",
+  "license": "MIT",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json",
+    "typecheck": "tsc --noEmit",
+    "start": "node dist/main.js",
+    "start:dev": "ts-node -T src/main.ts",
+    "premigrate": "npm run build",
+    "migrate": "node dist/db/migrate-cli.js",
+    "preimport": "npm run build",
+    "import": "node dist/import/cli.js",
+    "test": "jest",
+    "lint": "eslint src test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1164.0",
+    "@aws-sdk/s3-request-presigner": "3.1164.0",
+    "@nestjs/common": "11.2.9",
+    "@nestjs/core": "11.2.9",
+    "@nestjs/platform-express": "11.2.9",
+    "adm-zip": "0.6.1",
+    "argon2": "0.45.2",
+    "dotenv": "18.0.10",
+    "pg": "8.23.1",
+    "reflect-metadata": "0.2.2",
+    "rxjs": "7.8.2"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@nestjs/testing": "11.2.9",
+    "@types/adm-zip": "0.5.8",
+    "@types/express": "5.0.6",
+    "@types/jest": "30.0.0",
+    "@types/node": "26.6.6",
+    "@types/pg": "8.23.1",
+    "@types/supertest": "7.2.1",
+    "eslint": "10.14.0",
+    "jest": "30.5.2",
+    "supertest": "7.3.2",
+    "ts-jest": "29.4.15",
+    "ts-node": "10.9.2",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.72.2"
+  }
+}
