@@ -8,17 +8,17 @@ Size: L
 A new player's first minutes decide whether kan! is fun. Today the game
 ships with no levels: "bundled songs free to distribute (public domain,
 Creative Commons or original): none popular" is an open release item in
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md),
-and [charts/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/charts/TODO.md)
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md),
+and [charts/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/charts/TODO.md)
 wants "1 demo song fully authored … with guitar + flute + piano
 arrangements — exercises all 3 layers". The editor (kan!forge) can
 already take a song from audio to a playable level: track roles,
 separation, transcription drafts, compose/design/verify tabs (see
-[game/docs/editor-pipeline.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/editor-pipeline.md)).
+[game/docs/editor-pipeline.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/editor-pipeline.md)).
 
 Candidate free songs are being collected in
 `charts/docs/free-song-candidates.md`
-([link](https://github.com/KairoPhos/kan-rhythm/blob/main/charts/docs/free-song-candidates.md);
+([link](https://github.com/KairoPhos13/kan-rhythm/blob/main/charts/docs/free-song-candidates.md);
 landing in the charts/ lane — if it 404s, check back shortly).
 
 ## What to do
@@ -40,7 +40,7 @@ landing in the charts/ lane — if it 404s, check back shortly).
    wind and a plucked/keyboard one) — the whole point is that any
    instrument kan!s. Keep each arrangement under the size budget
    (< 50 KB per `.kchart` — see
-   [charts/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/charts/TODO.md)).
+   [charts/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/charts/TODO.md)).
 4. Land it under `charts/official/` as a pull request (charts are data:
    text-friendly, diff-reviewable), with metadata in English, licence
    and credits recorded.
@@ -61,12 +61,12 @@ landing in the charts/ lane — if it 404s, check back shortly).
 
 ## Pointers
 
-- [game/docs/editor-pipeline.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/editor-pipeline.md) —
+- [game/docs/editor-pipeline.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/editor-pipeline.md) —
   the whole pipeline (§6b tracks, §6f compose, §6h verify)
-- [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
   how levels are judged (write charts that judge fairly)
-- [charts/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/charts/README.md),
-  [charts/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/charts/TODO.md) —
+- [charts/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/charts/README.md),
+  [charts/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/charts/TODO.md) —
   layout, "charts are data" rule, size budgets
 - `charts/docs/free-song-candidates.md` — candidate songs
 

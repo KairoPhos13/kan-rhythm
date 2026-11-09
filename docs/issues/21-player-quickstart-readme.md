@@ -5,12 +5,12 @@ Size: S
 
 ## Context
 
-The root [README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md)
+The root [README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)
 currently reads for builders and contributors: architecture, CMake
 commands, milestones. The game's own
-[game/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md)
+[game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md)
 is done and good, but the release checklist in
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md)
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
 still lists *"the root README for players"* alongside the demo video: a
 player who lands on the repository front page should see themselves
 addressed within a few seconds — what kan! is, what they need
@@ -53,11 +53,11 @@ player's first paragraph and path.
 
 ## Pointers
 
-- [README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md) —
+- [README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md) —
   current structure (Roadmap, Ecosystem Naming, Join in)
-- [game/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md) —
+- [game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md) —
   the game's player-oriented description to draw from ("What it does")
-- [CONTRIBUTING.md](https://github.com/KairoPhos/kan-rhythm/blob/main/CONTRIBUTING.md) —
+- [CONTRIBUTING.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/CONTRIBUTING.md) —
   English-only policy and tone expectations
 
 ## Notes

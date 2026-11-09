@@ -9,7 +9,7 @@ the community formats.
 
 | Piece | Home | Form |
 |---|---|---|
-| osu!lazer fork (`kan`) | `game/client/` (submodule of github.com/KairoPhos/kan) | fork, rebased onto upstream regularly |
+| osu!lazer fork (`kan`) | `game/client/` (submodule of github.com/KairoPhos13/kan) | fork, rebased onto upstream regularly |
 | kan ruleset (game mode) | `game/ruleset/` → ruleset plugin | C# library loaded by the fork |
 | kan screens (calibration, instrument packs, kan!forge) | `game/screens/` | C# — inside ruleset where possible, fork-level only when necessary |
 | DSP core (onset/pitch/judgment) | `libkan/` | C++20 header-only + shared lib target |

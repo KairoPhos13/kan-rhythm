@@ -6,14 +6,14 @@ Size: L
 ## Context
 
 kan! is "by the community, for the community"
-([README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md)),
+([README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)),
 and the community's raw material is levels. The editor (kan!forge) is
 powerful and already working — track roles, local stem separation,
 transcription drafts, compose/design/verify tabs — but its only
 documentation is an **implementation note** for developers
-([game/docs/editor-pipeline.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/editor-pipeline.md))
+([game/docs/editor-pipeline.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/editor-pipeline.md))
 and the player-oriented summary in
-[game/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md).
+[game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md).
 A creator who wants to turn a song into a level today has no how-to.
 
 The README's "Join in" section promises that artists and players can
@@ -44,7 +44,7 @@ and `docs/issues/14` (companions) both need a document to point at.
      notes at once on one-note instruments, guessed pitches, audio
      length/loudness; what each warning means and how to fix it;
    - **Sharing** — file formats today (`.kan`/`.kchart` direction:
-     [charts/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/charts/README.md)),
+     [charts/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/charts/README.md)),
      and the golden rule: every level must play on more than one
      instrument family where the music allows.
 2. Include one worked example end to end (a small freely licensed song:
@@ -68,12 +68,12 @@ and `docs/issues/14` (companions) both need a document to point at.
 
 ## Pointers
 
-- [game/docs/editor-pipeline.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/editor-pipeline.md) —
+- [game/docs/editor-pipeline.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/editor-pipeline.md) —
   the source of truth (§6a glossary, §6b tracks, §6f compose, §6g
   design, §6h verify, §7 URL policy)
-- [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
   how plays are judged (write charts that judge fairly)
-- [game/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md) —
+- [game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md) —
   the player-facing feature summary to stay consistent with
 - `charts/docs/free-song-candidates.md` — songs that are free to use
 

@@ -6,10 +6,10 @@ Size: M
 ## Context
 
 The release checklist in
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md)
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
 asks for *"a short demo video"* next to the README work — a first
 impression for people who will never build the project from source. The
-root [README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md)
+root [README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)
 has a "Join in" section and a player story ("practice made fun … what
 players learn goes with them — to their church, their friends, their
 community"), but words cannot show the core moment: you blow a real
@@ -20,7 +20,7 @@ must not look like an adrenaline reel.
 
 ## What to do
 
-A script and shot list already exists: [game/docs/demo-video-script.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/demo-video-script.md) (legal rules for music on screen included). Start from it.
+A script and shot list already exists: [game/docs/demo-video-script.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/demo-video-script.md) (legal rules for music on screen included). Start from it.
 
 
 1. Produce a **30–90 second** demo video showing, in order:
@@ -39,7 +39,7 @@ A script and shot list already exists: [game/docs/demo-video-script.md](https://
      and on-brand); never osu!'s music, voices, art or logo;
    - calm pacing; no countdown pressure, no hype language, no
      "addictive" framing — the project explicitly rejects that
-     ([game/README.md — Ground rules](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md));
+     ([game/README.md — Ground rules](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md));
    - captions/subtitles included (accessibility; also serves the
      no-audio viewing case).
 3. Deliver the video file plus a poster frame and a written shot list;
@@ -60,13 +60,13 @@ A script and shot list already exists: [game/docs/demo-video-script.md](https://
 
 ## Pointers
 
-- [game/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md) —
+- [game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md) —
   what to show ("What it does" is a ready-made script outline)
-- [README.md — Join in](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md) —
+- [README.md — Join in](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md) —
   the audience and the message
 - `game/tools/gen-provisional-brand.py` / `game/brand/` — the current
   logo assets for the end card (do not draw osu!'s)
-- [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
   what judging looks like, for scripting the play segment
 
 ## Notes

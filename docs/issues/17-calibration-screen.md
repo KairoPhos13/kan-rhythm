@@ -8,9 +8,9 @@ Size: M
 kan! judges timing in milliseconds and pitch in cents, and it promises
 that "a slightly flat or sharp instrument is not punished" — the
 instrument's own tuning is learnt and taken off
-([game/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md)).
+([game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md)).
 All of that rests on calibration, and the release checklist in
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md)
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
 specifies the screen: *"3-step calibration screen (acoustic latency,
 noise floor, fixed-instrument detune → Δc applied to kanfx backing-track
 pitch shift)"*, with the gate *"−35-cent detuned instrument matched in
@@ -19,7 +19,7 @@ pitch shift)"*, with the gate *"−35-cent detuned instrument matched in
 The measurement machinery already exists — `DetuneCalibrator` /
 `TuningCompensation` in `libkan`'s `calibration.hpp`, room-silence noise
 gate calibration, and measured numbers in
-[docs/dsp/calibration.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/calibration.md).
+[docs/dsp/calibration.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/calibration.md).
 What is missing is the friendly in-game screen that runs the three steps
 and gets a player through them without a manual.
 
@@ -29,7 +29,7 @@ and gets a player through them without a manual.
    `docs/issues/16` — and from settings) with three steps:
    1. **Acoustic latency** — play-along or clap/attack prompt; measure
       the input→system offset (use the existing harness semantics from
-      [docs/dsp/latency-measurements.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/latency-measurements.md);
+      [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md);
       `tools/` `kancalibrate` may grow the reusable core);
    2. **Noise floor** — listen to room silence (with the mic live, no
       playing), drive the adaptive noise gate; show what it heard in
@@ -60,12 +60,12 @@ and gets a player through them without a manual.
 
 - `libkan/include/libkan/calibration.hpp` — `DetuneCalibrator`,
   `TuningCompensation`
-- [docs/dsp/calibration.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/calibration.md) —
+- [docs/dsp/calibration.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/calibration.md) —
   measured calibration behaviour
 - `apps/kan_demo --calibrate` — the existing 2 s reference-note flow
 - `libkan` `precondition.hpp` — the adaptive noise gate the noise-floor
   step calibrates
-- [game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md) —
+- [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md) —
   the exact screen spec and gates (Game feel & calibration)
 
 ## Notes

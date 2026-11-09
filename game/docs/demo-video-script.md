@@ -26,7 +26,7 @@ Reddit and the README, and a 30-second vertical cut (9:16) for Shorts, Reels and
 | 32–48 s | The editor (kan!forge), sped up: drop in an audio file → the voice/instrument tracks separate → the melody turns into notes → a quick touch-up in Compose → Play. | Light music from the same free track, low. | **Turn a song you love into a level.** *(audio processing runs on your computer)* |
 | 48–58 s | Three quick shots: the results screen, the colour-coded notes, the calibration screen. If someone with another instrument (voice, recorder, violin) can record 3 seconds, put it here. | The player. | **Ocarina today. Your instrument next?** |
 | 58–68 s | Calm close-up of the player playing, smiling, maybe with someone listening. | The melody ending. | **Calm by design.** Free and open source. |
-| 68–75 s | Logo on a menu background. | Silence or the last chord. | **Free download:** github.com/KairoPhos/kan-rhythm · *Players, artists, developers: join in* |
+| 68–75 s | Logo on a menu background. | Silence or the last chord. | **Free download:** github.com/KairoPhos13/kan-rhythm · *Players, artists, developers: join in* |
 
 ## Vertical cut (30 s)
 

@@ -9,18 +9,18 @@ The English string sweep renamed the game to kan! (first pass,
 2026-10-27), but **translations were not touched**: "other languages
 come from `osu.Game.Resources`' translations and still say osu!" — see
 "String sweep — remaining scope" in
-[game/docs/fork-divergence.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/fork-divergence.md)
+[game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md)
 and the release item in
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md).
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md).
 A player running kan! in French, German, Japanese or Spanish currently
 sees the old game's name in their own language's strings.
 
 kan! is community-driven and wants players everywhere ("your church,
 your friends, your community" —
-[README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md));
+[README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md));
 this is exactly the kind of task fluent speakers can do better than any
 maintainer. Per
-[CONTRIBUTING.md §1](https://github.com/KairoPhos/kan-rhythm/blob/main/CONTRIBUTING.md),
+[CONTRIBUTING.md §1](https://github.com/KairoPhos13/kan-rhythm/blob/main/CONTRIBUTING.md),
 source-of-truth strings stay English — this issue is about the
 translated values.
 
@@ -60,12 +60,12 @@ translated values.
 
 ## Pointers
 
-- [game/docs/fork-divergence.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/fork-divergence.md) —
+- [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md) —
   "String sweep — remaining scope" (translations bullet)
 - `osu.Game/Localisation/*Strings.cs` (fork) — the rebranded English
   strings and their markers
 - `osu.Game.Resources` translations — where translated values live
-- [CONTRIBUTING.md §1](https://github.com/KairoPhos/kan-rhythm/blob/main/CONTRIBUTING.md) —
+- [CONTRIBUTING.md §1](https://github.com/KairoPhos13/kan-rhythm/blob/main/CONTRIBUTING.md) —
   English source-of-truth rule (does not block fixing translations)
 
 ## Notes

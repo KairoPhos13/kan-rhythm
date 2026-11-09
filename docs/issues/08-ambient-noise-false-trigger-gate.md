@@ -6,7 +6,7 @@ Size: M
 ## Context
 
 kan! listens through a plain microphone in ordinary rooms. The release
-gate in [game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md)
+gate in [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
 reads: *ambient-noise false-trigger test — < 1% false onsets at 45 dB SPL
 from 50 cm*. A game that fires notes at you because of a fan or a passing
 car is neither fun nor calm; the adaptive noise gate and high-pass added
@@ -15,9 +15,9 @@ offline, but the *gate number* has never been measured.
 
 Per the repository rules, any detection change needs an offline test with
 known input and expected output
-([AGENTS.md](https://github.com/KairoPhos/kan-rhythm/blob/main/AGENTS.md)),
+([AGENTS.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/AGENTS.md)),
 and the real-time path must stay allocation- and lock-free
-([CONTRIBUTING.md §3](https://github.com/KairoPhos/kan-rhythm/blob/main/CONTRIBUTING.md)).
+([CONTRIBUTING.md §3](https://github.com/KairoPhos13/kan-rhythm/blob/main/CONTRIBUTING.md)).
 
 ## What to do
 
@@ -55,9 +55,9 @@ and the real-time path must stay allocation- and lock-free
   gate (room-silence calibration)
 - `libkan/tests/` — `libkan_loopback_test`, deterministic `fixture_gen`
 - `apps/kan_cli` — `--loopback <wav>`, `--noise-cal <ms>`, `--no-gate`
-- [docs/architecture/measurement-invariants.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/architecture/measurement-invariants.md) —
+- [docs/architecture/measurement-invariants.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/measurement-invariants.md) —
   invariants a threshold change must not break (I1 onset jump rule)
-- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
+- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
   existing measurement style to follow
 
 ## Notes

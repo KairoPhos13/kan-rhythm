@@ -1,10 +1,10 @@
 # docs/issues/ — draft GitHub issues for kan!'s public release
 
 Drafted issues for the first public release of kan!
-(github.com/KairoPhos/kan-rhythm). Each file is the body of one issue,
+(github.com/KairoPhos13/kan-rhythm). Each file is the body of one issue,
 ready to publish with `gh issue create --body-file`. They implement the
 "Join in" invitation in the root
-[README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md):
+[README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md):
 pending work open for anyone — play-testers on other instruments and
 microphones, artists, translators, level creators, web developers.
 
@@ -13,7 +13,7 @@ defaults, strictness only by choice, never pressure or compulsion),
 **generalist** (fixes serve every instrument, never one instrument's
 special case), kan!'s vocabulary (**companion**, never "piano", for the
 accompaniment), and English only
-([CONTRIBUTING.md](https://github.com/KairoPhos/kan-rhythm/blob/main/CONTRIBUTING.md)).
+([CONTRIBUTING.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/CONTRIBUTING.md)).
 
 ## Index
 
@@ -56,7 +56,7 @@ more of part-time work.
 ## How to publish
 
 Run from the repository root, with `gh` authenticated against
-github.com/KairoPhos/kan-rhythm. Read a body once before publishing; the
+github.com/KairoPhos13/kan-rhythm. Read a body once before publishing; the
 files are plain GitHub-flavored Markdown and are used as-is.
 
 ### 1. Create the labels first (once)

@@ -181,7 +181,7 @@ def main() -> int:
     lines.append(f"Generated {today} by `game/tools/gen-third-party-notices.py` "
                  "(monorepo kan-rhythm). Do not edit by hand — regenerate instead.")
     lines.append("")
-    lines.append("The kan! client is built on the osu!lazer fork (github.com/KairoPhos/kan, "
+    lines.append("The kan! client is built on the osu!lazer fork (github.com/KairoPhos13/kan, "
                  "itself a fork of `ppy/osu`). This file lists every redistributed "
                  "third-party component and its licence, and is shown on the in-game "
                  "about screen. Licence *texts* of individual packages ship inside the "

@@ -6,8 +6,8 @@ Size: M
 ## Context
 
 kan! judges notes from a plain microphone and promises "any instrument
-that plays notes" ([README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md),
-[game/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md)).
+that plays notes" ([README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md),
+[game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md)).
 The voice is the instrument everyone already owns, and it is also the
 hardest case for the pipeline: vibrato that a pitch tracker may follow or
 smear, consonants that look like onsets but carry no pitch, breath and
@@ -16,7 +16,7 @@ volume. kan! has never been play-tested with singing.
 
 The description stream already models some of this — vibrato, expression
 facts, "unresolved" pitch states
-([docs/architecture/note-description-stream.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/architecture/note-description-stream.md))
+([docs/architecture/note-description-stream.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/note-description-stream.md))
 — but only play-testing shows whether it feels fair.
 
 ## What to do
@@ -53,9 +53,9 @@ facts, "unresolved" pitch states
   validators (plain-data specs)
 - `libkan` relative-tuning mode (`RelativeTuningTracker`) — intended for
   instruments without fixed pitch
-- [docs/dsp/technique-validation.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/technique-validation.md) —
+- [docs/dsp/technique-validation.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/technique-validation.md) —
   what the validators measure today
-- [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
   judging rules (timing windows follow the music's pace)
 
 ## Notes

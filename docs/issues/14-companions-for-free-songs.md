@@ -6,17 +6,17 @@ Size: L
 ## Context
 
 Levels need songs that can be shared freely — the release checklist in
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md)
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
 says bundled songs must be "public domain, Creative Commons or
 original", and the root
-[README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md)
+[README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)
 invites artists directly: *"If you write, play or arrange music —
 melodies and their accompaniments (companions) — and would release some
 of it under a free licence for kan!, you are very welcome."*
 
 In kan!'s vocabulary the track that plays along with the player is the
 **companion** (the editor's "accompaniment" track role — see
-[game/docs/editor-pipeline.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/editor-pipeline.md)).
+[game/docs/editor-pipeline.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/editor-pipeline.md)).
 A melody without a companion is lonely to practise; a good companion is
 what makes practice fun. Candidate songs are being collected in
 `charts/docs/free-song-candidates.md` (that document is landing in the
@@ -25,7 +25,7 @@ charts/ lane — if the link 404s, check back shortly).
 ## What to do
 
 1. Read `charts/docs/free-song-candidates.md`
-   ([link](https://github.com/KairoPhos/kan-rhythm/blob/main/charts/docs/free-song-candidates.md))
+   ([link](https://github.com/KairoPhos13/kan-rhythm/blob/main/charts/docs/free-song-candidates.md))
    for songs that are free to distribute and looking for companions.
    Original compositions are equally welcome — then you are both the
    melody and the companion.
@@ -42,7 +42,7 @@ charts/ lane — if the link 404s, check back shortly).
    arrange the file transfer) with: song title, composer/arranger,
    licence, instrumentation, tempo, and which candidate it matches.
 4. Credit goes on the tin: level cover credits are a first-class field
-   ([game/docs/editor-pipeline.md §6b.1](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/editor-pipeline.md)).
+   ([game/docs/editor-pipeline.md §6b.1](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/editor-pipeline.md)).
 
 ## Acceptance criteria
 
@@ -59,11 +59,11 @@ charts/ lane — if the link 404s, check back shortly).
 
 - `charts/docs/free-song-candidates.md` — candidate songs (landing in
   the charts/ lane)
-- [game/docs/editor-pipeline.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/editor-pipeline.md) —
+- [game/docs/editor-pipeline.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/editor-pipeline.md) —
   track roles (reference / accompaniment / demux), cover credits §6b.1
-- [charts/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/charts/README.md) —
+- [charts/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/charts/README.md) —
   where song data lives; `charts/official/` for bundled content
-- [assets/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/assets/README.md) —
+- [assets/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/assets/README.md) —
   licensing ground rules for contributed media
 
 ## Notes

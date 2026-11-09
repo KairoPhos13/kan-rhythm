@@ -6,9 +6,9 @@ Size: M
 ## Context
 
 kan! is instrument-agnostic by design
-([README.md — Core Philosophy](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md)),
+([README.md — Core Philosophy](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)),
 but so far it has been played mostly on one instrument (an alto ocarina):
-see [game/README.md — Status](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md).
+see [game/README.md — Status](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md).
 Recorders and transverse flutes are the closest relatives that still differ
 in ways that matter to detection: different breath-noise profiles, no
 ocarina-style voicing, wide dynamic range, legato passages, and a high
@@ -17,14 +17,14 @@ feedback the project needs before a public release.
 
 Fixes must be **general**: instrument behaviour is data (attack ramp,
 blanking window, range — measurement invariant I10 in
-[docs/architecture/measurement-invariants.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/architecture/measurement-invariants.md)),
+[docs/architecture/measurement-invariants.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/measurement-invariants.md)),
 never a recorder-only or ocarina-only special case in code.
 
 ## What to do
 
 1. Build and run the game and the CLI tools:
    `make` / `make run` in `game/`
-   ([game/README.md — Build, test, run](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md)),
+   ([game/README.md — Build, test, run](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md)),
    and `apps/kan_demo` / `apps/kan_cli` for raw detection readouts.
 2. On a **soprano recorder** and a **transverse flute** (any model):
    - free-tuner warm-up in `kan_demo` (presets `recorder`, `flute`);
@@ -58,14 +58,14 @@ never a recorder-only or ocarina-only special case in code.
 - `apps/kan_cli` — `--profile plucked|wind|keyboard`, `--detector yin|bacf`
 - `libkan/include/libkan/instrument_profile.hpp` — attack ramp, blanking
   window (8 ms plucked / 15 ms wind-bowed), expected frequency range
-- [docs/dsp/range-coverage.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/range-coverage.md) —
+- [docs/dsp/range-coverage.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/range-coverage.md) —
   measured coverage across the full range
-- [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
   how a play is judged (what "feels wrong" maps to)
 
 ## Notes
 
-- Report in English ([CONTRIBUTING.md](https://github.com/KairoPhos/kan-rhythm/blob/main/CONTRIBUTING.md)),
+- Report in English ([CONTRIBUTING.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/CONTRIBUTING.md)),
   but write your best effort — reviewers help with wording, never penalize.
 - kan! is calm by design: when judging feedback feels punishing on a real
   instrument, that is a bug worth reporting even without numbers.

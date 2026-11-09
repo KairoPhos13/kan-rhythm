@@ -8,7 +8,7 @@ Size: M
 The kan! client's music/SFX playback runs on BASS (un4seen) through
 osu!framework — proprietary binaries under a "free for non-commercial
 use" licence. The analysis of record is
-[game/docs/bass-licensing.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/bass-licensing.md):
+[game/docs/bass-licensing.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/bass-licensing.md):
 it presents four options and recommends **option D** — a clean-room
 drop-in replacement of the used BASS API surface (working name
 "kanplay") built entirely from permissive parts (miniaudio decoders +
@@ -27,7 +27,7 @@ maintainer decision).
 ## What to do
 
 1. Turn §5 ("Option D in detail") of
-   [game/docs/bass-licensing.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/bass-licensing.md)
+   [game/docs/bass-licensing.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/bass-licensing.md)
    into an implementable plan in `docs/` (a new note linked from the
    BASS doc and `docs/TODO.md`):
    - re-verify the **used API surface** (~25–30 entry points of the
@@ -77,14 +77,14 @@ maintainer decision).
 
 ## Pointers
 
-- [game/docs/bass-licensing.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/bass-licensing.md) —
+- [game/docs/bass-licensing.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/bass-licensing.md) —
   the analysis of record (§1 stack table, §5 options, §6 recommendation)
-- [docs/architecture/osu-integration.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/architecture/osu-integration.md) §2/§4 —
+- [docs/architecture/osu-integration.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/osu-integration.md) §2/§4 —
   scope boundaries (instrument capture is already ours, miniaudio)
 - `kanfx/` — Signalsmith Stretch already used for the consonance shift
-- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
+- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
   measurement harness to extend for playback validation
-- [docs/adr/0010-osu-lazer-base-client.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/adr/0010-osu-lazer-base-client.md) §5 —
+- [docs/adr/0010-osu-lazer-base-client.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/adr/0010-osu-lazer-base-client.md) §5 —
   why this is ship-blocking
 
 ## Notes

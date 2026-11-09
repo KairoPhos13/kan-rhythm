@@ -5,14 +5,14 @@ Size: L
 
 ## Context
 
-kan! is about to be published (github.com/KairoPhos/kan-rhythm) and the
+kan! is about to be published (github.com/KairoPhos13/kan-rhythm) and the
 client is deliberately offline until kan! has its own servers (fork
 F-20: filling `KanEndpointConfiguration` turns the online code back
 on). The server design phase is complete —
-[docs/architecture/backend-data-model.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/architecture/backend-data-model.md),
+[docs/architecture/backend-data-model.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/backend-data-model.md),
 the OpenAPI contract in `server/api/openapi.yaml`, SQL migrations, a
 threat model
-([server/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/server/TODO.md))
+([server/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/server/TODO.md))
 — and the MVP follow-ups the release needs are the **public-facing web
 pages**: a landing page that says what kan! is, and a catalogue where
 people browse shared levels.
@@ -43,7 +43,7 @@ Two hard rules shape everything here:
    boundary respected).
 3. Respect the data model's constraints: catalogue entries come from
    `songs` / `song_versions` / `charts`
-   ([backend-data-model.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/architecture/backend-data-model.md));
+   ([backend-data-model.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/backend-data-model.md));
    downloads honour the < 50 KB per-arrangement budget rule.
 4. Out of scope for this issue (pending maintainer decisions): account
    sign-up/sign-in flows, emails, hosting and deployment credentials,
@@ -67,15 +67,15 @@ Two hard rules shape everything here:
 
 ## Pointers
 
-- [server/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/server/TODO.md) —
+- [server/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/server/TODO.md) —
   module list (catalog module: `.kan` upload, SHA-256 verification,
   presigned downloads, search)
 - `server/api/openapi.yaml` — the contract to build against
-- [docs/architecture/backend-data-model.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/architecture/backend-data-model.md) —
+- [docs/architecture/backend-data-model.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/backend-data-model.md) —
   §2 modules, §3 data model, §7 client API surface
-- [docs/adr/0012-server-leaderboards-osu-reuse.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/adr/0012-server-leaderboards-osu-reuse.md) —
+- [docs/adr/0012-server-leaderboards-osu-reuse.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/adr/0012-server-leaderboards-osu-reuse.md) —
   the clean-room rule
-- [docs/adr/0007-server-implementation-stack.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/adr/0007-server-implementation-stack.md) —
+- [docs/adr/0007-server-implementation-stack.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/adr/0007-server-implementation-stack.md) —
   stack of record
 
 ## Notes

@@ -6,7 +6,7 @@ Size: L
 ## Context
 
 The release checklist in
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md)
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
 wants the first run to be one gentle path: *"choose the instrument, test
 the microphone, calibrate, play an easy level"*. Today the pieces exist
 but are scattered: instrument selection lives in Settings → Rulesets →
@@ -16,7 +16,7 @@ guided microphone test or landing level.
 
 First impressions set the tone for the whole product. kan! is "calm by
 design, forgiving by default"
-([game/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md)):
+([game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md)):
 the first run must never scold, rush, or dead-end. Everything must be
 skippable and re-runnable later from settings.
 
@@ -25,7 +25,7 @@ skippable and re-runnable later from settings.
 1. Design and implement a first-run flow (the fork already has
    first-run setup copy that the string sweep touched — see
    `Localisation/*Strings.cs` deltas and
-   [game/docs/fork-divergence.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/fork-divergence.md)):
+   [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md)):
    - **Welcome** — one screen, what kan! is ("grab your instrument"),
      no pressure, a Skip;
    - **Instrument** — pick category + instrument (reuse
@@ -58,14 +58,14 @@ skippable and re-runnable later from settings.
 
 ## Pointers
 
-- [game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md) —
+- [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md) —
   "First run" release item; instrument selection v0 notes
-- [game/docs/instrument-modes.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/instrument-modes.md) —
+- [game/docs/instrument-modes.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/instrument-modes.md) —
   instrument taxonomy and the v0 selector
 - `KanInstrumentCatalog` (ruleset config persistence, `client.realm`)
 - `apps/kan_cli` / `apps/kan_demo` — the live meter/detection feedback to
   mirror
-- [game/docs/fork-divergence.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/fork-divergence.md) —
+- [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md) —
   first-run setup strings were already adapted; keep fork deltas minimal
   and logged
 
@@ -75,4 +75,4 @@ skippable and re-runnable later from settings.
   "Forgiving defaults" includes the words on the screen.
 - A new player should be playing within a few minutes, with no account,
   no network, and nothing recorded or sent
-  ([game/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/README.md)).
+  ([game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md)).

@@ -12,7 +12,7 @@ not require leaning in. osu!lazer has general UI scaling, but kan!'s
 own surfaces — the staff with per-note names (letters or Do-Re-Mi), the
 notation settings (note size), the editor's dense tables — have never
 been checked for readability, and the release goal is a game anyone can
-pick up ([README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md)).
+pick up ([README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)).
 
 Readable text is also a first-run issue: the mic test and calibration
 screens (see `docs/issues/16` and `docs/issues/17` in `docs/issues/`)
@@ -51,11 +51,11 @@ must be legible from a standing player's distance.
 - `KanNotationSettings` (`game/ruleset/`) — note name / note size
   settings
 - `KanStaff` / `KanPlayfield` (see
-  [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md) —
+  [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
   "The screen") — the staff rendering
 - osu!lazer's existing scaling settings (the fork's `UserInterface`
   section) — extend or complement, keep fork deltas minimal and logged
-  in [game/docs/fork-divergence.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/fork-divergence.md)
+  in [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md)
 
 ## Notes
 

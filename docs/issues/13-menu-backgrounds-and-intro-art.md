@@ -9,22 +9,22 @@ kan! currently shows eight menu backgrounds and the intro visuals
 generated from scratch by `game/tools/gen-provisional-brand.py` (fork
 F-22): procedural geometry that keeps the release clean of osu!'s art,
 but it is placeholder work. The root
-[README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md)
+[README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)
 invites artists to make kan!'s identity real ("logo, menu, intro: see
 game/brand/"), and
-[assets/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/assets/TODO.md)
+[assets/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/assets/TODO.md)
 lists an identity kit (palette, typography, skin shell) as release
 polish.
 
 Everything needed to land art is in place: files in
-[game/brand/](https://github.com/KairoPhos/kan-rhythm/blob/main/game/brand/README.md)
+[game/brand/](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/brand/README.md)
 replace osu!'s resources one at a time (fork F-21), and a missing file
 simply falls back to the current behaviour — so contributions can land
 incrementally, one background at a time.
 
 ## What to do
 
-1. Read [game/brand/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/brand/README.md)
+1. Read [game/brand/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/brand/README.md)
    for exact names and sizes. The main deliverables:
    - `Textures/Menu/menu-background-1.jpg` … `-8.jpg`, 2732×1537 — the
      main-menu backgrounds (a set that shares one mood is ideal;
@@ -57,20 +57,20 @@ incrementally, one background at a time.
 
 ## Pointers
 
-- [game/brand/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/brand/README.md) —
+- [game/brand/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/brand/README.md) —
   file table and fallback rule
 - `game/tools/gen-provisional-brand.py` — current placeholders
   (reference for palette/mood)
-- [assets/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/assets/TODO.md) —
+- [assets/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/assets/TODO.md) —
   identity kit v0 (palette, typography, skin shell)
 - Fork F-21/F-22 in
-  [game/docs/fork-divergence.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/fork-divergence.md)
+  [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md)
 
 ## Notes
 
 - JPEG backgrounds at 2732×1537 are a few hundred KB each — check the
   asset rules in
-  [assets/README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/assets/README.md)
+  [assets/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/assets/README.md)
   for anything unusually large (Git LFS discussion threshold).
 - One background is a complete, mergeable contribution; do not feel
   obliged to deliver all eight.

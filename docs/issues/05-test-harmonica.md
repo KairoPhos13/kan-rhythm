@@ -7,7 +7,7 @@ Size: M
 
 kan!'s instrument coverage is a stated release goal ("tried on more
 instruments … a recorder or flute, voice, a bowed and a plucked one" —
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md))
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md))
 and the free-reed family is the one no pipeline test has seen. Harmonica
 is a genuinely different physical case: pitch is fixed by hole/reed but
 **bent** continuously by the player, chords sound on adjacent holes
@@ -50,9 +50,9 @@ and only a player can say whether judging a bend feels fair.
   validators (specs the game consumes)
 - `libkan` `RelativeTuningTracker` — moving tonal centre for instruments
   whose pitch is not fixed
-- [docs/dsp/technique-validation.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/technique-validation.md) —
+- [docs/dsp/technique-validation.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/technique-validation.md) —
   measured behaviour of the validators
-- [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
   how bends and pitch transitions are judged today
 
 ## Notes

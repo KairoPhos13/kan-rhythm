@@ -20,7 +20,7 @@
   <ItemGroup Label="Project References">
     <!--
       The ruleset compiles AGAINST the fork (game/client, git submodule of
-      github.com/KairoPhos/kan), never inside it. See game/docs/environment.md.
+      github.com/KairoPhos13/kan), never inside it. See game/docs/environment.md.
     -->
     <ProjectReference Include="..\client\osu.Game\osu.Game.csproj" />
     <ProjectReference Include="..\forge\Kan.Forge.csproj" />

@@ -6,7 +6,7 @@ Size: M
 ## Context
 
 kan! is built for "a $5 plastic recorder, an acoustic guitar, a violin …"
-([README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md)),
+([README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)),
 yet nearly all play-testing so far is on one wind instrument. Plucked
 strings stress different parts of the pipeline: very fast attack
 transients (blanking window is 8 ms for plucked), dead strings and mutes
@@ -15,7 +15,7 @@ transients (blanking window is 8 ms for plucked), dead strings and mutes
 can end a note earlier than the player intends.
 
 The pipeline has per-string compensation and chord validation ready to be
-exercised ([libkan/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/libkan/TODO.md))
+exercised ([libkan/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/libkan/TODO.md))
 — real play is what tells us whether they feel right.
 
 ## What to do
@@ -32,7 +32,7 @@ exercised ([libkan/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/li
    whether each string is judged on its own tuning.
 4. Check note endings: the player's release should decide, not the
    string's decay alone (duration is judged against the release bias —
-   see [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md)).
+   see [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md)).
 5. File findings as separate issues with reproductions.
 
 ## Acceptance criteria
@@ -53,9 +53,9 @@ exercised ([libkan/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/li
   strum input), chord validation
   (`chord_goertzel.hpp`, `chroma_fft.hpp`)
 - `libkan/include/libkan/instrument_profile.hpp` — 8 ms plucked blanking
-- [docs/dsp/chord-validation.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/chord-validation.md) —
+- [docs/dsp/chord-validation.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/chord-validation.md) —
   measured chord-check behaviour
-- [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
   judging rules, percussive/mute handling
 
 ## Notes

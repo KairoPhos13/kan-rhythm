@@ -10,9 +10,9 @@ in strings that mean *the game itself* now says kan! (first-run setup,
 settings, folders, fullscreen, exit dialog, update/audio notifications,
 editor title, web user agent — each delta marked in
 `Localisation/*Strings.cs`). The remaining scope is listed at the bottom
-of [game/docs/fork-divergence.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/fork-divergence.md)
+of [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md)
 ("String sweep — remaining scope") and is still a release item in
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md):
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md):
 some English text still says "osu!" where it means our game.
 
 Translating other languages is tracked separately
@@ -22,7 +22,7 @@ Translating other languages is tracked separately
 ## What to do
 
 1. Work through the remaining-scope list in
-   [game/docs/fork-divergence.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/fork-divergence.md):
+   [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md):
    - `osu.Desktop/NVAPI.cs` — NVIDIA profile names;
    - `osu.Desktop/Windows/WindowsAssociationManager.cs` +
      `osu.Game/Localisation/WindowsAssociationManagerStrings.cs` —
@@ -58,12 +58,12 @@ Translating other languages is tracked separately
 
 ## Pointers
 
-- [game/docs/fork-divergence.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/fork-divergence.md) —
+- [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md) —
   "String sweep, first pass" and "remaining scope" (the checklist of
   record)
 - `osu.Game/Localisation/*Strings.cs` — the string classes (deltas
   marked per file)
-- [docs/adr/0011-rebrand-kan-identity.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/adr/0011-rebrand-kan-identity.md) —
+- [docs/adr/0011-rebrand-kan-identity.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/adr/0011-rebrand-kan-identity.md) —
   the rebrand policy
 - Build check: `make check` in `game/` (warnings-as-errors + tests)
 

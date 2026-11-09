@@ -174,7 +174,7 @@ which osu-web would interpret as osu!standard.
   License v3.0"; `osu-web/README.md:40`). Running a **modified** osu-web as a public service means
   AGPL §13 applies: users interacting with it over the network must be offered the corresponding
   source. Concretely: a kan!-branded osu-web fork would live in its own repo (e.g.
-  `KairoPhos/kan-web`) **under AGPL-3.0**, and we must publish that source to players. Nothing from
+  `KairoPhos13/kan-web`) **under AGPL-3.0**, and we must publish that source to players. Nothing from
   it may be copied into MIT repositories (licence contamination); the boundary must stay at the API
   level, with the clean-room protocol work of `lazer-protocol.md` remaining MIT.
 - **Trademark/branding carve-out**: `osu-web/README.md:42` states the licence "does not cover" use
@@ -262,7 +262,7 @@ which osu-web would interpret as osu!standard.
 **Recommendation (5 lines):** Choose (B) — a small own server speaking the lazer protocol — for the
 MVP: it reaches goals 1–4 in days, runs on one VPS, stays MIT, and treats rulesets as data instead
 of surgery on 100+ hard-coded files. Adopt osu-web only if a full website/community platform becomes
-a real goal, and then as a separate AGPL repo (`KairoPhos/kan-web`) behind our API boundary. Reuse
+a real goal, and then as a separate AGPL repo (`KairoPhos13/kan-web`) behind our API boundary. Reuse
 MIT components selectively later (osu-server-spectator for multiplayer/spectator, ideas from
 osu-queue-score-statistics when we add performance metrics). Do not touch the two unlicensed repos
 until ppy clarifies terms. The main risk of (B) is protocol drift with client updates, mitigated by

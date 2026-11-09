@@ -1,7 +1,7 @@
 # game/client — fork divergence log
 
 Every change made **inside the fork** (`game/client/` = submodule of
-`github.com/KairoPhos/kan`, itself a fork of `ppy/osu`) is logged here:
+`github.com/KairoPhos13/kan`, itself a fork of `ppy/osu`) is logged here:
 **what / why / merge-conflict cost / upstream-PR status**. This file is the
 compliance record required by [ADR-0010](../adr/0010-osu-lazer-base-client.md)
 and [osu-integration.md §4/§6](../architecture/osu-integration.md).
@@ -22,7 +22,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | Date | Old pin | New pin | Why | Build |
 |---|---|---|---|---|
 | 2026-10-12 | *(none — first wiring)* | `816df139fd` (upstream `ppy/osu` master) | fork created + submodule wired (previous session) | green |
-| 2026-10-12 | `816df139fd` | `2970c68` (branch `agent/game` on `github.com/KairoPhos/kan`) | Phase 0 rebrand baseline (entries F-1…F-6) | green (0 warnings / 0 errors, verified on Linux) |
+| 2026-10-12 | `816df139fd` | `2970c68` (branch `agent/game` on `github.com/KairoPhos13/kan`) | Phase 0 rebrand baseline (entries F-1…F-6) | green (0 warnings / 0 errors, verified on Linux) |
 | 2026-10-13 | `2970c68` | `e704f03` (branch `agent/game`) | owner direction: stock game modes + osu!stable legacy IPC removed (entries F-9/F-10) | green (0 warnings / 0 errors; run verified with only the kan! ruleset) |
 | 2026-10-13 | `e704f03` | `ec02860` (branch `agent/game`) | ruleset-provided "tracks" editor tab (entry F-11) | green (0 warnings / 0 errors; tab verified live) |
 | 2026-10-13 | `ec02860` | `e0c1cc9` (branch `agent/game`) | F-11 follow-up: tab presented as "track", second in the list | green (0 warnings / 0 errors) |
@@ -36,6 +36,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-11-09 | `5e3d1b2` | `2c3660d` (branch `agent/game`) | F-22 no osu! voice or theme music, gold logo disc, provisional icons | green (0 warnings / 0 errors; isolated run: kan! intro outline, gold menu logo, kan! backgrounds) |
 | 2026-11-09 | `2c3660d` | `e32d2a3` (branch `agent/game`) | F-24 kan!'s own server, never osu!'s | green (0 warnings / 0 errors; isolated run logged in against the local kan! server, no ppy.sh request) |
 | 2026-11-09 | `e32d2a3` | `e012336` (branch `agent/game`) | F-24 updater reads kan-rhythm releases | green (0 warnings / 0 errors) |
+| 2026-11-09 | `e012336` | `a132ea8183` (branch `agent/game`) | Repository home is the KairoPhos13 account | green (strings only) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -322,7 +323,7 @@ Policy (rebase-ability first, ADR-0011 §4):
   online banner (`OnlineMenuBanner`), the "become an osu!supporter" note
   (`SupporterDisplay`), the ranked-beatmap metadata download
   (`LocalCachedBeatmapMetadataSource.FetchCache`, from assets.ppy.sh).
-  The updater (`VelopackUpdateManager`) reads github.com/KairoPhos/kan's
+  The updater (`VelopackUpdateManager`) reads github.com/KairoPhos13/kan's
   releases, not osu!'s. Discord rich presence is off (it is osu!'s Discord
   application). Windows file and link associations are not installed
   (`Program.cs`): osu!'s `.osz`/`.osr`/`.osk` and `osu://` under osu!'s own

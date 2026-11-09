@@ -11,7 +11,7 @@ and 11). Those DSPs are tuned for speech: they suppress breath and
 background hiss, which also removes the air of a flute, the bow noise of
 a violin and the soft attack of a recorder — precisely the evidence
 kan!'s onset and pitch detection depend on. kan!'s capture path is
-miniaudio through [libkan](https://github.com/KairoPhos/kan-rhythm/blob/main/libkan/README.md)
+miniaudio through [libkan](https://github.com/KairoPhos13/kan-rhythm/blob/main/libkan/README.md)
 and is unaffected by the BASS question; what is affected is whatever the
 OS does to the signal before it reaches us.
 
@@ -50,11 +50,11 @@ a processed signal.
 
 - `apps/kan_demo`, `apps/kan_cli --loopback <wav>` — offline comparison
   of captured WAVs
-- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
+- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
   measurement procedure
-- [game/docs/environment.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/environment.md) —
+- [game/docs/environment.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/environment.md) —
   platform notes (record results here or link the issue from there)
-- [game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md) —
+- [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md) —
   "other microphones … Windows' noise suppression"
 
 ## Notes

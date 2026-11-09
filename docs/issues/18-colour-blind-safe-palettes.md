@@ -8,8 +8,8 @@ Size: M
 kan! lets each note carry its own colour, the design tab holds the
 level's palette, and judgment is shown with visual states (keep glowing
 vs fail morph — see
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md)
-and [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md)).
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
+and [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md)).
 Colour is therefore gameplay-relevant information — and for the ~8% of
 men with colour-vision deficiency, a palette chosen at random can make a
 level unreadable. osu!lazer (the client base) already has accessibility
@@ -54,9 +54,9 @@ of "forgiving by default".
   settings shown before play
 - `Kan.Forge.Editor.Design.KanDesignScreen` — level palette,
   `kan.design.json`
-- [game/docs/gameplay.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
   judgment visuals ("keep glowing vs fail morph")
-- [game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md) —
+- [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md) —
   "Judgment indicators (dual-axis …) — kan! visual vocabulary"
 
 ## Notes

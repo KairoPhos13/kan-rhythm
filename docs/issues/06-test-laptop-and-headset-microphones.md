@@ -6,19 +6,19 @@ Size: M
 ## Context
 
 kan! only needs "a plain microphone"
-([README.md](https://github.com/KairoPhos/kan-rhythm/blob/main/README.md)),
+([README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)),
 but so far it has been tested on one setup. Built-in laptop mics, cheap
 headset mics, and consumer USB mics differ where it counts: laptop mics
 sit next to fan noise and apply their own AGC, headset mics sit close to
 the mouth (plosives, breath blasts) and pick up key/mechanical noise, and
 budget mics have limited bandwidth. The preprocessing stage (35 Hz
 high-pass + adaptive noise gate calibrated to room silence — see
-[libkan/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/libkan/TODO.md))
+[libkan/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/libkan/TODO.md))
 was built for exactly this, and its calibration flow needs real-world
 validation before we can tell players "any microphone works".
 
 This is a first-impression item in
-[game/TODO.md](https://github.com/KairoPhos/kan-rhythm/blob/main/game/TODO.md)
+[game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
 ("other microphones (laptop, headset, …)").
 
 ## What to do
@@ -51,9 +51,9 @@ This is a first-impression item in
 - `apps/kan_cli` — `--noise-cal <ms>`, `--no-gate`, `--profile …`,
   `--latency-report`
 - `libkan` `precondition.hpp` — 35 Hz high-pass + adaptive noise gate
-- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
+- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
   how latency is measured
-- [docs/dsp/calibration.md](https://github.com/KairoPhos/kan-rhythm/blob/main/docs/dsp/calibration.md) —
+- [docs/dsp/calibration.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/calibration.md) —
   what calibration measures
 - `apps/kan_cli --loopback <wav>` — inject recordings to compare devices
   offline
