@@ -3,23 +3,28 @@
  * (server/docs/lazer-protocol.md §1). Password + refresh_token grants,
  * form-encoded bodies.
  */
-import { Body, Controller, HttpCode, Post, Req } from '@nestjs/common';
+import { Body, Controller, HttpCode, Inject, Post, Req } from '@nestjs/common';
 import { Request } from 'express';
+import { APP_CONFIG, AppConfig } from '../config';
 import { bodyField, oauthError } from '../common/http';
+import { requestClientIp } from '../common/client-ip';
 import { RateLimiter } from '../common/rate-limiter';
 import { AuthService, IssuedTokens } from './auth.service';
 
 @Controller()
 export class OAuthController {
-  /** Simple in-memory limit on login attempts (per IP). */
+  /** Simple in-memory limit on login attempts (per client IP). */
   private readonly loginLimiter = new RateLimiter(60_000, 10);
 
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+  ) {}
 
   @Post('oauth/token')
   @HttpCode(200)
   async token(@Body() body: unknown, @Req() req: Request): Promise<IssuedTokens> {
-    if (!this.loginLimiter.check(req.ip ?? 'unknown')) {
+    if (!this.loginLimiter.check(requestClientIp(req, this.config.trustProxy))) {
       throw oauthError(429, 'too_many_requests', 'Too many attempts, please try again shortly');
     }
 

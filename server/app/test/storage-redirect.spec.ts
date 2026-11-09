@@ -55,6 +55,7 @@ describe('download endpoint with the s3 driver', () => {
     const config: AppConfig = {
       port: 3000,
       databaseUrl: '',
+      trustProxy: 'none',
       oauth: {
         clientId: 'kan-client',
         clientSecret: 'secret',

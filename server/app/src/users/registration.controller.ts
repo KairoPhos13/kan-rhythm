@@ -4,22 +4,27 @@
  * `user[user_email]`, `user[password]`; validation failures answer with the
  * `form_error` shape the client parses.
  */
-import { Body, Controller, Post, Req } from '@nestjs/common';
+import { Body, Controller, Inject, Post, Req } from '@nestjs/common';
 import { Request } from 'express';
+import { APP_CONFIG, AppConfig } from '../config';
 import { apiError } from '../common/http';
+import { requestClientIp } from '../common/client-ip';
 import { RateLimiter } from '../common/rate-limiter';
 import { UsersService } from './users.service';
 
 @Controller('users')
 export class RegistrationController {
-  /** Simple in-memory limit on registration attempts (per IP). */
+  /** Simple in-memory limit on registration attempts (per client IP). */
   private readonly registrationLimiter = new RateLimiter(60 * 60_000, 5);
 
-  constructor(private readonly users: UsersService) {}
+  constructor(
+    private readonly users: UsersService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+  ) {}
 
   @Post()
   async register(@Body() body: unknown, @Req() req: Request): Promise<Record<string, unknown>> {
-    if (!this.registrationLimiter.check(req.ip ?? 'unknown')) {
+    if (!this.registrationLimiter.check(requestClientIp(req, this.config.trustProxy))) {
       throw apiError(429, 'Too many registration attempts, please try again later');
     }
 

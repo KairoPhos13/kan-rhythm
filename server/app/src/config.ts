@@ -2,6 +2,7 @@
  * Runtime configuration, read from the environment (a local `.env` is loaded by
  * dotenv in `main.ts` / the CLIs). No secrets live in the repository.
  */
+import { parseTrustProxy, TrustProxyMode } from './common/client-ip';
 
 export type StorageDriverName = 'local' | 's3';
 
@@ -20,6 +21,12 @@ export interface S3Config {
 export interface AppConfig {
   port: number;
   databaseUrl: string;
+  /**
+   * `TRUST_PROXY=cloudflare` when a Cloudflare Tunnel (or another proxy we
+   * control) fronts the app: forwarded client IPs are then trusted for rate
+   * limiting and absolute URLs use https. Never trusted otherwise.
+   */
+  trustProxy: TrustProxyMode;
   oauth: {
     clientId: string;
     clientSecret: string;
@@ -51,6 +58,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   return {
     port: int(env.PORT, 3000),
     databaseUrl: env.DATABASE_URL ?? 'postgres://kan:kan@localhost:55432/kan',
+    trustProxy: parseTrustProxy(env.TRUST_PROXY),
     oauth: {
       // The game ships these as constants (public by nature — like osu!lazer's
       // client, it is distributed to everyone; the real protection is user
