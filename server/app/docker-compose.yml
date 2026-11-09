@@ -1,0 +1,25 @@
+# Development database for the kan! server MVP.
+# Production lives in deploy/docker-compose.prod.yml (app + postgres + caddy).
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: kan-server-postgres
+    environment:
+      POSTGRES_USER: kan
+      POSTGRES_PASSWORD: kan
+      POSTGRES_DB: kan
+    ports:
+      # Host port 55432 on purpose: never clash with a local PostgreSQL (5432).
+      - "55432:5432"
+    volumes:
+      - kan-postgres-data:/var/lib/postgresql/data
+    mem_limit: 512m
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kan -d kan"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+
+volumes:
+  kan-postgres-data:
