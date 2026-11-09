@@ -66,7 +66,8 @@ platform above), then a `release` job on tags. Per job:
    `Kan.Forge.dll`, `Kan.Core.dll`, the native bridge (`.dll`/`.dylib`/
    `.so`, whatever the CMake build produced), `ppy.ManagedBass.dll` and the
    `brand/` folder (the fork copies it, F-21). The job fails if anything is
-   missing.
+   missing. These steps live in `game/packaging/windows/assemble.sh` (not
+   only in YAML) so a local build produces the identical payload.
 8. macOS only: assemble `kan!.app` (see §3), sign + notarize when the
    `APPLE_*` secrets exist.
 9. Zip (`kan-<rid>.zip`; on macOS the zip contains `kan!.app`), upload as a
@@ -142,6 +143,36 @@ matters there). Say this in the release notes until the builds are signed.
 
 ## 4. Windows
 
+### 4a. Local Windows x64 test build (2026-11-09)
+
+Before CI could run, a runnable test build was assembled **on Linux** for
+the owner's Windows PC (two scripts, both reproducible):
+
+```bash
+game/packaging/windows/cross-build-native.sh   # kan_forge_native.dll in Docker (MinGW-w64)
+game/packaging/windows/assemble.sh win-x64 dist/game   # publish + payload (same steps as CI)
+```
+
+- **Native bridge:** `game/packaging/windows/cross-build-native.sh` builds
+  `game/forge/native` in a `debian:bookworm` + MinGW-w64 container
+  (`Dockerfile.mingw`, image kept as `kan-mingw-w64:bookworm`; one `--rm`
+  container at a time, `--cpus 6`, `--parallel 6`). CPU-only
+  (`KAN_GGML_BACKEND=CPU` — no Vulkan in this build), `GGML_NATIVE=OFF`
+  (portable codegen), `GGML_OPENMP=OFF` (no `libgomp-1.dll` dependency),
+  C++ runtime linked statically (`-static -static-libgcc
+  -static-libstdc++`). Verified every run: imported DLLs are only
+  `ADVAPI32/KERNEL32/msvcrt`, and all `kan_forge_*` entry points of
+  `KanForgeNative.cs` are exported.
+- **Payload:** `assemble.sh` runs the CI payload steps (strict kan! build,
+  self-contained `osu.Desktop` publish, ruleset/Kan.Forge/Kan.Core + native
+  bridge + `brand/` + `ppy.ManagedBass.dll`, all checked) and the zip adds
+  `game/packaging/windows/README.txt` (SmartScreen, CPU-only separation,
+  `%APPDATA%\kan` for data/logs, how to report). Result:
+  `dist/kan-win-x64.zip` (176 MiB, unzip → double-click `kan.exe`).
+  `dist/` is gitignored — the zip is handed to the owner, never committed.
+
+Still untested: the game actually running on Windows (see the list in §6).
+
 - **Microphone:** desktop (non-store) apps need no permission; BASS opens
   capture through **WASAPI** (`Bass.RecordInit`/`Bass.RecordStart` in
   `game/forge/Play/LiveSession.cs`, the `MicSource` class). miniaudio is
@@ -193,7 +224,21 @@ Status: **fixed (2026-11-09, `agent/ci`)** = changed in this pass; **proposed**
 = safe fix identified but not made here; **by design / info** = no change
 wanted or needed.
 
-### Fixed in this pass
+### Fixed in the Windows test-build pass (2026-11-09, later)
+
+Producing a runnable Windows x64 zip locally (§4a) surfaced these; all
+fixed here:
+
+| Where | What | Risk it removed |
+|---|---|---|
+| `libkan/include/libkan/transcribe.hpp:155-166` | model auto-download probed `command -v curl`/`wget` and quoted with `'` — POSIX shell; `cmd.exe` answers "not found" and treats `'` as literal | Windows: the ~200 MB RoFormer model was never auto-downloaded; now `where curl.exe` (Windows 10 1803+) + `curl.exe` with `"` quoting (`shell_quote`/`curl_download_cmd`, unit-tested by `libkan_transcribe_cmd_test`) |
+| `libkan/include/libkan/transcribe.hpp:238-253` | `find_audio_downloader` probed `command -v yt-dlp`, `test -x "$HOME/…"`, `python3 -m yt_dlp` | Windows: "fetch audio from URL" found no downloader; now `where yt-dlp.exe`/`youtube-dl.exe`, `py -m yt_dlp`, `python -m yt_dlp` |
+| `libkan/include/libkan/transcribe.hpp:82` | `command -v stdbuf` probe ran in `cmd.exe` (noise; `/dev/null` is not a device there) | gated `#ifndef _WIN32`; Windows children write progress unbuffered anyway |
+| `libkan/CMakeLists.txt` (ggml pin block) | pinned ggml's CPU backend uses `THREAD_POWER_THROTTLING_STATE`/`ThreadPowerThrottling` (Windows 10 RS3 SDK types) which mingw-w64 headers (≤ 12.x) do not declare | MinGW cross build of the native bridge failed on unknown types; `_WIN32_WINNT=0x0601` on `ggml-cpu` when `MINGW` compiles the opt-out away (scheduling nicety only; MSVC keeps it) |
+| `game/forge/native/CMakeLists.txt` | MinGW names the DLL `libkan_forge_native.dll`; P/Invoke looks for `kan_forge_native.dll` | Windows: native bridge not found; `PREFIX ""` on `WIN32` |
+| `.github/workflows/build.yml` strict-build step | `-p:WarningsNotAsErrors="NU1901;…"` — a raw `;` splits MSBuild properties (MSB1006); the Makefile's `STRICT` uses `%3B` | CI's kan! C# gate would have failed on every job; now `%3B` |
+
+### Fixed in the first pass
 
 | Where | What | Risk it removed |
 |---|---|---|
@@ -211,9 +256,6 @@ wanted or needed.
 
 | Where | What | Risk | Fix |
 |---|---|---|---|
-| `libkan/include/libkan/transcribe.hpp:155-159` | model auto-download probes `command -v curl`/`wget` — POSIX shell, `cmd.exe` answers "not found" even though Windows 10+ ships `curl.exe` | Windows: the RoFormer model is not auto-downloaded; separation asks for `KAN_ROFORMER_GGUF` (manual) | probe `curl.exe`/`where` on `_WIN32`, or download with WinHTTP |
-| `libkan/include/libkan/transcribe.hpp:238-246` | `find_audio_downloader` probes `command -v yt-dlp`, `test -x "$HOME/..."`, `python3 -m yt_dlp` | Windows: "fetch audio from URL" finds no downloader | add `where yt-dlp` / `py -m yt_dlp` branch |
-| `libkan/include/libkan/transcribe.hpp:82` | `std::system("command -v stdbuf …")` | Windows: probe fails, `stdbuf` skipped — child progress output may block-buffer (UI progress stalls at 0% then jumps) | only used for progress smoothing; gate on `_WIN32` and use no stdbuf there |
 | `game/Makefile:57-62` | `deploy` target checks `libkan_forge_native.so` only | `make deploy` fails on a macOS/Windows toolchain even when the build is fine | accept any of the three names (`test -f` over a list) |
 | `CMakeLists.txt:22` | `-march=native` for non-MSVC | release binaries built on one machine can raise "illegal instruction" on older CPUs (game native bridge is unaffected — it sets no `-march`) | add a `KAN_PORTABLE_BUILD` option (`-march=x86-64-v2`) for release builds |
 | `game/forge/native/kan_forge_api.cpp:112` | `std::system` shell-out for yt-dlp (quoting fixed above) | paths containing `%` would still be expanded by `cmd.exe` | quote/escape `%` on `_WIN32`, or spawn the process without a shell |
