@@ -1,0 +1,80 @@
+# Production stack for one small host (AWS t4g.micro class: 1 GB RAM).
+# Memory budget for the whole stack: <= 700 MB (app 300 + postgres 320 + caddy 60).
+# Configuration comes from deploy/.env (never committed) — see DEPLOY.md.
+services:
+  app:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    image: kan-server:latest
+    container_name: kan-server-app
+    restart: unless-stopped
+    environment:
+      PORT: 3000
+      DATABASE_URL: postgres://kan:${POSTGRES_PASSWORD}@postgres:5432/kan
+      OAUTH_CLIENT_ID: ${OAUTH_CLIENT_ID}
+      OAUTH_CLIENT_SECRET: ${OAUTH_CLIENT_SECRET}
+      ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-86400}
+      REFRESH_TOKEN_TTL_SECONDS: ${REFRESH_TOKEN_TTL_SECONDS:-2592000}
+      SCORE_TOKEN_TTL_SECONDS: ${SCORE_TOKEN_TTL_SECONDS:-1800}
+      STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
+      STORAGE_LOCAL_DIR: /data
+      S3_ENDPOINT: ${S3_ENDPOINT:-}
+      S3_REGION: ${S3_REGION:-auto}
+      S3_BUCKET: ${S3_BUCKET:-}
+      S3_ACCESS_KEY_ID: ${S3_ACCESS_KEY_ID:-}
+      S3_SECRET_ACCESS_KEY: ${S3_SECRET_ACCESS_KEY:-}
+      S3_FORCE_PATH_STYLE: ${S3_FORCE_PATH_STYLE:-true}
+      DOWNLOAD_URL_EXPIRY_SECONDS: ${DOWNLOAD_URL_EXPIRY_SECONDS:-300}
+    volumes:
+      # Level archives and covers when STORAGE_DRIVER=local.
+      - kan-storage:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
+    mem_limit: 300m
+    # Not published on the host: only Caddy talks to it.
+
+  postgres:
+    image: postgres:16-alpine
+    container_name: kan-server-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kan
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: kan
+    command:
+      - postgres
+      - -c
+      - shared_buffers=64MB
+      - -c
+      - max_connections=20
+      - -c
+      - work_mem=4MB
+    volumes:
+      - kan-postgres-data:/var/lib/postgresql/data
+    mem_limit: 320m
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kan -d kan"]
+      interval: 10s
+      timeout: 3s
+      retries: 12
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: kan-server-caddy
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - kan-caddy-data:/data
+      - kan-caddy-config:/config
+    mem_limit: 60m
+
+volumes:
+  kan-postgres-data:
+  kan-storage:
+  kan-caddy-data:
+  kan-caddy-config:

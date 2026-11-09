@@ -1,0 +1,23 @@
+# kan! server — Caddyfile template.
+# Replace kan.example.org with the real domain before starting the stack;
+# Caddy obtains and renews Let's Encrypt certificates automatically.
+
+kan.example.org {
+	encode zstd gzip
+
+	# The API process. Level downloads either stream from here or answer with a
+	# 302 to a presigned object-storage URL (see app/src/storage/).
+	reverse_proxy app:3000
+
+	# Score submissions are small JSON documents; keep request bodies bounded.
+	request_body {
+		max_size 256KB
+	}
+
+	log {
+		output file /data/access.log {
+			roll_size 5mb
+			roll_keep 3
+		}
+	}
+}
