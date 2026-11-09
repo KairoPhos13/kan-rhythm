@@ -1,0 +1,322 @@
+# kan! release builds: Windows (win-x64), macOS (osx-arm64, osx-x64) and
+# Linux (linux-x64). CI is the build machine for the platforms nobody has at
+# hand (game/docs/platform-builds.md documents what runs where and what is
+# still untested).
+#
+# Per platform:
+#   windows-latest  win-x64     native bridge: MSVC, ggml Vulkan backend
+#   macos-latest    osx-arm64   native bridge: AppleClang, ggml Metal backend
+#   macos-15-intel  osx-x64     native bridge: AppleClang, ggml Metal backend
+#   ubuntu-latest   linux-x64   native bridge: GCC, ggml Vulkan backend
+# (The mission asked for macos-13; GitHub retired that runner image — the
+# Intel label is macos-15-intel now, see docs.github.com "GitHub-hosted
+# runners reference".)
+#
+# Each job: submodule checkout, .NET 10 SDK, native bridge + its offline
+# self-test, libkan's ctest suite, kan!'s C# suites (no audio device, no
+# model download), a self-contained osu.Desktop publish with the ruleset,
+# Kan.Forge/Kan.Core, the native library and brand/, then a zip artifact.
+# On v* tags the zips are attached to a draft GitHub Release.
+#
+# macOS bundles are unsigned unless the APPLE_* secrets are configured
+# (signing + notarization run then); see platform-builds.md for what an
+# unsigned build means for players.
+
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOTNET_NOLOGO: 1
+  DOTNET_CLI_TELEMETRY_OPTOUT: 1
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
+  # Apple code-signing secrets (macOS only; empty and skipped when the
+  # repository has no paid Apple account configured). Job-level so the
+  # signing step can test APPLE_CERTIFICATE in its `if`.
+  APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+  APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+  APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+  APPLE_ID: ${{ secrets.APPLE_ID }}
+  APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+
+jobs:
+  build:
+    name: ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            rid: win-x64
+            ggml: VULKAN
+          - os: macos-latest
+            rid: osx-arm64
+            ggml: METAL
+          - os: macos-15-intel
+            rid: osx-x64
+            ggml: METAL
+          - os: ubuntu-latest
+            rid: linux-x64
+            ggml: VULKAN
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # game/client is a submodule of github.com/KairoPhos/kan with an SSH
+      # URL in .gitmodules (read access is public, no key on CI): rewrite
+      # git@github.com: to HTTPS and fetch the pinned commit.
+      - name: Fetch submodules over HTTPS
+        shell: bash
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git submodule update --init game/client
+
+      - name: .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('game/**/*.csproj', 'game/client/**/*.csproj', 'game/client/**/*.props') }}
+          restore-keys: |
+            nuget-${{ runner.os }}-
+
+      - name: Cache CMake FetchContent downloads
+        uses: actions/cache@v4
+        with:
+          path: |
+            game/forge/native/build/_deps
+            build/_deps
+          key: cmake-deps-${{ runner.os }}-${{ hashFiles('game/forge/native/CMakeLists.txt', 'libkan/CMakeLists.txt', 'CMakeLists.txt') }}
+          restore-keys: |
+            cmake-deps-${{ runner.os }}-
+
+      # Vulkan SDK (headers + glslc) for the ggml Vulkan backend on Windows
+      # and Linux. macOS needs no SDK: the ggml Metal backend compiles its
+      # shader with the Xcode toolchain. If the SDK is missing the CMake
+      # configure falls back to the CPU backend and says so.
+      - name: Vulkan SDK
+        if: matrix.ggml == 'VULKAN'
+        uses: jakoch/install-vulkan-sdk-action@v1
+        with:
+          vulkan_version: 1.4.328.1
+          install_runtime: true
+          cache: true
+          stripdown: true
+
+      - name: Version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "KAN_VERSION=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+          else
+            echo "KAN_VERSION=0.0.0" >> "$GITHUB_ENV"
+          fi
+
+      # --- native bridge (libkan_forge_native) + offline self-test ----------
+      - name: Build native bridge
+        shell: bash
+        run: |
+          cmake -S game/forge/native -B game/forge/native/build \
+            -DCMAKE_BUILD_TYPE=Release -DKAN_GGML_BACKEND=${{ matrix.ggml }}
+          cmake --build game/forge/native/build --config Release --parallel 6
+
+      - name: Native self-test
+        shell: bash
+        run: ctest --test-dir game/forge/native/build --build-config Release --output-on-failure
+
+      # --- libkan's ctest suite (offline DSP tests; no audio device) --------
+      # apps/ and tools/ are developer tools and stay out of the release
+      # build (KAN_BUILD_APPS/KAN_BUILD_TOOLS, see platform-builds.md).
+      - name: Build and test libkan
+        shell: bash
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
+            -DKAN_GGML_BACKEND=${{ matrix.ggml }} \
+            -DKAN_BUILD_APPS=OFF -DKAN_BUILD_TOOLS=OFF
+          cmake --build build --config Release --parallel 6
+          ctest --test-dir build --build-config Release --output-on-failure
+
+      # --- kan!'s C# (make check equivalents) ------------------------------
+      # Warnings are errors for kan's own code (Makefile STRICT).
+      - name: kan! C# — warnings as errors
+        shell: bash
+        run: |
+          for p in game/core/Kan.Core.csproj game/forge/Kan.Forge.csproj game/ruleset/Kan.Ruleset.csproj; do
+            dotnet build "$p" -c Release -maxcpucount:4 -warnaserror \
+              -p:WarningsNotAsErrors="NU1901;NU1902;NU1903;NU1904"
+          done
+
+      # Unit tests that need no audio device. KAN_ROFORMER_GGUF points at a
+      # stub file so the RoFormer model (a ~200 MB download) is never fetched
+      # during tests: probes fail fast and every caller answers with a
+      # controlled error. SeparationTest is the one suite that needs the real
+      # model + minutes of CPU — it runs locally (make test), not here.
+      - name: kan! C# tests (core)
+        shell: bash
+        env:
+          KAN_ROFORMER_GGUF: ${{ runner.temp }}/kan-model-stub.gguf
+        run: |
+          printf 'not a model' > "$KAN_ROFORMER_GGUF"
+          dotnet test game/core/tests/Kan.Core.Tests.csproj -c Release -maxcpucount:4
+
+      - name: kan! C# tests (forge)
+        shell: bash
+        env:
+          KAN_ROFORMER_GGUF: ${{ runner.temp }}/kan-model-stub.gguf
+        run: |
+          printf 'not a model' > "$KAN_ROFORMER_GGUF"
+          dotnet test game/forge/tests/Kan.Forge.Tests.csproj -c Release -maxcpucount:4 \
+            --filter "FullyQualifiedName!~SeparationTest"
+
+      # --- packaging --------------------------------------------------------
+      # Self-contained publish of the game (Velopack stays dormant: the zip
+      # is the installer for now). The ruleset plugin, Kan.Forge/Kan.Core and
+      # the native bridge ride along (the plugin is loaded from next to the
+      # executable); brand/ is copied by the fork's csproj (fork F-21).
+      - name: Publish osu.Desktop (self-contained)
+        shell: bash
+        run: |
+          dotnet publish game/client/osu.Desktop/osu.Desktop.csproj \
+            -c Release -r "${{ matrix.rid }}" --self-contained true \
+            -p:Version="$KAN_VERSION" -maxcpucount:4 -o dist/game
+
+      - name: Collect kan! files into the payload
+        shell: bash
+        run: |
+          out=dist/game
+          cp game/ruleset/bin/Release/net10.0/osu.Game.Rulesets.Kan.dll "$out/"
+          cp game/ruleset/bin/Release/net10.0/Kan.Forge.dll "$out/"
+          cp game/ruleset/bin/Release/net10.0/Kan.Core.dll "$out/"
+
+          # P/Invoke resolves "kan_forge_native" to libkan_forge_native.so /
+          # .dylib / kan_forge_native.dll — whatever the CMake build produced.
+          found=
+          for f in kan_forge_native.dll libkan_forge_native.dylib libkan_forge_native.so; do
+            for d in game/forge/native/build game/forge/native/build/Release; do
+              if [ -f "$d/$f" ]; then cp "$d/$f" "$out/"; found="$f"; fi
+            done
+          done
+          if [ -z "$found" ]; then echo "no native bridge library found" >&2; exit 1; fi
+
+          for f in osu.Game.Rulesets.Kan.dll Kan.Forge.dll Kan.Core.dll ppy.ManagedBass.dll brand; do
+            test -e "$out/$f" || { echo "missing from the payload: $f" >&2; exit 1; }
+          done
+          echo "payload complete (native: $found)"
+
+      # --- macOS: kan!.app, icon, (optional) signing + notarization ---------
+      - name: macOS app bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          # kan.icns from the client logo (sips resizes, iconutil packs).
+          mkdir -p dist/kan.iconset
+          for s in 16 32 128 256 512; do
+            sips -z "$s" "$s" game/client/assets/lazer.png --out "dist/kan.iconset/icon_${s}x${s}.png" > /dev/null
+            d=$((s * 2))
+            sips -z "$d" "$d" game/client/assets/lazer.png --out "dist/kan.iconset/icon_${s}x${s}@2x.png" > /dev/null
+          done
+          iconutil -c icns dist/kan.iconset -o dist/kan.icns
+
+          app="dist/kan!.app"
+          mkdir -p "$app/Contents/MacOS" "$app/Contents/Resources"
+          cp -a dist/game/. "$app/Contents/MacOS/"
+          cp dist/kan.icns "$app/Contents/Resources/kan.icns"
+          sed "s/%%VERSION%%/$KAN_VERSION/g" game/packaging/macos/Info.plist > "$app/Contents/Info.plist"
+
+      # Signing and notarization need a paid Apple Developer account; they
+      # run only when the secrets are configured and are skipped otherwise
+      # (the zip is then unsigned — platform-builds.md explains what that
+      # means for players). Secrets: APPLE_CERTIFICATE (base64 .p12),
+      # APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID,
+      # APPLE_PASSWORD (app-specific), APPLE_TEAM_ID.
+      - name: Sign and notarize (macOS, when APPLE_* secrets exist)
+        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
+        shell: bash
+        run: |
+          base64 -d <<< "$APPLE_CERTIFICATE" > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p kan-ci "$RUNNER_TEMP/ci.keychain-db"
+          security default-keychain -s "$RUNNER_TEMP/ci.keychain-db"
+          security unlock-keychain -p kan-ci "$RUNNER_TEMP/ci.keychain-db"
+          security import "$RUNNER_TEMP/cert.p12" -k "$RUNNER_TEMP/ci.keychain-db" \
+            -P "$APPLE_CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k kan-ci "$RUNNER_TEMP/ci.keychain-db"
+
+          app="dist/kan!.app"
+          # Sign every native library first (library validation), then the
+          # bundle with the hardened runtime and kan!'s entitlements
+          # (microphone + JIT for .NET).
+          find "$app" -type f \( -name '*.dylib' -o -name '*.so' -o -name '*.a' \) \
+            -exec codesign --force --sign "$APPLE_SIGNING_IDENTITY" {} +
+          codesign --force --options runtime \
+            --entitlements game/packaging/macos/kan.entitlements \
+            --sign "$APPLE_SIGNING_IDENTITY" "$app"
+          codesign --verify --deep --strict "$app"
+
+          ditto -c -k --keepParent "$app" "$RUNNER_TEMP/notarize.zip"
+          xcrun notarytool submit "$RUNNER_TEMP/notarize.zip" \
+            --apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" \
+            --team-id "$APPLE_TEAM_ID" --wait
+          xcrun stapler staple "$app"
+
+      - name: Zip (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        run: cd dist && ditto -c -k --keepParent "kan!.app" "kan-${{ matrix.rid }}.zip"
+
+      - name: Zip (Windows, Linux)
+        if: runner.os != 'macOS'
+        shell: bash
+        run: |
+          mkdir -p "dist/kan-${{ matrix.rid }}"
+          cp -a dist/game/. "dist/kan-${{ matrix.rid }}/"
+          cd dist && python -m zipfile -c "kan-${{ matrix.rid }}.zip" "kan-${{ matrix.rid }}"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kan-${{ matrix.rid }}
+          path: dist/kan-${{ matrix.rid }}.zip
+          if-no-files-found: error
+
+  release:
+    name: draft release
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --draft \
+            --title "kan! $GITHUB_REF_NAME" --generate-notes \
+            dist/kan-*.zip
