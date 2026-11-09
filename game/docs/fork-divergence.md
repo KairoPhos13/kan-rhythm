@@ -34,6 +34,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-27 | `400efe6` | `9a6beeb` (branch `agent/game`) | F-19 ruleset-filtered general verify checks | green (0 warnings / 0 errors; verify tab verified in an isolated instance) |
 | 2026-10-27 | `9a6beeb` | `5e3d1b2` (branch `agent/game`) | F-20 offline until kan!'s servers, F-21 brand resources, string sweep first pass | green (0 warnings / 0 errors; no ppy.sh request and a brand logo in an isolated instance) |
 | 2026-11-09 | `5e3d1b2` | `2c3660d` (branch `agent/game`) | F-22 no osu! voice or theme music, gold logo disc, provisional icons | green (0 warnings / 0 errors; isolated run: kan! intro outline, gold menu logo, kan! backgrounds) |
+| 2026-11-09 | `2c3660d` | `e32d2a3` (branch `agent/game`) | F-24 kan!'s own server, never osu!'s | green (0 warnings / 0 errors; isolated run logged in against the local kan! server, no ppy.sh request) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -375,6 +376,36 @@ Policy (rebase-ability first, ADR-0011 §4):
   "welcome to kan!" with no voice; the main menu shows the gold logo
   over kan!'s backgrounds.
 - **Merge-conflict cost:** low — a few lines in four files, binary icons.
+- **Upstream-PR:** no.
+
+### F-24 — kan!'s own server, and never osu!'s
+
+- **What:** `KanEndpointConfiguration` takes the server address from
+  `KAN_SERVER_URL` (development, tests, community servers) or a built-in
+  default (empty until kan!'s server is deployed), with a public OAuth
+  client (`kan-client` / `kan-public-client`, like osu!lazer's, shipped in
+  every copy). `UsesOsuAssets` (always false) now guards the menu banner,
+  the supporter note and osu!'s ranked-metadata cache, which come from
+  osu!'s servers whatever the API address is (F-20 guarded them by
+  `HasServer`). `TrustedDomainOnlineStore` trusts only kan!'s server host
+  (was `*.ppy.sh`). Previews come from `{server}/preview/{id}.mp3`, none
+  without a server (was `b.ppy.sh`). `DrawableAvatar` no longer falls back
+  to `a.ppy.sh`. First-run setup's beatmap step (`ScreenBeatmaps`) no
+  longer downloads osu!'s tutorial and bundled osu! beatmaps: it opens
+  kan!'s level catalogue (with a server) or explains how to add levels.
+- **Why:** owner (2026-11-09): accounts, leaderboards and downloading
+  songs from the start, on kan!'s own small server (`server/app`, which
+  speaks the client's protocol: `server/docs/lazer-protocol.md`). Turning
+  the API on must not turn on any osu! address.
+- **Verified:** build 0 warnings / 0 errors. Isolated run against the
+  local server behind a test TLS proxy: login with a saved token,
+  `GET me`, favourites and friends answered by kan!'s server; realtime
+  hubs and notifications fail quietly and retry (not implemented, as
+  documented); no request to any `ppy.sh` host. Not yet verified in game:
+  catalogue download, online match of a downloaded level, score
+  submission (next, against the deployed server).
+- **Merge-conflict cost:** low — one kan! file, a few lines in six files;
+  `ScreenBeatmaps` rewritten (upstream changes there need a manual look).
 - **Upstream-PR:** no.
 
 ### String sweep, first pass (2026-10-27)
