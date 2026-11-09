@@ -1,7 +1,7 @@
 # game/ client — build environment & workflow
 
 Verified working environment for the **kan!** client (`game/client/` =
-osu!lazer fork `github.com/KairoPhos13/kan`, plus the `game/ruleset/` plugin).
+osu!lazer fork `github.com/KairoPhos/kan`, plus the `game/ruleset/` plugin).
 All facts below verified on **2026-10-12** on the working machine
 (Arch Linux, x86_64, 12 cores, 32 GB RAM, AMD RX 6800, X11 session).
 
@@ -40,7 +40,7 @@ worked.
 
 ## 2. Getting the sources (submodule)
 
-`game/client/` is a git submodule of `github.com/KairoPhos13/kan` (see
+`game/client/` is a git submodule of `github.com/KairoPhos/kan` (see
 `.gitmodules`). After cloning the monorepo:
 
 ```bash
@@ -52,7 +52,7 @@ key configured, switch to HTTPS for this checkout first (read access is
 public):
 
 ```bash
-git config submodule."game/client".url https://github.com/KairoPhos13/kan.git
+git config submodule."game/client".url https://github.com/KairoPhos/kan.git
 git submodule update --init game/client
 ```
 

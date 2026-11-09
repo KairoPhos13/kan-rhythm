@@ -1,6 +1,7 @@
 # game/ — the kan! game
 
-**kan!** is a rhythm game you play on a real instrument. A level is a song's
+**kan!** (from the Japanese *kanaderu*, 奏でる, "to play an instrument")
+is a rhythm game you play on a real instrument. A level is a song's
 score: notes scroll along a staff toward a line, and you play each one on your
 own instrument as it reaches the line. The microphone is all it needs. Each
 note is judged by its timing and its pitch together, and scored the way osu!
@@ -59,10 +60,11 @@ Playable and in daily testing, not yet released. Before a public release:
 
 - **Identity:** the logos, menu art, intro music and sounds are still
   osu!'s (they are not covered by osu!'s MIT licence, and its name and logo
-  are trademarks). Some on-screen texts still say osu!.
-- **Online:** the client still points at osu!'s servers (accounts, chat,
-  rankings) and its updater at osu!'s releases. kan! needs its own server
-  ([server/](../server/)) before any online feature.
+  are trademarks). kan!'s own go in [brand/](brand/README.md), one file at
+  a time. Some on-screen texts (other languages above all) still say osu!.
+- **Online:** off. The client talks to no server until kan! has its own
+  ([server/](../server/)); osu!'s online code is kept, so turning it on is
+  a configuration change.
 - **Instruments and platforms:** tested mostly on ocarina, and on Linux.
   Windows and macOS builds are unverified.
 - **Levels to share:** songs bundled with the game must be free to
@@ -70,7 +72,8 @@ Playable and in daily testing, not yet released. Before a public release:
 - **BASS** (osu!'s audio library) is free only for non-commercial use: see
   [docs/bass-licensing.md](docs/bass-licensing.md) before taking donations.
 
-Open work in detail: [TODO.md](TODO.md).
+Open work in detail: [TODO.md](TODO.md). Anyone may take any of it: see
+"Join in" in the [repository README](../README.md#join-in).
 
 ## Projects
 

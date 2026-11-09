@@ -1,7 +1,7 @@
 # game/client — fork divergence log
 
 Every change made **inside the fork** (`game/client/` = submodule of
-`github.com/KairoPhos13/kan`, itself a fork of `ppy/osu`) is logged here:
+`github.com/KairoPhos/kan`, itself a fork of `ppy/osu`) is logged here:
 **what / why / merge-conflict cost / upstream-PR status**. This file is the
 compliance record required by [ADR-0010](../adr/0010-osu-lazer-base-client.md)
 and [osu-integration.md §4/§6](../architecture/osu-integration.md).
@@ -22,7 +22,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | Date | Old pin | New pin | Why | Build |
 |---|---|---|---|---|
 | 2026-10-12 | *(none — first wiring)* | `816df139fd` (upstream `ppy/osu` master) | fork created + submodule wired (previous session) | green |
-| 2026-10-12 | `816df139fd` | `2970c68` (branch `agent/game` on `github.com/KairoPhos13/kan`) | Phase 0 rebrand baseline (entries F-1…F-6) | green (0 warnings / 0 errors, verified on Linux) |
+| 2026-10-12 | `816df139fd` | `2970c68` (branch `agent/game` on `github.com/KairoPhos/kan`) | Phase 0 rebrand baseline (entries F-1…F-6) | green (0 warnings / 0 errors, verified on Linux) |
 | 2026-10-13 | `2970c68` | `e704f03` (branch `agent/game`) | owner direction: stock game modes + osu!stable legacy IPC removed (entries F-9/F-10) | green (0 warnings / 0 errors; run verified with only the kan! ruleset) |
 | 2026-10-13 | `e704f03` | `ec02860` (branch `agent/game`) | ruleset-provided "tracks" editor tab (entry F-11) | green (0 warnings / 0 errors; tab verified live) |
 | 2026-10-13 | `ec02860` | `e0c1cc9` (branch `agent/game`) | F-11 follow-up: tab presented as "track", second in the list | green (0 warnings / 0 errors) |
@@ -32,6 +32,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-19 | `9e92011` | `e4f19a2` (branch `agent/game`) | F-17 ruleset-chosen result time | green (0 warnings / 0 errors; hit error meter verified in an isolated instance) |
 | 2026-10-23 | `e4f19a2` | `400efe6` (branch `agent/game`) | F-18 patched MessagePack and SignalR packages | green (0 warnings / 0 errors; gameplay verified in an isolated instance) |
 | 2026-10-27 | `400efe6` | `9a6beeb` (branch `agent/game`) | F-19 ruleset-filtered general verify checks | green (0 warnings / 0 errors; verify tab verified in an isolated instance) |
+| 2026-10-27 | `9a6beeb` | `5e3d1b2` (branch `agent/game`) | F-20 offline until kan!'s servers, F-21 brand resources, string sweep first pass | green (0 warnings / 0 errors; no ppy.sh request and a brand logo in an isolated instance) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -309,24 +310,69 @@ Policy (rebase-ability first, ADR-0011 §4):
   `IssueList.Refresh`.
 - **Upstream-PR:** candidate (any ruleset with objects outside the beatmap).
 
+### F-20 — no osu! servers: offline until kan! has its own
+
+- **What:** `Online/KanEndpointConfiguration.cs` (new): every address empty,
+  `HasServer` false; `OsuGameBase.CreateEndpoints` always returns it.
+  `APIAccess.HasLogin` is false without an API address (the game stays
+  offline, requests fail at once). Guards on `HasServer`: the main menu's
+  online banner (`OnlineMenuBanner`), the "become an osu!supporter" note
+  (`SupporterDisplay`), the ranked-beatmap metadata download
+  (`LocalCachedBeatmapMetadataSource.FetchCache`, from assets.ppy.sh).
+  The updater (`VelopackUpdateManager`) reads github.com/KairoPhos/kan's
+  releases, not osu!'s. Discord rich presence is off (it is osu!'s Discord
+  application). Windows file and link associations are not installed
+  (`Program.cs`): osu!'s `.osz`/`.osr`/`.osk` and `osu://` under osu!'s own
+  registry key would be taken from an installed osu!, and removed from it
+  when kan! is uninstalled.
+- **Why:** owner 2026-10-27, before a public release. A modified client
+  must not use osu!'s services; an updater pointed at osu! would install
+  osu!lazer over kan!. The online code is all kept: filling in
+  `KanEndpointConfiguration` with kan!'s own servers (osu-web,
+  osu-server-spectator) turns it back on.
+- **Verified:** an isolated run's logs show no request to any ppy.sh host
+  (before: the metadata cache from assets.ppy.sh).
+- **Merge-conflict cost:** low — one new file and one-line guards.
+- **Upstream-PR:** no (kan!-specific).
+
+### F-21 — kan!'s art and sounds over osu!'s resources
+
+- **What:** `KanBrandResources.cs` (new): a resource store over the
+  `brand` folder next to the executable, added to `Resources` ahead of
+  `osu.Game.Resources` (`OsuGameBase`). `osu.Desktop.csproj` copies
+  `game/brand/` (kan-rhythm repository) into it, when that folder exists.
+- **Why:** osu!'s resources are CC BY-NC 4.0 and its name and logo are
+  trademarks; kan! replaces them one file at a time, each file named as
+  the resource it replaces (`game/brand/README.md`). A missing file falls
+  back to osu!'s.
+- **Verified:** a test `Textures/Menu/logo.png` showed as the main menu's
+  logo in an isolated run.
+- **Merge-conflict cost:** low — one new file, three lines in
+  `OsuGameBase`, one item group in the project file.
+- **Upstream-PR:** no.
+
+### String sweep, first pass (2026-10-27)
+
+The game's own name in English strings that mean the game itself:
+first-run setup, settings, folders, fullscreen, exit dialog, update and
+audio notifications (`Localisation/*Strings.cs`, each delta marked); the
+startup error for old Windows (`Program.cs`); the editor's title
+(`EditorMenuBar`: kan!forge); the web user agent (`OsuWebRequest`,
+`OsuJsonWebRequest`). Strings about osu!-only things (osu!stable import,
+osu!supporter, Featured Artists, the osu! music theme) are left: those
+features are not kan!'s.
+
 ## String sweep — remaining scope (deferred, game/TODO.md)
 
-Identified user-facing `osu!`/osu references still present in adapted code
-(mechanical deltas to be logged here when done):
-
-- `osu.Desktop/Program.cs` — SDL message-box text ("run osu!"), multi-instance
-  log line
+- Translations: the strings above change only in English. Other languages
+  come from `osu.Game.Resources`' translations and still say osu!.
 - `osu.Desktop/NVAPI.cs` — NVIDIA profile names
 - `osu.Desktop/Windows/WindowsAssociationManager.cs` +
-  `osu.Game/Localisation/WindowsAssociationManagerStrings.cs` — file/protocol
-  associations (`osu://`, `osump://` protocol scheme decision needed)
-- `osu.Game/Screens/Edit/Components/Menus/EditorMenuBar.cs` — editor title
-  text ("osu!editor")
-- `osu.Game/Online/API/OsuWebRequest.cs` / `OsuJsonWebRequest.cs` —
-  `UserAgent` strings
+  `osu.Game/Localisation/WindowsAssociationManagerStrings.cs` — not
+  installed since F-20; needs kan!'s own file types and link scheme
 - `osu.Game/OsuGameBase.cs` — `OSU_PROTOCOL = "osu://"` (product decision:
   keep for compatibility or move to `kan://`)
-- Online endpoints still point at osu! production servers (API, news,
-  changelog) — needs its own work item (server/ OpenAPI), not just strings
-- Default skin/logo/triangle assets and the `lazer.ico` app icon (identity
-  design v0 — trademark hygiene ADR-0011 §5)
+- osu!-only features still reachable (osu!stable import in first-run
+  setup and settings, the osu! tutorial button, the osu! music theme)
+- Default skin/logo/triangle assets and the `lazer.ico` app icon: replaced
+  through `game/brand/` (F-21) once kan!'s are made

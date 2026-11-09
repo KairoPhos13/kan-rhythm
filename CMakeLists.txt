@@ -28,7 +28,7 @@ include(FetchContent)
 FetchContent_Declare(
     miniaudio
     GIT_REPOSITORY https://github.com/mackron/miniaudio.git
-    GIT_TAG        master
+    GIT_TAG        0.11.25   # pinned: following master broke rebuilds when upstream moved
     GIT_SHALLOW    TRUE
 )
 FetchContent_MakeAvailable(miniaudio)
@@ -70,8 +70,8 @@ if(KAN_ENABLE_STRETCH)
     FetchContent_Declare(
         signalsmith_stretch
         GIT_REPOSITORY https://github.com/signalsmith-audio/signalsmith-stretch.git
-        GIT_TAG        main
-        GIT_SHALLOW    TRUE
+        GIT_TAG        88061fd4eda56a2353c5d65c74aa3f4ccf76f9da  # pinned (1.4.0+1): a moving branch breaks rebuilds
+        GIT_SHALLOW    FALSE
     )
     FetchContent_MakeAvailable(signalsmith_stretch)
     if(TARGET signalsmith-stretch)

@@ -181,7 +181,7 @@ def main() -> int:
     lines.append(f"Generated {today} by `game/tools/gen-third-party-notices.py` "
                  "(monorepo kan-rhythm). Do not edit by hand — regenerate instead.")
     lines.append("")
-    lines.append("The kan! client is built on the osu!lazer fork (github.com/KairoPhos13/kan, "
+    lines.append("The kan! client is built on the osu!lazer fork (github.com/KairoPhos/kan, "
                  "itself a fork of `ppy/osu`). This file lists every redistributed "
                  "third-party component and its licence, and is shown on the in-game "
                  "about screen. Licence *texts* of individual packages ship inside the "
@@ -198,7 +198,7 @@ def main() -> int:
                  "upstream copyright headers are preserved in every adapted file.")
     lines.append("- **osu!framework** (`ppy/osu-framework`) — MIT Licence — Copyright (c) "
                  "ppy Pty Ltd <contact@ppy.sh> and contributors.")
-    lines.append("- **osu! Game Resources** (`ppy.osu.Game.Resources`) — MIT Licence.")
+    lines.append("- **osu! Game Resources** (`ppy.osu.Game.Resources`, © ppy Pty Ltd) — CC BY-NC 4.0 for most content, fonts under their own licences (https://github.com/ppy/osu-resources). Used non-commercially; kan!'s own art and sounds replace them as they are made (`brand/`). The osu! name and logo are ppy's trademarks.")
     lines.append("")
     lines.append("Full text of the base project's licence (fork `LICENCE`):")
     lines.append("")

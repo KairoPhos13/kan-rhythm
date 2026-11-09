@@ -5,13 +5,20 @@
 **kan!** is a free, open-source, community-driven rhythm game built natively for
 **Linux, Windows, and macOS**.
 
-Traditional rhythm games teach you to press plastic buttons with millisecond
-precision. Traditional music education software feels like a sterile clinical
-exam with high latency. **kan!** merges the high-adrenaline, competitive
-dopamine loop of games like *osu!* with real-world musical mastery — allowing
-you to play community-created beatmaps using **any real musical instrument** at
-your disposal (guitar, flute, violin, piano, bass, brass) through a standard
-microphone or audio interface.
+The name comes from the Japanese **奏でる (*kanaderu*), "to play an
+instrument, to make it sound"** — *kanade* is the playing itself. And, read
+in English: grab your instrument, you *kan*.
+
+You play community-made levels on **your own instrument** — flute, ocarina,
+violin, guitar, voice, whatever you have — through a plain microphone. The
+game listens and judges each note by its timing and its pitch, the way a
+rhythm game judges a key press.
+
+Practice made fun is the point. Rhythm games are great at making people
+practise for hours; kan! points that at real music, so what players learn
+goes with them — to their church, their friends, their community. kan! is
+built to be calm: forgiving by default, strict only when you choose, and it
+never aims at anxiety or compulsion to keep you playing.
 
 > **Collaboration language: English.** All code, comments, commits, docs and
 > discussions in this repository are in English. See [CONTRIBUTING.md](CONTRIBUTING.md).
@@ -157,6 +164,27 @@ Detailed milestones with hard engineering gates (KPIs): [docs/ROADMAP.md](docs/R
 | Map editor         | **kan!forge**   | Spectrogram + HTDemucs + Basic Pitch environment             |
 | Playability linter | **kan!check**   | Biomechanical validator per instrument                       |
 | Ranking system     | **kp**          | *kan! points* — rhythmic precision + intonation purity       |
+
+---
+
+## Join in
+
+kan! is playable and useful today, and it is a long way from the polish of
+osu!. It can grow there with help:
+
+- **Issues are open to anyone.** The work still open is listed in each
+  component's `TODO.md` (the game's: [game/TODO.md](game/TODO.md)) and in
+  the repository's issues. Pick one that inspires you.
+- **Artists:** levels need songs that can be shared freely. If you write,
+  play or arrange music — melodies and their accompaniments (companions)
+  — and would release some of it under a free licence for kan!, you are
+  very welcome. Art and sound for kan!'s own identity too (logo, menu,
+  intro: see [game/brand/](game/brand/README.md)).
+- **Players of other instruments:** kan! has been played mostly on an
+  ocarina. Playing it on yours and reporting what feels wrong helps
+  everyone.
+
+See [CONTRIBUTING.md](CONTRIBUTING.md) before a pull request.
 
 ---
 

@@ -22,20 +22,33 @@ Blocking (legal and safety):
 - [ ] Own identity: logo, icons (`lazer.ico`, `beatmap.ico`,
       `assets/lazer*.png`), menu logo and backgrounds, intro, its music and
       voice — osu!'s are CC BY-NC 4.0 (`ppy/osu-resources`) and its name and
-      logo are trademarks. New art made from scratch; wiring it in is a
-      small fork hook (a resource store ahead of `osu.Game.Resources`).
-      Intro music: undecided (owner)
-- [ ] Online off without removing it: point `ProductionEndpointConfiguration`
-      at no server (kan!'s own osu-web instance later is a URL change)
-- [ ] Updater: point at kan!'s releases or turn it off (it reads
-      `github.com/ppy/osu` today and would install osu!lazer)
-- [ ] User-facing "osu!" strings (list in `docs/fork-divergence.md`)
+      logo are trademarks. New art made from scratch goes in `game/brand/`
+      (names and sizes in its README; the hook is in place, fork F-21).
+      Intro music: undecided (owner). The logo's ring and the menu's pink
+      are drawn by code (`OsuLogo`, the menu background): their colours
+      follow once the logo is chosen
+- [x] Online off without removing it (fork F-20, 2026-10-27):
+      `KanEndpointConfiguration` has no server; menu banner, supporter note
+      and the ranked-metadata download stay off; Discord presence off.
+      kan!'s own osu-web later is filling in that file
+- [x] Updater reads github.com/KairoPhos/kan's releases (F-20)
+- [x] Windows file and link associations not installed: they were osu!'s
+      and would take them from an installed osu! (F-20). kan!'s own file
+      type and link scheme: later
+- [ ] User-facing "osu!" strings: English first pass done
+      (2026-10-27); left: other languages' translations, osu!-only
+      features still reachable (osu!stable import, osu! tutorial button) —
+      list in `docs/fork-divergence.md`
 - [ ] Bundled songs free to distribute (public domain, Creative Commons or
       original): none popular. Players share their own levels as files
-- [ ] Separation model shipped by default: weights with a clear licence
-      (see chart-transcription-evaluation.md, "Verified license reality");
-      Basic Pitch (Apache-2.0) listed in the notices
-- [ ] Push the fork commits to github.com/KairoPhos13/kan (owner: this build
+- [ ] Separation model (owner decision): not shipped — downloaded on first
+      use from Hugging Face. The default (q8,
+      `FractalSurfer/BS-RoFormer-SW-6stem`) declares no licence; the f16
+      (`studio409/BSRoformer-SW-6Stem-GGUF`) declares MIT, as a mirror of an
+      MIT ONNX release. Options: f16 as default, host our own copy
+      (`KAN_MODEL_URL`), or keep and say so. Basic Pitch (Apache-2.0) to be
+      listed in the notices
+- [ ] Push the fork commits to github.com/KairoPhos/kan (owner: this build
       machine has no credentials) — the submodule must resolve for others
 - [ ] No donations until BASS is settled (`docs/bass-licensing.md`): a free,
       non-commercial release needs no licence
@@ -48,7 +61,7 @@ Important for a first impression:
 - [ ] Windows build and installer verified; macOS if possible
 - [ ] First run: choose the instrument, test the microphone, calibrate,
       play an easy level
-- [ ] Hide osu!'s own game modes (osu!, taiko, catch, mania) or decide to keep them
+- [x] osu!'s own game modes are not shipped (fork F-9, 2026-10-13)
 - [ ] A short demo video; the root README for players (game/README.md
       is done, 2026-10-27)
 
@@ -62,7 +75,7 @@ official builds, replays kept — is the reference.
 
 ### Setup & compliance (do first)
 
-- [x] Fork `ppy/osu` (osu!lazer, MIT) → **`kan`** (github.com/KairoPhos13/kan);
+- [x] Fork `ppy/osu` (osu!lazer, MIT) → **`kan`** (github.com/KairoPhos/kan);
       submodule wired at `game/client/` (2026-10-12)
 - [x] Baseline build green on **Linux** (.NET 10 SDK — the fork targets
       `net10.0`, "dotnet 8" plans are superseded) + `game/docs/environment.md`
@@ -72,7 +85,7 @@ official builds, replays kept — is the reference.
 - [ ] Verify baseline build on Windows/macOS (same commands; unverified —
       record results in `game/docs/environment.md`)
 - [ ] **Push fork commits to the fork repo** (`0f5db37`, `2970c68` →
-      github.com/KairoPhos13/kan): blocked on this build machine having no
+      github.com/KairoPhos/kan): blocked on this build machine having no
       GitHub credentials — the maintainer must push before merging
       `agent/game` into `main` (see `game/docs/fork-divergence.md` pin log)
 - [x] Rebrand baseline (ADR-0011 — visible from the first build): window
