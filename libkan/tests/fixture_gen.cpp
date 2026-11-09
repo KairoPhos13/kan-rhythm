@@ -11,6 +11,9 @@
 #include <string>
 #include <sys/stat.h>
 #include <sys/types.h>
+#ifdef _WIN32
+#include <direct.h> // _mkdir
+#endif
 #include <vector>
 
 namespace {
@@ -20,7 +23,11 @@ using namespace kan_test;
 uint32_t g_rng = 0x9E3779B9u;
 
 void ensure_dir(const std::string& dir) {
+#ifdef _WIN32
+    _mkdir(dir.c_str()); // best effort: exists is fine
+#else
     ::mkdir(dir.c_str(), 0755); // best effort: exists is fine
+#endif
 }
 float noise1() {
     g_rng = g_rng * 1664525u + 1013904223u;

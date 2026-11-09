@@ -163,9 +163,60 @@ if(KAN_ENABLE_ROFORMER)
     # Static everywhere (repo style): ggml's option(BUILD_SHARED_LIBS) would
     # otherwise cache ON and conflict with KISSFFT_STATIC later in the run.
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "static libraries" FORCE)
-    # GPU backend ON: the shipped runtime separates on Vulkan when
-    # available (device selection is automatic; CPU fallback inherent).
-    set(GGML_VULKAN ON CACHE BOOL "ggml: Vulkan backend" FORCE)
+    # GPU backend for the shipped runtime (device selection is automatic at
+    # runtime; CPU fallback inherent; BSR_FORCE_CPU stays as the escape
+    # hatch). KAN_GGML_BACKEND = AUTO | VULKAN | METAL | CPU:
+    #   AUTO   Metal on Apple, Vulkan when its tools are found, CPU otherwise
+    #   VULKAN Vulkan when its tools are found, CPU otherwise (with a warning)
+    #   METAL  Metal (Apple only; the shader is embedded in the library so the
+    #          shipped dylib needs no ggml-metal.metal file next to the game)
+    #   CPU    no GPU backend
+    # FORCE wins over stale cache values from earlier configure runs.
+    set(KAN_GGML_BACKEND "AUTO" CACHE STRING
+        "ggml GPU backend for the RoFormer runtime: AUTO, VULKAN, METAL or CPU")
+    set_property(CACHE KAN_GGML_BACKEND PROPERTY STRINGS AUTO VULKAN METAL CPU)
+    string(TOUPPER "${KAN_GGML_BACKEND}" _kan_ggml_backend)
+    set(_kan_ggml_vulkan OFF)
+    set(_kan_ggml_metal OFF)
+    if(_kan_ggml_backend STREQUAL "AUTO")
+        if(APPLE)
+            set(_kan_ggml_metal ON)
+        else()
+            find_package(Vulkan QUIET)
+            find_program(KAN_GLSLC glslc)
+            if(Vulkan_FOUND AND KAN_GLSLC)
+                set(_kan_ggml_vulkan ON)
+            else()
+                message(STATUS "libkan: Vulkan tools not found — RoFormer runs on CPU")
+            endif()
+        endif()
+    elseif(_kan_ggml_backend STREQUAL "VULKAN")
+        find_package(Vulkan QUIET)
+        find_program(KAN_GLSLC glslc)
+        if(Vulkan_FOUND AND KAN_GLSLC)
+            set(_kan_ggml_vulkan ON)
+        else()
+            message(WARNING
+                "libkan: KAN_GGML_BACKEND=VULKAN but the Vulkan SDK was not "
+                "found (Vulkan headers + glslc) — RoFormer runs on CPU")
+        endif()
+    elseif(_kan_ggml_backend STREQUAL "METAL")
+        if(NOT APPLE)
+            message(FATAL_ERROR "libkan: KAN_GGML_BACKEND=METAL needs an Apple platform")
+        endif()
+        set(_kan_ggml_metal ON)
+    elseif(_kan_ggml_backend STREQUAL "CPU")
+        # no GPU backend
+    else()
+        message(FATAL_ERROR
+            "libkan: unknown KAN_GGML_BACKEND '${KAN_GGML_BACKEND}' (AUTO, VULKAN, METAL, CPU)")
+    endif()
+    set(GGML_VULKAN ${_kan_ggml_vulkan} CACHE BOOL "ggml: Vulkan backend" FORCE)
+    set(GGML_METAL ${_kan_ggml_metal} CACHE BOOL "ggml: Metal backend" FORCE)
+    if(_kan_ggml_metal)
+        set(GGML_METAL_EMBED_LIBRARY ON CACHE BOOL "ggml: embed the Metal shader" FORCE)
+    endif()
+    message(STATUS "libkan: RoFormer ggml backend — Vulkan=${_kan_ggml_vulkan} Metal=${_kan_ggml_metal}")
     # PINNED: the Vulkan backend is correctness-critical (ggml-vulkan q8_0
     # integer dot product produced wrong stems on RADV NAVI21 at
     # 3612c0af). Update only WITH the parity test (libkan_runtime_test,

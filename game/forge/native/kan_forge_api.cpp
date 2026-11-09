@@ -93,12 +93,19 @@ kan_forge_status kan_forge_fetch_audio(const char* url, const char* out_wav,
     }
 
     // Same fetch flow as tools/chart_scribe: yt-dlp extracts audio as wav.
+    // std::system runs through cmd.exe on Windows, where single quotes are
+    // literal characters: quote with " there, ' on POSIX shells.
+#ifdef _WIN32
+    const char* q = "\"";
+#else
+    const char* q = "'";
+#endif
     const std::string extra = std::getenv("KAN_YTDL_ARGS") ? std::getenv("KAN_YTDL_ARGS") : "";
     const std::string out(out_wav);
     const std::string stem = out.substr(0, out.size() - 4); // strip ".wav"
     const std::string cmd = dl + " " + extra +
-                            " --remote-components ejs:github -x --audio-format wav --no-playlist -o '" +
-                            stem + ".%(ext)s' '" + url + "'";
+                            " --remote-components ejs:github -x --audio-format wav --no-playlist -o " +
+                            q + stem + ".%(ext)s" + q + " " + q + url + q;
     std::printf("[fetch] %s\n", cmd.c_str());
     std::fflush(stdout);
 
@@ -134,7 +141,13 @@ kan_forge_status kan_forge_separate_stems(const char* audio_path, const char* ou
         const size_t c1 = sep.find(':', 11);
         std::error_code ec;
         auto abs = std::filesystem::absolute(sep.substr(c1 + 1), ec);
-        if (!ec) setenv("KAN_ROFORMER_GGUF", abs.string().c_str(), 1);
+        if (!ec) {
+#ifdef _WIN32
+            _putenv_s("KAN_ROFORMER_GGUF", abs.string().c_str()); // setenv is POSIX
+#else
+            setenv("KAN_ROFORMER_GGUF", abs.string().c_str(), 1);
+#endif
+        }
     }
 
     // Device-correctness gate visibility (editor-pipeline s7b.1): the first
