@@ -25,5 +25,16 @@ The app icons are not resources: replace `client/osu.Desktop/lazer.ico`,
 `client/osu.Desktop/beatmap.ico` and `client/assets/lazer.png` (1024×1024),
 `client/assets/lazer-nuget.png` (128×128) directly.
 
-Intro music already imported into a player's game stays until that copy of
-the intro is deleted from their data folder.
+Intro music: not played for now (fork F-22 turns osu!'s theme off; the intro
+plays one of the player's own levels or starts silent). When kan! has its own
+track, put it in `Tracks/` and turn `use_themed_intro` back on in
+`IntroScreen.cs`.
+
+## Provisional art (2026-11-09)
+
+The logo, the app icons, the triangles intro and the eight menu backgrounds
+here are generated from scratch by `../tools/gen-provisional-brand.py`
+(geometry, no font, no osu! art; owner's design: a white ring fading to gold
+at the centre, "kan!" in white with silver borders). Run it again after
+changing its constants; replace any file with hand-made art whenever it
+exists.

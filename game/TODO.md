@@ -19,14 +19,15 @@ feedback, strictness only as an opt-in.
 
 Blocking (legal and safety):
 
-- [ ] Own identity: logo, icons (`lazer.ico`, `beatmap.ico`,
-      `assets/lazer*.png`), menu logo and backgrounds, intro, its music and
-      voice — osu!'s are CC BY-NC 4.0 (`ppy/osu-resources`) and its name and
-      logo are trademarks. New art made from scratch goes in `game/brand/`
-      (names and sizes in its README; the hook is in place, fork F-21).
-      Intro music: undecided (owner). The logo's ring and the menu's pink
-      are drawn by code (`OsuLogo`, the menu background): their colours
-      follow once the logo is chosen
+- [x] Own identity, provisional (2026-11-09, fork F-22): kan!'s logo
+      (owner's design: white ring fading to gold, "kan!" white with silver
+      borders), app icons, triangles intro and the eight menu backgrounds,
+      all generated from scratch by `tools/gen-provisional-brand.py` into
+      `game/brand/` (F-21); osu!'s voice and theme music are never played.
+      Left, not blocking: kan!'s own intro music (owner, undecided); the
+      "welcome" and "circles" intros still use osu!'s art if a player picks
+      them in settings; osu!'s UI sounds and fonts stay (CC BY-NC 4.0 /
+      their own licences, used non-commercially, credited)
 - [x] Online off without removing it (fork F-20, 2026-10-27):
       `KanEndpointConfiguration` has no server; menu banner, supporter note
       and the ranked-metadata download stay off; Discord presence off.
