@@ -8,7 +8,10 @@ All facts below verified on **2026-10-12** on the working machine
 **Windows/macOS: UNVERIFIED.** osu!lazer itself supports all three platforms
 natively, so the same commands are expected to work, but nobody has built or
 run the client there yet. When you verify a platform, move it out of this
-paragraph and record the results below.
+paragraph and record the results below. Release builds for all three
+platforms (CI as the build machine) and the platform audit live in
+[platform-builds.md](platform-builds.md) — including the macOS `kan!.app`
+bundle and its microphone permission, which nothing in this file covers.
 
 ## 1. Toolchain
 

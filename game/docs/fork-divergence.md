@@ -34,6 +34,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-27 | `400efe6` | `9a6beeb` (branch `agent/game`) | F-19 ruleset-filtered general verify checks | green (0 warnings / 0 errors; verify tab verified in an isolated instance) |
 | 2026-10-27 | `9a6beeb` | `5e3d1b2` (branch `agent/game`) | F-20 offline until kan!'s servers, F-21 brand resources, string sweep first pass | green (0 warnings / 0 errors; no ppy.sh request and a brand logo in an isolated instance) |
 | 2026-11-09 | `5e3d1b2` | `2c3660d` (branch `agent/game`) | F-22 no osu! voice or theme music, gold logo disc, provisional icons | green (0 warnings / 0 errors; isolated run: kan! intro outline, gold menu logo, kan! backgrounds) |
+| 2026-11-09 | `2c3660d` | `2c3660d` (unchanged; branch `agent/ci` holds no fork commit) | F-23 platform builds — Windows/macOS packaging lives outside the fork (`game/packaging/`, CI), no fork change | n/a — pin unchanged; Linux build verified green (see F-23) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -376,6 +377,27 @@ Policy (rebase-ability first, ADR-0011 §4):
   over kan!'s backgrounds.
 - **Merge-conflict cost:** low — a few lines in four files, binary icons.
 - **Upstream-PR:** no.
+
+### F-23 — platform builds (2026-11-09): no fork change needed
+
+- **What:** nothing — **no file in the fork was touched**. Windows/macOS
+  release builds were added in the kan-rhythm repository
+  (`.github/workflows/build.yml`, `game/packaging/macos/` — the `kan!.app`
+  bundle with `Info.plist`, `NSMicrophoneUsageDescription` and the hardened
+  runtime entitlements, assembled in CI). Recorded here so the platform work
+  is traceable in this log; the pin-log row above records that the submodule
+  pin did not move. Audit of platform assumptions:
+  `game/docs/platform-builds.md`.
+- **Why:** the packaging surface upstream osu!lazer keeps outside its
+  repository (Velopack/osu-deploy) is exactly the surface kan! needs; doing
+  it in CI means zero extra divergence. Checked for platform assumptions in
+  every kan! delta (F-1…F-22): the brand copy (`osu.Desktop.csproj`) is
+  plain MSBuild, the F-20 endpoint/association code is already
+  platform-guarded, and the ruleset loader and `DllImport` names resolve on
+  all three platforms (documented in platform-builds.md §6).
+- **Merge-conflict cost:** none.
+- **Upstream-PR:** no (but a generic "external macOS bundle" helper could be
+  useful upstream; not offered).
 
 ### String sweep, first pass (2026-10-27)
 
