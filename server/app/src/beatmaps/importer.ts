@@ -76,10 +76,24 @@ export async function importOsz(
   const osuEntries = entries.filter((entry) => /\.osu$/i.test(entry.entryName));
   if (osuEntries.length === 0) throw new Error(`${filePath}: no .osu files in archive`);
 
-  const parsed: ParsedDifficulty[] = osuEntries.map((entry) => {
+  // kan! plays legacy ruleset id 0 only (lazer-protocol.md §8.1): mode 1-3
+  // difficulties (taiko/catch/mania) cannot be played and must not appear in
+  // the catalogue. They are skipped here and stripped from the stored archive.
+  const parsed: ParsedDifficulty[] = [];
+  for (const entry of osuEntries) {
     const text = entry.getData().toString('utf8');
-    return { entryName: entry.entryName, text, info: parseOsu(text) };
-  });
+    const info = parseOsu(text);
+    const mode = info.general.mode;
+    if (mode !== 0) {
+      log(`skipping ${info.metadata.version}: mode ${mode} is not playable in kan!`);
+      continue;
+    }
+    parsed.push({ entryName: entry.entryName, text, info });
+  }
+  // Nothing is written (no rows, no files) when there is nothing playable.
+  if (parsed.length === 0) {
+    throw new Error(`${filePath}: no mode-0 (kan!-playable) difficulties in archive`);
+  }
 
   const client = await deps.db.connect();
   try {
@@ -130,11 +144,12 @@ export async function importOsz(
       ],
     );
 
-    // Rewrite ids into every .osu and keep each rewritten checksum.
+    // Rewrite ids into every playable .osu and keep each rewritten checksum.
     const imported: ImportedBeatmap[] = [];
     const rewrittenByEntry = new Map<string, string>();
     for (const difficulty of parsed) {
-      const beatmapId = await resolveBeatmapId(client, setId, difficulty.info.metadata.version);
+      const modeInt = clampMode(difficulty.info.general.mode);
+      const beatmapId = await resolveBeatmapId(client, setId, difficulty.info.metadata.version, modeInt);
       const rewritten = rewriteOsu(difficulty.text, { beatmapId, beatmapSetId: setId });
       const checksum = md5Of(rewritten);
       rewrittenByEntry.set(difficulty.entryName, rewritten);
@@ -164,7 +179,7 @@ export async function importOsz(
           difficulty.info.metadata.version,
           difficulty.entryName,
           checksum,
-          clampMode(difficulty.info.general.mode),
+          modeInt,
           difficulty.info.difficulty.circleSize,
           difficulty.info.difficulty.approachRate,
           difficulty.info.difficulty.overallDifficulty,
@@ -190,13 +205,15 @@ export async function importOsz(
     );
 
     // Rebuild the archive with the rewritten .osu files, in the original order.
+    // Skipped (non-mode-0) difficulties are stripped from the stored archive.
     const outZip = new AdmZip();
     for (const entry of entries) {
       const rewritten = rewrittenByEntry.get(entry.entryName);
-      outZip.addFile(
-        entry.entryName,
-        rewritten != null ? Buffer.from(rewritten, 'utf8') : entry.getData(),
-      );
+      if (rewritten != null) {
+        outZip.addFile(entry.entryName, Buffer.from(rewritten, 'utf8'));
+      } else if (!/\.osu$/i.test(entry.entryName)) {
+        outZip.addFile(entry.entryName, entry.getData());
+      }
     }
     const archiveKey = archiveKeyFor(setId);
     await deps.storage.put(archiveKey, outZip.toBuffer(), 'application/zip');
@@ -241,17 +258,21 @@ async function setExists(client: PoolClient, setId: number): Promise<boolean> {
 
 /**
  * Keeps beatmap ids stable across re-imports: an existing difficulty with the
- * same name keeps its id (and therefore its checksum identity), new
- * difficulties get a fresh one.
+ * same name and mode keeps its id (and therefore its checksum identity), new
+ * difficulties get a fresh one. The identity is (beatmapset_id, version, mode):
+ * archives can carry two difficulties with the same `Version` in different
+ * modes (e.g. "241526 Soleily - Renatus.osz" has "Normal" in mode 0 and 3) and
+ * those must not collide.
  */
-async function resolveBeatmapId(
+export async function resolveBeatmapId(
   client: PoolClient,
   setId: number,
   version: string,
+  modeInt: number,
 ): Promise<number> {
   const existing = await client.query<{ id: number }>(
-    `SELECT id FROM beatmaps WHERE beatmapset_id = $1 AND version = $2`,
-    [setId, version],
+    `SELECT id FROM beatmaps WHERE beatmapset_id = $1 AND version = $2 AND mode_int = $3`,
+    [setId, version, modeInt],
   );
   if (existing.rows.length > 0) return existing.rows[0].id;
   const allocated = await client.query<{ id: number }>(

@@ -14,7 +14,9 @@ export const FIXTURE_ARTIST = 'Fixture Artist';
 export const FIXTURE_CREATOR = 'KairoPhos';
 
 /** Minimal but valid `.osu` content (osu file format v14). */
-export function minimalOsu(options: { version?: string; beatmapId?: number; beatmapSetId?: number } = {}): string {
+export function minimalOsu(
+  options: { version?: string; beatmapId?: number; beatmapSetId?: number; mode?: number } = {},
+): string {
   const version = options.version ?? 'Normal';
   return [
     'osu file format v14',
@@ -25,7 +27,7 @@ export function minimalOsu(options: { version?: string; beatmapId?: number; beat
     'Countdown: 0',
     'SampleSet: Soft',
     'StackLeniency: 0.7',
-    'Mode: 0',
+    `Mode: ${options.mode ?? 0}`,
     'LetterboxInBreaks: 0',
     '',
     '[Editor]',
@@ -105,6 +107,8 @@ export interface BuildOszOptions {
   title?: string;
   artist?: string;
   creator?: string;
+  /** `[General] Mode` for every difficulty (default 0 = osu!/kan!). */
+  mode?: number;
   includeIds?: { beatmapId: number; beatmapSetId: number };
 }
 
@@ -113,7 +117,7 @@ export function buildOsz(options: BuildOszOptions = {}): Buffer {
   const versions = options.versions ?? ['Normal'];
   const zip = new AdmZip();
   for (const version of versions) {
-    let text = minimalOsu({ version });
+    let text = minimalOsu({ version, mode: options.mode });
     if (options.title) text = text.replace(new RegExp(`Title:${FIXTURE_TITLE}`, 'g'), `Title:${options.title}`);
     if (options.artist) text = text.replace(new RegExp(`Artist:${FIXTURE_ARTIST}`, 'g'), `Artist:${options.artist}`);
     if (options.creator) text = text.replace(new RegExp(`Creator:${FIXTURE_CREATOR}`, 'g'), `Creator:${options.creator}`);
