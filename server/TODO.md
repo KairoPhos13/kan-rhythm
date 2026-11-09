@@ -3,6 +3,22 @@
 Design of record: [docs/architecture/backend-data-model.md](../docs/architecture/backend-data-model.md).
 Implementation starts Milestone 4; spec/design work can start earlier.
 
+## MVP (lazer protocol) — `app/` (done)
+
+- [x] Scope note: [docs/mvp-scope.md](docs/mvp-scope.md) ("Draft for owner review")
+- [x] `app/` NestJS + PostgreSQL 16 MVP: OAuth (`/oauth/token`), registration,
+      profiles, beatmap search/lookups/downloads, score tokens + submission,
+      leaderboards — protocol inventory: [docs/lazer-protocol.md](docs/lazer-protocol.md)
+- [x] Level import CLI (`npm run import -- <file.osz>`) with `.osu` id rewriting
+      and checksum computation; S3-compatible storage driver with presigned
+      download redirects
+- [x] Unit tests + client-flow e2e (jest + supertest against docker postgres)
+- [x] Production deploy docs for the 1 GB ARM64 host (`app/deploy/DEPLOY.md`,
+      memory budget ≤ 700 MB)
+- [ ] Client fork changes (not done here): widen the trusted texture host list
+      beyond `*.ppy.sh`, point preview audio at our server
+      (see [docs/mvp-scope.md](docs/mvp-scope.md) §8)
+
 ## Design phase (can start now, in parallel)
 
 - [x] ADR: implementation stack (TypeScript/NestJS vs Go vs Rust) with

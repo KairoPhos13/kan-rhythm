@@ -7,6 +7,17 @@ entitlements.
 **Status:** planned (Milestone 4) — see [TODO.md](TODO.md).
 Design of record: [docs/architecture/backend-data-model.md](../docs/architecture/backend-data-model.md).
 
+## MVP (lazer protocol) — implemented in `app/`
+
+A standalone MVP now lives in [`app/`](app/): a NestJS + PostgreSQL 16 server
+speaking the **osu!lazer client protocol** (clean-room from the client's MIT
+source, ADR-0012) for accounts, level downloads and per-level leaderboards.
+Scope and decisions: [`docs/mvp-scope.md`](docs/mvp-scope.md); protocol contract:
+[`docs/lazer-protocol.md`](docs/lazer-protocol.md). It runs as one process with a
+small PostgreSQL on a 1 GB ARM64 host (`app/deploy/`), and levels are imported
+from `.osz` via `npm run import` into S3-compatible object storage (or local
+disk in dev). The long-term design below is unchanged.
+
 ## Design artifacts (design phase — complete, drafts pending ratification)
 
 | Artifact | Location |
