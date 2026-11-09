@@ -119,7 +119,8 @@ export function parseOsu(text: string): OsuFileInfo {
     if (section === 'General' || section === 'Metadata' || section === 'Difficulty') {
       const separator = line.indexOf(':');
       if (separator < 0) continue;
-      const key = line.slice(0, separator).trim();
+      // Key matching is case-insensitive (archives in the wild vary).
+      const key = line.slice(0, separator).trim().toLowerCase();
       const value = line.slice(separator + 1).trim();
       applyKey(info, section, key, value);
       continue;
@@ -184,13 +185,13 @@ export function parseOsu(text: string): OsuFileInfo {
 function applyKey(info: OsuFileInfo, section: string, key: string, value: string): void {
   if (section === 'General') {
     switch (key) {
-      case 'AudioFilename':
+      case 'audiofilename':
         info.general.audioFilename = value;
         break;
-      case 'PreviewTime':
+      case 'previewtime':
         info.general.previewTime = numberOr(value, -1);
         break;
-      case 'Mode':
+      case 'mode':
         info.general.mode = numberOr(value, 0);
         break;
     }
@@ -198,34 +199,34 @@ function applyKey(info: OsuFileInfo, section: string, key: string, value: string
   }
   if (section === 'Metadata') {
     switch (key) {
-      case 'Title':
+      case 'title':
         info.metadata.title = value;
         break;
-      case 'TitleUnicode':
+      case 'titleunicode':
         info.metadata.titleUnicode = value;
         break;
-      case 'Artist':
+      case 'artist':
         info.metadata.artist = value;
         break;
-      case 'ArtistUnicode':
+      case 'artistunicode':
         info.metadata.artistUnicode = value;
         break;
-      case 'Creator':
+      case 'creator':
         info.metadata.creator = value;
         break;
-      case 'Version':
+      case 'version':
         info.metadata.version = value;
         break;
-      case 'Source':
+      case 'source':
         info.metadata.source = value;
         break;
-      case 'Tags':
+      case 'tags':
         info.metadata.tags = value;
         break;
-      case 'BeatmapID':
+      case 'beatmapid':
         info.metadata.beatmapId = numberOr(value, 0);
         break;
-      case 'BeatmapSetID':
+      case 'beatmapsetid':
         info.metadata.beatmapSetId = numberOr(value, 0);
         break;
     }
@@ -233,16 +234,16 @@ function applyKey(info: OsuFileInfo, section: string, key: string, value: string
   }
   if (section === 'Difficulty') {
     switch (key) {
-      case 'CircleSize':
+      case 'circlesize':
         info.difficulty.circleSize = numberOr(value, 0);
         break;
-      case 'OverallDifficulty':
+      case 'overalldifficulty':
         info.difficulty.overallDifficulty = numberOr(value, 0);
         break;
-      case 'ApproachRate':
+      case 'approachrate':
         info.difficulty.approachRate = numberOr(value, info.difficulty.overallDifficulty);
         break;
-      case 'HPDrainRate':
+      case 'hpdrainrate':
         info.difficulty.hpDrainRate = numberOr(value, 0);
         break;
     }

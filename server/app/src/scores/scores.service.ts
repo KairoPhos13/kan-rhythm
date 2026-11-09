@@ -6,7 +6,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { APP_CONFIG, AppConfig } from '../config';
 import { apiError } from '../common/http';
 import { DbService } from '../db/db.service';
-import { UserRow } from '../api/serializers';
+import { toMultiplayerScore, UserRow } from '../api/serializers';
 import { hydrateScores } from '../api/hydrate';
 import {
   computeLeaderboard,
@@ -81,7 +81,7 @@ export class ScoresService {
       `INSERT INTO score_tokens
          (user_id, beatmap_id, beatmap_hash, ruleset_id, ruleset_short_name, version_hash, expires_at)
        VALUES ($1, $2, $3, $4, 'kan', $5, now() + ($6 || ' seconds')::interval)
-       RETURNING id`,
+       RETURNING id::int AS id`,
       [
         user.id,
         beatmapId,
@@ -136,7 +136,7 @@ export class ScoresService {
             mods, statistics, maximum_statistics, pauses, build_id, started_at, ended_at)
          VALUES ($1, $2, $3, 'kan', $4, $5, $6, $7, $8, $9, $10, $11::jsonb, $12::jsonb,
                  $13::jsonb, $14::jsonb, $15, $16, $17)
-         RETURNING id`,
+         RETURNING id::int AS id`,
         [
           user.id,
           beatmapId,
@@ -174,32 +174,9 @@ export class ScoresService {
     const position = competing?.position ?? leaderboard.userScore?.position ?? null;
 
     const stored = rows.find((row) => Number(row.id) === scoreId);
-    const hydrated = stored ? await hydrateScores(this.db, [stored]) : [];
-    return {
-      id: scoreId,
-      user_id: user.id,
-      beatmap_id: beatmapId,
-      ruleset_id: int(input.ruleset_id, 0),
-      build_id: input.build_id == null ? null : int(input.build_id),
-      passed: bool(input.passed, true),
-      total_score: Math.trunc(num(input.total_score)),
-      total_score_without_mods: Math.trunc(num(input.total_score_without_mods)),
-      accuracy: num(input.accuracy),
-      max_combo: int(input.max_combo),
-      rank,
-      started_at: dateOrNull(input.started_at),
-      ended_at: dateOrNull(input.ended_at) ?? new Date(),
-      mods: input.mods ?? [],
-      statistics: input.statistics ?? {},
-      maximum_statistics: input.maximum_statistics ?? {},
-      pauses: input.pauses ?? [],
-      user: (hydrated[0]?.['user'] as Record<string, unknown>) ?? null,
-      position,
-      pp: null,
-      has_replay: false,
-      ranked: true,
-      scores_around: null,
-    };
+    if (!stored) throw apiError(500, 'score could not be read back');
+    // `MultiplayerScore`: the client reads `id` and `position` (§5.2).
+    return toMultiplayerScore(stored, user, position);
   }
 
   /**

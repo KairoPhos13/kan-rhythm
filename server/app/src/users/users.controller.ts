@@ -30,6 +30,13 @@ export class UsersController {
     return toApiUser(user, await this.users.statisticsFor(user.id));
   }
 
+  /** Must precede `me/:mode`, which would otherwise swallow this path. */
+  @Get('me/beatmapset-favourites')
+  @UseGuards(AuthGuard)
+  favourites(): Record<string, unknown> {
+    return { beatmapset_ids: [] };
+  }
+
   @Get('me/:mode')
   @UseGuards(AuthGuard)
   async meForMode(@CurrentUser() user: AuthenticatedUser): Promise<Record<string, unknown>> {
@@ -48,12 +55,6 @@ export class UsersController {
   @UseGuards(AuthGuard)
   blocks(): unknown[] {
     return [];
-  }
-
-  @Get('me/beatmapset-favourites')
-  @UseGuards(AuthGuard)
-  favourites(): Record<string, unknown> {
-    return { beatmapset_ids: [] };
   }
 
   /** `GET /api/v2/users/{lookup}/{mode}?key=id|username` (and without a mode). */
