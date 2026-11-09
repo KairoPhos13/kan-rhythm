@@ -1,7 +1,7 @@
 # ADR-0012: Server & leaderboards — osu! ecosystem reuse policy (with license boundaries)
 
 - **Status:** Accepted (2026-10-12, project owner decision)
-- **Deciders:** KairoPhos
+- **Deciders:** project owner (KairoPhos)
 - **Extends:** ADR-0010 (client base), ADR-0011 (rebrand), ADR-0003 (MIT, no-GPL policy)
 - **License verification:** GitHub API, 2026-10-12 (see matrix)
 

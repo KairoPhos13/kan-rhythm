@@ -1,7 +1,7 @@
 # ADR-0011: Full rebrand — osu! becomes KAN! (kanade, "you kan!"), a standalone game, not a mod
 
 - **Status:** Accepted (2026-10-12, project owner decision)
-- **Deciders:** KairoPhos
+- **Deciders:** project owner (KairoPhos)
 - **Extends:** ADR-0010 (osu!lazer base client)
 
 ## Context

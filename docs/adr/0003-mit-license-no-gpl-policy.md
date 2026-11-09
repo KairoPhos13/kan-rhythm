@@ -1,7 +1,7 @@
 # ADR-0003: MIT license and no-GPL dependency policy
 
 - **Status:** Accepted (2026-10-05, confirmed by project owner)
-- **Deciders:** KairoPhos
+- **Deciders:** project owner (KairoPhos)
 
 ## Context
 

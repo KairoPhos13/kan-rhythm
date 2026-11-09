@@ -1,7 +1,7 @@
 # ADR-0010: Build the kan! client on osu!lazer (fork + ruleset), not from scratch
 
 - **Status:** Accepted (2026-10-12, project owner decision)
-- **Deciders:** KairoPhos
+- **Deciders:** project owner (KairoPhos)
 - **Supersedes:** the "engine decision" open item (ADR backlog in docs/TODO.md)
 
 ## Context
