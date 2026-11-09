@@ -30,6 +30,7 @@ project's 1 GB ARM64 host next to the Nebula lighthouse
 | `PUT /api/v2/beatmaps/{id}/solo/scores/{token}` | score submission |
 | `GET /api/v2/beatmaps/{id}/scores` | leaderboard (`type`, `mode=kan`, `mods[]`, `limit`) |
 | `GET /api/v2/friends`, `/api/v2/blocks`, `/api/v2/me/beatmapset-favourites` | empty collections |
+| `GET /` | ops health check (not used by the client) |
 
 ## Run it locally
 
@@ -71,6 +72,7 @@ npm run typecheck
 | `STORAGE_LOCAL_DIR` | `./data` | root directory for the local driver |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | — | S3-compatible store (Cloudflare R2 / AWS S3) |
 | `DOWNLOAD_URL_EXPIRY_SECONDS` | `300` | expiry of the presigned download URLs |
+| `TRUST_PROXY` | *(empty)* | `cloudflare` behind Cloudflare Tunnel: trust `CF-Connecting-IP` for rate limiting and use `https` in generated URLs. Never trust forwarded headers without it |
 
 ## Client configuration
 
@@ -81,7 +83,8 @@ picks the server address from the environment:
 CLIENT_ID     = "kan-client";        // OAUTH_CLIENT_ID
 CLIENT_SECRET = "kan-public-client"; // OAUTH_CLIENT_SECRET
 ServerUrl     = KAN_SERVER_URL env var (testing / community servers)
-                ?? built-in default URL (empty until kan! has a public server)
+                ?? built-in default URL (becomes https://api.<domain> when
+                deployed — Claude edits the client)
 ```
 
 So the server-side values in `.env` are `OAUTH_CLIENT_ID=kan-client` and
@@ -115,9 +118,12 @@ mode-0 difficulty is rejected (nothing is written, exit code 1).
 
 ## Production
 
-See [`deploy/DEPLOY.md`](deploy/DEPLOY.md): one small ARM64 host, Caddy for TLS,
-`docker-compose.prod.yml` with `mem_limit`s summing to 680 MB, nightly `pg_dump`
-backups to object storage.
+See [`deploy/DEPLOY.md`](deploy/DEPLOY.md). The recommended stack is
+**Cloudflare Tunnel** (`deploy/docker-compose.tunnel.yml`: app + postgres +
+cloudflared, no published ports — the host's public IP stays hidden) with level
+files in Cloudflare R2; `mem_limit`s sum to 684 MB and `deploy/DEPLOY.md` covers
+the domain, R2, tunnel, backups and a restore drill. The direct-exposure
+alternative (Caddy, `deploy/docker-compose.prod.yml`) is documented there too.
 
 ## Layout
 
@@ -125,5 +131,5 @@ backups to object storage.
 src/            NestJS modules: auth, users, beatmaps, scores, storage, db, api
 migrations/     plain SQL, applied in order by src/db/migrate.ts
 test/           unit tests + client-flow e2e (jest + supertest)
-deploy/         production compose, Caddyfile, Dockerfile, backup script, DEPLOY.md
+deploy/         tunnel + Caddy production stacks, Caddyfile, Dockerfile, backup script, DEPLOY.md
 ```
