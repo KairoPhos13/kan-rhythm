@@ -63,7 +63,7 @@ npm run typecheck
 | `PORT` | `3000` | HTTP port |
 | `DATABASE_URL` | `postgres://kan:kan@localhost:55432/kan` | PostgreSQL connection string |
 | `OAUTH_CLIENT_ID` | `kan-client` | client id the game sends |
-| `OAUTH_CLIENT_SECRET` | *(empty — must be set)* | client secret the game sends |
+| `OAUTH_CLIENT_SECRET` | `kan-public-client` | client "secret" the game sends — **public by design**, see below |
 | `ACCESS_TOKEN_TTL_SECONDS` | `86400` | access token lifetime (keep ≫ 30 s) |
 | `REFRESH_TOKEN_TTL_SECONDS` | `2592000` | refresh token lifetime (rotated on use) |
 | `SCORE_TOKEN_TTL_SECONDS` | `1800` | score token lifetime (one play) |
@@ -74,17 +74,21 @@ npm run typecheck
 
 ## Client configuration
 
-In `game/client/osu.Game/Online/KanEndpointConfiguration.cs` the fork sets (do
-not edit from this repository — these are the values to use):
+The fork's `KanEndpointConfiguration` ships the OAuth client as constants and
+picks the server address from the environment:
 
 ```csharp
-private const string api_url = @"https://kan.example.org";   // your server
-WebsiteUrl = APIUrl = api_url;
-APIClientID = "kan-client";              // OAUTH_CLIENT_ID
-APIClientSecret = "<same as OAUTH_CLIENT_SECRET>";
-SpectatorUrl = MultiplayerUrl = MetadataUrl = string.Empty;  // hubs are not implemented
-BeatmapSubmissionServiceUrl = null;
+CLIENT_ID     = "kan-client";        // OAUTH_CLIENT_ID
+CLIENT_SECRET = "kan-public-client"; // OAUTH_CLIENT_SECRET
+ServerUrl     = KAN_SERVER_URL env var (testing / community servers)
+                ?? built-in default URL (empty until kan! has a public server)
 ```
+
+So the server-side values in `.env` are `OAUTH_CLIENT_ID=kan-client` and
+`OAUTH_CLIENT_SECRET=kan-public-client`. **The client "secret" is not a
+secret**: it ships inside every copy of the game (like osu!lazer's public
+client), and the real protection is user passwords (argon2id) plus opaque,
+hashed bearer and refresh tokens. Keep the values in sync with the client build.
 
 Two small client-side changes are needed later for media (documented in
 [`../docs/mvp-scope.md`](../docs/mvp-scope.md) §8): widen the trusted texture
@@ -103,6 +107,11 @@ rewritten `.osu`'s MD5 as the beatmap checksum (that is what the client looks up
 and later sends as `beatmap_hash`), and extracts the cover image. Re-importing an
 archive whose set id is already present updates the set instead of duplicating
 it. Imported sets are `ranked` for now, so leaderboards show immediately.
+
+Only mode-0 (kan!-playable) difficulties are imported — kan! claims legacy
+ruleset id 0, so taiko/catch/mania difficulties cannot be played. They are
+skipped with a log line and stripped from the stored archive; an archive with no
+mode-0 difficulty is rejected (nothing is written, exit code 1).
 
 ## Production
 

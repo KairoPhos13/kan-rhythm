@@ -85,8 +85,9 @@ cp .env.example .env      # if present; otherwise create the file as below
 
 ```dotenv
 POSTGRES_PASSWORD=<long-random>
+# Public OAuth client of the game — not a secret (see below).
 OAUTH_CLIENT_ID=kan-client
-OAUTH_CLIENT_SECRET=<long-random>
+OAUTH_CLIENT_SECRET=kan-public-client
 # Level files: "s3" (recommended) or "local" (host disk in the kan-storage volume)
 STORAGE_DRIVER=s3
 S3_ENDPOINT=https://<account>.r2.cloudflarestorage.com   # or https://s3.amazonaws.com
@@ -100,8 +101,19 @@ DOWNLOAD_URL_EXPIRY_SECONDS=300
 
 Edit `Caddyfile` and replace `kan.example.org` with the real domain.
 
+**About `OAUTH_CLIENT_SECRET`:** it is **not a secret**. The game ships
+`APIClientID = "kan-client"` and `APIClientSecret = "kan-public-client"` as
+constants in every copy of the client (like osu!lazer's public client), so those
+values are known to every player. The real protection comes from user passwords
+(argon2id) and opaque, hashed bearer/refresh tokens — the client credentials only
+identify which application talks to the API. Keep the two values in sync with the
+client build; `POSTGRES_PASSWORD` and the `S3_SECRET_ACCESS_KEY` *are* real
+secrets.
+
 **Client configuration:** the exact values to put into the client's
-`KanEndpointConfiguration` are listed in `server/app/README.md`.
+`KanEndpointConfiguration` are listed in `server/app/README.md`. The game picks
+the server address from the `KAN_SERVER_URL` environment variable (development,
+tests, community servers) or from its built-in default URL.
 
 ## 5. Start the stack
 

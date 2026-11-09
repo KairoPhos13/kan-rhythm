@@ -52,8 +52,11 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     port: int(env.PORT, 3000),
     databaseUrl: env.DATABASE_URL ?? 'postgres://kan:kan@localhost:55432/kan',
     oauth: {
+      // The game ships these as constants (public by nature — like osu!lazer's
+      // client, it is distributed to everyone; the real protection is user
+      // passwords and bearer tokens). They must match the client's values.
       clientId: env.OAUTH_CLIENT_ID ?? 'kan-client',
-      clientSecret: env.OAUTH_CLIENT_SECRET ?? '',
+      clientSecret: env.OAUTH_CLIENT_SECRET ?? 'kan-public-client',
       accessTokenTtlSeconds: int(env.ACCESS_TOKEN_TTL_SECONDS, 86400),
       refreshTokenTtlSeconds: int(env.REFRESH_TOKEN_TTL_SECONDS, 2592000),
       scoreTokenTtlSeconds: int(env.SCORE_TOKEN_TTL_SECONDS, 1800),
