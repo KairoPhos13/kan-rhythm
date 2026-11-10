@@ -1,4 +1,4 @@
-// Offline tests for the per-note description stream (note_stream.hpp) —
+// Offline tests for the per-note description stream (note_stream.hpp):
 // docs/architecture/note-description-stream.md. Known synthesized input ->
 // expected facts. The record model: a record is a STRUCK NOTE (an attack
 // strikes N notes -> N records, each with its own lifetime); wind/bowed
@@ -15,12 +15,12 @@
 //      candidates accumulate facts in their OWN registers)
 //   5. an unexplained extra note (UNEXPLAINED_ENERGY, never invented)
 //   6. live-vs-offline stream equality (byte-identical JSONL)
-//   7. fast passage — every attack opens its own record (125 ms apart)
-//   8. monophonic legato strikes — each note ends at the next attack
-//   9. legato TRANSITIONS — pitch changes without attacks open records
-//  10. vibrato center — the final pitch is the center of the oscillation
-//  12. bend fact — a glide is claimed as bend_c, disambiguated from vibrato
-//  15. content classifier measures its grid once, harmonics side by side —
+//   7. fast passage: every attack opens its own record (125 ms apart)
+//   8. monophonic legato strikes: each note ends at the next attack
+//   9. legato TRANSITIONS: pitch changes without attacks open records
+//  10. vibrato center: the final pitch is the center of the oscillation
+//  12. bend fact: a glide is claimed as bend_c, disambiguated from vibrato
+//  15. content classifier measures its grid once, harmonics side by side;
 //      same result as the original, bit for bit, on mono / chord / noise
 #include "libkan/note_stream.hpp"
 
@@ -49,7 +49,7 @@ void check(bool ok, const char* what) {
 // Realistic excitation: chord notes start spread by a few ms (hammer),
 // independent partial phases, ~cents detune, unequal decay. Phase-locked
 // simultaneous sums beat coherently and their crests retrigger onset
-// detectors — an artifact no real instrument produces (docs/dsp/README.md
+// detectors, an artifact no real instrument produces (docs/dsp/README.md
 // §6.3), so fixtures must not synthesize it.
 void add_note(std::vector<float>& sig, float t0, float dur, float freq, float amp,
               uint32_t seed) {
@@ -118,7 +118,7 @@ void add_legato_steps(std::vector<float>& sig, float t0, const float* freqs,
 }
 
 /// Wind-style note with vibrato centered at `center_hz` (phase-integrated
-/// FM — the t*vib(t) shortcut injects a huge spurious FM term).
+/// FM, since the t*vib(t) shortcut injects a huge spurious FM term).
 void add_vibrato_note(std::vector<float>& sig, float t0, float dur, float center_hz,
                       float depth_c, float rate_hz, float amp) {
     const size_t at = size_t(t0 * kSr);
@@ -220,7 +220,7 @@ const kan::NoteEvent* find_pitch(const Harness& h, uint32_t note_id,
 }
 
 /// Candidate facts about a hypothesis (`note_id` = the record the candidate
-/// belongs to — its own register). `last` selects the final fact (emitted at
+/// belongs to, its own register). `last` selects the final fact (emitted at
 /// the record's close) instead of the first measurement.
 const kan::NoteEvent* find_cand(const Harness& h, uint32_t note_id, float midi,
                                 bool last = false) {
@@ -266,7 +266,7 @@ kan::InstrumentProfile mono_profile() {
 void fixture_1_mono_corrected() {
     std::printf("fixture 1: mono note, early wrong-semitone estimate corrected later\n");
     std::vector<float> sig(size_t(1.6f * kSr), 0.0f);
-    // G#4 for the first 44 ms of the note, then A4 — the provisional window
+    // G#4 for the first 44 ms of the note, then A4. The provisional window
     // sees the wrong semitone; the final (center of the note) is A4.
     const size_t at = size_t(0.3f * kSr);
     for (size_t i = 0; at + i < sig.size() && i < size_t(1.1f * kSr); ++i) {
@@ -431,7 +431,7 @@ void fixture_4_sustained_under_new_note() {
     add_note(sig, 0.3f, 1.5f, 196.00f, 0.27f, 33u); // G3
     add_noise_floor(sig, 0.005f, 333u);
     // A4 (69), not G4: G4's fundamental is G3's 2nd harmonic (a collision
-    // that splits the LS energy arbitrarily — fixtures stay measurable).
+    // that splits the LS energy arbitrarily; fixtures stay measurable).
     add_note(sig, 0.9f, 0.6f, 440.00f, 0.60f, 34u); // A4 (RH melody)
 
     kan::NoteDescriber::CandidateSet chord; // strike group 1 (records 1..3)
@@ -566,7 +566,7 @@ void fixture_6_live_vs_offline() {
 
 // ---------------------------------------------------------------------------
 void fixture_7_fast_passage() {
-    std::printf("fixture 7: fast passage — every attack opens its own record\n");
+    std::printf("fixture 7: fast passage; every attack opens its own record\n");
     std::vector<float> sig(size_t(1.2f * kSr), 0.0f);
     add_note(sig, 0.30f, 0.4f, 440.00f, 0.5f, 61u);
     add_note(sig, 0.425f, 0.4f, 493.88f, 0.5f, 62u);
@@ -583,7 +583,7 @@ void fixture_7_fast_passage() {
 
 // ---------------------------------------------------------------------------
 void fixture_8_mono_legato_strikes() {
-    std::printf("fixture 8: monophonic strikes — each note ends at the next attack\n");
+    std::printf("fixture 8: monophonic strikes; each note ends at the next attack\n");
     std::vector<float> sig(size_t(1.8f * kSr), 0.0f);
     add_note(sig, 0.30f, 0.45f, 440.00f, 0.5f, 71u); // A4
     add_note(sig, 0.70f, 0.45f, 493.88f, 0.5f, 72u); // B4
@@ -610,7 +610,7 @@ void fixture_8_mono_legato_strikes() {
 
 // ---------------------------------------------------------------------------
 void fixture_9_legato_transitions() {
-    std::printf("fixture 9: legato transitions — pitch changes without attacks\n");
+    std::printf("fixture 9: legato transitions; pitch changes without attacks\n");
     std::vector<float> sig(size_t(2.6f * kSr), 0.0f);
     const float freqs[3] = {440.00f, 493.88f, 523.25f}; // A4 -> B4 -> C5
     const float holds[3] = {0.7f, 0.7f, 0.7f};
@@ -657,7 +657,7 @@ void add_bend_note(std::vector<float>& sig, float t0, float dur, float freq,
 }
 
 void fixture_10_vibrato_center() {
-    std::printf("fixture 10: vibrato center — final pitch is the CENTER\n");
+    std::printf("fixture 10: vibrato center; final pitch is the CENTER\n");
     std::vector<float> sig(size_t(2.2f * kSr), 0.0f);
     // Center = A4 + 10 c, depth 38 c at 5 Hz (musical vibrato).
     add_vibrato_note(sig, 0.3f, 1.5f, 440.0f * std::pow(2.0f, 10.0f / 1200.0f),
@@ -686,7 +686,7 @@ void fixture_10_vibrato_center() {
 
 // ---------------------------------------------------------------------------
 void fixture_12_bend_fact() {
-    std::printf("fixture 12: bend fact — glide claimed, disambiguated\n");
+    std::printf("fixture 12: bend fact; glide claimed, disambiguated\n");
 
     // A: guitar-style bend (+100 c glide over 400 ms) on a plucked profile.
     {
@@ -710,7 +710,7 @@ void fixture_12_bend_fact() {
               "A: glide opens no transition record (plucked profile)");
     }
 
-    // B: straight note — no bend claim (presence gate: drift is not a glide).
+    // B: straight note, no bend claim (presence gate: drift is not a glide).
     {
         std::vector<float> sig(size_t(2.0f * kSr), 0.0f);
         add_note(sig, 0.3f, 1.4f, 440.0f, 0.5f, 51u);
@@ -728,7 +728,7 @@ void fixture_12_bend_fact() {
 
 // ---------------------------------------------------------------------------
 void fixture_11_restrike_vs_extension() {
-    std::printf("fixture 11: repeated pitch — re-strike vs extension (levels)\n");
+    std::printf("fixture 11: repeated pitch; re-strike vs extension (levels)\n");
 
     // A: the same pitch STRUCK again, louder -> two records, re-strike flag.
     {
@@ -755,7 +755,7 @@ void fixture_11_restrike_vs_extension() {
         add_note(sig, 0.30f, 1.1f, 440.00f, 0.5f, 91u); // one held note
         // attack-shaped burst at +500 ms: broadband transient WITHOUT a
         // sustained level jump (the "detector fired but the note is held"
-        // case — e.g. a charted repeat the player extended).
+        // case: e.g. a charted repeat the player extended).
         const size_t at = size_t(0.80f * kSr);
         for (size_t i = 0; i < size_t(0.005f * kSr) && at + i < sig.size(); ++i) {
             const uint32_t hh = uint32_t(i) * 2654435761u + 5u;
@@ -831,7 +831,7 @@ std::vector<float> wind_phrase(uint32_t seed, int notes, std::vector<WindNote>* 
 }
 
 void fixture_13_mono_one_record_at_a_time() {
-    std::printf("fixture 13: monophonic — one record at a time, no twins (wind phrases)\n");
+    std::printf("fixture 13: monophonic; one record at a time, no twins (wind phrases)\n");
     // Real ocarina take 2026-10-15: a re-strike closed only the first live
     // record; a second one kept its pending legato shift, and each of the two
     // opened the same transition -> identical twin notes, records running in
@@ -864,7 +864,7 @@ void fixture_13_mono_one_record_at_a_time() {
 
 
 void fixture_14_wind_articulation() {
-    std::printf("fixture 14: wind articulation — slurs, tongued notes and repeats, breaths\n");
+    std::printf("fixture 14: wind articulation; slurs, tongued notes and repeats, breaths\n");
     // Before 2026-10-15 a wind profile found 0 % of tongued repeats (no
     // attack transient, no pitch change), 28 % of slurred steps (a new
     // pitch had to hold 250 ms, read every 50 ms) and lost whole phrases
@@ -1012,7 +1012,7 @@ void fixture_17_a_tongued_note_speaks_before_its_pitch_is_read() {
     std::printf("fixture 17: a note out of a tonguing dip is read where it speaks, not in the dip\n");
     // Before: the provisional pitch was read just after the dip's bottom, in
     // the F's leftover (76.83 for the 40/40 ms case), and the C came as a
-    // second record — the judge waited past its window for the C's pitch.
+    // second record; the judge waited past its window for the C's pitch.
     const float cases[][3] = {{0.04f, 0.04f, 0.2f}, {0.04f, 0.03f, 0.2f}, {0.05f, 0.03f, 0.15f}, {0.03f, 0.03f, 0.2f}};
     for (const auto& c : cases) {
         Harness h;
@@ -1098,8 +1098,8 @@ void fixture_18_a_tongue_cut_is_no_attack() {
 // ---------------------------------------------------------------------------
 // 15. classify_content shares its grid between passes and runs a series'
 //     harmonics side by side (owner 2026-10-19: it stalled the live stream
-//     ~30 ms). The original algorithm — re-measuring passes, one harmonic at
-//     a time — kept here as the reference, must agree bit for bit.
+//     ~30 ms). The original algorithm (re-measuring passes, one harmonic at
+//     a time), kept here as the reference, must agree bit for bit.
 
 double series_energy_reference(const float* x, size_t n, float sr, float f0, float* f0_mag = nullptr) {
     double e = 0.0;

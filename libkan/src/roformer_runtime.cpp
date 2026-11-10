@@ -11,7 +11,7 @@
 //   2. One-time CPU/GPU PARITY GATE on first use per (model, build):
 //      the built-in probe separates a fixed test signal on the default
 //      device and on CPU; the stems must match at >= 30 dB SNR. On
-//      failure the session falls back to CPU — a broken GPU path can
+//      failure the session falls back to CPU; a broken GPU path can
 //      never silently produce a level's stems. Result cached in a
 //      marker next to the model; rebuilds re-probe (protects against
 //      future ggml updates).
@@ -112,7 +112,7 @@ std::vector<float> make_probe_signal() {
     return out;
 }
 
-// Marker: "<model>.device-parity" — re-probes when the GPU code changes:
+// Marker: "<model>.device-parity"; re-probes when the GPU code changes:
 // the ggml and BSRoformer pins and the backend. Not on every rebuild of
 // libkan (owner 2026-10-16: the probe's CPU pass takes minutes, and a
 // build stamp made every editor rebuild pay it again).
@@ -268,7 +268,7 @@ bool roformer_separate_wav(const std::string& input_wav,
     ensure_runtime_configured();
     QuietStreams quiet;
     // Correctness gate: if this (model, build, device) combination does not
-    // match CPU, the session falls back to CPU — a broken GPU path can
+    // match CPU, the session falls back to CPU; a broken GPU path can
     // never silently produce a level's stems.
     static bool force_cpu_session = false;
     std::string why;

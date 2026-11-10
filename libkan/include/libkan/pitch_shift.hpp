@@ -2,12 +2,12 @@
 // Backing-track pitch-shift primitive (SPECIFICATION.md §2 dynamic
 // consonance module): shift the song by the instrument's Δc so instrument
 // and song lock together while scoring stays strict. Built on Signalsmith
-// Stretch (MIT) — time-stretching keeps the BPM, transposition moves the
+// Stretch (MIT): time-stretching keeps the BPM, transposition moves the
 // pitch.
 //
 // Ownership: this is the libkan primitive (platform-architecture.md §2
-// lists "pitch-shift primitives" in the libkan layer). The bus wiring —
-// the backing chain, ducker interaction, block scheduling — belongs to
+// lists "pitch-shift primitives" in the libkan layer). The bus wiring
+// (the backing chain, ducker interaction, block scheduling) belongs to
 // kanfx (platform-architecture.md §3), which links this through
 // `libkan_stretch`.
 //

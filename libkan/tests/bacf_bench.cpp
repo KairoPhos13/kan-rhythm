@@ -113,7 +113,7 @@ Stats run_yin(const std::vector<std::vector<float>>& signals, double& ns_per_blo
 // note, shrink the analysis window to ~2.5 periods of that note (clamped to
 // [512, 2048], multiple of the block size). This is the configuration that
 // can physically approach the ROADMAP confirmation gates (<12 ms >261 Hz,
-// <22 ms >82 Hz) — confirmation cannot beat ~2 periods of the fundamental.
+// <22 ms >82 Hz); confirmation cannot beat ~2 periods of the fundamental.
 Stats run_yin_adaptive(const std::vector<std::vector<float>>& signals, double& ns_per_block) {
     Stats st;
     st.per_note_ms.assign(signals.size(), -1.0f);
@@ -257,7 +257,7 @@ int main() {
     const Stats bacf_blind = run_bacf(signals, false, ns_bacf_blind);
     const Stats bounded = run_bounded(signals, ns_bounded);
 
-    printf("BACF (Cycfi Q) vs YIN — synthesized suite, %zu notes, SR=%.0f, block=%zu\n\n",
+    printf("BACF (Cycfi Q) vs YIN: synthesized suite, %zu notes, SR=%.0f, block=%zu\n\n",
            total, SR, BLOCK);
     printf("| detector               | conf. | avg ms | max ms | avg abs err (c) | max abs err (c) | ns/block |\n");
     printf("|------------------------|-------|--------|--------|-----------------|-----------------|----------|\n");
@@ -306,7 +306,7 @@ int main() {
     // - every suite note must confirm
     // - every note <= 29.5 ms; notes above 261 Hz < 16 ms (E2's floor is
     //   8 ms blanking + 12.9 ms longest lag + half-period overlap; the
-    //   half-period overlap trades ~4 ms at E2 for sub-cent accuracy —
+    //   half-period overlap trades ~4 ms at E2 for sub-cent accuracy,
     //   see docs/dsp/range-coverage.md)
     // - avg abs err < 25 cents (confirmation stage; BACF/YIN refine cents)
     pass &= bounded.confirmed == int(total);

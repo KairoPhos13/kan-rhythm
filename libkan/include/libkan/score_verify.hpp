@@ -1,6 +1,6 @@
 #pragma once
 // Score verification core: measure a written score against audio (test-side
-// shared code — the probe prints it, score_error_test asserts on it).
+// shared code; the probe prints it, score_error_test asserts on it).
 // Measurement only, never judgment: the score is a hypothesis set and a time
 // anchor; the tool reports what the audio contains.
 #include "libkan/harmonic_chord.hpp"
@@ -48,7 +48,7 @@ struct ScoreNote {
 /// Measurement only: the written score is a hypothesis set + a time anchor;
 /// the tool never judges, it reports what the audio contains.
 /// Score line: `onset_ms  duration  note`, where duration is a rhythm word
-/// (16th, 8th, quarter, dotted-quarter, half, dotted-half, whole — also
+/// (16th, 8th, quarter, dotted-quarter, half, dotted-half, whole, also
 /// Spanish names) or a millisecond number, and the note is a name (G3,
 /// F#4) or a midi number. Header lines set the grid: `# quarter_ms 656`
 /// or `# bpm 91.5`.
@@ -149,7 +149,7 @@ inline float estimate_noise_floor(const std::vector<float>& sig) {
 }
 
 /// when given, receives detected strikes that no written onset explains
-/// (played but not written — energy the score cannot account for).
+/// (played but not written, energy the score cannot account for).
 void measure_score(const std::vector<float>& sig, float sr,
                    std::vector<ScoreNote>& notes,
                    std::vector<float>* extra_strikes = nullptr,
@@ -177,12 +177,12 @@ void measure_score(const std::vector<float>& sig, float sr,
     // Joint measurement over the score span: at every fit time the
     // candidate set = the written notes ALIVE there (struck + sustaining).
     // With the full sounding set modeled, windows may span later attacks
-    // without contamination — that is the register-by-note model.
+    // without contamination, that is the register-by-note model.
     float t_lo = notes.front().onset_ms, t_hi = 0.0f;
     for (const auto& n : notes) t_hi = std::max(t_hi, n.onset_ms + n.dur_ms);
     // Heavy cavalry: capacity for every alive note at once (analysis-side;
     // the live path keeps its 10-note capacity). All scratch is sized at
-    // construction — never on the analysis hot path.
+    // construction, never on the analysis hot path.
     ::kan::HarmonicChordValidator validator(sr, 8192,
         ::kan::HarmonicChordValidator::kHardCapNotes);
     // Noise floor (similarity reference): explicit override or estimated.
@@ -197,7 +197,7 @@ void measure_score(const std::vector<float>& sig, float sr,
     float window[kFit];
     for (float t = t_lo + 200.0f; t < t_hi + 300.0f; t += fit_step_ms) {
         // Adaptive escalation: the fit brings the effort the density
-        // demands — all alive notes modeled jointly (no truncation, the
+        // demands: all alive notes modeled jointly (no truncation, the
         // ISS-3 cap artifact), extra passes and refinement only when dense,
         // and group-fitting beyond capacity so no note goes unmeasured.
         std::vector<size_t> alive;
@@ -340,7 +340,7 @@ void measure_score(const std::vector<float>& sig, float sr,
 /// A pitch OUTSIDE the written set that explains significant residual
 /// energy at a strike (the "mash"/cheat-superset case). Measurement only:
 /// "these pitches sound at this strike and the score does not account for
-/// them" — penalizing the precision is the game's call (G6).
+/// them". Penalizing the precision is the game's call (G6).
 struct ExtraPitch {
     float t_ms = 0.0f;
     int midi = 0;
@@ -364,7 +364,7 @@ struct StrikePurity {
 
 /// Set-extension search per strike (heavy cavalry: one extra fit per
 /// chromatic candidate). Detects extra sounding pitches that the written
-/// set cannot explain — including keys mashed alongside correct ones,
+/// set cannot explain, including keys mashed alongside correct ones,
 /// whose energy otherwise gets absorbed into the written notes' fits
 /// (near-miss absorption: amps inflate, cents bend; sim alone does NOT
 /// drop reliably).

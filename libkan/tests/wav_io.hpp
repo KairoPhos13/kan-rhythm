@@ -1,6 +1,6 @@
 #pragma once
 // Minimal WAV (RIFF) reader/writer for libkan offline tests and fixture
-// generation: mono 16-bit PCM — the format kan_cli --loopback and the
+// generation: mono 16-bit PCM, the format kan_cli --loopback and the
 // regression harness agree on. Deliberately tiny and dependency-free; the
 // production apps use miniaudio's decoder instead.
 #include <cstdint>

@@ -6,19 +6,19 @@
 // fundamental (±2 semitones per spec). This matcher computes a normalized
 // autocorrelation (NSDF-style, 2*sum(x_i * x_i+tau) / (sum x_i^2 +
 // sum x_i+tau^2)) ONLY over that lag band, so it confirms a note from a
-// short window — the longest candidate lag plus ~1/4 period of overlap —
+// short window (the longest candidate lag plus ~1/4 period of overlap)
 // instead of the 2048-sample windows blind YIN needs. Sub-sample parabolic
 // interpolation over the peak lag yields cents-grade frequency.
 //
 // Why autocorrelation and not a DFT/Goertzel grid: at these window lengths
 // (~1 period for low notes) the negative-frequency image of a real signal
 // sits only ~2 bins from the analysis band and its Dirichlet tail tilts the
-// whole ±200-cent grid monotonically — no interior peak. The autocorrelation
+// whole ±200-cent grid monotonically, no interior peak. The autocorrelation
 // of a real signal is image-free by construction.
 //
 // Confirmation latency floor = blanking + tau_max + min_pairs (+ block
 // quantization): C4 ~14.7 ms, E2 ~22.7 ms with the plucked profile at
-// 64-sample blocks — inside the SPECIFICATION §2 harmonic-validation budget
+// 64-sample blocks, inside the SPECIFICATION §2 harmonic-validation budget
 // (<35 ms) for every note. ROADMAP per-band gates and the physical-floor
 // analysis: docs/dsp/latency-measurements.md.
 //
@@ -61,7 +61,7 @@ public:
         tau_min_ = std::max<size_t>(2, static_cast<size_t>(sample_rate_ / f_max));
         tau_max_ = static_cast<size_t>(std::ceil(sample_rate_ / f_min)) + 1;
         // Correlation overlap beyond the longest candidate lag: half a
-        // period (clamped) — short overlaps left the NSDF peak broad enough
+        // period (clamped); short overlaps left the NSDF peak broad enough
         // for 30-50 cent ambiguity at low notes (range_test). Half a period
         // costs ~2 ms of confirmation latency below ~150 Hz, where no
         // latency gate exists anyway (docs/dsp/range-coverage.md).
@@ -93,7 +93,7 @@ public:
     /// The analysis loop performs no allocation (nsdf_ scratch is
     /// preallocated by set_expected_note); note that PitchResult carries a
     /// std::string note_name, so returning a result performs one small
-    /// heap allocation — run on the consumer thread, not the audio thread.
+    /// heap allocation. Run on the consumer thread, not the audio thread.
     PitchResult match(const float* samples, size_t count) const noexcept {
         PitchResult out;
         if (!has_expected_note() || count < window_samples() || nsdf_.empty()) {

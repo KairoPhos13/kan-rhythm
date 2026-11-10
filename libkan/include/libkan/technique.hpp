@@ -14,7 +14,7 @@
 // Data flow (SPECIFICATION.md §2 + platform-architecture.md §5): libkan
 // MEASURES (TrajectoryBuffer from the per-block cents stream,
 // EnvelopeAnalyzer from the RMS stream, slot amplitudes from any window);
-// the instrument pack SUPPLIES expectations (the plain *Spec structs below —
+// the instrument pack SUPPLIES expectations (the plain *Spec structs below,
 // same "plain data in, no format coupling" rule as InstrumentProfile); the
 // game JUDGES via check() -> TechniqueResult.
 //
@@ -80,7 +80,7 @@ private:
 
 // ---------------------------------------------------------------------------
 // Vibrato (incl. Japanese-style wide/slow vibrato: yuri, koto/shamisen
-// oscillation) — and its absence ("straight tone" passages).
+// oscillation), and its absence ("straight tone" passages).
 // ---------------------------------------------------------------------------
 
 struct VibratoSpec {
@@ -485,7 +485,7 @@ public:
 };
 
 // ---------------------------------------------------------------------------
-// Dynamics tiers: how loud the note is played. Measurement only — the game
+// Dynamics tiers: how loud the note is played. Measurement only; the game
 // decides what a tier means for reward. Two operating modes (SPEC §2):
 //   - session-relative (default): tiers track the observed level range and
 //     converge as notes accumulate; the first `min_notes` notes report
@@ -496,12 +496,12 @@ public:
 
 enum class DynamicsTier : uint8_t {
     WarmingUp, ///< not enough notes seen yet and no calibration anchors
-    Pp,        ///< pianissimo — bottom of the range
+    Pp,        ///< pianissimo: bottom of the range
     P,
     Mp,
     Mf,
     F,
-    Ff,        ///< fortissimo — top of the range
+    Ff,        ///< fortissimo: top of the range
 };
 
 /// Name of a tier for logs/JSON ("pp" ... "ff", "warming-up").

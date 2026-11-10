@@ -7,7 +7,7 @@
 //   4. add an extra note       (E4 where the score says silence)
 //   5. play late               (C4 arrives 200 ms after its written onset)
 //   6. hold too long           (G3 held past its written end)
-// Every mistake must leave a measurable signature — that is what makes the
+// Every mistake must leave a measurable signature; that is what makes the
 // tool usable for judging: silence where there should be a note, or energy
 // where the score has none.
 #include "libkan/score_verify.hpp"
@@ -141,8 +141,8 @@ int main() {
         dump(notes);
         // The measured signature of a wrong pitch is the CENTS, not the sim:
         // the fit bends toward the sounding note (here -56 c) but cannot
-        // reach it, while sim stays high. So the judge MUST gate on |cents|
-        // — sim alone would let this pass. (And a +/-60 c band would half-
+        // reach it, while sim stays high. So the judge MUST gate on |cents|;
+        // sim alone would let this pass. (And a +/-60 c band would half-
         // swallow it: this is why game judging should use a tighter band.)
         const float cents1 = notes[1].cents_center;
         check(std::fabs(cents1) > 50.0f,
@@ -165,10 +165,10 @@ int main() {
         dump(notes);
         // The signature of a skipped note is the SIM (the window is not
         // explained), not the amplitude: the fit can still lease amplitude
-        // to the missing pitch from neighbor leakage (amp 0.12 here) — but
+        // to the missing pitch from neighbor leakage (amp 0.12 here), but
         // sim collapses to ~0.06.
         check(sim_of(notes[2]) < 0.10f,
-              "the skipped G3 collapses (sim ~ 0) — reported as not played");
+              "the skipped G3 collapses (sim ~ 0), reported as not played");
     }
 
     // 4. Extra note: E4 played where the score has silence.
@@ -231,7 +231,7 @@ int main() {
     //    The heavy tier must engage: every note measured and verified by a
     //    joint fit -- no fixed-cap truncation.
     {
-        std::printf("density: 28-note glissando (real Chopin peak) — heavy cavalry\n");
+        std::printf("density: 28-note glissando (real Chopin peak); heavy cavalry\n");
         std::vector<float> sig(size_t(2.6f * kSr), 0.0f);
         std::vector<kan::score_verify::ScoreNote> notes(28);
         for (int i = 0; i < 28; ++i) {
@@ -261,7 +261,7 @@ int main() {
     //    real instrument density. Every note must still be MEASURED (facts
     //    over guesses), even if some cannot fully verify.
     {
-        std::printf("density: 40-note extreme (>32 alive) — documented limit\n");
+        std::printf("density: 40-note extreme (>32 alive); documented limit\n");
         std::vector<float> sig(size_t(3.2f * kSr), 0.0f);
         std::vector<kan::score_verify::ScoreNote> notes(40);
         for (int i = 0; i < 40; ++i) {
@@ -283,12 +283,12 @@ int main() {
     }
 
     // 9. Mash / cheat-superset (the "press random keys that include the
-    //    right ones" attack): the written chord verifies — but the extra
+    //    right ones" attack): the written chord verifies, but the extra
     //    sounding keys must leave a measurable purity signature that a
     //    judge can penalize. Measured here to keep the game-side rule
     //    honest (game-judging-guide G6).
     {
-        std::printf("cheat: correct chord + 3 random extra keys — mash attack\n");
+        std::printf("cheat: correct chord + 3 random extra keys; mash attack\n");
         // The written chord: A3 + C3 + F2 (F major, 800 ms at t=0).
         auto make_chord = []() {
             std::vector<kan::score_verify::ScoreNote> notes(3);

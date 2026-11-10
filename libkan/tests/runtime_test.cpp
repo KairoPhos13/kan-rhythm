@@ -1,6 +1,6 @@
 // Runtime correctness guard tests: SNR math + the parity gate's decision
 // logic. The FULL device parity (GPU vs CPU on real hardware) runs when
-// KAN_ROFORMER_PARITY=1 with the model available — it is the gate that
+// KAN_ROFORMER_PARITY=1 with the model available; it is the gate that
 // makes the ggml-vulkan q8_0 bug (docs/porting/) impossible to ship.
 #include "libkan/roformer_runtime.hpp"
 

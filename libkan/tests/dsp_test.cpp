@@ -65,13 +65,13 @@ int main() {
 
     // 3. Ghost-onset regression: a decaying 3-note chord whose partials beat
     //    (C3's 3rd harmonic vs G3's 2nd) must produce exactly ONE onset at
-    //    its attack — tail fluctuations must not retrigger — and a melody
+    //    its attack (tail fluctuations must not retrigger) and a melody
     //    attack 500 ms later must still be seen (a ghost onset's debounce
     //    would swallow it). The chord is excited realistically: hammer
     //    spread (0/7/14 ms), independent phases, ~cents detune, unequal
     //    note levels, per-note decay and a -46 dBFS room noise floor. A
     //    phase-locked sum of equal notes with one decay law beats
-    //    coherently and its crests retrigger the detector at x3.2 — an
+    //    coherently and its crests retrigger the detector at x3.2, an
     //    artifact no real recording produces (docs/dsp/README.md §6.3);
     //    fixtures must not synthesize it.
     {

@@ -10,7 +10,7 @@ namespace kan {
 /// adaptive noise gate calibrated to the room's silence.
 ///
 /// Real-time safety: the process paths below do not allocate, block, lock,
-/// or perform I/O — they are safe to call from the consumer thread fed by
+/// or perform I/O; they are safe to call from the consumer thread fed by
 /// the ring buffer (and, being allocation-free, also from the audio
 /// callback if a caller ever needs preconditioning pre-tap).
 

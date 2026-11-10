@@ -1,7 +1,7 @@
 #pragma once
 // Hand-written candidate annotation for the Phase-1 chord-validation
 // experiment on real polyphonic piano material (left-hand chords under a
-// right-hand melody — the Hallelujah piano tutorial take:
+// right-hand melody, the Hallelujah piano tutorial take:
 // test_results/audio/07-hallelujah-piano-tutorial_piano.wav, 254.3 s,
 // 48 kHz stereo; kan_analyze reports 244 attacks).
 //
@@ -11,20 +11,20 @@
 // +800 ms after the onset (harmonic-sum fundamental scores + top spectral
 // peaks, 341 ms Hann windows zero-padded to 131072). The `sounding` lists
 // were hand-written from that output: a candidate is included when its f0
-// carries a real spectral line (not just harmonic-sum aliasing — e.g. the
+// carries a real spectral line (not just harmonic-sum aliasing: e.g. the
 // 588 Hz line under G3 is G3's 3rd harmonic, not a D5 note), ordered loudest
 // line first. They are HYPOTHESES ("these pitches are sounding here"), not
-// ground truth — the probe measures each candidate's presence / refined
+// ground truth; the probe measures each candidate's presence / refined
 // cents and reports agreement with the independent f0-line evidence.
 // `controls` are pitches believed ABSENT at that attack (no f0 line within
 // +/-40 c, chosen as easy and as hard chromatic neighbors): their measured
 // presence is the false-presence rate.
 //
 // Labels (used for the blind mono-vs-polyphonic experiment): mono = 1
-// sounding candidate (M* — lone single-fundamental moments found by
+// sounding candidate (M*: lone single-fundamental moments found by
 // scanning all 244 onsets), poly = >= 3 (A*). Five A-attacks list 7-8
 // sounding candidates: real pedal-rich piano texture exceeding
-// HarmonicChordValidator::kMaxNotes (6) — the experiment for the
+// HarmonicChordValidator::kMaxNotes (6), the experiment for the
 // "candidates beyond kMaxNotes" design question.
 #include <cstddef>
 

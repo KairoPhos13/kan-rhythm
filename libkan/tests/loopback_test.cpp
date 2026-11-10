@@ -151,7 +151,7 @@ int main(int argc, char** argv) {
 
     // --- chords: onsets near each strum + major triad verified ------------
     // A strummed chord legitimately produces several onset events (one per
-    // string transient after the debounce) — assert presence per chord time,
+    // string transient after the debounce). Assert presence per chord time,
     // not an exact count.
     {
         std::vector<float> sig;

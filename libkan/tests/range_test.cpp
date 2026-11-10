@@ -1,7 +1,7 @@
 // Full-range coverage test: every key of the piano (A0 27.5 Hz .. C8
 // 4186.5 Hz) through the detection stack. The point is coverage, not
 // latency: notes must be DETECTED and CONFIRMED with confirmation-grade
-// accuracy across the whole instrument range — including bass ocarinas,
+// accuracy across the whole instrument range, including bass ocarinas,
 // bass guitars and other sub-80 Hz instruments. Latency is reported
 // against the physical floor (blanking + longest candidate lag + overlap)
 // but not gate-chased; see docs/dsp/range-coverage.md for the walls.
@@ -26,7 +26,7 @@ const float SR = 48000.0f;
 constexpr size_t B = 128;
 
 // Rich plucked-string model for the sweep: 8 partials with 1/h amplitudes
-// (real strings/hammers carry strong upper partials — they sharpen the
+// (real strings/hammers carry strong upper partials; they sharpen the
 // correlation peak; see range-coverage.md on peak width vs harmonic count).
 std::vector<float> synth_key(float freq, int midi) {
     const size_t n = size_t(0.5f * SR);
@@ -85,7 +85,7 @@ int main() {
 
         // Profile: the synthesized notes have an 8 ms pick attack, so
         // blanking must cover it (real keyboards use 6 ms against real ~4 ms
-        // hammer attacks — the profile tracks the instrument's physics).
+        // hammer attacks; the profile tracks the instrument's physics).
         kan::InstrumentProfile prof = kan::InstrumentProfile::plucked();
         prof.family = kan::InstrumentFamily::Keyboard;
         prof.min_freq_hz = 20.0f;   // cover A0 (bass ocarinas, bass guitars)
@@ -146,7 +146,7 @@ int main() {
 
         // --- YIN blind confirmation (steady-state window) ----------------
         // Window must span > 2 periods: below ~95 Hz a 2048 window is too
-        // short (a documented wall) — grow it per note.
+        // short (a documented wall). Grow it per note.
         size_t win = 2048;
         while (win < 4 * size_t(period) && win < 16384) win *= 2;
         det.set_expected_note(r.freq); // score-informed band for the sweep
@@ -247,7 +247,7 @@ int main() {
         }
     }
     // YIN sustains tracking across the musical range; the top piano octave
-    // (>3.5 kHz, ~13-sample periods) is sample-quantization territory —
+    // (>3.5 kHz, ~13-sample periods) is sample-quantization territory,
     // reported, not asserted (docs/dsp/range-coverage.md).
     pass &= n_yin >= int(0.93 * double(kMidiHi - kMidiLo + 1));
 

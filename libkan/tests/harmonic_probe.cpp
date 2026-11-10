@@ -1,4 +1,4 @@
-// harmonic_probe — offline evidence probe for score-informed chord
+// harmonic_probe: offline evidence probe for score-informed chord
 // validation on REAL polyphonic piano material (Phase 1 of the
 // note-description-stream work: "does HarmonicChordValidator, proven only on
 // synthesized guitar triads, describe a real piano recording honestly?").
@@ -18,12 +18,12 @@
 // --measure runs HarmonicChordValidator over each annotated attack's
 // candidates (presence / refined cents per candidate), its negative
 // controls (false presence), window lengths 1024 (21 ms gate budget) vs
-// 8192 (170 ms — the low-register question), and the decay trajectory
-// (+8 / +200 / +800 / +1500 ms — pedal behavior). It also prints blind
+// 8192 (170 ms, the low-register question), and the decay trajectory
+// (+8 / +200 / +800 / +1500 ms, pedal behavior). It also prints blind
 // mono-vs-polyphonic features per attack (no candidates involved) against
 // the annotated label.
 //
-// Reports only — no verdicts: every number here is a measurement of the
+// Reports only, no verdicts: every number here is a measurement of the
 // validator against hand-written hypotheses and independent spectra.
 #include "libkan/harmonic_chord.hpp"
 #include "libkan/score_verify.hpp"
@@ -198,7 +198,7 @@ void f0_line(const Spectrum& sp, float midi, bool& found, float& cents, float& d
 // Emits "@t_ms midi ..." lines (the kan_demo --candidates format) from
 // long-window f0-line evidence per detected attack, so every attack of a
 // recording can be described by the conditioned path. This is a CALLER-side
-// tool — exactly the epistemic role of the game's chart: hypotheses in,
+// tool, exactly the epistemic role of the game's chart: hypotheses in,
 // measurements out. Nothing it writes is a verdict; wrong hypotheses show
 // up as low presence / UNEXPLAINED_ENERGY downstream.
 void emit_candidates(const std::vector<float>& sig, float sr, FILE* out) {
@@ -248,7 +248,7 @@ void emit_candidates(const std::vector<float>& sig, float sr, FILE* out) {
 // --verify-score: semi-assisted transcription validation (offline mode).
 // A human score skeleton (one line per written note: "onset_ms dur_ms midi")
 // is measured against the recording with the conditioned validator. The
-// claim under test: hypotheses + measurement = a measured, verified score —
+// claim under test: hypotheses + measurement = a measured, verified score,
 // not blind transcription. Heavy per-note analysis is fine here: this is
 // the offline level-authoring use case, not the real-time path. Every
 // written note gets its own lifetime measured (start/end/duration): notes
@@ -574,7 +574,7 @@ int main(int argc, char** argv) {
     const char* out_path = nullptr;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--help") == 0) {
-            std::printf("libkan_harmonic_probe — chord-validation evidence probe\n"
+            std::printf("libkan_harmonic_probe: chord-validation evidence probe\n"
                         "  libkan_harmonic_probe --dump <wav>     spectral inspection\n"
                         "  libkan_harmonic_probe --measure <wav>  candidate measurements\n"
                         "  libkan_harmonic_probe --bench          validate() cost scaling\n"

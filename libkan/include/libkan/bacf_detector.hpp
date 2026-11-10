@@ -1,7 +1,7 @@
 #pragma once
 // Score-informed alternative monophonic detector based on Cycfi Q (MIT):
 // BACF (Bitstream AutoCorrelation Function) period detection via XOR
-// bitstream operations — no FFT, very low per-sample cost.
+// bitstream operations, no FFT, very low per-sample cost.
 //
 // Per SPECIFICATION.md §2 stage 3: when the map expects a single note, the
 // detector is bounded to ±2 semitones of the expected note (see
@@ -62,7 +62,7 @@ public:
     }
 
     /// Blind mode with an instrument-bounded range (e.g. ocarina
-    /// 480–1450 Hz). Pass the InstrumentProfile's min/max frequencies.
+    /// 480-1450 Hz). Pass the InstrumentProfile's min/max frequencies.
     /// Rebuilds the internal detector; setup path only.
     void set_range(float min_hz, float max_hz) {
         expected_hz_ = 0.0f;

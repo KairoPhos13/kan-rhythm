@@ -5,7 +5,7 @@
 // s3b): onsets anchor to the AUDIO attack; durations are bias-corrected
 // (release-bias constant measured on 1.5M+ notes) with the raw end and
 // `end_faded` preserved for the editor. The facts are measurements, not
-// verdicts — a transcribed chart is a DRAFT for human review.
+// verdicts; a transcribed chart is a DRAFT for human review.
 #include "libkan/verbose.hpp"
 #include "libkan/note_stream.hpp"
 #ifdef KAN_HAVE_ROFORMER_RUNTIME
@@ -46,7 +46,7 @@ inline void fs_rename(const std::string& a, const std::string& b) {
 /// One backend, chosen deliberately (user decision 2026-10-12): the GGUF
 /// RoFormer runtime. GGML backends cover Vulkan (GPU), CPU (low-budget
 /// machines) and Metal (macOS) in the SAME binary with NO torch at
-/// runtime — one path serves everyone and unused code does not
+/// runtime: one path serves everyone and unused code does not
 /// accumulate. Locate the binary/model via KAN_ROFORMER_CLI /
 /// KAN_ROFORMER_GGUF (or PATH + models/6stem.gguf default).
 // ---- progress protocol (game-facing, user request 2026-10-12) ---------
@@ -79,7 +79,7 @@ inline bool run_with_progress(const std::string& cmd, const char* phase) {
     // Force unbuffered child output (stdbuf) so NN% tokens arrive live:
     // block-buffered children would flush their whole progress at exit and
     // the game would only ever see 100%. stdbuf is a POSIX tool and
-    // `command -v` a POSIX probe — on Windows (cmd.exe) skip both; the
+    // `command -v` a POSIX probe, on Windows (cmd.exe) skip both; the
     // children there (curl.exe, yt-dlp) write progress unbuffered already.
     std::string full = cmd + " 2>&1";
 #ifndef _WIN32
@@ -231,8 +231,8 @@ inline std::string ensure_roformer_model() {
 
 inline std::string find_separator() {
 #ifdef KAN_HAVE_ROFORMER_RUNTIME
-    // Official flow (editor-pipeline s7b): the runtime is compiled in —
-    // probe the RUNTIME, not just the model. No installed separator needed.
+    // Official flow (editor-pipeline s7b): the runtime is compiled in.
+    // Probe the RUNTIME, not just the model. No installed separator needed.
     {
         const std::string model = ensure_roformer_model();
         if (!model.empty() && roformer_runtime_available()) {
@@ -240,7 +240,7 @@ inline std::string find_separator() {
         }
     }
 #endif
-    // Developer tooling fallback (external CLI — provisional per s7b).
+    // Developer tooling fallback (external CLI, provisional per s7b).
     const char* cli = std::getenv("KAN_ROFORMER_CLI");
     const std::string bs = (cli != nullptr && *cli != '\0') ? cli : "bs_roformer-cli";
     const std::string model = ensure_roformer_model();
@@ -492,7 +492,7 @@ inline std::string chart_text(const std::vector<TranscribedNote>& notes) {
 /// Simple human-readable log (the "visualizarlo de forma simple" view):
 /// a timeline table with one line per note.
 inline std::string chart_log(const std::vector<TranscribedNote>& notes) {
-    std::string out = "transcription log — one row per struck note (draft)\n";
+    std::string out = "transcription log: one row per struck note (draft)\n";
     out += "     t_start     t_end    dur   note   dyn     vib      flags\n";
     for (const auto& n : notes) {
         char line[256];

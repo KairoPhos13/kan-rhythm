@@ -1,7 +1,7 @@
 // Offline test of the tuning-compensation layer (SPECIFICATION §2):
 // the 2 s reference-note calibrator (Δc), the global + per-string
 // compensation matrix, detector-target shifting, and the relative-tuning
-// tonal-center tracker. Synthesized signals and deterministic readings —
+// tonal-center tracker. Synthesized signals and deterministic readings,
 // no microphone required.
 #include "libkan/calibration.hpp"
 #include "libkan/bounded_pitch.hpp"
@@ -15,7 +15,7 @@ namespace {
 
 const float SR = 48000.0f;
 
-// Steady harmonic tone (no decay) — the "long comfortable note" of the
+// Steady harmonic tone (no decay), the "long comfortable note" of the
 // reference-note flow.
 std::vector<float> steady_note(float hz, float seconds) {
     const size_t n = size_t(seconds * SR);
@@ -113,7 +113,7 @@ int main() {
                int(got.valid), got.frequency_hz, residual);
         pass &= got.valid && std::fabs(residual) < 25.0f;
 
-        // Without compensation the same note reads +12 cents — the judge
+        // Without compensation the same note reads +12 cents; the judge
         // would penalize a correctly playing instrument.
         const float raw = got.valid ? 1200.0f * std::log2(got.frequency_hz / 440.0f) : 0.0f;
         printf("raw vs A440: %+.2f cents (the detune compensation removes)\n", raw);

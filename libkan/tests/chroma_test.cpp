@@ -1,7 +1,7 @@
 // Offline test of the KissFFT chroma backend: projector sanity (a pure note
 // must peak on its pitch class) and the chord battery as a secondary
 // validator (the HarmonicChordValidator carries the F1 gate; chroma is
-// octave-invariant template machinery for instrument packs — see
+// octave-invariant template machinery for instrument packs, see
 // docs/dsp/chord-validation.md). No microphone required.
 #include "libkan/chroma_fft.hpp"
 #include "chord_suite.hpp"
@@ -72,7 +72,7 @@ int main() {
     // by HarmonicChordValidator (chord_test.cpp); chroma's octave-folded
     // 12-bin template at 21 ms windows accepts few true chords (measured
     // ~8%, avg sim 0.61) but rejects confusions outright (0/72 false
-    // acceptances) — documented in docs/dsp/chord-validation.md.
+    // acceptances), documented in docs/dsp/chord-validation.md.
     pass &= true_valid >= 1;
     pass &= argmax_ok >= int(0.5f * float(n));
     pass &= false_valid == 0;

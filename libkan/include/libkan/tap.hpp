@@ -1,7 +1,7 @@
 #pragma once
 // Non-consuming detection tap for the kanfx input bus
 // (platform-architecture.md §3 "Judgment taps"): the detection pipeline
-// attaches to the input bus via non-consuming taps — monitoring FX must
+// attaches to the input bus via non-consuming taps; monitoring FX must
 // never alter what the judges analyze (transient blanking happens pre-tap,
 // inside the detection chain, not in the bus).
 //
@@ -15,7 +15,7 @@
 //
 // Overwrite semantics: the buffer holds the newest NumBlocks blocks; a
 // reader that lags more than NumBlocks blocks loses the gap (reported via
-// Reader::dropped()). This is the correct trade for detection taps —
+// Reader::dropped()). This is the correct trade for detection taps:
 // freshness beats completeness, and the game thread never stalls the bus.
 #include <atomic>
 #include <cstddef>
@@ -25,7 +25,7 @@ namespace kan {
 
 /// One immutable view of a published block. `samples` points into the tap's
 /// fixed storage and stays valid until the writer wraps around (NumBlocks
-/// blocks later) — analyze it in the same consumer pass, do not store it.
+/// blocks later). Analyze it in the same consumer pass, do not store it.
 struct TapFrame {
     const float* samples = nullptr;
     size_t count = 0;
@@ -45,7 +45,7 @@ public:
     static constexpr size_t num_blocks() noexcept { return NumBlocks; }
 
     /// Producer side (audio thread or bus tap): copy one block into the
-    /// ring. RT-safe — no allocation, no locks, no I/O. Never fails; the
+    /// ring. RT-safe, no allocation, no locks, no I/O. Never fails; the
     /// oldest block is overwritten if nobody consumed it.
     void publish(const T* block) noexcept {
         const uint64_t w = write_.load(std::memory_order_relaxed);

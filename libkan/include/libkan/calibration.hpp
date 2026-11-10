@@ -9,7 +9,7 @@
 // thread or the consumer thread between notes); the resulting
 // TuningCompensation is immutable while playing and read by the detection
 // layer to shift detector target frequencies (and by kanfx to shift the
-// backing track by the same amount — the instrument and the song end up in
+// backing track by the same amount; the instrument and the song end up in
 // tune with each other while scoring stays strict).
 //
 // Real-time safety: observe()/target_*()/correction_cents() are trivial
@@ -181,7 +181,7 @@ struct TuningCompensation {
         return standard_midi + correction_cents(string_index) / 100.0f;
     }
 
-    /// Residual cents of a measured frequency vs the compensated target —
+    /// Residual cents of a measured frequency vs the compensated target,
     /// what the judge (and the player) should see.
     float residual_cents(float measured_hz, float standard_hz,
                          int string_index = -1) const noexcept {
@@ -192,7 +192,7 @@ struct TuningCompensation {
 /// Relative-tuning mode for fretless/bowed/voice instruments
 /// (SPECIFICATION §2): intervals (ΔNote_n − ΔNote_{n−1}) are evaluated
 /// against a moving tonal center of gravity (exponential moving average);
-/// only harmony-breaking deviations are punished — the instrument's fixed
+/// only harmony-breaking deviations are punished; the instrument's fixed
 /// (or slowly drifting) detune is absorbed by the center instead of being
 /// penalized note by note.
 class RelativeTuningTracker {
@@ -207,7 +207,7 @@ public:
     struct IntervalResult {
         bool interval_ok = false;        ///< interval vs center within tolerance
         float error_cents = 0.0f;        ///< deviation of this note from the center
-        float delta_interval_cents = 0.0f; ///< (ΔNote_n − ΔNote_{n−1}) — pure interval step
+        float delta_interval_cents = 0.0f; ///< (ΔNote_n − ΔNote_{n−1}): pure interval step
         float center_cents = 0.0f;       ///< tonal center after this note (relative reference)
     };
 

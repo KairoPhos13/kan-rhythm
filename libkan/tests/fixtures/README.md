@@ -1,7 +1,7 @@
 # libkan test fixtures
 
 The WAV fixtures here are **generated, not committed** (deterministic
-synthesis — byte-identical on every run). Regenerate with:
+synthesis, byte-identical on every run). Regenerate with:
 
 ```bash
 ./build/libkan/libkan_fixture_gen build/libkan/fixtures
@@ -9,8 +9,8 @@ synthesis — byte-identical on every run). Regenerate with:
 
 `ctest` wires this automatically (`libkan_fixture_gen` sets up the
 `kan_fixtures` CTest fixture; `libkan_loopback_test` consumes it). The
-ground-truth layout — onset positions, detuned fundamentals, chord
-voicings — lives in `../fixture_layout.hpp`, shared by generator and tests.
+ground-truth layout (onset positions, detuned fundamentals, chord
+voicings) lives in `../fixture_layout.hpp`, shared by generator and tests.
 
 | file | content | asserted property |
 |---|---|---|

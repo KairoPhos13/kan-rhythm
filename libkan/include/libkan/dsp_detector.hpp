@@ -65,7 +65,7 @@ public:
 
     /// YIN periodicity threshold (default 0.15): the CMNDF dip depth needed
     /// to accept a pitch. Bright harmonic tones and fundamental-attenuated
-    /// bass (35 Hz HPF) push the dip up — raise to ~0.2 there, lower for
+    /// bass (35 Hz HPF) push the dip up. Raise to ~0.2 there, lower for
     /// soft pure tones. See docs/dsp/range-coverage.md.
     void set_periodicity_threshold(float t) noexcept { periodicity_threshold_ = t; }
 
@@ -76,7 +76,7 @@ public:
     /// Active instrument profile.
     const InstrumentProfile& profile() const noexcept { return profile_; }
 
-    /// STAGE 2 — transient blanking: true while pitch evaluation must stay
+    /// STAGE 2, transient blanking: true while pitch evaluation must stay
     /// frozen because `ms_since_onset` is inside the profile's blanking
     /// window (attack transients are inharmonic noise that fools pitch
     /// algorithms). RT-safe, side-effect free.
@@ -84,7 +84,7 @@ public:
         return ms_since_onset < profile_.blanking_ms;
     }
 
-    /// STAGE 3 — score-informed mode: bound the YIN search to
+    /// STAGE 3, score-informed mode: bound the YIN search to
     /// `window_semitones` around the note the chart expects (spec §2:
     /// ±2 semitones for monophonic hits). This removes octave/subharmonic
     /// errors and shortens confirmation. Pass `expected_hz <= 0` to return
@@ -211,7 +211,7 @@ public:
     }
 
     /// Convenience wrapper (allocates a CMNDF scratch buffer and the note
-    /// name — consumer thread only; use detect_pitch_into() on
+    /// name, consumer thread only; use detect_pitch_into() on
     /// allocation-free paths).
     PitchResult detect_pitch(const std::vector<float>& window) const noexcept {
         PitchResult res;

@@ -1,27 +1,27 @@
 #pragma once
-// Per-note description stream ("register by note") — libkan describes what
+// Per-note description stream ("register by note"): libkan describes what
 // was played; it never judges (docs/architecture/note-description-stream.md).
 //
-// RECORD MODEL (refined by review): a record is a STRUCK NOTE — an attack
+// RECORD MODEL (refined by review): a record is a STRUCK NOTE: an attack
 // execution times the notes it strikes. One attack with three notes struck
 // opens three records, each with its own lifetime (a note may sustain
 // longer than its neighbors, repeat, or be cut earlier). Instruments whose
 // notes start WITHOUT strikes (wind/bowed slurs, transition notes) also
-// open records on sustained pitch changes (profile data decides — libkan
+// open records on sustained pitch changes (profile data decides; libkan
 // contains no instrument names). Facts:
 //   HIT        when a record opens: onset/transition time + strength, plus
 //              its strike_group (records struck together share it). Fixed
 //              at the moment it happens, never revised.
 //   PITCH      provisional estimate first, then one final estimate (or
 //              "unresolved"). The final is the AMPLITUDE-WEIGHTED CENTER
-//              of the note's trajectory — the center of a vibrato, not its
+//              of the note's trajectory: the center of a vibrato, not its
 //              initial value. One consistent estimate per event (midi +
 //              cents; Hz derived from the pair).
 //   CONTENT    mono vs polyphonic attack (blind, candidate-free); when the
 //              caller supplies candidate pitches, one fact per candidate:
 //              presence, cents, amplitude, with the explained energy of
 //              the set. Candidate facts live under the record the
-//              candidate belongs to — a note sustaining under later
+//              candidate belongs to: a note sustaining under later
 //              attacks accumulates facts in its own register.
 //   EXPRESSION dynamics tier + level, envelope, vibrato (claimed only from
 //              stable trajectories).
@@ -31,13 +31,13 @@
 // Honesty rules (the fairness rule): the stream never emits a number the
 // tool distrusts. Flags describe audio-true states only
 // (MIX/HOP/POLYPHONIC/DOMINANT/UNEXPLAINED_ENERGY/LOW_REGISTER/
-// SEARCH_SATURATED/TRANSITION). Unmeasurable means `unresolved` — "not
+// SEARCH_SATURATED/TRANSITION). Unmeasurable means `unresolved`: "not
 // measured", never "wrong".
 //
 // Threading/RT: the audio callback is untouched. `process_block` is the
 // analysis fast path (allocation-free); `finalize_due()` performs at most
 // one scheduled measurement per call (probe fit, long-window fit, or
-// sustain fit — the expensive part; a worker thread may own the loop).
+// sustain fit, the expensive part; a worker thread may own the loop).
 // All scratch is allocated in constructors. The event stream is lock-free
 // SPSC per consumer. Everything instrument-specific is `InstrumentProfile`
 // pack data: add a flute or a melodica by adding a profile, never code.
@@ -68,7 +68,7 @@ enum class NoteKind : uint8_t { Hit = 0, Pitch, Content, Expression, Close };
 enum class PitchStage : uint8_t { Provisional = 0, Final, Unresolved };
 enum class ContentClass : uint8_t { Unknown = 0, Mono, Polyphonic };
 
-/// Audio-true states only — never judgment.
+/// Audio-true states only, never judgment.
 enum NoteFlags : uint32_t {
     kFlagNone = 0,
     kFlagMixed = 1u << 0,             ///< mono pitch validity < 0.5 (overlapped)
@@ -81,7 +81,7 @@ enum NoteFlags : uint32_t {
     kFlagTransition = 1u << 7,        ///< record opened by a legato pitch change,
                                       /// not by a strike
     kFlagRestrike = 1u << 8,          ///< the same pitch was struck AGAIN (level
-                                      /// jump vs the sounding record) — not a
+                                      /// jump vs the sounding record), not a
                                       /// mere extension of the previous strike
 };
 
@@ -113,7 +113,7 @@ static_assert(std::is_trivially_copyable<NoteEvent>::value,
 
 namespace note_event {
 
-/// HIT — fixed at the moment the record opens (strike or transition);
+/// HIT: fixed at the moment the record opens (strike or transition);
 /// never revised. `strike_group` ties records struck by the same attack.
 inline NoteEvent make_hit(uint32_t note_id, uint32_t strike_group, float t_ms,
                           float onset_ms, float strength, float hypothesis_midi,
@@ -130,7 +130,7 @@ inline NoteEvent make_hit(uint32_t note_id, uint32_t strike_group, float t_ms,
     return e;
 }
 
-/// PITCH — one consistent estimate (midi + cents; Hz derived from the pair).
+/// PITCH: one consistent estimate (midi + cents; Hz derived from the pair).
 inline NoteEvent make_pitch(uint32_t note_id, float t_ms, PitchStage stage,
                             float midi, float cents, uint32_t flags) noexcept {
     NoteEvent e{};
@@ -145,7 +145,7 @@ inline NoteEvent make_pitch(uint32_t note_id, float t_ms, PitchStage stage,
     return e;
 }
 
-/// PITCH — nothing measurable ("unresolved"): no pitch numbers at all.
+/// PITCH: nothing measurable ("unresolved"): no pitch numbers at all.
 inline NoteEvent make_pitch_unresolved(uint32_t note_id, float t_ms,
                                        PitchStage stage, uint32_t flags) noexcept {
     NoteEvent e{};
@@ -160,7 +160,7 @@ inline NoteEvent make_pitch_unresolved(uint32_t note_id, float t_ms,
     return e;
 }
 
-/// CONTENT class — blind mono-vs-polyphonic statement of an attack
+/// CONTENT class: blind mono-vs-polyphonic statement of an attack
 /// (`note_id` = the strike group's leader record).
 inline NoteEvent make_content_class(uint32_t note_id, float t_ms, ContentClass klass,
                                     float n_unresolved, float dominant_share,
@@ -176,7 +176,7 @@ inline NoteEvent make_content_class(uint32_t note_id, float t_ms, ContentClass k
     return e;
 }
 
-/// CONTENT candidate — one measurement of one caller-supplied hypothesis.
+/// CONTENT candidate: one measurement of one caller-supplied hypothesis.
 /// `note_id` = the record the candidate belongs to (a sustaining note
 /// accumulates facts in its own register); `strike_group` = the attack
 /// whose window produced the measurement.
@@ -200,7 +200,7 @@ inline NoteEvent make_content_candidate(uint32_t note_id, uint32_t strike_group,
     return e;
 }
 
-/// EXPRESSION — how the note was played (measurements only).
+/// EXPRESSION: how the note was played (measurements only).
 inline NoteEvent make_expression(uint32_t note_id, float t_ms, float dynamics_db,
                                  float dynamics_tier, float attack_ms, float release_ms,
                                  float sustain_ratio, float vib_rate_hz,
@@ -222,7 +222,7 @@ inline NoteEvent make_expression(uint32_t note_id, float t_ms, float dynamics_db
     return e;
 }
 
-/// CLOSE — the note's own end; never revises earlier facts.
+/// CLOSE: the note's own end; never revises earlier facts.
 inline NoteEvent make_close(uint32_t note_id, float t_ms, float end_ms,
                             float duration_ms, float peak_rms) noexcept {
     NoteEvent e{};
@@ -346,7 +346,7 @@ inline size_t note_event_jsonl(const NoteEvent& e, char* buf, size_t cap) noexce
 // Blind content classification (no candidate input).
 
 /// What the audio alone says about an attack: how many distinct harmonic
-/// series sound (octave doublings merge — blind physics), and how much of
+/// series sound (octave doublings merge; blind physics), and how much of
 /// the series energy the strongest one carries.
 struct BlindContent {
     ContentClass klass = ContentClass::Mono;
@@ -378,7 +378,7 @@ inline float midi_to_hz(float midi) noexcept {
 
 /// Harmonic-series energy of a fundamental: sum |harmonic|² / h² over the
 /// first six harmonics (fixed grid math, no allocation). The harmonics'
-/// Goertzel recurrences run side by side in one pass over the window — the
+/// Goertzel recurrences run side by side in one pass over the window: the
 /// same arithmetic as `goertzel_mag` per harmonic, but independent chains the
 /// CPU overlaps instead of one latency-bound chain at a time (owner
 /// 2026-10-19: the live stream stalled on these).
@@ -433,7 +433,7 @@ inline BlindContent classify_content(const float* window, size_t count,
     // The coarse grid's series energies are measured once and shared by the
     // best-series search and every acceptance pass (they never change between
     // passes): the passes used to re-measure the whole grid each, ~50 M
-    // multiply-adds on a 170 ms window — a 30 ms stall of the live stream.
+    // multiply-adds on a 170 ms window, a 30 ms stall of the live stream.
     constexpr int kGrid = 129; // 28..92 in 0.5 steps
     double grid_e[kGrid];
     float grid_f0[kGrid];
@@ -501,7 +501,7 @@ inline BlindContent classify_content(const float* window, size_t count,
 
 // ---------------------------------------------------------------------------
 // Event stream: lock-free SPSC per consumer, drop-on-full with a visible
-// counter (a display may lose events, a JSONL log may not — and neither may
+// counter (a display may lose events, a JSONL log may not, and neither may
 // lose them silently).
 
 class NoteEventStream {
@@ -604,7 +604,7 @@ public:
     };
 
     /// Setup path: allocates all scratch once. Instrument behaviour comes
-    /// from `profile` (pack data) — never from instrument names.
+    /// from `profile` (pack data), never from instrument names.
     NoteDescriber(float sample_rate, const InstrumentProfile& profile)
         : sr_(sample_rate), profile_(profile), detector_(sample_rate),
           validator_(sample_rate, kFinalWindow) {
@@ -631,8 +631,8 @@ public:
     void set_noise_floor(float energy) noexcept {
         detector_.set_noise_floor(energy);
         // Bleeding edge: the harmonic validator references similarity to
-        // the energy ABOVE the floor too (soft instruments — ocarina,
-        // flute — lose windows to floor-in-denominator otherwise).
+        // the energy ABOVE the floor too (soft instruments, ocarina and
+        // flute, lose windows to floor-in-denominator otherwise).
         // Detector takes energy, validator takes RMS.
         validator_.set_noise_floor(energy > 0.0f ? std::sqrt(energy) : 0.0f);
     }
@@ -694,7 +694,7 @@ public:
     }
 
     /// SCHEDULED WORK: at most one measurement per call (probe fit, sustain
-    /// fit) — the expensive part; an app may own this loop on a worker
+    /// fit), the expensive part; an app may own this loop on a worker
     /// thread. Returns true when one measurement was performed.
     bool finalize_due() noexcept {
         Group* g = nullptr;
@@ -770,7 +770,7 @@ private:
             return sim_ww > 0.0f ? sim_wsum / sim_ww : 0.0f;
         }
         float last_audible_ms = -1.0f;
-        // mix readings (blind finals, vibrato, transitions) — leader only
+        // mix readings (blind finals, vibrato, transitions), leader only
         float ref_midi = 0.0f;
         bool have_ref = false;
         float dev_sum = 0.0f, prev_dev = 0.0f, max_dev = 0.0f;
@@ -826,7 +826,7 @@ private:
 
     /// One note at a time (profile data, I10): a record that opens ends every
     /// other sounding record at its onset. A held note cannot outlive the
-    /// next one, and its pending legato shift must not fire later — on a wind
+    /// next one, and its pending legato shift must not fire later: on a wind
     /// profile two live records each opened the same transition, emitting
     /// identical twin notes (2026-10-15, real ocarina take).
     void end_others_if_mono(const Record& opened) noexcept {
@@ -862,7 +862,7 @@ private:
 
     /// A strike (or the opening of the very first record): one record per
     /// struck candidate, or one blind record when no candidates.
-    /// `rearticulated`: opened by a level dip (tonguing) on a mono profile —
+    /// `rearticulated`: opened by a level dip (tonguing) on a mono profile:
     /// a new note by construction, never an extension of the held one.
     /// `speaks_at`: a note out of a dip or a quiet transient speaks once its
     /// level reaches this (bucket RMS); no pitch is measured before
@@ -878,7 +878,7 @@ private:
             if (c.live && c.boundary > onset_sample) c.boundary = onset_sample;
         }
         // Monophonic instrument physics (profile data): one note at a time,
-        // so a live record's fate is decided by this strike — and the
+        // so a live record's fate is decided by this strike, and the
         // decision is the energy-level comparison between the strikes:
         //   - level jump >= kRestrikeRatio x the record's own strike energy
         //     -> the pitch was STRUCK AGAIN: the old note ends here, a new
@@ -933,7 +933,7 @@ private:
         }
 
         // Repeated pitches: a struck candidate whose pitch already sounds
-        // (a live record claims it) is an EXTENSION or a RE-STRIKE — decided
+        // (a live record claims it) is an EXTENSION or a RE-STRIKE, decided
         // at the probe fit by comparing energy levels (the record's recent
         // fitted level vs the level after this strike). Until then it is
         // held by the existing record (deferred, not a new one).
@@ -998,7 +998,7 @@ private:
     }
 
     /// A record opened by a sustained pitch change (legato / transition
-    /// note) — profile data decides; no strike happened.
+    /// note): profile data decides; no strike happened.
     void open_transition(uint64_t at_sample, float midi) noexcept {
         const float t_ms = 1000.0f * float(at_sample) / sr_;
         Group* g = nullptr;
@@ -1074,7 +1074,7 @@ private:
             if (g.have_cands && g.probe_done && g.live_records > 0
                 && since + 0.5f >= float(g.next_sustain_ms)) {
                 // The window END is fixed by the cadence (bucket grid), not
-                // by when the scheduler runs the fit — determinism.
+                // by when the scheduler runs the fit, determinism.
                 g.sustain_due = true;
                 g.sustain_end = sample_pos_;
                 // Adaptive cadence: fine through the attack and early life,
@@ -1083,7 +1083,7 @@ private:
                 const float age = since;
                 // Cadence: fine through the attack and early life (the
                 // center of the note), stretched for established notes and
-                // long pedal tails — end detection precision degrades
+                // long pedal tails. End detection precision degrades
                 // gracefully; facts never drop.
                 g.next_sustain_ms += (age < 2000.0f) ? size_t(kSustainHopMs)
                                     : (age < 5000.0f) ? size_t(kSustainHopMs * 2)
@@ -1095,7 +1095,7 @@ private:
         // level after the strike vs the hold's level at the strike. A jump
         // = the pitch was struck again (old note ends at the strike, a new
         // record opens); no jump = the held note was merely extended (no
-        // new record — the hold continues).
+        // new record; the hold continues).
         for (auto& g : groups_) {
             if (!g.live || !g.deferred_repeat) continue;
             const float since = t_ms - g.strike_ms;
@@ -1181,7 +1181,7 @@ private:
     // A note out of a tonguing dip (or a quiet transient) opens at the
     // dip's bottom, but its pitch speaks a moment later: in between, the
     // quiet still holds what was left of the last note. Real take
-    // 2026-10-23: an ocarina F5 tongued into a C5 — the level came back at
+    // 2026-10-23: an ocarina F5 tongued into a C5. The level came back at
     // -10 dB, the C sounded 30 ms after, and the provisional pitch (the
     // window just after the onset) read the F. Pitch windows start where
     // the level reaches a share of the note before.
@@ -1287,7 +1287,7 @@ private:
 
         if (art_low_since_ms_ >= 0.0f) {
             // Back within the gap: the note was re-articulated at the bottom of
-            // the dip — unless the onset detector already opened it — once
+            // the dip, unless the onset detector already opened it, once
             // the level holds or speaks.
             if (art_back_since_ms_ < 0.0f) art_back_since_ms_ = t_ms - 1000.0f * float(bucket_samples_) / sr_;
             if (rms < kSpeakShare * art_level_ && t_ms - art_back_since_ms_ < kDipBackHoldMs) return;
@@ -1325,7 +1325,7 @@ private:
         const float rel = 100.0f * (est.midi - n.ref_midi) + est.cents_offset;
         n.prev_dev = rel;
         // While a legato shift is pending (or after it began), the readings
-        // belong to the NEXT note — they must not pollute this record's
+        // belong to the NEXT note; they must not pollute this record's
         // center or stability verdict.
         if (n.shift_start_ms >= 0.0f && t_ms >= n.shift_start_ms) return;
         if (n.readings > 1 && std::fabs(rel - n.prev_dev) > 200.0f) ++n.hops;
@@ -1334,7 +1334,7 @@ private:
         n.vib.add(t_ms, rel);
     }
 
-    /// Legato transition: a SUSTAINED pitch shift (not a vibrato swing —
+    /// Legato transition: a SUSTAINED pitch shift (not a vibrato swing;
     /// vibrato returns, a step does not). Opens a new record at the shift.
     void check_transition(Record& n, Group& g, float t_ms) noexcept {
         const float rel = n.prev_dev;
@@ -1379,11 +1379,11 @@ private:
 
     // ---- conditioned fits (scheduled work) --------------------------------
     /// Exact measurement window [group start, +len): the window must be
-    /// complete — a call-time-truncated window would make the stream
+    /// complete: a call-time-truncated window would make the stream
     /// depend on WHEN the scheduler ran (breaking live/offline equality).
     bool group_window(Group& g, size_t len, float* out, float& t_ms) noexcept {
         // Window discipline: no measurement window crosses a strike
-        // boundary — evidence after the next attack belongs to that
+        // boundary: evidence after the next attack belongs to that
         // attack's group (which measures the sustaining notes too, when the
         // chart lists them). The boundary is strike-determined (audio), so
         // the clipped window stays deterministic.
@@ -1423,7 +1423,7 @@ private:
         float window[kProvisionalWindow];
         float t_ms = 0.0f;
         if (!group_window(g, kProvisionalWindow, window, t_ms)) {
-            return false; // window not ready yet — stay pending
+            return false; // window not ready yet, stay pending
         }
         g.probe_done = true;
         float set[kMaxCandidates] = {0};
@@ -1524,7 +1524,7 @@ private:
     /// Sustain fit (SLIDING window, 250 ms cadence): per-candidate amplitude
     /// trajectory -> per-note lifetimes + pitch centers. One fit measures
     /// every live candidate at once (the joint model). The window ends at
-    /// the cadence point fixed on the bucket grid — never at call time.
+    /// the cadence point fixed on the bucket grid, never at call time.
     /// Performance (the resource budget of the design doc): candidates that
     /// have gone silent are pruned from later fits (cost falls
     /// quadratically with candidate count), clean sustain windows run one
@@ -1572,7 +1572,7 @@ private:
         }
 
         // Class fact at the first fit where the classifier's evidence
-        // window (as long as we can make it) actually exists — the cadence
+        // window (as long as we can make it) actually exists: the cadence
         // is bucket-fixed, so which fit emits it is deterministic.
         if (!g.class_done) {
             float cbuf[kFinalWindow];
@@ -1610,7 +1610,7 @@ private:
                 rec->last_audible_ms = t_ms;
             } else if (++rec->quiet_fits >= 2) {
                 // -20 dB sustained: the note's own end (an absent hypothesis
-                // ends at its first fit time — it never sounded).
+                // ends at its first fit time; it never sounded).
                 const float end = rec->last_audible_ms >= 0.0f
                     ? rec->last_audible_ms
                     : (rec->traj_n > 0 ? rec->traj[0].t_ms : t_ms);
@@ -1655,7 +1655,7 @@ private:
             }
             // A final pitch is emitted only when the record was actually
             // heard (presence) and the set explains the window (similarity).
-            // Anything less is an honest "unresolved" — never an invented
+            // Anything less is an honest "unresolved", never an invented
             // pitch (the fairness rule).
             if (wsum > 0.0f && fit_quality >= 0.80f && heard) {
                 have_final = true;
@@ -1690,7 +1690,7 @@ private:
             }
             if (n.candidate_index < 0 && n.max_dev <= 200.0f && n.valid_readings >= 3) {
                 // wide vibrato makes readings swing; a stable swing is
-                // still a measurable note — use its center.
+                // still a measurable note. Use its center.
                 have_final = true;
                 final_midi = n.ref_midi;
                 final_cents = n.dev_sum / float(n.valid_readings);
@@ -1754,7 +1754,7 @@ private:
         const DynamicsTier tier = dynamics_.observe(peak);
         const bool stable_pitch = n.readings > 1
             && float(n.hops) / float(n.readings - 1) <= 0.2f && n.max_dev <= 200.0f;
-        // Vibrato from the 50 ms pitch readings — ALL records (audit fix:
+        // Vibrato from the 50 ms pitch readings: ALL records (audit fix:
         // this used to be blind-only, so the game's score-informed path
         // emitted vib_hz 0.0 structurally). Non-leader chord voices take no
         // readings and honestly report no vibrato claim; the coherence and

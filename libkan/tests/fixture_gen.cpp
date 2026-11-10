@@ -112,14 +112,14 @@ int main(int argc, char** argv) {
         write(dir, kFxChords, s);
     }
 
-    // noise: room-level white noise (RMS ~0.002) — must produce ZERO onsets.
+    // noise: room-level white noise (RMS ~0.002); must produce ZERO onsets.
     {
         auto s = silence(kNoiseDuration);
         for (auto& v : s) v = 0.0025f * noise1();
         write(dir, kFxNoise, s);
     }
 
-    // percussive: broadband bursts — onsets but no pitch.
+    // percussive: broadband bursts; onsets but no pitch.
     {
         auto s = silence(3.5f);
         for (const float t0 : kPercTimes) {
@@ -133,7 +133,7 @@ int main(int argc, char** argv) {
         write(dir, kFxPercussive, s);
     }
 
-    // onset_grid: 440 Hz bursts of 100 ms every second — the latency grid.
+    // onset_grid: 440 Hz bursts of 100 ms every second, the latency grid.
     {
         auto s = silence(kGridDuration);
         for (size_t g = 0; g < kGridCount; ++g) {

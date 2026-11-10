@@ -2,7 +2,7 @@
 // vibrato trajectory analysis (incl. wide/slow Japanese-style vibrato and
 // straight-tone passages), bend/slide curves, articulation envelope shapes,
 // and spectral signature templates. Synthesized signals and synthetic
-// trajectories — no microphone required.
+// trajectories, no microphone required.
 #include "libkan/technique.hpp"
 #include "libkan/dsp_detector.hpp"
 
@@ -61,7 +61,7 @@ int main() {
     {
         kan::VibratoAnalyzer vib;
         // Wide/slow "yuri-like" vibrato: 4 Hz, ±40 cents, 800 ms
-        // (>= 3 cycles are required to claim periodicity — rate physics).
+        // (>= 3 cycles are required to claim periodicity; rate physics).
         auto traj = make_vibrato_traj(4.0f, 40.0f, 800.0f, 5.0f);
         auto m = vib.measure(traj);
         printf("vibrato 4Hz/40c: periodic=%d rate=%.2f Hz depth=%.1f c\n",

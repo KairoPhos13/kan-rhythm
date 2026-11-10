@@ -132,7 +132,7 @@ int main() {
     pass &= sim_min_true > 0.90f;
     pass &= (sim_sum_true / float(n)) > (sim_sum_false / float(3 * n)) + 0.05f;
     // Threshold verdicts in the C4+ register (where a 21 ms window resolves
-    // the major/minor third — see docs/dsp/chord-validation.md): few false
+    // the major/minor third, see docs/dsp/chord-validation.md): few false
     // acceptances. Low-register absolute thresholds are a documented
     // physical limitation; argmax discrimination still holds there.
     pass &= true_valid_hi >= int(0.9f * float(true_total_hi));

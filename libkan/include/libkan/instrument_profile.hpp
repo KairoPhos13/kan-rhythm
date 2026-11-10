@@ -24,11 +24,11 @@ enum class AttackType {
 
 /// Per-instrument detection profile (SPECIFICATION.md §2 stage 2 + §3).
 ///
-/// Plain data only — no format coupling. Instrument packs (charts/spec)
+/// Plain data only, no format coupling. Instrument packs (charts/spec)
 /// will serialize exactly these fields; apps construct them directly or
 /// from pack data. All times in milliseconds, frequencies in Hz. Every
 /// instrument-specific behaviour of libkan (a flute, a melodica, a guitar)
-/// is expressed through this struct — never through instrument names in
+/// is expressed through this struct, never through instrument names in
 /// code.
 struct InstrumentProfile {
     InstrumentFamily family = InstrumentFamily::Other;
@@ -48,7 +48,7 @@ struct InstrumentProfile {
     /// start and the point where the HFC onset detector fires. Fast attacks
     /// fire ~0 ms; slow air/bow ramps fire late, so rhythmic judgment for
     /// those instruments evaluates the ramp start (negative offset applied
-    /// to the onset timestamp by the judgment layer — a GAME-side consumer;
+    /// to the onset timestamp by the judgment layer, a GAME-side consumer;
     /// libkan's detection does not read this field).
     float judgment_offset_ms = 0.0f;
 
@@ -71,7 +71,7 @@ struct InstrumentProfile {
 
     /// Legato pitch changes open note records without an attack (wind /
     /// bowed slurs and transition notes). Strikes (keyboard, plucked) keep
-    /// attack-only boundaries. Pack data — a flute and a melodica differ
+    /// attack-only boundaries. Pack data: a flute and a melodica differ
     /// here only through their profile, never through code.
     bool accepts_legato_boundaries = false;
 
@@ -80,7 +80,7 @@ struct InstrumentProfile {
     float reading_interval_ms = 50.0f;
 
     /// A legato pitch change opens its record once the new pitch has held
-    /// this long (ms) — long enough that a vibrato swing (which returns) is
+    /// this long (ms): long enough that a vibrato swing (which returns) is
     /// not taken for a step (which stays). Fast slurred passages need it
     /// short: a 16th note at 100 bpm lasts 150 ms.
     float transition_hold_ms = 250.0f;
@@ -88,7 +88,7 @@ struct InstrumentProfile {
     /// Articulation by level on one-note-at-a-time instruments (tonguing,
     /// bow changes, breaths): a brief dip of the sound below the release
     /// level that comes back opens a new record at the dip; a longer one
-    /// ends the note at its release. Winds articulate this way — often with
+    /// ends the note at its release. Winds articulate this way, often with
     /// no attack transient for the onset detector to find.
     bool rearticulates_by_level = false;
 

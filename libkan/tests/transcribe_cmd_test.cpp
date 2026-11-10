@@ -1,8 +1,8 @@
 // Offline unit test of the shell-command construction in transcribe.hpp
-// (model download, tool probes): pure string building — no network, no
+// (model download, tool probes): pure string building, no network, no
 // shell is ever run. The POSIX expectations pin the historical command
 // strings (the POSIX path must stay unchanged); the Windows ones pin
-// cmd.exe quoting (double quotes — single quotes are literal there) and
+// cmd.exe quoting (double quotes; single quotes are literal there) and
 // its `where` PATH probe.
 #include "libkan/transcribe.hpp"
 

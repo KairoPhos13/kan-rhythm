@@ -6,7 +6,7 @@ target_include_directories(libkan INTERFACE
 )
 target_compile_features(libkan INTERFACE cxx_std_20)
 
-# Score-informed BACF detector backend (Cycfi Q, MIT — fetched by the root
+# Score-informed BACF detector backend (Cycfi Q, MIT; fetched by the root
 # CMakeLists under KAN_ENABLE_BACF). Consumers of bacf_detector.hpp link
 # libkan_bacf instead of plain libkan.
 if(TARGET libq)
@@ -160,7 +160,7 @@ add_test(NAME score_error COMMAND libkan_score_error_test)
 # ---- In-process GGUF RoFormer separation runtime (single stack) ----
 # Official separation flow is self-contained (docs/implementation/
 # kan-editor-agent-prompt.md, game/docs/editor-pipeline.md s7b): no
-# installed separator binary — only the auto-downloaded GGUF model.
+# installed separator binary, only the auto-downloaded GGUF model.
 # Third-party code (BSRoformer.cpp + GGML, both MIT) compiles INTO
 # libkan_roformer; consumers get it automatically via libkan.
 option(KAN_ENABLE_ROFORMER "Compile the GGUF RoFormer runtime into libkan" ON)
@@ -193,7 +193,7 @@ if(KAN_ENABLE_ROFORMER)
             if(Vulkan_FOUND AND KAN_GLSLC)
                 set(_kan_ggml_vulkan ON)
             else()
-                message(STATUS "libkan: Vulkan tools not found — RoFormer runs on CPU")
+                message(STATUS "libkan: Vulkan tools not found; RoFormer runs on CPU")
             endif()
         endif()
     elseif(_kan_ggml_backend STREQUAL "VULKAN")
@@ -204,7 +204,7 @@ if(KAN_ENABLE_ROFORMER)
         else()
             message(WARNING
                 "libkan: KAN_GGML_BACKEND=VULKAN but the Vulkan SDK was not "
-                "found (Vulkan headers + glslc) — RoFormer runs on CPU")
+                "found (Vulkan headers + glslc); RoFormer runs on CPU")
         endif()
     elseif(_kan_ggml_backend STREQUAL "METAL")
         if(NOT APPLE)
@@ -222,7 +222,7 @@ if(KAN_ENABLE_ROFORMER)
     if(_kan_ggml_metal)
         set(GGML_METAL_EMBED_LIBRARY ON CACHE BOOL "ggml: embed the Metal shader" FORCE)
     endif()
-    message(STATUS "libkan: RoFormer ggml backend — Vulkan=${_kan_ggml_vulkan} Metal=${_kan_ggml_metal}")
+    message(STATUS "libkan: RoFormer ggml backend, Vulkan=${_kan_ggml_vulkan} Metal=${_kan_ggml_metal}")
     # PINNED: the Vulkan backend is correctness-critical (ggml-vulkan q8_0
     # integer dot product produced wrong stems on RADV NAVI21 at
     # 3612c0af). Update only WITH the parity test (libkan_runtime_test,
@@ -234,12 +234,12 @@ if(KAN_ENABLE_ROFORMER)
         GIT_TAG ${KAN_GGML_PIN} GIT_SHALLOW FALSE)
     FetchContent_MakeAvailable(ggml)
 
-    # MinGW compatibility (Windows cross builds, e.g. the kan! test build —
+    # MinGW compatibility (Windows cross builds, e.g. the kan! test build:
     # game/packaging/windows/cross-build-native.sh): the pinned ggml's CPU
     # backend opts worker threads out of Windows 11 power throttling with
     # THREAD_POWER_THROTTLING_STATE / ThreadPowerThrottling (Windows 10 RS3
     # SDK types) when _WIN32_WINNT >= 0x0602, but mingw-w64 headers (up to
-    # 12.x) declare neither — the compile fails on the unknown types.
+    # 12.x) declare neither; the compile fails on the unknown types.
     # Win7-level headers compile that opt-out away (it is a scheduling
     # nicety, not correctness). MSVC has the SDK types and keeps the code.
     if(MINGW AND TARGET ggml-cpu)

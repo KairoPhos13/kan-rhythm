@@ -8,7 +8,7 @@ detection pipeline that decouples rhythm from pitch.
   ghost onsets from ambient noise)
 - **Fast path (~2.6 ms):** onset detection (HFC energy derivative) for
   instant rhythmic hit judgment
-- **Harmonic path (~10–30 ms):** score-informed pitch confirmation
+- **Harmonic path (~10-30 ms):** score-informed pitch confirmation
   (bounded NSDF matcher ±2 semitones), monophonic pitch (lightweight YIN,
   or Cycfi Q BACF via `libkan_bacf`) and note/cents reporting vs A4 = 440 Hz
 - **Neural transcription (offline):** Basic Pitch (Spotify, Apache-2.0)

@@ -39,7 +39,7 @@ inline constexpr size_t kChordCount = 3;
 inline constexpr float kPercTimes[3] = {0.50f, 1.50f, 2.50f};
 inline constexpr size_t kPercCount = 3;
 
-// onset_grid.wav: tone bursts (100 ms, 440 Hz) every second — the latency
+// onset_grid.wav: tone bursts (100 ms, 440 Hz) every second, the latency
 // grid. Detection latency = detected_onset_sample - t*rate, block-quantized.
 inline constexpr float kGridPeriod = 1.0f;
 inline constexpr float kGridFirst = 0.50f;
