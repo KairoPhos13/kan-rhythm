@@ -15,6 +15,25 @@ special case), kan!'s vocabulary (**companion**, never "piano", for the
 accompaniment), and English only
 ([CONTRIBUTING.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/CONTRIBUTING.md)).
 
+## Now: the ten that matter most (2026-11-10)
+
+Where kan! stands: the server is live (`kan-api.kairophos.link`), the website
+is ready (`kan.kairophos.link`), accounts work from the website and the game,
+there is no release yet and no level in the catalogue.
+
+| Order | Issue | Who | State |
+|---|---|---|---|
+| 1 | [31 Stay quiet online without realtime services](31-quiet-online-without-realtime.md) | agent | in progress |
+| 2 | [32 Server tests in CI, shaped like the game](32-server-ci-with-postgres.md) | agent | in progress |
+| 3 | [33 Admin tools: password reset, accounts](33-admin-tools.md) | agent | in progress |
+| 4 | [35 Nightly database backups to R2](35-nightly-backups.md) | Claude | done 2026-11-10 |
+| 5 | [15 First free levels](15-first-free-bundled-level.md) with [14 companions](14-companions-for-free-songs.md) | owner, then import | next |
+| 6 | [09 Windows](09-windows-build-and-playtest.md) and [10 macOS](10-macos-build-and-playtest.md) play-tests, with the first release `v0.1.0` | owner, testers | next |
+| 7 | [22 Leftover osu! text](22-osu-string-sweep-remaining.md) (mod descriptions such as "SS or quit") | agent | open |
+| 8 | [24 Hide osu!-only features](24-hide-osu-only-features.md) | agent | open |
+| 9 | [34 Level uploads for creators](34-level-uploads.md) | owner decides the design | open |
+| 10 | [27 Level creator handbook](27-level-creator-handbook.md) | agent, owner reviews | open |
+
 ## Index
 
 | # | Title | Labels | Size |
@@ -49,6 +68,11 @@ accompaniment), and English only
 | 28 | [Publish the `.kan` / `.kchart` format specification](28-chart-format-specification.md) | `docs` | M |
 | 29 | [Server MVP follow-up: public website pages (landing + level catalogue)](29-website-pages.md) | `server` `help wanted` | L |
 | 30 | [Server MVP follow-up: public profile pages (kp stats, per-instrument ranks)](30-profile-pages.md) | `server` | M |
+| 31 | [Stay quiet online when kan!'s server has no realtime services](31-quiet-online-without-realtime.md) | `game` `server` | S |
+| 32 | [Run the server's full test suite in CI, with requests shaped like the game's](32-server-ci-with-postgres.md) | `server` | S |
+| 33 | [Admin tools: reset a player's password, list and remove accounts](33-admin-tools.md) | `server` | S |
+| 34 | [Let level creators upload their levels to kan!'s catalogue](34-level-uploads.md) | `server` `editor` `help wanted` | L |
+| 35 | [Nightly database backups to R2, with a restore drill](35-nightly-backups.md) | `server` | S |
 
 Size key: **S** (hours to a day) · **M** (a few days) · **L** (a week or
 more of part-time work).

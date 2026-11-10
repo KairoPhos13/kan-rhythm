@@ -1,0 +1,10 @@
+[Unit]
+Description=Run the kan! database backup every night
+
+[Timer]
+OnCalendar=*-*-* 04:17:00 UTC
+Persistent=true
+RandomizedDelaySec=10m
+
+[Install]
+WantedBy=timers.target

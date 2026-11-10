@@ -1,0 +1,12 @@
+[Unit]
+Description=kan! nightly database backup (local copy + R2)
+After=docker.service
+Requires=docker.service
+
+[Service]
+Type=oneshot
+Environment=DEPLOY_DIR=/home/ec2-user/kan-server/deploy
+Environment=BACKUP_DIR=/var/backups/kan
+Environment=BACKUP_BUCKET=kan-backups
+ExecStart=/usr/local/sbin/kan-backup.sh
+Nice=10

@@ -212,35 +212,46 @@ docker compose -f docker-compose.tunnel.yml exec app \
 
 ## 10. Backups (pg_dump to R2) and a restore drill
 
-Nightly dump to a local directory, then upload to R2 with rclone:
+Every night a systemd timer dumps the database, keeps 14 days on the host
+(`/var/backups/kan`) and uploads the dump to the `kan-backups` bucket, where
+dumps older than 60 days are removed. The R2 keys come from `deploy/.env` at
+run time; no rclone config file with secrets is written. (Amazon Linux 2023
+has no cron, hence the timer.)
 
 ```bash
-sudo mkdir -p /var/backups/kan
-sudo cp server/app/deploy/backup.sh /usr/local/bin/kan-backup.sh
-sudo chmod +x /usr/local/bin/kan-backup.sh
-echo '17 4 * * * root BACKUP_DIR=/var/backups/kan /usr/local/bin/kan-backup.sh >> /var/log/kan-backup.log 2>&1' \
-  | sudo tee /etc/cron.d/kan-backup
+sudo install -m 755 deploy/backup.sh /usr/local/sbin/kan-backup.sh
+sudo install -m 644 deploy/kan-backup.service deploy/kan-backup.timer /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now kan-backup.timer
+sudo systemctl start kan-backup.service          # one backup now
+journalctl -u kan-backup.service -n 5 --no-pager # "uploaded to r2:kan-backups/"
+systemctl list-timers kan-backup.timer           # the next run
 ```
 
-Configure rclone once (`rclone config`; remote `remote`, type `s3`, provider
-`Cloudflare`, endpoint `https://<account-id>.r2.cloudflarestorage.com`, the R2
-API token's keys), then upload in the same cron job (uncomment the `rclone copy`
-line in `backup.sh` or add it to the cron line):
+`kan-backup.service` sets `DEPLOY_DIR` (the folder with `.env` and the compose
+file), `BACKUP_DIR` and `BACKUP_BUCKET`; the R2 token must be allowed to write
+to `kan-backups`.
+
+**Restore drill** (done 2026-11-10: the newest dump from R2 restored into a
+throwaway database with every table and account; repeat twice a year):
 
 ```bash
-rclone copy /var/backups/kan remote:kan-backups/ --transfers 2
-rclone lsf remote:kan-backups/        # list what is actually stored
+cd ~/kan-server/deploy
+env_get() { sed -n "s/^$1=//p" .env | tail -n 1; }
+export RCLONE_CONFIG_R2_TYPE=s3 RCLONE_CONFIG_R2_PROVIDER=Cloudflare \
+  RCLONE_CONFIG_R2_ENDPOINT=$(env_get S3_ENDPOINT) \
+  RCLONE_CONFIG_R2_ACCESS_KEY_ID=$(env_get S3_ACCESS_KEY_ID) \
+  RCLONE_CONFIG_R2_SECRET_ACCESS_KEY=$(env_get S3_SECRET_ACCESS_KEY)
+F=$(rclone lsf r2:kan-backups/ | sort | tail -1); rclone copy r2:kan-backups/$F /tmp/
+P="sudo docker exec -i kan-server-postgres psql -U kan -q"
+$P -d kan -c "CREATE DATABASE kan_drill;"
+gunzip -c /tmp/$F | $P -d kan_drill -v ON_ERROR_STOP=1 >/dev/null
+$P -d kan_drill -tAc "SELECT count(*) FROM users;"
+$P -d kan -c "DROP DATABASE kan_drill;"
 ```
 
-**Restore drill (do it once after the first deploy, then twice a year):**
-
-```bash
-# on the box: restore the newest dump into the running database
-gunzip -c /var/backups/kan/kan-<stamp>.sql.gz | \
-  docker compose -f docker-compose.tunnel.yml exec -T postgres psql -U kan -d kan
-# or pull the copy from R2 first:
-rclone copy remote:kan-backups/kan-<stamp>.sql.gz /var/backups/kan/
-```
+A real restore replaces `kan_drill` with `kan` after stopping the app
+(`docker compose -f docker-compose.tunnel.yml stop app`) and recreating the
+database.
 
 With `STORAGE_DRIVER=s3` the level archives themselves live in R2 and need no
 extra backup; with `STORAGE_DRIVER=local` also back up the `kan-storage` volume
