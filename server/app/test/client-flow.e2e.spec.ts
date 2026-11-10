@@ -9,6 +9,17 @@
  * The fixture archive is generated in-test (silent WAV + 1x1 PNG, no
  * copyrighted audio) and the `local` storage driver is used; the s3 redirect
  * path is unit-tested separately in storage-redirect.spec.ts.
+ *
+ * The forms are sent exactly as the game sends them: multipart/form-data with
+ * the field names of RegistrationRequest.cs and OAuth.cs (osu!framework posts
+ * every AddParameter body that way, see src/common/multipart.ts). One
+ * urlencoded case stays so both body encodings keep working.
+ *
+ * The second describe covers the newer registration rules (common passwords,
+ * the website CORS header) with its own app instance: the registration rate
+ * limiter is in-memory and allows 5 attempts per hour per client IP
+ * (src/users/registration.controller.ts), which the flow above already spends
+ * 4 of.
  */
 import { INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -31,6 +42,8 @@ import { buildOsz, FIXTURE_ARTIST, FIXTURE_TITLE } from './fixture';
 const TEST_DATABASE_URL =
   process.env.TEST_DATABASE_URL ?? 'postgres://kan:kan@localhost:55432/kan_test';
 const OAUTH_CLIENT_SECRET = 'e2e-client-secret';
+/** The website whose sign-up form is the only origin the server CORS-allows. */
+const WEBSITE_URL = 'https://kan.example.org';
 
 jest.setTimeout(120_000);
 
@@ -40,10 +53,51 @@ interface Tokens {
   expires_in: number;
 }
 
+// The suite's app instances share one throwaway database (created and
+// migrated here) and one environment. WEBSITE_URL is set before any app is
+// created: the website CORS middleware (src/common/website-cors.ts) reads it
+// at startup.
+let pool: Pool;
+let storageDir: string;
+
+async function createTestApp(): Promise<INestApplication> {
+  const app = await NestFactory.create(AppModule, { bodyParser: false, logger: false });
+  configureApp(app);
+  await app.init();
+  return app;
+}
+
+beforeAll(async () => {
+  storageDir = mkdtempSync(path.join(tmpdir(), 'kan-server-e2e-'));
+
+  // A throwaway database for this run.
+  const adminUrl = new URL(TEST_DATABASE_URL);
+  const dbName = adminUrl.pathname.replace(/^\//, '');
+  adminUrl.pathname = '/postgres';
+  const admin = createPool(adminUrl.toString());
+  await admin.query(`DROP DATABASE IF EXISTS ${dbName} WITH (FORCE)`);
+  await admin.query(`CREATE DATABASE ${dbName}`);
+  await admin.end();
+
+  pool = createPool(TEST_DATABASE_URL);
+  const migrationsDir = path.join(__dirname, '..', 'migrations');
+  await runMigrations(pool, migrationsDir);
+
+  process.env.DATABASE_URL = TEST_DATABASE_URL;
+  process.env.STORAGE_DRIVER = 'local';
+  process.env.STORAGE_LOCAL_DIR = storageDir;
+  process.env.OAUTH_CLIENT_ID = 'kan-client';
+  process.env.OAUTH_CLIENT_SECRET = OAUTH_CLIENT_SECRET;
+  process.env.WEBSITE_URL = WEBSITE_URL;
+});
+
+afterAll(async () => {
+  await pool?.end();
+  if (storageDir) rmSync(storageDir, { recursive: true, force: true });
+});
+
 describe('client flow (lazer protocol)', () => {
   let app: INestApplication;
-  let pool: Pool;
-  let storageDir: string;
   let tokensA: Tokens;
   let tokensB: Tokens;
   let userAId: number;
@@ -53,60 +107,38 @@ describe('client flow (lazer protocol)', () => {
   let downloadPath: string;
 
   beforeAll(async () => {
-    storageDir = mkdtempSync(path.join(tmpdir(), 'kan-server-e2e-'));
-
-    // A throwaway database for this run.
-    const adminUrl = new URL(TEST_DATABASE_URL);
-    const dbName = adminUrl.pathname.replace(/^\//, '');
-    adminUrl.pathname = '/postgres';
-    const admin = createPool(adminUrl.toString());
-    await admin.query(`DROP DATABASE IF EXISTS ${dbName} WITH (FORCE)`);
-    await admin.query(`CREATE DATABASE ${dbName}`);
-    await admin.end();
-
-    pool = createPool(TEST_DATABASE_URL);
-    const migrationsDir = path.join(__dirname, '..', 'migrations');
-    await runMigrations(pool, migrationsDir);
-
-    process.env.DATABASE_URL = TEST_DATABASE_URL;
-    process.env.STORAGE_DRIVER = 'local';
-    process.env.STORAGE_LOCAL_DIR = storageDir;
-    process.env.OAUTH_CLIENT_ID = 'kan-client';
-    process.env.OAUTH_CLIENT_SECRET = OAUTH_CLIENT_SECRET;
-
-    app = await NestFactory.create(AppModule, { bodyParser: false, logger: false });
-    configureApp(app);
-    await app.init();
+    app = await createTestApp();
   });
 
   afterAll(async () => {
     await app?.close();
-    await pool?.end();
-    if (storageDir) rmSync(storageDir, { recursive: true, force: true });
     if (fixturePath) rmSync(fixturePath, { force: true });
     if (downloadPath) rmSync(downloadPath, { force: true });
   });
 
+  /**
+   * Registration exactly as the game sends it (RegistrationRequest.cs): a
+   * multipart form with the `user[...]` field names.
+   */
   async function register(username: string, email: string, password: string) {
     return request(app.getHttpServer())
       .post('/users')
-      .type('form')
-      .send({ user: { username, user_email: email, password } })
+      .field('user[username]', username)
+      .field('user[user_email]', email)
+      .field('user[password]', password)
       .set('Accept', 'application/json');
   }
 
+  /** The token request exactly as the game sends it (OAuth.cs): a multipart form. */
   async function login(username: string, password: string): Promise<Tokens> {
     const response = await request(app.getHttpServer())
       .post('/oauth/token')
-      .type('form')
-      .send({
-        grant_type: 'password',
-        client_id: 'kan-client',
-        client_secret: OAUTH_CLIENT_SECRET,
-        scope: '*',
-        username,
-        password,
-      });
+      .field('grant_type', 'password')
+      .field('client_id', 'kan-client')
+      .field('client_secret', OAUTH_CLIENT_SECRET)
+      .field('scope', '*')
+      .field('username', username)
+      .field('password', password);
     expect(response.status).toBe(200);
     return response.body as Tokens;
   }
@@ -126,7 +158,20 @@ describe('client flow (lazer protocol)', () => {
     expect(response.body.form_error.user.user_email[0]).toContain('not valid');
     expect(response.body.form_error.user.password[0]).toContain('8 characters');
 
-    const duplicate = await register('aliceosu', 'other@example.org', 'correct horse battery');
+    // The one urlencoded case stays (the game posts multipart): the website's
+    // sign-up form posts x-www-form-urlencoded (web/index.html), so both body
+    // encodings stay covered.
+    const duplicate = await request(app.getHttpServer())
+      .post('/users')
+      .type('form')
+      .send({
+        user: {
+          username: 'aliceosu',
+          user_email: 'other@example.org',
+          password: 'correct horse battery',
+        },
+      })
+      .set('Accept', 'application/json');
     expect(duplicate.status).toBe(422);
     expect(duplicate.body.form_error.user.username[0]).toContain('taken');
   });
@@ -139,15 +184,12 @@ describe('client flow (lazer protocol)', () => {
 
     const wrong = await request(app.getHttpServer())
       .post('/oauth/token')
-      .type('form')
-      .send({
-        grant_type: 'password',
-        client_id: 'kan-client',
-        client_secret: OAUTH_CLIENT_SECRET,
-        scope: '*',
-        username: 'AliceOsu',
-        password: 'wrong-password',
-      });
+      .field('grant_type', 'password')
+      .field('client_id', 'kan-client')
+      .field('client_secret', OAUTH_CLIENT_SECRET)
+      .field('scope', '*')
+      .field('username', 'AliceOsu')
+      .field('password', 'wrong-password');
     expect(wrong.status).toBe(400);
     expect(wrong.body.error).toBe('invalid_grant');
     expect(wrong.body.hint).toBeTruthy();
@@ -156,14 +198,11 @@ describe('client flow (lazer protocol)', () => {
   it('rotates the refresh token on use', async () => {
     const response = await request(app.getHttpServer())
       .post('/oauth/token')
-      .type('form')
-      .send({
-        grant_type: 'refresh_token',
-        client_id: 'kan-client',
-        client_secret: OAUTH_CLIENT_SECRET,
-        scope: '*',
-        refresh_token: tokensA.refresh_token,
-      });
+      .field('grant_type', 'refresh_token')
+      .field('client_id', 'kan-client')
+      .field('client_secret', OAUTH_CLIENT_SECRET)
+      .field('scope', '*')
+      .field('refresh_token', tokensA.refresh_token);
     expect(response.status).toBe(200);
     expect(response.body.refresh_token).not.toBe(tokensA.refresh_token);
     tokensA = response.body as Tokens;
@@ -171,14 +210,11 @@ describe('client flow (lazer protocol)', () => {
     // the rotated-away refresh token is no longer valid
     const replay = await request(app.getHttpServer())
       .post('/oauth/token')
-      .type('form')
-      .send({
-        grant_type: 'refresh_token',
-        client_id: 'kan-client',
-        client_secret: OAUTH_CLIENT_SECRET,
-        scope: '*',
-        refresh_token: 'definitely-not-a-token',
-      });
+      .field('grant_type', 'refresh_token')
+      .field('client_id', 'kan-client')
+      .field('client_secret', OAUTH_CLIENT_SECRET)
+      .field('scope', '*')
+      .field('refresh_token', 'definitely-not-a-token');
     expect(replay.status).toBe(400);
     expect(replay.body.error).toBe('invalid_grant');
   });
@@ -335,19 +371,22 @@ describe('client flow (lazer protocol)', () => {
   it('creates a score token and submits a score', async () => {
     const beatmap = imported.beatmaps[0];
 
+    // Score token creation is a multipart form too (CreateSoloScoreRequest.cs).
     const badHash = await request(app.getHttpServer())
       .post(`/api/v2/beatmaps/${beatmap.id}/solo/scores`)
       .set('Authorization', `Bearer ${tokensA.access_token}`)
-      .type('form')
-      .send({ version_hash: 'build', beatmap_hash: 'not-the-md5', ruleset_id: 0 });
+      .field('version_hash', 'build')
+      .field('beatmap_hash', 'not-the-md5')
+      .field('ruleset_id', '0');
     expect(badHash.status).toBe(400);
     expect(badHash.body.error).toBe('invalid or missing beatmap_hash');
 
     const token = await request(app.getHttpServer())
       .post(`/api/v2/beatmaps/${beatmap.id}/solo/scores`)
       .set('Authorization', `Bearer ${tokensA.access_token}`)
-      .type('form')
-      .send({ version_hash: 'build', beatmap_hash: beatmap.checksum, ruleset_id: 0 });
+      .field('version_hash', 'build')
+      .field('beatmap_hash', beatmap.checksum)
+      .field('ruleset_id', '0');
     expect(token.status).toBe(201);
     expect(typeof token.body.id).toBe('number');
 
@@ -413,8 +452,9 @@ describe('client flow (lazer protocol)', () => {
     const token = await request(app.getHttpServer())
       .post(`/api/v2/beatmaps/${beatmap.id}/solo/scores`)
       .set('Authorization', `Bearer ${tokensB.access_token}`)
-      .type('form')
-      .send({ version_hash: 'build', beatmap_hash: beatmap.checksum, ruleset_id: 0 });
+      .field('version_hash', 'build')
+      .field('beatmap_hash', beatmap.checksum)
+      .field('ruleset_id', '0');
     expect(token.status).toBe(201);
 
     const submitted = await request(app.getHttpServer())
@@ -510,5 +550,56 @@ describe('client flow (lazer protocol)', () => {
     const response = await request(app.getHttpServer()).get(`/api/v2/beatmaps/?ids[]=${ids}`);
     expect(response.status).toBe(200);
     expect(response.body.beatmaps).toHaveLength(2);
+  });
+});
+
+describe('newer registration rules', () => {
+  let app: INestApplication;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+  });
+
+  afterAll(async () => {
+    await app?.close();
+  });
+
+  it('refuses a common password in the form_error shape', async () => {
+    // The game's multipart registration form with a password straight off the
+    // credential-stuffing lists (src/users/password-rules.ts).
+    const response = await request(app.getHttpServer())
+      .post('/users')
+      .field('user[username]', 'MelodyKeys')
+      .field('user[user_email]', 'melody@example.org')
+      .field('user[password]', 'password123')
+      .set('Accept', 'application/json');
+    expect(response.status).toBe(422);
+    expect(response.body.form_error.user.password[0]).toContain('too common');
+    // the password is the only complaint
+    expect(response.body.form_error.user.username).toBeUndefined();
+    expect(response.body.form_error.user.user_email).toBeUndefined();
+  });
+
+  it('puts the website CORS header on POST /users only for the website origin', async () => {
+    // The website's sign-up form posts to POST /users from WEBSITE_URL and must
+    // be able to read the new account back (src/common/website-cors.ts).
+    const fromWebsite = await request(app.getHttpServer())
+      .post('/users')
+      .field('user[username]', 'WebSigner')
+      .field('user[user_email]', 'web@example.org')
+      .field('user[password]', 'a line from a song')
+      .set('Origin', WEBSITE_URL);
+    expect(fromWebsite.status).toBe(201);
+    expect(fromWebsite.headers['access-control-allow-origin']).toBe(WEBSITE_URL);
+
+    // every other origin gets no CORS header on the same route
+    const fromElsewhere = await request(app.getHttpServer())
+      .post('/users')
+      .field('user[username]', 'ElseSigner')
+      .field('user[user_email]', 'else@example.org')
+      .field('user[password]', 'another good password')
+      .set('Origin', 'https://evil.example');
+    expect(fromElsewhere.status).toBe(201);
+    expect(fromElsewhere.headers['access-control-allow-origin']).toBeUndefined();
   });
 });

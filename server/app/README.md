@@ -57,6 +57,12 @@ npm run build
 npm run typecheck
 ```
 
+The unit tests run anywhere. The client-flow e2e suite needs PostgreSQL: it
+creates a throwaway `kan_test` database in `TEST_DATABASE_URL` (default
+`postgres://kan:kan@localhost:55432/kan_test`, the docker compose above) and
+walks the game's protocol against it. CI runs both halves on every change
+under `server/` (`.github/workflows/server.yml`).
+
 ## Environment variables
 
 | Variable | Default | Meaning |
