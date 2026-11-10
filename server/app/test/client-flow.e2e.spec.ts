@@ -149,6 +149,8 @@ describe('client flow (lazer protocol)', () => {
     expect(response.body.username).toBe('AliceOsu');
     userAId = response.body.id;
     expect(typeof userAId).toBe('number');
+    // The client treats ids <= 1 as "no real account" (migration 0005).
+    expect(userAId).toBeGreaterThanOrEqual(2);
   });
 
   it('answers registration validation failures in the form_error shape', async () => {

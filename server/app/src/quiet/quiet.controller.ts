@@ -9,7 +9,7 @@
  * `APINotificationsBundle`, `ChatAckResponse`, `APISeasonalBackgrounds`
  * (game/client/osu.Game/Online/API/Requests/Responses/).
  */
-import { Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { AuthGuard } from '../auth/auth.guard';
 
 @Controller('api/v2')
@@ -31,6 +31,7 @@ export class QuietController {
    * `POST /api/v2/chat/ack`: `ChatAckResponse`. No silences exist.
    */
   @Post('chat/ack')
+  @HttpCode(200)
   @UseGuards(AuthGuard)
   chatAck(): Record<string, unknown> {
     return { silences: [] };
