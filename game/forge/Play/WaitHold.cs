@@ -176,7 +176,7 @@ namespace Kan.Forge.Play
             }
         }
 
-        /// <summary>Nightcore/Daycore change the level's pitch: the held sound follows.</summary>
+        /// <summary>A rate mod that changed the pitch would move the held sound with it (kan! has none since 2026-11-10).</summary>
         private void followRate()
         {
             var source = working.Value.TrackLoaded ? working.Value.Track : null;

@@ -34,10 +34,12 @@ the reason it was chosen and what it replaced.
 - **Score.** Perfect 300, good 200, meh 100, miss 0; accuracy is their
   average. Rank: SS 100 %, S ≥ 95, A ≥ 90, B ≥ 80, C ≥ 70, else D; an S or
   SS needs no miss. Misses drain health; an empty bar fails the level.
-- **Mods.** Easy and Hard Rock widen or narrow the windows; Hidden fades
+- **Mods.** Easy and Hard Rock widen or narrow the windows (Hard Rock
+  changes nothing else; Easy also forgives 75 cents); Hidden fades
   the notes; By heart shows each only for a moment; Wait for me stops at
   each note until it is played; Practice loops a section; Half Time and
-  Double Time change the speed.
+  Double Time change the speed at the level's own pitch (no kan! mod
+  shifts the pitch: Daycore and Nightcore were removed on 2026-11-10).
 - **The staff** shows about five notes ahead at the level's fast pace
   (1.6-3.2 s), one scale for the whole level. The level ends when its last
   note ends.

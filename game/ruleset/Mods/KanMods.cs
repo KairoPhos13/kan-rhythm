@@ -13,8 +13,9 @@ using Kan.Ruleset.Replays;
 namespace Kan.Ruleset.Mods
 {
     // Mods that need nothing from the level editor. The
-    // rate mods run the same notes slower or faster (Daycore and Nightcore
-    // also shift the level's pitch with it): practice at 75 % or 90 %.
+    // rate mods run the same notes slower or faster, at the level's own
+    // pitch: practice at 75 % or 90 %. No kan! mod shifts the pitch (owner
+    // 2026-11-10: Daycore and Nightcore, which did, are gone).
 
     public class KanModNoFail : ModNoFail
     {
@@ -28,17 +29,11 @@ namespace Kan.Ruleset.Mods
 
     public class KanModPerfect : ModPerfect
     {
-        public override LocalisableString Description => @"Anything less than a perfect run fails the level.";
     }
 
     public class KanModHalfTime : ModHalfTime
     {
         public override LocalisableString Description => @"Slower, same notes: practise a level at 75 % (or any speed down to 50 %).";
-    }
-
-    public class KanModDaycore : ModDaycore
-    {
-        public override LocalisableString Description => @"Slower and lower in pitch: the level plays at 75 % (or any speed down to 50 %).";
     }
 
     public class KanModDoubleTime : ModDoubleTime
@@ -50,21 +45,25 @@ namespace Kan.Ruleset.Mods
     {
     }
 
-    public class KanModNightcore : ModNightcore<KanHitObject>
-    {
-        public override LocalisableString Description => @"Faster and higher in pitch, with a drum beat: the level plays at 150 % (or any speed up to 200 %).";
-    }
-
     /// <summary>Wider timing windows (×1.4) and pitch tolerance (±75 cents instead of ±50).</summary>
     public class KanModEasy : ModEasy
     {
         public override LocalisableString Description => @"Wider timing windows, and notes up to 75 cents out of tune still count.";
     }
 
-    /// <summary>Stricter timing windows (×0.7).</summary>
+    /// <summary>
+    /// Stricter timing windows (×0.7), and nothing else: osu!'s Hard Rock
+    /// also raises the level's difficulty values (health drains 40 % faster),
+    /// which is not what kan!'s Hard Rock says it does (owner 2026-11-10).
+    /// Pitch is untouched: neither the sound nor the pitch tolerance change.
+    /// </summary>
     public class KanModHardRock : ModHardRock
     {
         public override LocalisableString Description => @"Stricter timing windows.";
+
+        public override void ApplyToDifficulty(BeatmapDifficulty difficulty)
+        {
+        }
     }
 
     /// <summary>Notes fade out on their way to the line: play from memory.</summary>
@@ -169,9 +168,7 @@ namespace Kan.Ruleset.Mods
             Single<KanModPractice>(0); // practice: no score at all
             Single<KanModNoFail>(0.5);
             Single<KanModHalfTime>(m => m.SpeedChange.Value);
-            Single<KanModDaycore>(m => m.SpeedChange.Value);
             Single<KanModDoubleTime>(1.1);
-            Single<KanModNightcore>(1.1);
             Single<KanModEasy>(0.5);
             Single<KanModHardRock>(1.1);
             Single<KanModHidden>(1.06);

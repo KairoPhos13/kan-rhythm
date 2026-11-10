@@ -98,7 +98,7 @@ namespace Kan.Ruleset
             {
                 new Kan.Ruleset.Mods.KanModEasy(),
                 new Kan.Ruleset.Mods.KanModNoFail(),
-                new MultiMod(new Kan.Ruleset.Mods.KanModHalfTime(), new Kan.Ruleset.Mods.KanModDaycore()),
+                new Kan.Ruleset.Mods.KanModHalfTime(),
                 new Kan.Ruleset.Mods.KanModWait(),
                 new Kan.Ruleset.Mods.KanModPractice(),
             },
@@ -106,7 +106,7 @@ namespace Kan.Ruleset
             {
                 new Kan.Ruleset.Mods.KanModHardRock(),
                 new MultiMod(new Kan.Ruleset.Mods.KanModSuddenDeath(), new Kan.Ruleset.Mods.KanModPerfect()),
-                new MultiMod(new Kan.Ruleset.Mods.KanModDoubleTime(), new Kan.Ruleset.Mods.KanModNightcore()),
+                new Kan.Ruleset.Mods.KanModDoubleTime(),
                 new Kan.Ruleset.Mods.KanModHidden(),
                 new Kan.Ruleset.Mods.KanModByHeart(),
             },

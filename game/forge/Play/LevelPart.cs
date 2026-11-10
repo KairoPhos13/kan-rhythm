@@ -125,7 +125,7 @@ namespace Kan.Forge.Play
             channel.Sync.TakeResyncs();
         }
 
-        /// <summary>Rate mods change the level's speed (and Nightcore/Daycore its pitch): follow them.</summary>
+        /// <summary>Rate mods change the level's speed: follow them.</summary>
         private void followRate(IAdjustableAudioComponent? source)
         {
             if (ReferenceEquals(source, rateSource)) return;
