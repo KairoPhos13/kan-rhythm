@@ -13,19 +13,22 @@ using Kan.Ruleset.Replays;
 namespace Kan.Ruleset.Mods
 {
     // Mods that need nothing from the level editor. The
-    // rate mods keep the pitch (the player plays the same notes, slower or
-    // faster): practice at 75 % or 90 %.
+    // rate mods run the same notes slower or faster (Daycore and Nightcore
+    // also shift the level's pitch with it): practice at 75 % or 90 %.
 
     public class KanModNoFail : ModNoFail
     {
+        public override LocalisableString Description => @"You cannot fail the level.";
     }
 
     public class KanModSuddenDeath : ModSuddenDeath
     {
+        public override LocalisableString Description => @"One missed note fails the level.";
     }
 
     public class KanModPerfect : ModPerfect
     {
+        public override LocalisableString Description => @"Anything less than a perfect run fails the level.";
     }
 
     public class KanModHalfTime : ModHalfTime
@@ -35,10 +38,12 @@ namespace Kan.Ruleset.Mods
 
     public class KanModDaycore : ModDaycore
     {
+        public override LocalisableString Description => @"Slower and lower in pitch: the level plays at 75 % (or any speed down to 50 %).";
     }
 
     public class KanModDoubleTime : ModDoubleTime
     {
+        public override LocalisableString Description => @"Faster, same notes: the level plays at 150 % (or any speed up to 200 %).";
     }
 
     public class KanModMuted : ModMuted
@@ -47,6 +52,7 @@ namespace Kan.Ruleset.Mods
 
     public class KanModNightcore : ModNightcore<KanHitObject>
     {
+        public override LocalisableString Description => @"Faster and higher in pitch, with a drum beat: the level plays at 150 % (or any speed up to 200 %).";
     }
 
     /// <summary>Wider timing windows (×1.4) and pitch tolerance (±75 cents instead of ±50).</summary>
@@ -110,6 +116,8 @@ namespace Kan.Ruleset.Mods
     /// <summary>Autoplay without the interface: listen to the level played perfectly.</summary>
     public class KanModCinema : ModCinema<KanHitObject>
     {
+        public override LocalisableString Description => @"Listen to the level played perfectly, without the interface.";
+
         public override ModReplayData CreateReplayData(IBeatmap beatmap, IReadOnlyList<Mod> mods)
             => new ModReplayData(KanModAutoplay.Generate(beatmap.HitObjects.OfType<KanHitObject>()), new ModCreatedUser { Username = @"kan! autoplay" });
     }
