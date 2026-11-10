@@ -24,8 +24,8 @@ there is no release yet and no level in the catalogue.
 | Order | Issue | Who | State |
 |---|---|---|---|
 | 1 | [31 Stay quiet online without realtime services](31-quiet-online-without-realtime.md) | agent | in progress |
-| 2 | [32 Server tests in CI, shaped like the game](32-server-ci-with-postgres.md) | agent | in progress |
-| 3 | [33 Admin tools: password reset, accounts](33-admin-tools.md) | agent | in progress |
+| 2 | [32 Server tests in CI, shaped like the game](32-server-ci-with-postgres.md) | agent | done 2026-11-10 |
+| 3 | [33 Admin tools: password reset, accounts](33-admin-tools.md) | agent | done 2026-11-10 |
 | 4 | [35 Nightly database backups to R2](35-nightly-backups.md) | Claude | done 2026-11-10 |
 | 5 | [15 First free levels](15-first-free-bundled-level.md) with [14 companions](14-companions-for-free-songs.md) | owner, then import | next |
 | 6 | [09 Windows](09-windows-build-and-playtest.md) and [10 macOS](10-macos-build-and-playtest.md) play-tests, with the first release `v0.1.0` | owner, testers | next |
