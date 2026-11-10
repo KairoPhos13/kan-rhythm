@@ -40,6 +40,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-11-09 | `e012336` | `a132ea8183` (branch `agent/game`) | Repository home is the KairoPhos13 account | green (strings only) |
 | 2026-11-09 | `daeac53` | `4fa5313` (branch `main`) | `0fdaf70` clause-separating dashes removed from kan!-added text; `4fa5313` the osu! README replaced with kan!'s own (F-25) | green (0 warnings / 0 errors; make check green, comments/notices/UI strings only) |
 | 2026-11-10 | `4fa5313` | `bb17154f0b` (branch `main`) | F-24 server is `kan-api.kairophos.link`; F-26 account creation without osu!'s warning and email promises | green (0 warnings / 0 errors) |
+| 2026-11-10 | `bb17154f0b` | `ef737e8068` (branch `agent/quiet-online`) | F-27 quiet connectors when realtime services do not exist | green (0 warnings / 0 errors) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -448,6 +449,37 @@ Policy (rebase-ability first, ADR-0011 §4):
 - **Merge-conflict cost:** low; one line in `ScreenWelcome`, two in
   `ScreenEntry`.
 - **Upstream-PR:** no.
+
+### F-27: quiet connectors when realtime services do not exist (2026-11-10, commit `ef737e8068`)
+
+- **What:** `PersistentEndpointClientConnector.BuildConnectionAsync` may return null, meaning "the
+  remote service has no endpoint to connect to". The connector then makes no connection attempt,
+  retries nothing, logs one "the service is not available" line, and settles in the disconnected
+  state (`IsConnected` false) so UIs read it as the service being not available rather than still
+  connecting. `HubClientConnector` reports this for an empty endpoint URL (spectator, multiplayer and
+  metadata all share it), and the notifications connector when `GET /api/v2/notifications` gives no
+  `notification_endpoint` or does not answer, which also removes the null dereference that used to
+  fire after a 404. The "connecting..." log line moved after the build, so an unavailable service
+  never claims to be connecting. `osu.Game/Tests/TestChatClientConnector` only follows the new
+  signature (it polls over HTTP and always connects).
+- **Why:** owner (2026-11-10): login works fine, but the network log shows every minute or so
+  `OnlineMetadataClient` / `SpectatorClient` / `OnlineMultiplayerClient connect attempt failed ...
+  System.UriFormatException: Invalid URI: The URI is empty.` and a `NullReferenceException` in the
+  notifications connector's `BuildConnectionAsync`, each retried with exponential back-off (3 s to
+  120 s). kan!'s server runs no realtime services (`KanEndpointConfiguration` leaves the three hub
+  URLs empty on purpose), so there is nothing to connect to and nothing to retry. One guard at the
+  connector level covers every call site.
+- **Verified:** build green, 0 warnings / 0 errors. Traced what the login panel waits on: `LoginPanel`
+  shows its waiting UI from `api.State` alone (spinner with "Connecting..." or "Attempting to
+  reconnect"), and its signed-in `UserRankPanel` waits on `LocalUserStatisticsProvider` statistics.
+  Neither waits on these connectors, and the connectors cannot block login (they run off-thread and
+  only log). Not yet run against the deployed server; the companion server routes (implemented-empty
+  notifications, chat ack and seasonal backgrounds) remove the 404s the owner saw.
+- **Merge-conflict cost:** low: the abstract method's nullability in one base file plus three small
+  implementations and one test signature. Upstream edits to `BuildConnectionAsync` need a manual look.
+- **Upstream-PR:** no. A "no endpoint to connect to" outcome is kan!'s deployment shape; upstream
+  deployments always have all endpoints. If upstream ever wants partial service deployments, the
+  null-returning builder could be proposed there.
 
 ### String sweep, first pass (2026-10-27)
 
