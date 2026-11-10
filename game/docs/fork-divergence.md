@@ -40,6 +40,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-11-09 | `e012336` | `a132ea8183` (branch `agent/game`) | Repository home is the KairoPhos13 account | green (strings only) |
 | 2026-11-09 | `daeac53` | `4fa5313` (branch `main`) | `0fdaf70` clause-separating dashes removed from kan!-added text; `4fa5313` the osu! README replaced with kan!'s own (F-25) | green (0 warnings / 0 errors; make check green, comments/notices/UI strings only) |
 | 2026-11-10 | `4fa5313` | `bb17154f0b` (branch `main`) | F-24 server is `kan-api.kairophos.link`; F-26 account creation without osu!'s warning and email promises | green (0 warnings / 0 errors) |
+| 2026-11-10 | `bb17154f0b` | `8a855c3338` (branch `agent/strings`) | String sweep, second pass: English strings that mean kan! itself (issue 22) | green (0 warnings / 0 errors; `make check` green) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -460,6 +461,76 @@ startup error for old Windows (`Program.cs`); the editor's title
 osu!supporter, Featured Artists, the osu! music theme) are left: those
 features are not kan!'s.
 
+### String sweep, second pass (2026-11-10, commit `8a855c3338`, issue 22)
+
+- **What:** the remaining English strings where "osu!" means the game
+  itself now say kan!, each delta marked `kan! rebrand (ADR-0011)`:
+  - `osu.Desktop/NVAPI.cs`: the NVIDIA profile matches `kan.exe` (was
+    `osu!.exe`) and its names use the neutral `kan` spelling (was `osu!`);
+  - `osu.Desktop/Program.cs`: the multiple-running-instances message;
+  - `osu.Desktop/Windows/WindowsAssociationManager.cs`: the application
+    capability description is `kan!` (was `osu!(lazer)`);
+  - `osu.Game/Localisation/`: `StorageErrorDialogStrings` (storage error
+    and data location copy), `NamedOverlayComponentStrings` (changelog
+    tooltip), `ButtonSystemStrings` (mobile disclaimer),
+    `BeatmapOverlayStrings` (user content disclaimer);
+  - `osu.Game/Database/RealmAccess.cs` (database recovery messages) and
+    `osu.Game/OsuGameBase.cs` (data migration log);
+  - `osu.Game/Seasonal/IntroChristmas.cs`: "welcome to kan!" and
+    "merry kan!mas!" (was "welcome to osu!" and the osu!-mas pun);
+  - `osu.Game.Tournament/Screens/Setup/TournamentSwitcher.cs`:
+    "Close kan!" (was "Close osu!").
+  Kept deliberately, each triaged under the issue's rule (keep what
+  refers to actual osu! or is attribution):
+  - osu!stable import and its paths: `DialogStrings`,
+    `FirstRunOverlayImportFromStableScreenStrings`,
+    `MaintenanceSettingsStrings` (stable location),
+    `LegacyCollectionImporter`/`LegacyModelImporter`/`LegacyImportManager`/
+    `StableStorage`/`OsuGameDesktop` (locating the user's osu! install),
+    the tournament client's osu!stable data source copy;
+  - osu!supporter and osu!'s site: `LeaderboardStrings`,
+    `OnlinePlayStrings`, `UserInterfaceStrings` (supporter note),
+    `SupporterDisplayStrings`, `ChangelogSupporterPromo`,
+    `DrawableRecentActivity`, `ScreenQueue` ("osu! forums"),
+    `ScreenWarning`'s osu! account policy (unreachable since F-26);
+  - other osu!-only things: Featured Artists
+    (`BeatmapOverlayStrings.FeaturedArtistsTooltip`), "Get the osu!
+    tutorial" (`FirstRunSetupBeatmapScreenStrings`), "osu! music theme"
+    (`UserInterfaceStrings`, toggle hidden since F-22), "classic versions
+    of osu!" (`FirstRunSetupOverlayStrings`), the osu! beatmap export
+    disclaimer (`BeatmapSubmissionStrings`), the "osu!direct" menu tip
+    (`MenuTipStrings`), `ModScoreV2` (marks osu!stable scores), the
+    stock osu!/taiko/catch/mania ruleset strings and matchmaking pool
+    names (not shipped since F-9), `Localisation/Osu/*` (osu! ruleset);
+  - osu!'s built-in skins' names and "team osu!" creator, bundled beatmap
+    titles ("... (osu! edit).osz"), and attribution text
+    (`KanAboutSettings` "Built on osu!lazer (MIT), ppy/osu contributors",
+    `THIRD_PARTY_NOTICES`, upstream licence headers);
+  - developer configuration and platform projects kan! does not build:
+    `osu.Desktop/Properties/launchSettings.json` (IDE run profiles; JSON
+    cannot carry the marker comment), `.vscode`/`.idea`/`.run`,
+    `Templates/*`, `osu.Android`/`osu.iOS` (desktop only, F-23), and
+    upstream package metadata (`osu.nuspec`, `osu.Game.csproj`'s NuGet
+    title: the ppy/osu package identity is upstream's, ADR-0011 §4).
+- **Why:** issue 22 (the owner met leftover osu! copy on the mod
+  selection screen); every "osu!" that means this game must say kan!
+  before release (ADR-0011 §1).
+- **Verified:** `make check` green (0 warnings / 0 errors; native 2/2,
+  Kan.Core 130, Kan.Forge 48). `git grep -i "osu!"` over the fork triaged
+  hit by hit; the list above is the triage record.
+- **Merge-conflict cost:** low; one to three lines in eleven files, all
+  strings and comments, no behaviour.
+- **Upstream-PR:** no (product-specific strings).
+
+Two judgement calls in the second pass, flagged for the maintainer: the
+mobile disclaimer now reads "we have released kan! on mobile platforms"
+(name swap only). The dialog shows only in mobile builds
+(`RuntimeInfo.IsMobile`), which kan! does not ship (F-23); the claim
+about a mobile release is true of osu! and needs a decision before kan!
+ever ships mobile. The NVIDIA profile names use the neutral `kan`
+spelling of the brand (like the `kan` assembly name of ADR-0011 §4), not
+the `kan!` wordmark.
+
 ### F-25: `README.md` rewritten for the kan! game client (2026-11-09, commit `4fa5313`)
 
 - **What:** the fork root `README.md` (upstream osu!'s) is replaced with
@@ -467,15 +538,20 @@ features are not kan!'s.
 
 ## String sweep: remaining scope (deferred, game/TODO.md)
 
-- Translations: the strings above change only in English. Other languages
-  come from `osu.Game.Resources`' translations and still say osu!.
-- `osu.Desktop/NVAPI.cs`: NVIDIA profile names
-- `osu.Desktop/Windows/WindowsAssociationManager.cs` +
-  `osu.Game/Localisation/WindowsAssociationManagerStrings.cs`: not
-  installed since F-20; needs kan!'s own file types and link scheme
-- `osu.Game/OsuGameBase.cs`: `OSU_PROTOCOL = "osu://"` (product decision:
-  keep for compatibility or move to `kan://`)
+- Translations: the strings change only in English. Other languages come
+  from `osu.Game.Resources`' translations and still say osu! (issue 23).
+- **Pending maintainer decision (not changed):** `osu.Game/OsuGameBase.cs`
+  `OSU_PROTOCOL = "osu://"` (keep for compatibility or move to `kan://`).
+- **Pending maintainer decision (not changed):** kan!'s own file types and
+  link scheme naming. Until it lands,
+  `osu.Desktop/Windows/WindowsAssociationManager.cs` and
+  `osu.Game/Localisation/WindowsAssociationManagerStrings.cs` keep osu!'s
+  `.osz`/`.olz`/`.osr`/`.osk` and `osu://`/`osump://` and their
+  descriptions ("osu! Beatmap", "osu! Replay", "osu! Skin", "osu!",
+  "osu! Multiplayer"), which name osu!'s formats and schemes; the
+  application description already says kan! (second pass).
 - osu!-only features still reachable (osu!stable import in first-run
-  setup and settings, the osu! tutorial button, the osu! music theme)
+  setup and settings, the osu! tutorial button, the osu! music theme):
+  those are not kan!'s, their strings stay (issue 24).
 - Default skin/logo/triangle assets and the `lazer.ico` app icon: replaced
   through `game/brand/` (F-21) once kan!'s are made
