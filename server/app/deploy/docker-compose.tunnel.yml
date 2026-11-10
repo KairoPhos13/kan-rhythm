@@ -45,6 +45,14 @@ services:
         condition: service_healthy
     mem_limit: 300m
     # Not published anywhere: only cloudflared talks to it.
+    # Hardening: no Linux capabilities, no privilege gain, read-only image,
+    # bounded processes. It may write only /data (the storage volume) and /tmp.
+    read_only: true
+    tmpfs: [/tmp]
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 200
+    networks: [db, edge]
 
   postgres:
     image: postgres:16-alpine
@@ -65,6 +73,13 @@ services:
     volumes:
       - kan-postgres-data:/var/lib/postgresql/data
     mem_limit: 320m
+    # Only the capabilities the image's entrypoint needs to hand the data
+    # directory to the postgres user; no network but the internal one.
+    cap_drop: [ALL]
+    cap_add: [CHOWN, DAC_OVERRIDE, FOWNER, SETGID, SETUID]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 100
+    networks: [db]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U kan -d kan"]
       interval: 10s
@@ -84,6 +99,21 @@ services:
     depends_on:
       - app
     mem_limit: 64m
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: ["no-new-privileges:true"]
+    pids_limit: 100
+    networks: [edge]
+
+networks:
+  # The database network has no route out at all (internal): postgres can
+  # talk to the app and nothing else.
+  db:
+    internal: true
+  # The app and the tunnel: outbound only, to Cloudflare (tunnel, R2).
+  # deploy/egress-guard.sh keeps it away from the host, the VPC, the AWS
+  # metadata service and the Nebula overlay.
+  edge: {}
 
 volumes:
   kan-postgres-data:

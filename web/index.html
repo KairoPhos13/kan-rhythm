@@ -186,6 +186,25 @@ footer > .wrap::before { top: -2rem; }
 .platform code { font-family: var(--mono); font-size: 0.8rem; color: var(--gold); overflow-wrap: anywhere; }
 .platform.mine { border-color: var(--gold-deep); background: var(--dusk); }
 .platform .yours { justify-self: start; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--night); background: var(--gold); padding: 0.1rem 0.5rem; border-radius: 999px; }
+/* Account form */
+.account { display: grid; gap: 2rem; align-items: start; }
+@media (min-width: 56rem) { .account { grid-template-columns: 5fr 7fr; gap: 3.5rem; } }
+.signup { display: grid; gap: 1rem; padding: 1.5rem; border-radius: 14px; background: var(--dusk); border: 1px solid var(--line); min-width: 0; }
+.field { display: grid; gap: 0.3rem; }
+.field label { font-family: var(--display); font-weight: 500; }
+.field input {
+  font: inherit; color: var(--ivory); background: var(--night); border: 1px solid var(--line);
+  border-radius: 10px; padding: 0.65rem 0.8rem; width: 100%; min-width: 0;
+}
+.field input:focus { outline: 2px solid var(--gold); outline-offset: 1px; border-color: transparent; }
+.field input[aria-invalid="true"] { border-color: #e2725b; }
+.field small { color: var(--mist); font-size: var(--step--1); }
+.field .err { color: #f0a08f; font-size: var(--step--1); }
+.signup .btn { justify-self: start; cursor: pointer; }
+.signup .btn[disabled] { opacity: 0.6; cursor: progress; }
+.result { font-size: var(--step--1); color: var(--mist); }
+.result.ok { color: var(--ivory); background: rgba(224,171,76,0.12); border: 1px solid var(--gold-deep); padding: 0.8rem 1rem; border-radius: 10px; }
+.result.bad { color: #f0a08f; }
 .notes { margin-top: 1.5rem; display: grid; gap: 0.5rem; color: var(--mist); font-size: var(--step--1); max-width: 44rem; }
 
 .three { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 2rem; }
@@ -265,7 +284,7 @@ footer p { max-width: 36rem; }
           "name": "Do I need an account?",
           "acceptedAnswer": {
             "@type": "Answer",
-            "text": "No. You can play and make levels without one. An account adds level downloads and leaderboards, and you create it inside the game."
+            "text": "No. You can play and make levels without one. An account adds level downloads and leaderboards; create it on the kan! website or inside the game."
           }
         },
         {
@@ -292,6 +311,7 @@ footer p { max-width: 36rem; }
       <li><a href="#make">Make levels</a></li>
       <li><a href="#practice">Practice</a></li>
       <li><a href="#instruments">Instruments</a></li>
+      <li><a href="#account">Account</a></li>
       <li><a href="#privacy">Privacy</a></li>
       <li><a href="#faq">FAQ</a></li>
       <li><a href="https://github.com/KairoPhos13/kan-rhythm">Source</a></li>
@@ -439,6 +459,40 @@ footer p { max-width: 36rem; }
     </div>
   </section>
 
+  <section class="plain" id="account">
+    <div class="wrap account">
+      <div class="text">
+        <span class="label">Account</span>
+        <h2>Create your kan! account</h2>
+        <p>An account is optional. It lets you download levels from kan!'s catalogue and see your scores on the leaderboards.</p>
+        <p>After you create it, open kan!, click the sign-in panel at the top right and sign in with the same username and password.</p>
+        <p class="fine">kan! sends no email, so there is no password reset yet: keep your password somewhere safe.</p>
+      </div>
+      <form class="signup" id="signup" novalidate>
+        <div class="field">
+          <label for="su-name">Username</label>
+          <input id="su-name" name="username" autocomplete="username" minlength="3" maxlength="25" required>
+          <small>3 to 25 letters, numbers, spaces, _ - [ ]. It is public, so avoid your full name.</small>
+          <span class="err" id="su-name-err" hidden></span>
+        </div>
+        <div class="field">
+          <label for="su-email">Email</label>
+          <input id="su-email" name="email" type="email" autocomplete="email" maxlength="254" required>
+          <small>Never shown to anyone. Only used to tell accounts apart.</small>
+          <span class="err" id="su-email-err" hidden></span>
+        </div>
+        <div class="field">
+          <label for="su-pass">Password</label>
+          <input id="su-pass" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="200" required>
+          <small>At least 8 characters. A line from a song you love works well.</small>
+          <span class="err" id="su-pass-err" hidden></span>
+        </div>
+        <button class="btn btn-primary" type="submit" id="su-go">Create account</button>
+        <p class="result" id="su-result" role="status" aria-live="polite"></p>
+      </form>
+    </div>
+  </section>
+
   <section class="plain" id="privacy">
     <div class="wrap">
       <div class="head">
@@ -452,7 +506,7 @@ footer p { max-width: 36rem; }
         </div>
         <div>
           <h3>Your account, if you want one</h3>
-          <p>You can play and make levels without one. An account adds level downloads and leaderboards; create it inside the game. Your email is never shown to anyone, and kan! sends no email.</p>
+          <p>You can play and make levels without one. An account adds level downloads and leaderboards; <a href="#account">create it here</a> or inside the game. Your email is never shown to anyone, and kan! sends no email.</p>
         </div>
         <div>
           <h3>Free and open</h3>
@@ -483,7 +537,7 @@ footer p { max-width: 36rem; }
         </div>
         <div>
           <h3>Do I need an account?</h3>
-          <p>No. You can play and make levels without one. An account adds level downloads and leaderboards, and you create it inside the game.</p>
+          <p>No. You can play and make levels without one. An account adds level downloads and leaderboards; <a href="#account">create it here</a> or inside the game.</p>
         </div>
         <div>
           <h3>Which systems does kan! run on?</h3>
@@ -502,6 +556,61 @@ footer p { max-width: 36rem; }
 </footer>
 
 <script>
+(function () {
+  // Sign-up: posts the same form fields as the game to kan!'s server, which
+  // allows this one route from this site only.
+  var API = "https://kan-api.kairophos.link/users";
+  var form = document.getElementById("signup");
+  if (!form) return;
+  var fields = { username: "su-name", user_email: "su-email", password: "su-pass" };
+  var result = document.getElementById("su-result");
+  var go = document.getElementById("su-go");
+
+  function show(key, message) {
+    var input = document.getElementById(fields[key]);
+    var err = document.getElementById(fields[key] + "-err");
+    input.setAttribute("aria-invalid", message ? "true" : "false");
+    err.textContent = message || "";
+    err.hidden = !message;
+  }
+
+  form.addEventListener("submit", function (e) {
+    e.preventDefault();
+    Object.keys(fields).forEach(function (k) { show(k, ""); });
+    result.className = "result"; result.textContent = "";
+    var name = document.getElementById("su-name").value.trim();
+    var email = document.getElementById("su-email").value.trim();
+    var pass = document.getElementById("su-pass").value;
+    var body = new URLSearchParams();
+    body.set("user[username]", name);
+    body.set("user[user_email]", email);
+    body.set("user[password]", pass);
+    go.disabled = true; go.textContent = "Creating\u2026";
+    fetch(API, { method: "POST", body: body })
+      .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { status: r.status, body: j }; }); })
+      .then(function (res) {
+        if (res.status === 200 && res.body && res.body.username) {
+          form.reset();
+          result.className = "result ok";
+          result.textContent = "Account created. Open kan!, click the sign-in panel at the top right and sign in as " + res.body.username + ".";
+          return;
+        }
+        var user = res.body && res.body.form_error && res.body.form_error.user;
+        if (user) {
+          Object.keys(fields).forEach(function (k) { if (user[k] && user[k][0]) show(k, user[k][0]); });
+          result.className = "result bad"; result.textContent = "Please fix the fields above.";
+          return;
+        }
+        result.className = "result bad";
+        result.textContent = (res.body && res.body.error) || "Something went wrong on kan!'s server. Please try again later.";
+      })
+      .catch(function () {
+        result.className = "result bad";
+        result.textContent = "Could not reach kan!'s server. Check your connection and try again.";
+      })
+      .then(function () { go.disabled = false; go.textContent = "Create account"; });
+  });
+})();
 (function () {
   // Mark the card for this visitor's system (guessed from the browser); every
   // system stays listed, and the main buttons keep pointing at the list.

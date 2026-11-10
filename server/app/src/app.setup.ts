@@ -2,11 +2,14 @@
  * Shared HTTP application setup used by `main.ts` and the e2e suite: body
  * parsing with size limits, the query parser the client's `cursor[key]`
  * parameters need, and the error filter that keeps stack traces out of
- * responses. CORS stays disabled on purpose (the game client is not a browser).
+ * responses. CORS stays disabled on purpose (the game client is not a browser),
+ * except for the website's sign-up form on `POST /users` (website-cors.ts).
  */
 import { INestApplication } from '@nestjs/common';
 import { json, urlencoded } from 'express';
 import { AllExceptionsFilter } from './common/http';
+import { websiteCors } from './common/website-cors';
+import { loadConfig } from './config';
 
 export function configureApp(app: INestApplication): void {
   const express = app.getHttpAdapter().getInstance();
@@ -15,6 +18,7 @@ export function configureApp(app: INestApplication): void {
   express.set('query parser', 'extended');
   express.disable('x-powered-by');
 
+  app.use(websiteCors(loadConfig().websiteUrl));
   app.use(json({ limit: '256kb' }));
   app.use(urlencoded({ extended: true, limit: '64kb' }));
   app.useGlobalFilters(new AllExceptionsFilter());

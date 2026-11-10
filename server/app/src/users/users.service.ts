@@ -5,6 +5,7 @@ import { HttpException, Injectable } from '@nestjs/common';
 import argon2 from 'argon2';
 import { DbService } from '../db/db.service';
 import { UserRow, UserStatisticsSummary, emptyStatistics } from '../api/serializers';
+import { passwordProblem } from './password-rules';
 
 export interface RegistrationInput {
   username: string;
@@ -35,6 +36,15 @@ export function formError(fieldErrors: {
 export class UsersService {
   constructor(private readonly db: DbService) {}
 
+  /** Accounts created in the last `hours` hours (registration's server-wide ceiling). */
+  async countJoinedSince(hours: number): Promise<number> {
+    const result = await this.db.query<{ n: string }>(
+      `SELECT count(*) AS n FROM users WHERE join_date > now() - make_interval(hours => $1)`,
+      [hours],
+    );
+    return Number(result.rows[0]?.n ?? 0);
+  }
+
   /** `POST /users`: validation happens before anything is written. */
   async register(input: RegistrationInput): Promise<UserRow> {
     const errors: { username?: string[]; user_email?: string[]; password?: string[] } = {};
@@ -50,9 +60,8 @@ export class UsersService {
     if (!EMAIL_PATTERN.test(email) || email.length > 254) {
       errors.user_email = ['Email address is not valid'];
     }
-    if (password.length < 8 || password.length > 200) {
-      errors.password = ['Password must be at least 8 characters'];
-    }
+    const weak = passwordProblem(password, username);
+    if (weak) errors.password = [weak];
 
     if (!errors.username) {
       const takenName = await this.db.query(`SELECT 1 FROM users WHERE username_lower = lower($1)`, [

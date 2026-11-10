@@ -12,6 +12,8 @@ import { requestClientIp } from '../common/client-ip';
 import { RateLimiter } from '../common/rate-limiter';
 import { UsersService } from './users.service';
 
+const DAILY_ACCOUNT_LIMIT = 200;
+
 @Controller('users')
 export class RegistrationController {
   /** Simple in-memory limit on registration attempts (per client IP). */
@@ -26,6 +28,13 @@ export class RegistrationController {
   async register(@Body() body: unknown, @Req() req: Request): Promise<Record<string, unknown>> {
     if (!this.registrationLimiter.check(requestClientIp(req, this.config.trustProxy))) {
       throw apiError(429, 'Too many registration attempts, please try again later');
+    }
+    // A ceiling on accounts created in the last 24 h for the whole server,
+    // whatever the IP: a bot spread over many addresses cannot fill the
+    // database. Only created accounts count, so failed attempts cannot lock
+    // real players out. Generous for a small community; raise it as kan! grows.
+    if ((await this.users.countJoinedSince(24)) >= DAILY_ACCOUNT_LIMIT) {
+      throw apiError(429, 'kan! has had many new accounts today; please try again tomorrow');
     }
 
     const input = readRegistrationFields(body);

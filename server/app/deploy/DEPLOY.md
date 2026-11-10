@@ -146,6 +146,30 @@ On the AWS instance's security group: **close inbound 80 and 443**; with
 Cloudflare Tunnel nothing needs to listen publicly (the tunnel dials out).
 **Keep the Nebula UDP port and SSH exactly as they are.**
 
+### 7b. Keep the containers away from the host and Nebula
+
+The compose stack is hardened (no capabilities, no privilege gain, read-only
+images, process limits; postgres on an internal network with no way out).
+Docker would still let a container reach anything the host can route to: the
+Nebula overlay, the VPC, the EC2 metadata service and the host's own ssh.
+`egress-guard.sh` drops all of that (only DNS to the VPC resolver stays open)
+and runs at every boot:
+
+```bash
+sudo install -m 755 deploy/egress-guard.sh /usr/local/sbin/kan-egress-guard.sh
+sudo install -m 644 deploy/kan-egress-guard.service /etc/systemd/system/
+sudo systemctl daemon-reload && sudo systemctl enable --now kan-egress-guard
+sudo iptables -S DOCKER-USER    # the drops for 169.254/16, Nebula, the VPC, RFC 1918
+```
+
+Set `NEBULA_NET`, `VPC_NET` and `VPC_DNS` in the unit's environment if the
+host's networks differ. Also in the EC2 console: **IMDSv2 required, hop limit
+1**, and no IAM role unless the host needs one.
+
+Security updates install by themselves (`dnf-automatic`, `upgrade_type =
+security`, `apply_updates = yes`); kernel updates need a reboot
+(`sudo dnf upgrade --releasever=latest -y && sudo reboot` now and then).
+
 ## 8. Check it works
 
 From your own machine (not the box):
