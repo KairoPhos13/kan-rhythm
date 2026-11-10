@@ -1,195 +1,147 @@
-# kan! (`kan-rhythm`)
+<p align="center">
+  <img width="260" alt="kan! logo" src="game/brand/Textures/Menu/logo.png">
+</p>
+
+# kan!
 
 > *"Grab your instrument. You kan!"*
 
-**kan!** is a free, open-source, community-driven rhythm game built natively for
-**Linux, Windows, and macOS**.
+**kan!** is a free, open-source rhythm game you play on a **real
+instrument**: flute, ocarina, violin, guitar, your voice, whatever you have.
+A plain microphone is all it needs. Notes scroll along a staff, you play each
+one as it reaches the line, and the game judges it by its timing and its
+pitch, the way a rhythm game judges a key press.
 
 The name comes from the Japanese **奏でる (*kanaderu*), "to play an
-instrument, to make it sound"** — *kanade* is the playing itself. And, read
-in English: grab your instrument, you *kan*.
-
-You play community-made levels on **your own instrument** — flute, ocarina,
-violin, guitar, voice, whatever you have — through a plain microphone. The
-game listens and judges each note by its timing and its pitch, the way a
-rhythm game judges a key press.
+instrument, to make it sound"**. Read in English, it says the rest: grab your
+instrument, you *kan*.
 
 Practice made fun is the point. Rhythm games are great at making people
 practise for hours; kan! points that at real music, so what players learn
-goes with them — to their church, their friends, their community. kan! is
-built to be calm: forgiving by default, strict only when you choose, and it
-never aims at anxiety or compulsion to keep you playing.
+goes home with them: to their church, their friends, their community. kan!
+is calm by design. It is forgiving by default, strict only when you choose,
+and it never uses anxiety or compulsion to keep you playing.
 
 > **Collaboration language: English.** All code, comments, commits, docs and
-> discussions in this repository are in English. See [CONTRIBUTING.md](CONTRIBUTING.md).
+> discussions in this repository are in English. See
+> [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
 
-## Core Philosophy
+## What you can do
 
-1. **Instrument Agnostic:** Whether you have a $5 plastic recorder, an acoustic
-   guitar, a violin, or a full MIDI/acoustic piano, **kan!** adapts to your
-   instrument's physics.
-2. **Sound Good First (Dynamic Consonance):** Fixed-pitch or slightly detuned
-   instrument? Instead of punishing you or forcing dissonant audio, our DSP
-   engine micro-shifts the backing track in real time (`±cents`) to lock into
-   harmonic consonance with your instrument.
-3. **By the Community, For the Community:** Powered by donations and open
-   collaboration — no predatory DLCs, no proprietary hardware cables, and no
-   console walled gardens.
+- **Play any instrument that plays notes.** Each level is fitted to your
+  instrument's range, and your instrument's own tuning is learnt and taken
+  off: a slightly flat or sharp instrument is not punished.
+- **Learn with mods:** *Wait for me* stops at each note until you play it,
+  *Practice* loops a section, *By heart* shows each note only for a moment,
+  *Half Time* slows the level.
+- **Make levels (kan!forge):** import a song, separate its instruments on
+  your own computer, write or correct the score in a piano roll, and check
+  it is playable before sharing it.
+- **Play offline, or online if you like:** nothing is needed to play or make
+  levels, and nothing the microphone hears is recorded or sent. kan!'s own
+  small server adds accounts, level downloads and leaderboards.
 
----
+More about how a play is judged: [game/docs/gameplay.md](game/docs/gameplay.md).
 
-## Technical Architecture
+## Status
 
-- **`libkan` (Real-Time C++ DSP Engine):**
-  - **Fast Path (<5 ms):** High-Frequency Content (HFC) & spectral-flux
-    **onset detection** triggers instant visual/rhythmic hit judgments
-    (`PERFECT / GREAT / MISS`) the exact millisecond you strike a string, key,
-    or blow air.
-  - **Harmonic Path (<30 ms):** Score-informed **BACF** (Bitstream
-    Autocorrelation) for monophonic instruments and targeted
-    **Goertzel/Chroma template matching** for polyphonic chords.
-- **3-Layer Beatmap Format (`.kan` & `.kchart`):**
-  - **Layer 1 (Core Sync):** audio stems + variable BPM timing points.
-  - **Layer 2 (Universal Score):** canonical pitch/chord events and articulations.
-  - **Layer 3 (Instrument Chart):** lightweight (`<50 KB`) community
-    arrangements that adapt any song to specific instruments and difficulty
-    tiers without re-uploading audio.
-- **`kan!forge` (AI-Assisted Map Editor):** integrated spectrogram timeline
-  featuring local ONNX inference (**HTDemucs** for stem separation +
-  **Basic Pitch** for automated draft note transcription) and **`kan!check`**,
-  a biomechanical linter that validates physical playability per instrument.
-- **Client base — osu!lazer, rebranded as kan!:** the game client is a
-  fork of `ppy/osu` (MIT, ADR-0010) + a kan ruleset plugin, giving us
-  osu!-class menus, scoring, skins and frame stability from day one —
-  redesigned into KAN! (kanade, "you kan!") per ADR-0011: a standalone
-  game, not a mod. Instrument capture and judgment stay in `libkan`/`kanfx`
-  behind a C-ABI bridge; `.kan` maps convert bidirectionally to `.osz`.
-  License compliance is ship-blocking (attribution preserved,
-  `THIRD_PARTY_NOTICES` shipped, fixes contributed back upstream).
-
-Full details: [docs/SPECIFICATION.md](docs/SPECIFICATION.md) ·
-[docs/ROADMAP.md](docs/ROADMAP.md)
+Playable and in daily testing on Linux, mostly with an alto ocarina, and
+close to its first public release. Windows and macOS builds are produced by
+CI and still need testing on real machines. Players of other instruments are
+especially welcome: see [Join in](#join-in).
 
 ---
 
-## Repository Layout (monorepo)
+## Repository layout
 
-Each top-level component is designed to be splittable into its own repository later.
-Every component keeps a `TODO.md` with its scoped task list.
+This is a monorepo. Each top-level folder is self-contained, keeps its own
+`README.md` and `TODO.md`, and could become its own repository later.
 
 ```
 kan-rhythm/
-├── libkan/             Real-time DSP engine (header-only core, future libkan-dsp)
-│   ├── include/libkan/   ring_buffer.hpp, dsp_detector.hpp
-│   ├── tests/            Offline DSP tests with synthesized signals
-│   └── TODO.md
-├── kanfx/              Real-time audio FX graph: buses, consonance pitch-shift, ducker
-├── apps/
-│   └── kan_cli/        Milestone 1 real-time microphone benchmark CLI
-├── game/               kan! client + kan!forge editor (future)
-├── charts/             .kan / .kchart format spec + song data (future)
-├── tools/              CLI utilities: validators, analysis, calibration (future)
-├── server/             Backend: users, catalog, scores, kp leaderboards (future)
-├── donations/          Donation engine — financial support for the project (future)
-├── assets/             Graphics, sounds, fonts (future)
-└── docs/               Specification, roadmap, architecture, ADRs
+├── game/        the kan! game: client (osu!lazer fork), game mode, kan!forge editor
+├── libkan/      real-time C++ engine that listens: onsets, pitch, chords, tuning
+├── kanfx/       real-time audio effects: buses, pitch shift, ducking
+├── server/      online services: accounts, level catalogue, scores, leaderboards
+├── charts/      level formats and free song candidates
+├── apps/        developer apps on libkan (kan_demo live tuner, kan_analyze, kan_cli)
+├── tools/       content tools: stem split, chart drafting, benchmarks
+├── donations/   how kan! is sustained while staying free
+├── assets/      shared art and sound (placeholder)
+└── docs/        specification, roadmap, architecture, decision records (ADRs)
 ```
 
----
+## Build and run
 
-## Requirements
+**The game** (requirements in [game/docs/environment.md](game/docs/environment.md)):
 
-- CMake ≥ 3.20
-- C++20 compiler (GCC/Clang/MSVC)
-- Internet connection the first time (FetchContent downloads miniaudio, MIT-0)
-- Linux: ALSA (`libasound2-dev` on Debian/Ubuntu)
+```bash
+git clone --recurse-submodules https://github.com/KairoPhos13/kan-rhythm
+cd kan-rhythm/game
+make run
+```
 
-## Build & Run
+**libkan and its demo**, to hear what the engine hears:
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j
-./build/apps/kan_cli/kan_cli
-```
-
-Play a guitar string, a piano key, or blow a flute in front of the microphone:
-
-```
-⚡ [ONSET! 300/PERFECT] Hit detected (<3ms) -> Evaluating pitch...
-✅ [HIT CONFIRMED at +22.3 ms] Note:  A4 | Freq:  441.2 Hz | Offset: +4.7 cents
-🥁 [PERCUSSIVE / MUTE] Rhythmic attack without sustained tone
-```
-
-## Tests
-
-```bash
+cmake --build build --parallel 6
+./build/apps/kan_demo/kan_demo                 # free tuner, ocarina preset
+./build/apps/kan_demo/kan_demo --instrument flute
 ctest --test-dir build --output-on-failure
 ```
 
-The offline DSP test feeds a synthesized, slightly detuned A4 (+10 cents)
-through the full pipeline and asserts onset detection plus pitch accuracy
-within ±3 Hz.
+You need CMake 3.20 or newer, a C++20 compiler, and on Linux ALSA
+(`libasound2-dev` on Debian and Ubuntu). The first configure downloads its
+dependencies.
 
----
+## How it works
 
-## Roadmap
+- **libkan listens, the game judges.** libkan describes what it hears (when
+  a note starts, which pitch, how in tune) in a few milliseconds, on the
+  audio thread, without allocating or locking. The game decides what that
+  means for the level being played.
+- **The client** is built on osu!lazer: its menus, song select, scoring
+  screens, replays and settings are a proven base, and kan! adds its own game
+  mode and editor on top. Changes to that base are kept small and listed in
+  [game/docs/fork-divergence.md](game/docs/fork-divergence.md).
+- **Levels** are made in kan!forge from a song's audio: the companion (what
+  plays along with you) and the score (what you play).
 
-- [ ] **Milestone 1 (`libkan` CLI):** lock-free C++ audio pipeline
-      (`miniaudio` + `Cycfi Q` + `Signalsmith Stretch`), sub-5 ms onset
-      detection, score-informed chord validation, and dynamic backing-track
-      pitch shifting. *(in progress — monophonic onset+YIN done)*
-- [ ] **Milestone 2 (Vertical Slice):** single-lane playable prototype
-      @ 120+ FPS, 3-step room/instrument calibration, and dual-axis scoring
-      (Timing + Intonation stability).
-- [ ] **Milestone 3 (`kan!forge`):** in-game spectrogram editor, local AI
-      auto-charting, `.gp5`/`.musicxml` importers, and biomechanical
-      playability linter (`kan!check`).
-- [ ] **Milestone 4 (Community Ecosystem):** `.kan` repository,
-      per-instrument leaderboards, and **`kp` (*kan! points*)** ranking system.
-
-Detailed milestones with hard engineering gates (KPIs): [docs/ROADMAP.md](docs/ROADMAP.md)
-
----
-
-## Ecosystem Naming
-
-| Component          | Name            | Role                                                        |
-|--------------------|-----------------|-------------------------------------------------------------|
-| Game / client      | **kan!**        | osu!lazer fork + kan ruleset (ultra-low-latency client)      |
-| DSP engine (C++)   | **libkan**      | Milestone 1 library (onset + BACF + Goertzel + pitch-shift)  |
-| Song package       | **`.kan`**      | Compressed container: audio, tempo map, all instruments      |
-| Arrangement file   | **`.kchart`**   | Lightweight (<50 KB) community per-instrument chart          |
-| Map editor         | **kan!forge**   | Spectrogram + HTDemucs + Basic Pitch environment             |
-| Playability linter | **kan!check**   | Biomechanical validator per instrument                       |
-| Ranking system     | **kp**          | *kan! points* — rhythmic precision + intonation purity       |
+Full details: [docs/SPECIFICATION.md](docs/SPECIFICATION.md) ·
+[docs/ROADMAP.md](docs/ROADMAP.md) · [docs/adr/](docs/adr/).
 
 ---
 
 ## Join in
 
-kan! is playable and useful today, and it is a long way from the polish of
-osu!. It can grow there with help:
+kan! is playable and useful today, and still has a long way to go. It can
+get there with help:
 
-- **Issues are open to anyone.** The work still open is listed in each
-  component's `TODO.md` (the game's: [game/TODO.md](game/TODO.md)) and in
-  the repository's issues. Pick one that inspires you.
-- **Artists:** levels need songs that can be shared freely. If you write,
-  play or arrange music — melodies and their accompaniments (companions)
-  — and would release some of it under a free licence for kan!, you are
-  very welcome. Art and sound for kan!'s own identity too (logo, menu,
-  intro: see [game/brand/](game/brand/README.md)).
+- **Issues are open to anyone.** Open work is listed in the
+  [issues](https://github.com/KairoPhos13/kan-rhythm/issues) and in each
+  folder's `TODO.md` (the game's: [game/TODO.md](game/TODO.md)). Issues
+  labelled `good first issue` are a good place to start.
+- **Musicians:** levels need songs that can be shared freely. If you write,
+  play or arrange music (melodies and their accompaniments) and would release
+  some of it under a free licence for kan!, you are very welcome.
+- **Artists:** kan!'s logo, menu art, intro and sounds are still provisional:
+  see [game/brand/](game/brand/README.md).
 - **Players of other instruments:** kan! has been played mostly on an
-  ocarina. Playing it on yours and reporting what feels wrong helps
-  everyone.
+  ocarina. Playing it on yours and reporting what feels wrong helps everyone.
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) before a pull request.
+See [CONTRIBUTING.md](CONTRIBUTING.md) before opening a pull request.
 
 ---
 
-## License
+## Credits and licence
 
-MIT — see [LICENSE](LICENSE). Built with love for music and rhythm gaming,
-following the osu! philosophy: the client is open, the community is the value.
-miniaudio is MIT-0 / public domain.
+kan! is MIT licensed: see [LICENSE](LICENSE).
+
+The game client is built on [osu!lazer](https://github.com/ppy/osu) by ppy
+and its contributors (MIT), and kan! is grateful for it. "osu!" is a
+trademark of ppy Pty Ltd; kan! is an independent project, not affiliated
+with or endorsed by ppy. Third-party components and their licences are listed
+in the game's `THIRD_PARTY_NOTICES`.

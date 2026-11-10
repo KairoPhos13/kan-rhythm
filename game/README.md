@@ -1,11 +1,11 @@
-# game/ — the kan! game
+# game/: the kan! game
 
 **kan!** (from the Japanese *kanaderu*, 奏でる, "to play an instrument")
 is a rhythm game you play on a real instrument. A level is a song's
 score: notes scroll along a staff toward a line, and you play each one on your
 own instrument as it reaches the line. The microphone is all it needs. Each
-note is judged by its timing and its pitch together, and scored the way osu!
-scores a hit: perfect, good, meh or miss.
+note is judged by its timing and its pitch together: perfect, good, meh or
+miss.
 
 The game is a fork of [osu!lazer](https://github.com/ppy/osu) (MIT), with
 kan!'s own game mode and level editor
@@ -30,10 +30,10 @@ judges it. Integration architecture:
   each have their own colour.
 - **Mods for learning:** *Wait for me* stops at each note until it is played,
   *Practice* loops a section, *By heart* shows each note only for a moment,
-  *Half Time* slows the level. osu!'s Easy, Hard Rock, Hidden, Sudden Death,
-  Perfect, Double Time and Auto work as there.
+  *Half Time* slows the level. Easy, Hard Rock, Hidden, Sudden Death,
+  Perfect, Double Time and Auto work as in other rhythm games.
 - **Every level at one loudness.** The level audio is rendered at a reference
-  loudness (−20 LUFS), so no level is much louder than the next; each can
+  loudness (-20 LUFS), so no level is much louder than the next; each can
   still be set louder or softer.
 - **Replays**, a song-select preview, and a trace of each play.
 
@@ -56,21 +56,24 @@ levels, and nothing heard by the microphone is recorded or sent.
 
 ## Status
 
-Playable and in daily testing, not yet released. Before a public release:
+Playable and in daily testing, close to its first public release.
 
-- **Identity:** the logos, menu art, intro music and sounds are still
-  osu!'s (they are not covered by osu!'s MIT licence, and its name and logo
-  are trademarks). kan!'s own go in [brand/](brand/README.md), one file at
-  a time. Some on-screen texts (other languages above all) still say osu!.
-- **Online:** off. The client talks to no server until kan! has its own
-  ([server/](../server/)); osu!'s online code is kept, so turning it on is
-  a configuration change.
+- **Identity:** kan! has its own provisional logo, icons and menu art
+  ([brand/](brand/README.md)); the osu! welcome voice and intro music are
+  off. Some sounds and on-screen texts (other languages above all) still
+  come from the osu!lazer base and are being replaced.
+- **Online:** optional. kan! has its own small server
+  ([server/](../server/)) for accounts, downloading levels and
+  leaderboards; it never talks to osu!'s servers. Without a server
+  configured, the game is fully offline.
 - **Instruments and platforms:** tested mostly on ocarina, and on Linux.
-  Windows and macOS builds are unverified.
+  Windows and macOS builds are produced by CI and still need testing on
+  real machines.
 - **Levels to share:** songs bundled with the game must be free to
   distribute (public domain, freely licensed, or original).
-- **BASS** (osu!'s audio library) is free only for non-commercial use: see
-  [docs/bass-licensing.md](docs/bass-licensing.md) before taking donations.
+- **BASS** (the audio library of the osu!lazer base) is free only for
+  non-commercial use: see [docs/bass-licensing.md](docs/bass-licensing.md)
+  before taking donations.
 
 Open work in detail: [TODO.md](TODO.md). Anyone may take any of it: see
 "Join in" in the [repository README](../README.md#join-in).
@@ -82,7 +85,7 @@ Open work in detail: [TODO.md](TODO.md). Anyone may take any of it: see
 | `core/` | `Kan.Core` | What a level is and how a play is judged: the score and design models, the live judge, timing, tracks and their edits, transcription drafts, the bridge to libkan. No osu! inside. | libkan (native) |
 | `forge/` | `Kan.Forge` | **kan!forge**, the level editor's own tabs (tracks, compose, design), the audio played along a level, the media pipeline (separation, transcription, rendering). | `Kan.Core`, the fork |
 | `ruleset/` | `osu.Game.Rulesets.Kan` | The **kan!** game mode: hit objects, the live play (listening, judging, the staff), mods, scoring, replays. | `Kan.Core`, `Kan.Forge`, the fork |
-| `client/` | — | The fork of osu!lazer (git submodule). Every change to it is listed in [docs/fork-divergence.md](docs/fork-divergence.md) and kept minimal: most are hooks for the ruleset to add its screens. | — |
+| `client/` | | The fork of osu!lazer (git submodule). Every change to it is listed in [docs/fork-divergence.md](docs/fork-divergence.md) and kept minimal: most are hooks for the ruleset to add its screens. | |
 | `forge/native/` | `libkan_forge_native` | A thin C ABI over libkan (`kan_forge_api.h`), the only way the game calls it. | libkan |
 
 Each folder has its own README.
@@ -104,11 +107,12 @@ On a machine that has to stay responsive, bound the native build:
 
 ## Documentation
 
-- [docs/gameplay.md](docs/gameplay.md) — how a play works and is judged (at
+- [docs/gameplay.md](docs/gameplay.md): how a play works and is judged (at
   a glance first, then each rule with the reason behind it).
-- [docs/editor-pipeline.md](docs/editor-pipeline.md) — the editor: tracks,
-  separation, transcription, compose, design, timing repair.
-- [docs/fork-divergence.md](docs/fork-divergence.md) — every change to osu!.
+- [docs/editor-pipeline.md](docs/editor-pipeline.md): the editor (tracks,
+  separation, transcription, compose, design, timing repair).
+- [docs/fork-divergence.md](docs/fork-divergence.md): every change made to
+  the osu!lazer base.
 - [docs/environment.md](docs/environment.md), [docs/bass-licensing.md](docs/bass-licensing.md).
 - Measurement rules libkan keeps (what the game may rely on):
   [../docs/architecture/measurement-invariants.md](../docs/architecture/measurement-invariants.md).
@@ -131,7 +135,7 @@ progress, so they stay quiet otherwise. Failures always print.
 Test runs belong in an isolated instance (a headless compositor, a copy of
 the game's data, volume 0, its own network namespace): a developer's own
 game and microphone are never touched. A test instance never opens the
-microphone — without `KAN_LIVE_INPUT` it listens to nothing.
+microphone: without `KAN_LIVE_INPUT` it listens to nothing.
 
 ## Ground rules
 
