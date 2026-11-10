@@ -9,10 +9,10 @@ using Kan.Core.Media;
 namespace Kan.Forge.Media
 {
     /// <summary>
-    /// Extracts the audio track from a media file (often a **video** — many
+    /// Extracts the audio track from a media file (often a **video**; many
     /// source clips carry their audio inside the container) into a WAV the
     /// pipeline can process. Decoding goes through the BASS library that is
-    /// already loaded by osu!framework for playback — no new dependency, and
+    /// already loaded by osu!framework for playback: no new dependency, and
     /// strictly decode-only (see game/docs/bass-licensing.md for the licence
     /// analysis and the exit plan).
     ///
@@ -29,8 +29,10 @@ namespace Kan.Forge.Media
         /// <summary>
         /// The framework initialises BASS for playback; in standalone contexts
         /// (tests, tools) nothing does. Initialise the default device ourselves
-        /// in that case — a BASS_ERROR_ALREADY answer simply means someone
-        /// else beat us to it.
+        /// in that case. A BASS_ERROR_ALREADY answer simply means someone else
+        /// beat us to it. A machine with no audio output at all (a CI runner, a
+        /// headless server) gets BASS's "no sound" device, which decodes and
+        /// renders files just as well.
         /// </summary>
         public static void EnsureBass() => ensureBass();
 
@@ -39,7 +41,8 @@ namespace Kan.Forge.Media
             lock (init_lock)
             {
                 if (bass_ready) return;
-                Bass.Init(-1, 44100, DeviceInitFlags.Default);
+                if (!Bass.Init(-1, 44100, DeviceInitFlags.Default) && Bass.LastError != Errors.Already)
+                    Bass.Init(0, 44100, DeviceInitFlags.Default);
 
                 // Loading the BASS_FX add-on registers its effects (the BQF
                 // filters). The game does this at startup; tests and tools
@@ -102,7 +105,7 @@ namespace Kan.Forge.Media
 
         /// <summary>
         /// Render a track through low-cut (high-pass) and/or high-cut
-        /// (low-pass) filters into a PCM16 WAV — the same BASS biquad the
+        /// (low-pass) filters into a PCM16 WAV, the same BASS biquad the
         /// editor previews with (<c>AudioFilter</c>: Q 0.7), so what was
         /// heard is what gets saved (owner decision 2026-10-14: filters
         /// render in-game via BASS). A cutoff &lt;= 0 disables that filter.
@@ -246,7 +249,7 @@ namespace Kan.Forge.Media
         /// Repair a track's timing into a PCM16 WAV (owner 2026-10-22, see
         /// <c>TimelineEdit</c>): the span [<paramref name="fromMs"/>,
         /// <paramref name="toMs"/>) of the file becomes
-        /// <paramref name="newLengthMs"/> long — silence for an empty span
+        /// <paramref name="newLengthMs"/> long: silence for an empty span
         /// (inserted), nothing (cut), or the span itself played faster or
         /// slower with its pitch kept (the BASS_FX tempo processor the pitch
         /// shift uses). The joins fade over a few milliseconds, so they do

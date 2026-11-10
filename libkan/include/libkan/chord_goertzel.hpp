@@ -33,7 +33,9 @@ struct ChordResult {
     float similarity = 0.0f;    ///< cosine similarity vs the chart template [0, 1]
     /// Per-note presence in [0, 1]: how strongly each expected note sounds.
     /// Useful for judging "one wrong string" and for player feedback.
-    static constexpr size_t kMaxResultNotes = 10;
+    /// Sized for HarmonicChordValidator's hard cap (dense offline
+    /// measurement fits up to 64 notes at once), not just the live path's 10.
+    static constexpr size_t kMaxResultNotes = 64;
     float note_presence[kMaxResultNotes] = {};
     size_t note_count = 0;
 };

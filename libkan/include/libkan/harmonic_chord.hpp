@@ -11,7 +11,7 @@
 //      is re-searched (±search_cents, 2.5-cent steps) against the residual
 //      plus its own fitted component, so just-ratio collisions between
 //      chord tones (G4's 2nd harmonic vs C4's 3rd) cannot bias the search.
-//      This tracks per-string detuning — real instruments are never exactly
+//      This tracks per-string detuning: real instruments are never exactly
 //      on equal temperament (the global / per-string calibrator of
 //      SPECIFICATION §2 feeds the same corrections; the refinement absorbs
 //      what is left).
@@ -21,12 +21,12 @@
 // The similarity is the weighted fraction of signal energy the chord model
 // explains, c^T b / x^T W x in [0, 1]; a confirmed chord additionally
 // requires every expected note to carry at least `presence_floor` of the
-// explained energy — the musical statement of "no wrong/missing string".
+// explained energy, the musical statement of "no wrong/missing string".
 //
 // Why least squares over a marginal Goertzel bank: inside the <32 ms gate
 // the window (~21 ms) resolves ~48 Hz, coarser than a semitone at chord
 // fundamentals (E4 vs Eb4 are 18 Hz apart), so marginal magnitude bins
-// smear across neighbors (measured macro-F1 ~0.71 — see chord_test.cpp).
+// smear across neighbors (measured macro-F1 ~0.71, see chord_test.cpp).
 // The joint fit exploits phase coherence across harmonics: a wrong note
 // cannot be explained at ANY frequency within the search range and shows up
 // as residual energy + a collapsed presence slot.
@@ -35,7 +35,7 @@
 // preallocated in the constructor. One validation is a ~1-2 ms burst for a
 // triad (search + fits over 1024 samples): call it per chord event (or
 // every few blocks while a chord sustains), not every block. Input is
-// const — safe for a non-consuming kanfx tap.
+// const, safe for a non-consuming kanfx tap.
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
@@ -50,7 +50,7 @@ namespace kan {
 
 namespace gram_detail {
 
-/// Weighted dot products for the normal equations — the hot loop of the
+/// Weighted dot products for the normal equations, the hot loop of the
 /// conditioned fit (O(atoms²·window)). AVX2 processes 8 floats per
 /// instruction with 2 independent accumulators (deterministic order);
 /// the scalar path is the reference fallback for other ISAs (NEON is the
@@ -123,7 +123,9 @@ public:
                                              ///< near 27 alive (MAESTRO Chopin
                                              ///< Op. 25); 64 keeps every note in
                                              ///< one joint fit well past that.
-    static constexpr size_t kHarmonics = 6;   ///< fundamental + first five
+    static_assert(kHardCapNotes <= ChordResult::kMaxResultNotes,
+                  "ChordResult::note_presence must hold every note a validator can fit");
+    static constexpr size_t kHarmonics = 6;  ///< fundamental + first five
     static constexpr size_t kSearchHarmonics = 3; ///< used by the frequency search
     static constexpr size_t kAtomsPerNote = kHarmonics * 2;         // cos+sin
     static constexpr size_t kMaxAtoms = kMaxNotes * kAtomsPerNote; // 120
@@ -131,7 +133,7 @@ public:
     /// `max_window` bounds the analysis length; scratch is sized once here.
     /// `max_notes` selects the candidate capacity (default 10 = the live
     /// path; up to kHardCapNotes for dense offline measurement). All
-    /// scratch is sized at construction — never on the analysis hot path.
+    /// scratch is sized at construction, never on the analysis hot path.
     explicit HarmonicChordValidator(float sample_rate = 48000.0f,
                                     size_t max_window = 1536,
                                     size_t max_notes = kMaxNotes)
@@ -181,7 +183,7 @@ public:
     void set_threshold(float t) noexcept { threshold_ = t; }
 
     /// Minimum explained-energy share every expected note must carry
-    /// (default 0.45/note_count, set by set_expected_chord — tolerates the
+    /// (default 0.45/note_count, set by set_expected_chord: tolerates the
     /// shortened in-window duration of strummed notes). Rejects missing or
     /// wrong strings that the shared notes would otherwise mask.
     void set_presence_floor(float f) noexcept { presence_floor_ = f; }
@@ -193,7 +195,7 @@ public:
     void set_min_rms(float r) noexcept { min_rms_ = r; }
 
     /// IRLS robust-pass count (default 3). Transient-heavy windows (the
-    /// attack) need all passes; clean sustain windows converge in one —
+    /// attack) need all passes; clean sustain windows converge in one,
     /// 3x cheaper, same refinement rounds (cents stay searched).
     void set_passes(int n) noexcept { passes_ = (n < 1) ? 1 : (n > 3 ? 3 : n); }
 
@@ -210,7 +212,7 @@ public:
     }
 
     /// Fitted component RMS of expected note `k` from the last validate()
-    /// call (absolute amplitude of the note inside the window — the
+    /// call (absolute amplitude of the note inside the window, the
     /// per-candidate "amplitude" measurement of the description stream).
     float note_rms(size_t k) const noexcept {
         return (k < max_notes_) ? note_rms_[k] : 0.0f;
@@ -239,7 +241,7 @@ public:
         // second half (strum transients and late-note silences live in the
         // first half by construction of the blanking offset). Fitting the
         // polluted half first would drag every coefficient and produce a
-        // uniform residual in which no outlier stands out — the classic
+        // uniform residual in which no outlier stands out, the classic
         // IRLS initialization failure. Then two IRLS passes re-weight from
         // the (now good) fit's residual and use the full clean window.
         for (size_t t = 0; t < count; ++t) {
@@ -270,7 +272,7 @@ public:
             ? float(std::clamp(cb / sig_w, 0.0, 1.0)) : 0.0f;
 
         // Per-note presence: weighted energy share of each note's fitted
-        // component (component norm — per-atom c*b terms can go negative
+        // component (component norm: per-atom c*b terms can go negative
         // between coherent harmonics).
         double total_energy = 0.0;
         double note_energy[kHardCapNotes] = {0};
@@ -304,8 +306,8 @@ private:
     /// refinement. Round structure: fit all notes at their current
     /// frequencies -> for each note, re-search its fundamental against the
     /// residual PLUS its own fitted component (other notes subtracted, so
-    /// just-ratio partial collisions — e.g. G4's 2nd harmonic landing on
-    /// C4's 3rd — cannot bias the search) -> refit. Three rounds converge
+    /// just-ratio partial collisions, e.g. G4's 2nd harmonic landing on
+    /// C4's 3rd, cannot bias the search) -> refit. Three rounds converge
     /// for detunings inside the search range. Result: sol_/rhs_/gram_.
     bool joint_refine_fit(const float* x, size_t count) noexcept {
         n_atoms_ = note_count_ * kAtomsPerNote;
@@ -459,7 +461,7 @@ private:
 
     /// G = A^T W A, b = A^T W x over the joint basis (atoms_, n_atoms_).
     void build_normal_equations(const float* x, size_t count) noexcept {
-        // Hot loop of the conditioned fit — vectorized (gram_detail::wdot).
+        // Hot loop of the conditioned fit, vectorized (gram_detail::wdot).
         for (size_t i = 0; i < n_atoms_; ++i) {
             const float* ai = &atoms_[i * max_window_];
             rhs_[i] = float(gram_detail::wdot(ai, weights_.data(), x, count));
