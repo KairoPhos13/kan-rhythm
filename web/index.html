@@ -589,7 +589,7 @@ footer p { max-width: 36rem; }
     fetch(API, { method: "POST", body: body })
       .then(function (r) { return r.json().catch(function () { return {}; }).then(function (j) { return { status: r.status, body: j }; }); })
       .then(function (res) {
-        if (res.status === 200 && res.body && res.body.username) {
+        if (res.status >= 200 && res.status < 300 && res.body && res.body.username) {
           form.reset();
           result.className = "result ok";
           result.textContent = "Account created. Open kan!, click the sign-in panel at the top right and sign in as " + res.body.username + ".";
