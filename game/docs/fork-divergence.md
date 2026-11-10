@@ -541,8 +541,7 @@ features are not kan!'s.
     capability description is `kan!` (was `osu!(lazer)`);
   - `osu.Game/Localisation/`: `StorageErrorDialogStrings` (storage error
     and data location copy), `NamedOverlayComponentStrings` (changelog
-    tooltip), `ButtonSystemStrings` (mobile disclaimer),
-    `BeatmapOverlayStrings` (user content disclaimer);
+    tooltip), `BeatmapOverlayStrings` (user content disclaimer);
   - `osu.Game/Database/RealmAccess.cs` (database recovery messages) and
     `osu.Game/OsuGameBase.cs` (data migration log);
   - `osu.Game/Seasonal/IntroChristmas.cs`: "welcome to kan!" and
@@ -591,12 +590,11 @@ features are not kan!'s.
   strings and comments, no behaviour.
 - **Upstream-PR:** no (product-specific strings).
 
-Two judgement calls in the second pass, flagged for the maintainer: the
-mobile disclaimer now reads "we have released kan! on mobile platforms"
-(name swap only). The dialog shows only in mobile builds
-(`RuntimeInfo.IsMobile`), which kan! does not ship (F-23); the claim
-about a mobile release is true of osu! and needs a decision before kan!
-ever ships mobile. The NVIDIA profile names use the neutral `kan`
+Judgement calls in the second pass: the mobile disclaimer
+(`ButtonSystemStrings`) keeps "we have released osu! on mobile platforms":
+it is a statement about osu!, shown only in mobile builds kan! does not
+ship (F-23), and saying kan! there would claim a mobile release that does
+not exist (reviewed 2026-11-10). The NVIDIA profile names use the neutral `kan`
 spelling of the brand (like the `kan` assembly name of ADR-0011 §4), not
 the `kan!` wordmark.
 
