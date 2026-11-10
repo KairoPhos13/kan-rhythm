@@ -13,7 +13,7 @@ namespace Kan.Forge.Editor
     /// <summary>
     /// The level open in the editor, as every tab sees it: its tracks (and work
     /// folder), its score and its design, always opened together and in that
-    /// order — each builds on the one before (the score's autosave lives in the
+    /// order; each builds on the one before (the score's autosave lives in the
     /// work folder; the design's automatic sections follow the notes). Every
     /// tab opens it when it loads; it is a no-op for a level already open.
     /// </summary>

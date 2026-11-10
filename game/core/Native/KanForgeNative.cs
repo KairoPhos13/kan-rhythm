@@ -39,7 +39,7 @@ namespace Kan.Core.Native
 
     /// <summary>
     /// Progress callback as seen by the native side. IMPORTANT: it fires on
-    /// the worker thread running the libkan job — dispatch to the UI thread
+    /// the worker thread running the libkan job; dispatch to the UI thread
     /// is the caller's responsibility (see Kan.Forge.Pipeline.ForgeJobRunner).
     /// </summary>
     [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
@@ -54,7 +54,7 @@ namespace Kan.Core.Native
         /// <summary>Silence [start, end), keep the rest (timing preserved).</summary>
         Mute = 1,
 
-        /// <summary>Crop to [start, end) — tight file, offset lost.</summary>
+        /// <summary>Crop to [start, end): tight file, offset lost.</summary>
         Trim = 2,
     }
 
@@ -81,7 +81,7 @@ namespace Kan.Core.Native
     }
 
     /// <summary>
-    /// P/Invoke surface of libkan_forge_native — the thin adapter that keeps
+    /// P/Invoke surface of libkan_forge_native: the thin adapter that keeps
     /// libkan invocation out of the rest of the game code (minimal fork
     /// divergence rule: everything behind this class).
     /// </summary>

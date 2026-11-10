@@ -9,7 +9,7 @@ namespace Kan.Core.Score
 {
     /// <summary>
     /// Where the level's bars start (owner 2026-10-22: "the only way to know
-    /// the bars is listening" — the staff marks them, the bars only, not the
+    /// the bars is listening", the staff marks them, the bars only, not the
     /// beats between). A tempo that breathes changes on any beat (the tempo
     /// bar's "the beat falls here", the sync with the next tempo), not only
     /// on a bar: a change landing on a beat of the tempo before goes on

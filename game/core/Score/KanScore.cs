@@ -29,7 +29,7 @@ namespace Kan.Core.Score
     }
 
     /// <summary>
-    /// One note of the score — what gameplay judges (owner 2026-10-14: timing,
+    /// One note of the score: what gameplay judges (owner 2026-10-14: timing,
     /// correct note, intensity, play style). Times are on the level audio's
     /// timeline (ms).
     /// </summary>
@@ -122,7 +122,7 @@ namespace Kan.Core.Score
 
         /// <summary>
         /// Keep the notes on their beats when the level's tempo grid changed
-        /// (owner 2026-10-22: timing changes did not reach compose — the notes
+        /// (owner 2026-10-22: timing changes did not reach compose: the notes
         /// are kept in ms in this file, not as osu! objects, so osu!'s "adjust
         /// existing objects on timing changes" never moved them). Like osu!: a
         /// timing point moved carries the notes of its section by as much; a
@@ -237,7 +237,7 @@ namespace Kan.Core.Score
 
         /// <summary>Instruments that sound one note at a time (one air column / one bow).</summary>
         /// <summary>
-        /// The notes that start while another still sounds — two pitches at once,
+        /// The notes that start while another still sounds: two pitches at once,
         /// which an instrument that plays one note at a time cannot (owner
         /// 2026-10-25). Each with the note it overlaps. Overlaps shorter than
         /// <paramref name="seamMs"/> are a legato's seam, not two notes at once.
@@ -395,7 +395,7 @@ namespace Kan.Core.Score
 
         /// <summary>
         /// Remove every note outside [<paramref name="lowMidi"/>,
-        /// <paramref name="highMidi"/>] (owner example: keep G4–A8 for a
+        /// <paramref name="highMidi"/>] (owner example: keep G4-A8 for a
         /// piano's right hand). Returns the removed notes so they can be
         /// offered back one by one.
         /// </summary>

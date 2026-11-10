@@ -10,7 +10,7 @@ namespace Kan.Core.Tracks
     /// decode pass produces the data behind the **waveform preview** and the
     /// **"no meaningful audio" marking**. After separation, stems that seem
     /// to carry no meaningful sound are tagged and moved to the end of the
-    /// list so the user is not misled into thinking they hold content — they
+    /// list so the user is not misled into thinking they hold content; they
     /// stay selectable for the cases where the user knows better.
     /// </summary>
     public static class TrackAnalysis
@@ -26,7 +26,7 @@ namespace Kan.Core.Tracks
 
         /// <summary>
         /// "Meaningful audio" rule: both peak and RMS must clear the noise
-        /// floor. Conservative on purpose — a flagged track is only demoted
+        /// floor. Conservative on purpose: a flagged track is only demoted
         /// and labelled, never removed.
         /// </summary>
         public static bool HasMeaningfulAudio(float peak, float rms)
@@ -44,7 +44,7 @@ namespace Kan.Core.Tracks
             if (st != KanForgeStatus.Ok)
             {
                 // Unanalysed tracks stay unjudged (I2): no "empty" flag, no
-                // preview — but the failure is visible, not an endless wait.
+                // preview, but the failure is visible, not an endless wait.
                 track.AnalysisFailed = true;
                 return;
             }

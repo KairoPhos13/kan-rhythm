@@ -1,4 +1,4 @@
-# Detection quality — how well kan! hears a level
+# Detection quality: how well kan! hears a level
 
 Owner request (2026-10-15): the transcription quality is a likely source of
 errors, both for the editor's starting score and for gameplay judging.
@@ -43,13 +43,13 @@ and the refined pitch inside the search band.
 
 ## Results
 
-### 2026-10-15 — "Itsumo Nando Demo", 12-hole alto C ocarina (220 s)
+### 2026-10-15: "Itsumo Nando Demo", 12-hole alto C ocarina (220 s)
 
 Ground truth: the owner's corrected score, 325 notes. **Caveat:** it was
 corrected by ear against the song, not verified note by note. Some notes
 were moved, deleted or re-pitched, so it is an imperfect truth. Blind
 transcription below uses the `ocarina` profile with the open range
-(A0–C8).
+(A0-C8).
 
 **1. Blind transcription**
 
@@ -62,7 +62,7 @@ transcription below uses the `ocarina` profile with the open range
 | onset ±50 ms + right pitch | precision 28.7 %, recall 54.5 %, **F1 37.6 %** |
 | onset ±100 ms + right pitch | precision 33.2 %, recall 63.1 %, F1 43.5 % |
 | onset ±50 ms, any pitch | precision 40.0 %, recall 76.0 %, F1 52.4 % |
-| pitch of onset-matched notes | right 70.4 %, ±1–2 semitones 12.6 %, octave 0 %, other 2 %, unresolved 15 % |
+| pitch of onset-matched notes | right 70.4 %, ±1-2 semitones 12.6 %, octave 0 %, other 2 %, unresolved 15 % |
 | onset error after alignment | median +16.8 ms, MAD 17.2 ms |
 
 **2. Expected mode, streamed:** of the 293 heard notes, 10.6 % confirmed,
@@ -82,7 +82,7 @@ named the right pitch for 65.5 % of them):
 | wrong by +12 | 0.0 % | 96.6 % | 3.4 % | 0.00 |
 | wrong by **−12** | **74.1 %** | 22.5 % | 3.4 % | **0.99** |
 
-### 2026-10-15 (later) — same take, after the libkan fixes (`main` 2b114bc, 3e6ca04)
+### 2026-10-15 (later): same take, after the libkan fixes (`main` 2b114bc, 3e6ca04)
 
 Two libkan changes:
 - one record at a time on mono profiles: no twins and no endless notes;
@@ -98,7 +98,7 @@ Truth and caveats are as above.
 | onset ±50 ms + right pitch | F1 37.6 % (P 28.7, R 54.5) | **F1 57.0 %** (P 45.6, R 76.0) |
 | onset ±100 ms + right pitch | F1 43.5 % | **F1 64.6 %** |
 | onset ±50 ms, any pitch | F1 52.4 % (R 76.0) | F1 66.2 % (**R 88.3**) |
-| pitch of matched notes: right / ±1–2 st / unresolved | 70.4 / 12.6 / 15.0 % | **82.9 / 2.8 / 14.3 %** |
+| pitch of matched notes: right / ±1-2 st / unresolved | 70.4 / 12.6 / 15.0 % | **82.9 / 2.8 / 14.3 %** |
 | onset error after alignment (median, MAD) | +16.8 ms, 17.2 | +1.1 ms, 21.0 |
 | cost for 220 s | 25.2 s | 19.4 s |
 
@@ -109,7 +109,7 @@ sits behind the piano: the owner moved the notes onto the piano's timing.
 
 Expected mode, after the fixes:
 - **Per note:** the right expectation is confirmed for 67.1 % of 313
-  heard notes; wrong ones by ±1–2 semitones 2–10 %, +12 never, **−12
+  heard notes; wrong ones by ±1-2 semitones 2-10 %, +12 never, **−12
   68.7 %**. Bound attacks 7.8 → 45.4 %, because re-articulated notes no
   longer go through the deferral.
 - **Streamed:** 5.8 % confirmed.
@@ -123,7 +123,7 @@ all without a pitch, and the same before the change. MAESTRO validated
 the score-anchored path (`dataset_bench`), not blind transcription. To
 look into before piano levels rely on the editor's transcription.
 
-### 2026-10-15 (evening) — Basic Pitch in libkan (`main` d4175c3, 37b1674)
+### 2026-10-15 (evening): Basic Pitch in libkan (`main` d4175c3, 37b1674)
 
 Owner decision: a trained transcriber instead of more hand-made rules.
 Basic Pitch (Spotify, Apache-2.0) now runs inside libkan in plain C++
@@ -149,7 +149,7 @@ Piano, MAESTRO v3 test split, exact truth (`--offset 0`, `keyboard`):
 | Liszt "Gnomenreigen" (168 s) | 0.2 % | 54.0 % (76.9 / 41.7) | 34.6 / 3.5 s |
 | Scarlatti K. 239 (196 s) | 0.0 % | 67.3 % (70.4 / 64.6) | 47.7 / 4.0 s |
 
-The describer finds piano attacks but leaves 95–100 % of them without a
+The describer finds piano attacks but leaves 95-100 % of them without a
 pitch. Basic Pitch saw MAESTRO's training split; these pieces are held out.
 
 The editor now transcribes with Basic Pitch (`ForgeJobs.TranscribeAsync`
@@ -162,11 +162,11 @@ one note at a time or several, the range, and the judge's profile.
 ## What it means
 
 - **The main sources of error, in order:**
-  1. **Extra notes.** Precision is 29–40 %: almost two found notes per
+  1. **Extra notes.** Precision is 29-40 %: almost two found notes per
      real one. Repeats (126) and re-attacks inside held notes are a large
      part of it, and so are ornaments the owner did not keep.
   2. **Unresolved pitches** (15 % of matched notes) and **near misses of
-     1–2 semitones** (12.6 %). No octave errors in blind mode here.
+     1-2 semitones** (12.6 %). No octave errors in blind mode here.
   3. **Missed attacks:** 24 % of truth notes have no onset within ±50 ms,
      mostly soft or slurred attacks.
   4. **A constant lateness of about 100 ms** against the hand-placed
@@ -175,8 +175,8 @@ one note at a time or several, the range, and the judge's profile.
      the transcriber-delay setting in the timing tab. The game's
      pitch-arrival credit and the mic calibration absorb it in play.
 - **Expected mode helps when it is aimed right:** per note it confirms
-  72.7 % against 65.5 % for blind, and rejects wrong notes 1–2 semitones
-  off 92–97 % of the time. **But it cannot be trusted alone for octaves:**
+  72.7 % against 65.5 % for blind, and rejects wrong notes 1-2 semitones
+  off 92-97 % of the time. **But it cannot be trusted alone for octaves:**
   an expectation one octave *below* the played note is "confirmed" 74 % of
   the time with similarity 0.99. The note played contains the expected
   pitch's harmonics. An expectation one octave above is never confirmed.

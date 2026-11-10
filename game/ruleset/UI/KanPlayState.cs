@@ -23,7 +23,7 @@ namespace Kan.Ruleset.UI
     /// <summary>
     /// What is happening in a play: the live session listening to the player,
     /// the judge pairing what it hears with the score, the trail of the
-    /// player's pitch, and the "bloom" — how open the music is (it opens up as
+    /// player's pitch, and the "bloom": how open the music is (it opens up as
     /// the player plays well and closes a little on misses; it never stops).
     /// Shared by the judging objects and the staff.
     /// </summary>

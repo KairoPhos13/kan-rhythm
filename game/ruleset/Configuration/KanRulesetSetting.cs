@@ -6,7 +6,7 @@ namespace Kan.Ruleset.Configuration
     /// <summary>
     /// Persisted kan! ruleset settings (stored in the local client.realm via
     /// osu!lazer's RulesetConfigManager, so the selection is remembered across
-    /// runs — owner requirement 2026-10-13).
+    /// runs, owner requirement 2026-10-13).
     /// </summary>
     public enum KanRulesetSetting
     {

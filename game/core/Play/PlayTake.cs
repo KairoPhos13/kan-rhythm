@@ -22,7 +22,7 @@ namespace Kan.Core.Play
     ///
     /// The recording stays in real time (the player's own pace, rate mods and
     /// waits included); the marks put it on the level's timeline, as the judge
-    /// placed what it heard — without the player's timing habit, so the replay
+    /// placed what it heard, without the player's timing habit, so the replay
     /// sounds as it was played.
     /// </summary>
     public sealed class PlayTake

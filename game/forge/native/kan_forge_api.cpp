@@ -1,7 +1,7 @@
-// kan_forge_api — implementation. See kan_forge_api.h for the contract.
+// kan_forge_api: implementation. See kan_forge_api.h for the contract.
 // libkan does the measurement work (transcribe.hpp); this file only adapts
 // it to a C ABI for the KAN client. Progress flows libkan -> shim ->
-// kan_forge_progress_fn (worker thread) — never console scraping.
+// kan_forge_progress_fn (worker thread), never console scraping.
 //
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 #include "kan_forge_api.h"
@@ -129,7 +129,7 @@ kan_forge_status kan_forge_separate_stems(const char* audio_path, const char* ou
     const std::string sep = kan::find_separator();
     if (sep.empty()) {
         set_err(err, err_cap,
-                "separate: no separator runtime — expected the compiled RoFormer runtime "
+                "separate: no separator runtime; expected the compiled RoFormer runtime "
                 "(libkan KAN_ENABLE_ROFORMER) with its auto-downloaded model");
         return KAN_FORGE_ERR_SEPARATOR;
     }
@@ -153,7 +153,7 @@ kan_forge_status kan_forge_separate_stems(const char* audio_path, const char* ou
     // Device-correctness gate visibility (editor-pipeline s7b.1): the first
     // run after a runtime change compares GPU vs CPU once (the CPU half is
     // heavy). Give it its own progress phase so the UI never shows a frozen
-    // bar — and state the verdict (GPU ok / CPU fallback) out loud.
+    // bar, and state the verdict (GPU ok / CPU fallback) out loud.
     if (sep.rfind("runtime:", 0) == 0) {
 #ifdef KAN_HAVE_ROFORMER_RUNTIME
         kan::report_progress("device check", 0);
@@ -166,7 +166,7 @@ kan_forge_status kan_forge_separate_stems(const char* audio_path, const char* ou
     const std::string dir = kan::separate_stems(audio_path, out_dir, "6");
     if (dir.empty()) {
         set_err(err, err_cap,
-                "separate: separation produced no stems — see the log above "
+                "separate: separation produced no stems; see the log above "
                 "(the model or the input may be invalid)");
         return KAN_FORGE_ERR_SEPARATOR;
     }
@@ -245,7 +245,7 @@ int32_t kan_forge_has_downloader(void) {
 
 namespace {
 
-// Minimal PCM16 mono WAV writer (48 kHz) — same format as the self-test.
+// Minimal PCM16 mono WAV writer (48 kHz), same format as the self-test.
 bool write_wav_pcm16(const std::string& path, const std::vector<float>& sig, int sr) {
     std::FILE* f = std::fopen(path.c_str(), "wb");
     if (f == nullptr) return false;
@@ -305,13 +305,13 @@ kan_forge_status kan_forge_edit_track(const char* audio_path, float start_ms, fl
     std::vector<float> out;
     switch (mode) {
         case KAN_FORGE_EDIT_KEEP:
-            // Keep the range, silence the rest — original timing preserved.
+            // Keep the range, silence the rest (original timing preserved).
             out.assign(sig.size(), 0.0f);
             std::copy(sig.begin() + std::ptrdiff_t(a), sig.begin() + std::ptrdiff_t(b), out.begin() + std::ptrdiff_t(a));
             break;
 
         case KAN_FORGE_EDIT_MUTE:
-            // Silence the range, keep the rest — original timing preserved.
+            // Silence the range, keep the rest (original timing preserved).
             out = sig;
             std::fill(out.begin() + std::ptrdiff_t(a), out.begin() + std::ptrdiff_t(b), 0.0f);
             break;

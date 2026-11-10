@@ -12,7 +12,7 @@ namespace Kan.Forge.Media
     /// A spectrogram folded onto the piano roll's rows (owner 2026-10-14:
     /// show the sound behind the written notes): one value per MIDI pitch
     /// (0..127) per time frame, 0 (silent) .. 1 (the loudest point of the
-    /// file), on a dB scale. Presentation data for the compose tab — not a
+    /// file), on a dB scale. Presentation data for the compose tab, not a
     /// detection algorithm (libkan does the measuring).
     /// </summary>
     public class PitchSpectrogram

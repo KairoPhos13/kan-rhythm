@@ -50,7 +50,7 @@ namespace Kan.Ruleset.UI
         /// 2026-10-23: "the shorter the notes, the wider the horizontal scale:
         /// the more they are squeezed, the harder they are to play right").
         /// One scale for the whole level, set when it loads: a scale that
-        /// followed each passage "made me lose the sense of time" — yet
+        /// followed each passage "made me lose the sense of time", yet
         /// "someone may like it": it stays, as a setting (StaffFollowsPassage).
         /// </summary>
         private const double max_ahead_ms = 3200, min_ahead_ms = 1600;
@@ -239,7 +239,7 @@ namespace Kan.Ruleset.UI
             // first verdict loading them was a stutter on the first note.
             feedbackLayer.Add(new OsuSpriteText
             {
-                Text = @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789·—♯↑↓?",
+                Text = @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789·:♯↑↓?",
                 Font = feedback_font,
                 Shadow = true,
                 Alpha = 0,
@@ -446,7 +446,7 @@ namespace Kan.Ruleset.UI
                 line.Width = tick.Kind == Kan.Core.Score.Bars.TickKind.Bar ? 2 : 1.5f;
                 line.Height = length;
                 // Two quiet tones, one line each (owner 2026-10-22, after Sayonara Wild Hearts,
-                // calmer): the colour changes as each line crosses the now line — the perfect is on the change.
+                // calmer): the colour changes as each line crosses the now line; the perfect is on the change.
                 bool golden = window != null && Math.Abs(tick.TimeMs - window.StartTime) < 2;
                 Color4 tone = golden ? window_gold : i % 2 == 0 ? pulse_a : pulse_b;
                 float kindAlpha = tick.Kind == Kan.Core.Score.Bars.TickKind.Bar ? 0.35f : tick.Kind == Kan.Core.Score.Bars.TickKind.Beat ? 0.3f : 0.25f;
@@ -553,7 +553,7 @@ namespace Kan.Ruleset.UI
                     view.Alpha *= (float)Math.Clamp((n.StartTime - now - 300) / 500, 0, 1);
 
                 // "By heart": a note shows only for a moment from when it comes into view
-                // (the last 150 ms of it fading) — also the notes already in view when
+                // (the last 150 ms of it fading), also the notes already in view when
                 // the level starts (owner 2026-10-23: they began hidden, never seen).
                 if (state.SeenForMs is { } seen && state.Verdicts[i] == null)
                 {
@@ -585,7 +585,7 @@ namespace Kan.Ruleset.UI
         /// The target circle stays on the note being held until it ends (owner
         /// 2026-10-21: jumping to the next one while the last still sounded
         /// distracted), then goes to the next; into a slurred (legato) note it
-        /// glides over the held note's last moments — the slur the judge takes
+        /// glides over the held note's last moments, the slur the judge takes
         /// by its pitch arriving.
         /// </summary>
         private void pointTarget(double now, int next)
@@ -717,7 +717,7 @@ namespace Kan.Ruleset.UI
                     break;
 
                 case LiveReason.WrongNote:
-                    text = v.PlayedMidi is int played ? $"{NoteName(played)} — play {NoteName(n.Midi)}" : @"another note";
+                    text = v.PlayedMidi is int played ? $"{NoteName(played)}: play {NoteName(n.Midi)}" : @"another note";
                     break;
 
                 default:

@@ -15,14 +15,14 @@ namespace Kan.Forge.Tracks
     /// level and kept for gameplay, which will judge microphone input with
     /// the same numbers:
     /// <list type="bullet">
-    /// <item><b>Mic delay</b> — the full round trip of playing along: the
+    /// <item><b>Mic delay</b>, the full round trip of playing along: the
     /// speakers' delay, the microphone's, and the transcriber's reaction.
     /// Measured with the calibration tool; applied to notes recorded with the
     /// mic.</item>
-    /// <item><b>Transcriber delay</b> — how late the transcriber places notes
+    /// <item><b>Transcriber delay</b>, how late the transcriber places notes
     /// in an audio file (slow attacks are recognised after they start);
     /// applied to every note transcribed from a file.</item>
-    /// <item><b>Player timing</b> — how far ahead of (or behind) the line the
+    /// <item><b>Player timing</b>, how far ahead of (or behind) the line the
     /// player plays by habit; applied to every note they play live.</item>
     /// </list>
     /// Stored in kan-forge/timing.json.
@@ -40,7 +40,7 @@ namespace Kan.Forge.Tracks
         /// The player's habit, in ms: negative when they play ahead of the line
         /// (owner 2026-10-21: a wind player sounds the attack before hearing the
         /// note, ~45 ms ahead every time). Their notes are taken this much later
-        /// (earlier when positive) — the player's own offset, as osu!'s, and the
+        /// (earlier when positive), the player's own offset, as osu!'s, and the
         /// one a play corrects; unlike the mic delay, it may be negative.
         /// </summary>
         public static readonly BindableDouble PLAYER_TIMING_MS = new BindableDouble { MinValue = -200, MaxValue = 200, Precision = 1 };

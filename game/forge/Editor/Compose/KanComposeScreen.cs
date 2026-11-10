@@ -32,8 +32,8 @@ namespace Kan.Forge.Editor.Compose
 {
     /// <summary>
     /// kan!'s compose tab (fork F-13): the score editor.
-    /// The score — the notes gameplay judges (timing, pitch, duration,
-    /// intensity, playing style) — is created, adjusted and improved here
+    /// The score, the notes gameplay judges (timing, pitch, duration,
+    /// intensity, playing style), is created, adjusted and improved here
     /// on a piano roll snapped to the timing tab's beat grid. It is saved
     /// inside the level (<see cref="KanScore.FILE_NAME"/>).
     /// </summary>

@@ -1,7 +1,7 @@
-/* kan_forge_api — thin C-ABI bridge between the KAN client (C#) and libkan.
+/* kan_forge_api: thin C-ABI bridge between the KAN client (C#) and libkan.
  *
  * Part of the level-creation pipeline (kan!forge): audio fetch, source
- * separation, offline transcription. libkan describes, the game judges —
+ * separation, offline transcription. libkan describes, the game judges:
  * this bridge only forwards measurements (docs/architecture/
  * note-description-stream.md) and progress (a method, never console
  * scraping). ABI rules: fixed-size POD structs, plain C strings, no
@@ -24,7 +24,7 @@
 extern "C" {
 #endif
 
-/* Status codes — error states are first-class (human-readable message is
+/* Status codes: error states are first-class (human-readable message is
  * written to the optional err buffer in every failure case). */
 typedef enum kan_forge_status {
     KAN_FORGE_OK = 0,
@@ -53,7 +53,7 @@ typedef struct kan_forge_note {
 
 /* Progress contract (libkan set_progress): invoked with phase
  * "download" | "separate" | "transcribe" and percent 0..100. The callback
- * may run on a worker thread — dispatch to the UI is the caller's job.
+ * may run on a worker thread; dispatch to the UI is the caller's job.
  * One active callback at a time (serialized by the caller). */
 typedef void (*kan_forge_progress_fn)(void* user, const char* phase, int32_t percent);
 
@@ -73,7 +73,7 @@ KAN_FORGE_API kan_forge_status kan_forge_separate_stems(const char* audio_path,
  * `profile` is one of "keyboard", "wind_bowed", "plucked" (libkan
  * InstrumentProfile families). On success *out_count receives the number of
  * notes written (capacity error returns KAN_FORGE_ERR_CAPACITY with the
- * required count). A zero-note transcription is OK — the caller decides how
+ * required count). A zero-note transcription is OK; the caller decides how
  * to present it ("no resolved notes" is a state, not a crash). */
 KAN_FORGE_API kan_forge_status kan_forge_transcribe_file(const char* audio_path,
                                                          const char* profile,
@@ -125,12 +125,12 @@ KAN_FORGE_API kan_forge_status kan_forge_mix_tracks_at(const char* const* paths,
                                                        const char* out_wav,
                                                        char* err, int32_t err_cap);
 
-/* Track editor (non-destructive: the source is never modified — each edit
+/* Track editor (non-destructive: the source is never modified; each edit
  * produces a NEW track the caller adds to its list under a user-chosen
  * name). Ranges are milliseconds in source time.
  *   KEEP: keep [start, end), silence the rest (original timing preserved)
  *   MUTE: silence [start, end), keep the rest (original timing preserved)
- *   TRIM: crop to [start, end) — tight file, original offset is lost */
+ *   TRIM: crop to [start, end), tight file, original offset is lost */
 typedef enum kan_forge_edit_mode {
     KAN_FORGE_EDIT_KEEP = 0,
     KAN_FORGE_EDIT_MUTE = 1,
@@ -206,7 +206,7 @@ typedef struct kan_forge_live_event {
     float presence;    /* candidate: how much of the energy the expected note explains, 0..1 */
     float similarity;  /* candidate: fit of the whole expectation to the sound, 0..1 */
     uint32_t flags;    /* libkan NoteFlags (audio facts, never verdicts) */
-    uint32_t group;    /* hit/candidate: the attack (strike group) the fact belongs to —
+    uint32_t group;    /* hit/candidate: the attack (strike group) the fact belongs to;
                           links a candidate measurement to its attack even when
                           libkan files it under no record (monophonic deferral) */
 } kan_forge_live_event;

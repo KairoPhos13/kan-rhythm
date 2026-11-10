@@ -27,7 +27,7 @@ namespace Kan.Ruleset.UI
 {
     /// <summary>
     /// The player loader's "Microphone" group (owner 2026-10-17: the mic delay
-    /// belongs to the player, not to a song — it was in compose — so it is set
+    /// belongs to the player, not to a song (it was in compose), so it is set
     /// right before playing): the delay, a measurement on clicks with a ball
     /// coming to the ring (<see cref="MicTimingOverlay"/>); the player's own
     /// timing (<see cref="ForgeTiming.PLAYER_TIMING_MS"/>), and, after a play,

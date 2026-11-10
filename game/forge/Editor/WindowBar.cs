@@ -27,7 +27,7 @@ namespace Kan.Forge.Editor
     /// A start/end window with handles, "start/end here" (at the playhead)
     /// and "whole". Used for the level audio's final
     /// start/end (<see cref="ForLevelAudio"/>) and for each track's side
-    /// trims (<see cref="ForTrack"/>) — the same control everywhere.
+    /// trims (<see cref="ForTrack"/>), the same control everywhere.
     /// </summary>
     internal partial class WindowBar : CompositeDrawable, IHasTooltip
     {

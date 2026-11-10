@@ -36,10 +36,10 @@ using Kan.Core.Tracks;
 namespace Kan.Forge.Editor
 {
     /// <summary>
-    /// The editor's **track** tab (owner 2026-10-13: second, after setup —
+    /// The editor's **track** tab (owner 2026-10-13: second, after setup,
     /// the first tool used when creating a level). It shows the unified
-    /// resource list as <see cref="KanTrackRow"/>s — waveform, role chips,
-    /// mute, and the non-destructive range editor on demand — plus the
+    /// resource list as <see cref="KanTrackRow"/>s (waveform, role chips,
+    /// mute, and the non-destructive range editor on demand) plus the
     /// optional actions as <see cref="KanActionCard"/>s with their own
     /// progress. Everything here is **selection and arrangement**:
     /// importing happens only in Resources (<see cref="KanMediaSection"/>).
@@ -212,7 +212,7 @@ namespace Kan.Forge.Editor
                                     sectionHeader(@"Tracks", @"press play below to hear the set · drag a track to move it, its sides to trim it · click to jump there · chips: companion (plays under the player) and reference (the full performance)", colourProvider),
                                     createToolbar(),
                                     trackFlow,
-                                    sectionHeader(@"Actions", @"optional and independent — run any of them, in any order, or none", colourProvider).With(d => d.Margin = new MarginPadding { Top = 16 }),
+                                    sectionHeader(@"Actions", @"optional and independent: run any of them, in any order, or none", colourProvider).With(d => d.Margin = new MarginPadding { Top = 16 }),
                                     cardFlow,
                                 },
                             },
@@ -403,14 +403,14 @@ namespace Kan.Forge.Editor
 
             int mixed = trackSet.Companions.Count();
             string window = trackSet.HasAudioWindow
-                ? $" Kept: {ForgeFormat.Time(trackSet.AudioStartMs / 1000)} – {(trackSet.AudioEndMs > 0 ? ForgeFormat.Time(trackSet.AudioEndMs / 1000) : "end")}."
+                ? $" Kept: {ForgeFormat.Time(trackSet.AudioStartMs / 1000)}-{(trackSet.AudioEndMs > 0 ? ForgeFormat.Time(trackSet.AudioEndMs / 1000) : "end")}."
                 : string.Empty;
             string state = mixed == 0 ? string.Empty
                 : BeatmapAudio.Rendering ? " Updating…"
-                : BeatmapAudio.IsUpToDate(trackSet) ? " Up to date." : " Changed — it updates by itself when you leave this tab or save.";
+                : BeatmapAudio.IsUpToDate(trackSet) ? " Up to date." : " Changed: it updates by itself when you leave this tab or save.";
             renderCard.SetUsage(mixed > 0
                 ? $"What gameplay plays: the {ForgeFormat.Plural(mixed, "companion track", "companion tracks")}, mixed.{window}{state}"
-                : @"What gameplay plays: the mix of the companion tracks — none marked yet.", mixed > 0);
+                : @"What gameplay plays: the mix of the companion tracks, none marked yet.", mixed > 0);
         }
 
         /// <summary>Refresh the list (called by the import surface).</summary>
@@ -453,7 +453,7 @@ namespace Kan.Forge.Editor
         /// "Save as new track": render the source's pending edits and filters
         /// into a NEW track (the source is never modified). Afterwards the
         /// source's edits are cleared and it is muted, so the mix sounds the
-        /// same as the preview did — one undo step brings everything back.
+        /// same as the preview did; one undo step brings everything back.
         /// </summary>
         private void saveEdits(ForgeTrack source, string name)
         {
@@ -546,7 +546,7 @@ namespace Kan.Forge.Editor
                         () => monitor.ZoomBy(0.5, monitor.ViewStartMs + monitor.ViewLengthMs / 2), 100),
                     button(FontAwesome.Solid.ExpandArrowsAlt, @"fit", @"Show the whole set", monitor.Fit, 80),
                     new Container { Width = 12, Height = 30 },
-                    clearSoloButton = button(FontAwesome.Solid.Headphones, @"clear solo", @"You're hearing only the soloed tracks — click to hear every track again", () =>
+                    clearSoloButton = button(FontAwesome.Solid.Headphones, @"clear solo", @"You're hearing only the soloed tracks: click to hear every track again", () =>
                     {
                         monitor.ClearSolo();
                         onRoleChanged();
@@ -665,7 +665,7 @@ namespace Kan.Forge.Editor
         private static string describe(TranscriptionDraft draft)
         {
             if (draft.Notes.Count == 0)
-                return @"no resolved notes (empty draft — check the source audio)";
+                return @"no resolved notes (empty draft; check the source audio)";
 
             int unresolved = 0;
             foreach (var n in draft.Notes)

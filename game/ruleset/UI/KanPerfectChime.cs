@@ -21,7 +21,7 @@ using Kan.Core.Media;
 namespace Kan.Ruleset.UI
 {
     /// <summary>
-    /// A perfect hit is heard (owner 2026-10-15: "short, never out of tune —
+    /// A perfect hit is heard (owner 2026-10-15: "short, never out of tune;
     /// it says you're doing great"): a small bell at the note just played, an
     /// octave up (<see cref="ChimeSynth"/>). One sample per pitch of the
     /// score, made when the level loads; played as game samples, so the

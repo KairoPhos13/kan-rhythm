@@ -28,7 +28,7 @@ namespace Kan.Forge.Play
     /// "Wait for me" without a hard stop (owner 2026-10-15: "keep the tone,
     /// don't replay a short stretch"): while the level waits for a note, the
     /// music at the moment it stopped is held as a sustained sound
-    /// (<see cref="SpectralFreeze"/>) — the same chord and timbre, softer and
+    /// (<see cref="SpectralFreeze"/>), the same chord and timbre, softer and
     /// a little muffled, without rhythm. The music still sounds better played
     /// through than waited on, but the step between them is gentler. Silent
     /// while the pause menu is open.

@@ -197,7 +197,7 @@ namespace Kan.Forge.Editor.Compose
 
         /// <summary>
         /// Pointer position in the note area's own coordinates (what XOf/YOf
-        /// use) — inside the keyboard's padding, not the padded container.
+        /// use), inside the keyboard's padding, not the padded container.
         /// </summary>
         private Vector2 gridPos(Vector2 screenSpace) => notes.ToLocalSpace(screenSpace);
 
@@ -236,7 +236,7 @@ namespace Kan.Forge.Editor.Compose
         /// <summary>Fit as soon as the roll has its size (on first show).</summary>
         public void RequestFit() => fitPending = true;
 
-        /// <summary>Show the whole score — its time span and its pitch range (or 12 s around C4 when empty).</summary>
+        /// <summary>Show the whole score: its time span and its pitch range (or 12 s around C4 when empty).</summary>
         public void Fit()
         {
             if (score.Notes.Count == 0)
@@ -289,7 +289,7 @@ namespace Kan.Forge.Editor.Compose
                 if (Range != drawnRange)
                 {
                     drawnRange = Range;
-                    osu.Framework.Logging.Logger.Log($"kan! compose: playable range {KanScore.NoteName(Range.Lowest)}–{KanScore.NoteName(Range.Highest)}");
+                    osu.Framework.Logging.Logger.Log($"kan! compose: playable range {KanScore.NoteName(Range.Lowest)}-{KanScore.NoteName(Range.Highest)}");
                 }
 
                 drawnGridKey = gridKey;
@@ -819,7 +819,7 @@ namespace Kan.Forge.Editor.Compose
                 // Pink: apart from the companion (blue) and reference (yellow) sound behind.
                 Color4 baseColour = note.PitchUnknown ? colours.Gray9 : !playable ? colours.Gray6 : colours.Pink;
                 if (!playable) Alpha = 0.6f;
-                // Intensity sets the brightness — never so dark the note disappears.
+                // Intensity sets the brightness, never so dark the note disappears.
                 Color4 fill = Interpolation.ValueAt(note.Intensity, baseColour.Darken(0.6f), baseColour, 0f, 1f);
 
                 InternalChildren = new Drawable[]

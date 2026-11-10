@@ -43,7 +43,7 @@ namespace Kan.Forge.Editor
     {
         /// <summary>
         /// The editor's "Audio Track", shown where the stock row was: not a
-        /// second import — it is the level audio, the mix of the companion
+        /// second import; it is the level audio, the mix of the companion
         /// tracks (owner naming 2026-10-14). Shows which tracks it mixes, the
         /// file it plays as and whether it is up to date; the picker toggles
         /// companion tracks, and closing it renders the level audio if the
@@ -106,7 +106,7 @@ namespace Kan.Forge.Editor
                             new FormFieldCaption
                             {
                                 Caption = @"Audio Track (level audio)",
-                                TooltipText = @"What plays under the player: the mix of the companion tracks. Click to choose them — new audio is imported in 'Audio tracks' below.",
+                                TooltipText = @"What plays under the player: the mix of the companion tracks. Click to choose them; new audio is imported in 'Audio tracks' below.",
                             },
                             text = new OsuTextFlowContainer(t => t.Font = OsuFont.Default.With(size: 16))
                             {
@@ -238,7 +238,7 @@ namespace Kan.Forge.Editor
 
                     string state = rendering ? @"rendering…"
                         : upToDate && !string.IsNullOrEmpty(audioFile) ? $"plays as {audioFile}"
-                        : @"changed — updates when you close this or leave the track tab";
+                        : @"changed: updates when you close this or leave the track tab";
                     text.AddText($"   {state}", t => t.Colour = colourProvider.Foreground1);
 
                     if (companions.Length > 1)
@@ -254,10 +254,10 @@ namespace Kan.Forge.Editor
                 else if (!string.IsNullOrEmpty(audioFile))
                 {
                     text.AddText(audioFile);
-                    text.AddText(@"   no companion tracks yet — click to choose them", t => t.Colour = colourProvider.Foreground1);
+                    text.AddText(@"   no companion tracks yet: click to choose them", t => t.Colour = colourProvider.Foreground1);
                 }
                 else
-                    text.AddText(@"No level audio yet — click to choose the companion tracks", t => t.Colour = colourProvider.Foreground1);
+                    text.AddText(@"No level audio yet: click to choose the companion tracks", t => t.Colour = colourProvider.Foreground1);
 
                 linkIcon.Colour = companions.Length > 0 ? colour : colourProvider.Light1;
 
@@ -266,7 +266,7 @@ namespace Kan.Forge.Editor
             }
         }
 
-        /// <summary>The level audio picker: toggle companion tracks (selection only — nothing is imported here).</summary>
+        /// <summary>The level audio picker: toggle companion tracks (selection only; nothing is imported here).</summary>
         private partial class CompanionPickerPopover : OsuPopover
         {
             private readonly ForgeTrackSet set;
@@ -303,7 +303,7 @@ namespace Kan.Forge.Editor
                         RelativeSizeAxes = Axes.X,
                         AutoSizeAxes = Axes.Y,
                         Padding = new MarginPadding(8),
-                        Text = @"The set is empty — add audio with 'Audio tracks' below, then choose the companion tracks here.",
+                        Text = @"The set is empty: add audio with 'Audio tracks' below, then choose the companion tracks here.",
                     });
                 }
 
@@ -329,7 +329,7 @@ namespace Kan.Forge.Editor
 
             public override LocalisableString TooltipText
             {
-                get => track.IsCompanion ? @"companion — click to remove it from the level audio" : @"click to make it a companion (part of the level audio)";
+                get => track.IsCompanion ? @"companion: click to remove it from the level audio" : @"click to make it a companion (part of the level audio)";
                 set { }
             }
 

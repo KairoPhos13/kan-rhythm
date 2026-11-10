@@ -129,7 +129,7 @@ namespace Kan.Ruleset.UI
 
         /// <summary>
         /// A note at the same pitch as the one before it (not tied): it is played
-        /// by a new attack only — holding the previous note on is not playing it.
+        /// by a new attack only; holding the previous note on is not playing it.
         /// A score whose previous note still sounds when this one starts (an
         /// overlap, from a transcription) means a tie: nothing to attack again.
         /// </summary>
@@ -186,7 +186,7 @@ namespace Kan.Ruleset.UI
                     return;
                 }
 
-                // A wrong note — its confirmed pitch only, a gentle mod forgives a
+                // A wrong note: its confirmed pitch only, a gentle mod forgives a
                 // provisional slip; an octave off is the detector's, not the
                 // player's, and the previous note still sounding is a learner's
                 // lag, not a try.
@@ -201,7 +201,7 @@ namespace Kan.Ruleset.UI
             trackWrongPitch(n, f);
 
             // The right pitch sounding is enough: readings come every 10 ms, a
-            // note's pitch event later — and a held or slurred note has none.
+            // note's pitch event later, and a held or slurred note has none.
             // A repeated note is not released by the previous one still sounding: it waits for an attack.
             if (needsAttack(n)) return;
 
@@ -222,7 +222,7 @@ namespace Kan.Ruleset.UI
 
             // The player just played the note: the level picks up from the note's
             // start (plus the detection's moment), not from where it stood a
-            // little past it — so the next notes come in time with the player,
+            // little past it, so the next notes come in time with the player,
             // and the waited note is heard with its own accompaniment.
             resumeAt = WaitResumeTime;
             clockContainer?.Seek(resumeAt);
@@ -244,7 +244,7 @@ namespace Kan.Ruleset.UI
 
         /// <summary>
         /// Once the level moves again, the time it stood still is what passed
-        /// in real time minus what the level advanced — including the moment
+        /// in real time minus what the level advanced, including the moment
         /// the track takes to start, which a stopwatch around Stop/Start
         /// misses (seen 2026-10-15: notes after a wait judged ~110 ms late).
         /// </summary>

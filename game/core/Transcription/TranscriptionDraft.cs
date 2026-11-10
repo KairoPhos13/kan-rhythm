@@ -16,7 +16,7 @@ namespace Kan.Core.Transcription
     /// the notes that fall in them must be shifted, split or removed so the
     /// draft stays consistent with what will actually be heard.
     ///
-    /// V1 edit semantics — **physically faithful to the audio edit**:
+    /// V1 edit semantics, **physically faithful to the audio edit**:
     /// a note is split at every segment boundary it crosses; the piece inside
     /// the segment is removed or travels with it; the pieces outside stay.
     /// A piece whose end was cut is flagged <see cref="KanDraftNote.EndFaded"/>
@@ -26,7 +26,7 @@ namespace Kan.Core.Transcription
     ///
     /// - <b>DeleteRange</b>: pieces inside the range are removed; the gap
     ///   stays (silence); outside pieces keep their positions.
-    /// - <b>CutRange</b>: like DeleteRange, then the gap closes — everything
+    /// - <b>CutRange</b>: like DeleteRange, then the gap closes; everything
     ///   on or after the range end shifts back by its length.
     /// - <b>MoveRange</b>: inside pieces travel with the segment (delta =
     ///   newStart − t0); the source gap stays open; the destination range is

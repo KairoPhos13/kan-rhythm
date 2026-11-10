@@ -18,9 +18,9 @@ namespace Kan.Ruleset.UI
 {
     /// <summary>
     /// What fills a rest (owner 2026-10-15: "where nothing is played the
-    /// visualizations should change — hide them, or fill the space with
-    /// something more dynamic"): the companion as light — its spectrum in
-    /// mirrored bars and a soft core that breathes with it — in the level's
+    /// visualizations should change: hide them, or fill the space with
+    /// something more dynamic"): the companion as light (its spectrum in
+    /// mirrored bars and a soft core that breathes with it) in the level's
     /// colours, plus what comes next. Shown as the scene rests, unless the
     /// section asks for a calm screen (<see cref="BreakStyle.Hide"/>).
     /// </summary>

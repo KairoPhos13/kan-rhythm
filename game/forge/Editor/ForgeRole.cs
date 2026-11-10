@@ -72,8 +72,8 @@ namespace Kan.Forge.Editor
 
         public static string Description(ForgeRole role) => role switch
         {
-            ForgeRole.Companion => @"companion — plays under the player during the level. The companion tracks, mixed, are the level audio.",
-            _ => @"reference — the full performance (one per level): what gets transcribed, and what the demo plays along with the companion.",
+            ForgeRole.Companion => @"companion: plays under the player during the level. The companion tracks, mixed, are the level audio.",
+            _ => @"reference, the full performance (one per level): what gets transcribed, and what the demo plays along with the companion.",
         };
 
         public static bool Has(ForgeTrack track, ForgeRole role) => role switch

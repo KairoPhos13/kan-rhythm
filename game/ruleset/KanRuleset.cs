@@ -28,7 +28,7 @@ namespace Kan.Ruleset
 {
     /// <summary>
     /// The kan! game mode: real-instrument play with dual-axis judgment
-    /// (attack timing + intonation). Phase 0 skeleton — this class only proves
+    /// (attack timing + intonation). Phase 0 skeleton: this class only proves
     /// the osu!lazer ruleset plugin path and carries product metadata.
     /// Gameplay arrives with the "Input & judgment core" work items in
     /// game/TODO.md (Phase 1).
@@ -46,9 +46,9 @@ namespace Kan.Ruleset
         /// `.osz` content stays importable and convertible into kan! charts
         /// (osu-integration.md §3). QA finding 2026-10-13: without a loaded
         /// ruleset claiming the legacy ID, the beatmap decoder rejects every
-        /// legacy beatmap ("Rulest is not available locally.") — which became
+        /// legacy beatmap ("Rulest is not available locally."), which became
         /// visible when the stock modes left the client (fork F-9). Taiko/
-        /// catch/mania (legacy IDs 1–3) are intentionally unclaimed for now.
+        /// catch/mania (legacy IDs 1-3) are intentionally unclaimed for now.
         /// </summary>
         public int LegacyID => 0;
 
@@ -150,13 +150,13 @@ namespace Kan.Ruleset
         /// <summary>
         /// kan!forge level-creation flow (prompt §2.1) **merged into** the
         /// editor's stock Resources section (owner requirement 2026-10-13:
-        /// minimize the seams — one organic media area). The stock rows
+        /// minimize the seams, one organic media area). The stock rows
         /// (audio / background / video navigators) are untouched; the kan!
         /// pipeline continues below them (KanMediaSection).
         ///
         /// Mirrors the upstream default composition of
         /// <c>Ruleset.CreateEditorSetupSections</c> with ResourcesSection
-        /// swapped for its kan! subclass — review when upstream changes that
+        /// swapped for its kan! subclass; review when upstream changes that
         /// default list.
         /// </summary>
         public override IEnumerable<Drawable> CreateEditorSetupSections() =>

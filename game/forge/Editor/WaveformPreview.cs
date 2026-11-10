@@ -25,7 +25,7 @@ using Kan.Core.Tracks;
 namespace Kan.Forge.Editor
 {
     /// <summary>
-    /// Waveform of a track — activity is visible before selecting anything
+    /// Waveform of a track: activity is visible before selecting anything
     ///. One mirrored bar per analysis bucket, coloured by
     /// the track's highlight; a pulsing skeleton while the analysis runs.
     ///

@@ -1,5 +1,5 @@
 # MinGW-w64 toolchain for cross-compiling game/forge/native to Windows x64
-# (kan_forge_native.dll) — used by cross-build-native.sh. Kept as a local
+# (kan_forge_native.dll), used by cross-build-native.sh. Kept as a local
 # image (kan-mingw-w64:bookworm) so repeated builds skip the package
 # install; build containers are always --rm.
 #

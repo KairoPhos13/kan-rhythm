@@ -15,7 +15,7 @@ namespace Kan.Ruleset.UI
     /// normal modes ruins the immersion", cause unknown): a slow frame is
     /// logged with which thread took long (update, draw, audio), the garbage
     /// collector's pauses since the last frame, and how hard the note
-    /// describer worked — its slowest 10 ms block and the most audio it found
+    /// describer worked: its slowest 10 ms block and the most audio it found
     /// waiting (a lot means it fell behind, so judgements came late). The
     /// play's totals are logged when it ends. Cheap: a few clock reads per frame.
     /// </summary>
@@ -23,8 +23,8 @@ namespace Kan.Ruleset.UI
     {
         /// <summary>
         /// A frame this long is a stutter the player sees: several refreshes
-        /// missed at 144-180 Hz (the owner plays at 180 Hz, where 50 ms — the
-        /// first threshold — let 35-40 ms micro-stutters through).
+        /// missed at 144-180 Hz (the owner plays at 180 Hz, where 50 ms, the
+        /// first threshold, let 35-40 ms micro-stutters through).
         /// </summary>
         private const double hitch_ms = 25;
 
@@ -113,7 +113,7 @@ namespace Kan.Ruleset.UI
                 if (Environment.TickCount64 - lastLog > 250)
                 {
                     lastLog = Environment.TickCount64;
-                    Logger.Log($"kan!: hitch at {state.ClockMs / 1000:0.0} s — update {update:0} ms, draw {draw:0} ms, audio {audio:0} ms; "
+                    Logger.Log($"kan!: hitch at {state.ClockMs / 1000:0.0} s: update {update:0} ms, draw {draw:0} ms, audio {audio:0} ms; "
                                + $"GC {gcMs:0} ms (gen0 +{nowCollections[0] - collections[0]}, gen1 +{nowCollections[1] - collections[1]}, gen2 +{nowCollections[2] - collections[2]}); "
                                + $"describer {chunk:0.0} ms per 10 ms, {backlog:0} ms waiting");
                 }
@@ -135,7 +135,7 @@ namespace Kan.Ruleset.UI
             if (IsLoaded)
             {
                 countGc(nowCollections);
-                Logger.Log($"kan!: play frames — {hitches} hitches; frames over 12/25/50 ms: {slowFrames[0]}/{slowFrames[1]}/{slowFrames[2]}; worst update {worstUpdate:0} ms, draw {worstDraw:0} ms, audio {worstAudio:0} ms; "
+                Logger.Log($"kan!: play frames: {hitches} hitches; frames over 12/25/50 ms: {slowFrames[0]}/{slowFrames[1]}/{slowFrames[2]}; worst update {worstUpdate:0} ms, draw {worstDraw:0} ms, audio {worstAudio:0} ms; "
                            + $"GC paused {(GC.GetTotalPauseDuration() - pausesAtStart).TotalMilliseconds:0} ms in all, at most {worstGcInFrame:0.0} ms in one frame (gen0 {nowCollections[0] - collectionsAtStart[0]}, gen1 {nowCollections[1] - collectionsAtStart[1]}, gen2 {nowCollections[2] - collectionsAtStart[2]}); "
                            + $"describer worst {worstChunk:0.0} ms per 10 ms, {worstBacklog:0} ms waiting at most");
             }

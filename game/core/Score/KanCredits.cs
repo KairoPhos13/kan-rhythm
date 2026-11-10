@@ -11,8 +11,8 @@ namespace Kan.Core.Score
 {
     /// <summary>
     /// Who made the cover a level is built on: levels
-    /// often come from covers that people record for the love of it —
-    /// sometimes together — and upload. The song's artist stays in the
+    /// often come from covers that people record for the love of it,
+    /// sometimes together, and upload. The song's artist stays in the
     /// level's metadata; this credits the performers and links to their
     /// pages, so players who like it can go and thank and support them.
     /// Stored as <see cref="FILE_NAME"/> inside the level's files, so it

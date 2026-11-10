@@ -75,7 +75,7 @@ namespace Kan.Ruleset.Dev
 
         /// <summary>
         /// What the mic timing listens to in a developer run: KAN_LIVE_INPUT,
-        /// paced in real time — never the microphone (a test instance must not
+        /// paced in real time, never the microphone (a test instance must not
         /// hear the person at the computer; no input = nothing heard).
         /// </summary>
         public static Kan.Forge.Play.ILiveSource? CalibrationInput()

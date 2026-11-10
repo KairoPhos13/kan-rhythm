@@ -52,7 +52,7 @@ namespace Kan.Forge.Tests
                 Path.Combine(Path.GetTempPath(), "kan-forge-tests", "sep-stems"),
                 err, err.Length);
             Assert.That(st, Is.EqualTo(Kan.Core.Native.KanForgeStatus.ErrSeparator).Or.EqualTo(Kan.Core.Native.KanForgeStatus.Ok),
-                        "controlled statuses only — never a crash");
+                        "controlled statuses only, never a crash");
         }
 
         private static byte[] buildSineWav(float seconds)

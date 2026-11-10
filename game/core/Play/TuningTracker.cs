@@ -12,7 +12,7 @@ namespace Kan.Core.Play
     /// gives a deviation (reading − expected note, in semitones); the
     /// instrument's tuning is the median of the recent ones. Readings too far
     /// from the current estimate (<see cref="ACCEPT_SEMITONES"/>) are other
-    /// notes played, not tuning, and are left out — so a wrong note never
+    /// notes played, not tuning, and are left out, so a wrong note never
     /// pulls the tuning towards it. The estimate moves only when enough
     /// readings agree, and stays within ±<see cref="MAX_CENTS"/>.
     /// Not for the audio thread (it sorts a small array).

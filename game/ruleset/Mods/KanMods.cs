@@ -81,7 +81,7 @@ namespace Kan.Ruleset.Mods
 
     /// <summary>
     /// "By heart" (owner 2026-10-23: hidden showed them how much better they
-    /// play by ear, "but to learn the songs I need to see the notes less —
+    /// play by ear, "but to learn the songs I need to see the notes less,
     /// to play them practically from memory"): each note shows only for a
     /// moment as it comes into view, then is gone until it is played. How
     /// long it shows is the player's, to shorten as the song is learnt.
@@ -172,7 +172,7 @@ namespace Kan.Ruleset.Mods
     }
 
     /// <summary>
-    /// Autoplay: a perfect performance played back as a replay — every score
+    /// Autoplay: a perfect performance played back as a replay, every score
     /// note heard at its start with its pitch, its pitch read along it.
     /// </summary>
     public class KanModAutoplay : ModAutoplay

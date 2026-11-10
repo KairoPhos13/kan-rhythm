@@ -45,7 +45,7 @@ namespace Kan.Core.Tracks
 
             // Sets saved before the naming convention (2026-10-14): the old
             // "accompaniment" and "music" roles both meant "plays as the
-            // level audio" — they read as companion. Never written.
+            // level audio": they read as companion. Never written.
             [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
             public bool IsAccompaniment { get => false; set { if (value) IsCompanion = true; } }
 

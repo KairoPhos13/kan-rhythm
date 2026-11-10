@@ -87,7 +87,7 @@ namespace Kan.Core.Design
     }
 
     /// <summary>
-    /// The sections a player can practise — the ones with notes — and the
+    /// The sections a player can practise, the ones with notes, and the
     /// names they go by: numbered within their kind, in order ("Phrase 1",
     /// "Phrase 2", "Chorus 1"), so the numbers have no gaps where an intro or
     /// a break was left out. A kind that comes once is not
@@ -123,7 +123,7 @@ namespace Kan.Core.Design
 
     /// <summary>
     /// The level's design: how the level looks and
-    /// rewards, stretch by stretch — sections (breaks, climaxes), the
+    /// rewards, stretch by stretch: sections (breaks, climaxes), the
     /// palette, and how strong the effects are. Stored as a versioned file
     /// inside the level (<see cref="FILE_NAME"/>); a level without one gets
     /// <see cref="AutoDesign"/> from its notes, so it looks right untouched.

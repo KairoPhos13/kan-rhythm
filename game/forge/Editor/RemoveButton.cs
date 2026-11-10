@@ -35,7 +35,7 @@ namespace Kan.Forge.Editor
     /// <summary>
     /// ✕ that asks once: the first click arms it ("remove?", red), a second
     /// click within a few seconds removes. Removing only takes the track out
-    /// of the set — no file is deleted.
+    /// of the set; no file is deleted.
     /// </summary>
     internal partial class RemoveButton : OsuClickableContainer
     {

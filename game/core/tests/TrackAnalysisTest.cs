@@ -11,7 +11,7 @@ namespace Kan.Core.Tests
 {
     /// <summary>
     /// Owner rules (2026-10-13): after separation, stems that seem to carry
-    /// no meaningful audio are labelled and moved to the end of the list —
+    /// no meaningful audio are labelled and moved to the end of the list,
     /// but never removed (the user may know better). The waveform preview
     /// comes from the same analysis pass.
     /// </summary>

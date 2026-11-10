@@ -25,7 +25,7 @@ using Kan.Core.Tracks;
 
 namespace Kan.Forge.Editor
 {
-    /// <summary>Live output level (peak with a falling hold) — of one track, or any source (master).</summary>
+    /// <summary>Live output level (peak with a falling hold) of one track, or any source (master).</summary>
     internal partial class LevelMeter : CompositeDrawable, osu.Framework.Graphics.Cursor.IHasTooltip
     {
         private readonly ForgeTrack? track;

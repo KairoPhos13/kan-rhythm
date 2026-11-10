@@ -1,4 +1,4 @@
-# game/ client — build environment & workflow
+# game/ client: build environment & workflow
 
 Verified working environment for the **kan!** client (`game/client/` =
 osu!lazer fork `github.com/KairoPhos13/kan`, plus the `game/ruleset/` plugin).
@@ -10,18 +10,18 @@ natively, so the same commands are expected to work, but nobody has built or
 run the client there yet. When you verify a platform, move it out of this
 paragraph and record the results below. Release builds for all three
 platforms (CI as the build machine) and the platform audit live in
-[platform-builds.md](platform-builds.md) — including the macOS `kan!.app`
+[platform-builds.md](platform-builds.md), including the macOS `kan!.app`
 bundle and its microphone permission, which nothing in this file covers.
 
 ## 1. Toolchain
 
 | Tool | Version used | Notes |
 |---|---|---|
-| .NET SDK | **10.0.401** (`10.0.x` channel) | The fork's `global.json` pins `10.0.100` with `rollForward: latestFeature`, and projects target **`net10.0`**. A .NET 8 SDK cannot build this fork — earlier plans mentioning "dotnet 8" are superseded by the upstream pin. |
+| .NET SDK | **10.0.401** (`10.0.x` channel) | The fork's `global.json` pins `10.0.100` with `rollForward: latestFeature`, and projects target **`net10.0`**. A .NET 8 SDK cannot build this fork; earlier plans mentioning "dotnet 8" are superseded by the upstream pin. |
 | NuGet | bundled with SDK | Network access required on first restore (~140 packages; osu!framework + resources are large). |
-| CMake + GCC/Clang (C++20) | CMake 4.x, system compiler | Only for the C++ side (`libkan/`, `kanfx/` — root `CONTRIBUTING.md` §4). Not needed to build the client. |
+| CMake + GCC/Clang (C++20) | CMake 4.x, system compiler | Only for the C++ side (`libkan/`, `kanfx/`, root `CONTRIBUTING.md` §4). Not needed to build the client. |
 | Python 3 | 3.14 | Only for `game/tools/gen-third-party-notices.py`. |
-| Platform packages (Linux) | Mesa GL 4.6, X11 | SDL3 natives ship inside `ppy.osu.Framework` (NuGet) — no system SDL needed. Audio uses the default device (PipeWire/PulseAudio/ALSA). Optional `xdg-utils` warnings (`qtpaths: command not found`) are harmless. |
+| Platform packages (Linux) | Mesa GL 4.6, X11 | SDL3 natives ship inside `ppy.osu.Framework` (NuGet); no system SDL needed. Audio uses the default device (PipeWire/PulseAudio/ALSA). Optional `xdg-utils` warnings (`qtpaths: command not found`) are harmless. |
 
 ### Installing the .NET SDK without root
 
@@ -65,7 +65,7 @@ monorepo records the resulting pin movement.
 
 ## 3. Build commands
 
-Baseline (unmodified upstream surface) — build the fork's desktop client:
+Baseline (unmodified upstream surface), build the fork's desktop client:
 
 ```bash
 cd game/client
@@ -73,7 +73,7 @@ dotnet build osu.Desktop/osu.Desktop.csproj -c Release
 ```
 
 Build the kan! ruleset plugin (compiles **against** the fork, never inside
-it — `game/ruleset/Kan.Ruleset.csproj` references
+it; `game/ruleset/Kan.Ruleset.csproj` references
 `../client/osu.Game/osu.Game.csproj`):
 
 ```bash
@@ -84,7 +84,7 @@ dotnet build -c Release
 A post-build step copies `osu.Game.Rulesets.Kan.dll` next to the client
 executable automatically (development convenience).
 
-Build the kan!forge pipeline pieces (level-creation pipeline —
+Build the kan!forge pipeline pieces (level-creation pipeline,
 `game/docs/editor-pipeline.md`):
 
 ```bash
@@ -130,12 +130,12 @@ DLLs matching **`osu.Game.Rulesets.*.dll`** in:
    or
 2. the game's `rulesets/` storage folder
    (Linux: `~/.local/share/kan/rulesets/`; user data root is named `kan`
-   since the rebrand — `osu.Desktop/Program.cs` `base_game_name`).
+   since the rebrand, `osu.Desktop/Program.cs` `base_game_name`).
 
 Consequences (see also `game/docs/fork-divergence.md`):
 
 - The **assembly file name** must be `osu.Game.Rulesets.Kan.dll` (upstream
-  loader constraint). The C# **namespaces** are `Kan.*` per ADR-0011 — only
+  loader constraint). The C# **namespaces** are `Kan.*` per ADR-0011; only
   the file name carries the upstream prefix.
 - If the plugin fails to load, the client logs
   `An issue with ruleset "..." occurred` at error level.
@@ -143,7 +143,7 @@ Consequences (see also `game/docs/fork-divergence.md`):
   kan! ruleset: the stock osu!/taiko/catch/mania rulesets are not built into
   the output. After updating an old build folder, delete stale
   `osu.Game.Rulesets.{Osu,Taiko,Catch,Mania}*` files there (or `dotnet
-  clean`) — the loader scans the startup directory and would otherwise pick
+  clean`); the loader scans the startup directory and would otherwise pick
   them up again.
 
 ## 5. Tests
@@ -157,13 +157,13 @@ Consequences (see also `game/docs/fork-divergence.md`):
   ```
 
 - **Measured 2026-10-12** (Release, headless, .NET SDK 10.0.401):
-  `osu.Game.Tests` completed — **5481 passed / 9 failed / 23 skipped**
+  `osu.Game.Tests` completed: **5481 passed / 9 failed / 23 skipped**
   (5513 total, 16 m 20 s). Re-running the 9 failures twice showed:
   2 are flaky (spectator `TestClientSendsCorrectRuleset`, editor
-  `TestRestart` — pass on rerun); 7 fail deterministically (4× chat-link
+  `TestRestart`; pass on rerun); 7 fail deterministically (4× chat-link
   action mapping in `TestSceneChatLink`, `BeatmapImporterTests
   .TestImportFailsWithFilenamesDifferingOnlyInCase`, `TestSettingsMigration
-  .TestDisplayStarsMigration`) — none of these code paths intersect the
+  .TestDisplayStarsMigration`); none of these code paths intersect the
   kan! deltas (see `fork-divergence.md`), pending verification against a
   pristine `816df139fd` build (`game/TODO.md`).
   Full result file: `game/client/osu.Game.Tests/TestResults/*.trx` (not
@@ -179,16 +179,16 @@ Consequences (see also `game/docs/fork-divergence.md`):
 
 ## 6. Verification performed on this machine (2026-10-12)
 
-1. **Baseline build green** — command and timing above; the unmodified fork
+1. **Baseline build green**: command and timing above; the unmodified fork
    built with 0 warnings / 0 errors.
-2. **Running "kan!" window** — the client launches on this X11 desktop
+2. **Running "kan!" window**: the client launches on this X11 desktop
    (SDL3 / GL 4.6 / BASS 2.4.17 per `~/.local/share/kan/logs/*.runtime.log`);
    window title reported by `xdotool getwindowname` is exactly **`kan!`**.
-3. **Ruleset plugin path** — the runtime log contains
-   `kan! ruleset loaded (Phase 0 skeleton — judgment core pending)`, emitted
+3. **Ruleset plugin path**: the runtime log contains
+   `kan! ruleset loaded (Phase 0 skeleton: judgment core pending)`, emitted
    once when the fork's loader instantiates `KanRuleset`; the ruleset icon
    appears in the in-game toolbar.
-4. **About screen & THIRD_PARTY_NOTICES** — compiled into `osu.Game`
+4. **About screen & THIRD_PARTY_NOTICES**: compiled into `osu.Game`
    (`KanAboutSettings` under Settings → General) and the notices text is
    verified present as an embedded resource of `osu.Game.dll`. (Interactive
    rendering of the about screen has not been screenshot-verified yet.)
@@ -197,12 +197,12 @@ Consequences (see also `game/docs/fork-divergence.md`):
 
 `game/tools/gen-third-party-notices.py` classifies every package in the
 `osu.Desktop` dependency closure. Hard findings inherited from upstream
-osu!lazer (LGPL-family, dynamic linking only — full list in
+osu!lazer (LGPL-family, dynamic linking only: full list in
 `game/client/THIRD_PARTY_NOTICES.md` §4):
 
 - `TagLibSharp` (LGPL-2.1-only), `OpenTabletDriver*` (LGPL-3.0-or-later),
   `FFmpeg.AutoGen` (wrapper; FFmpeg itself is LGPL/GPL and is **not**
-  redistributed by us — users supply binaries).
+  redistributed by us; users supply binaries).
 
 These do not violate the MIT-only policy for *our own* dependency choices
 (`CONTRIBUTING.md` §6) but must be reviewed before any release. Known

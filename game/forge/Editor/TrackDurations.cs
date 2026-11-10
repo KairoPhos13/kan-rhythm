@@ -34,8 +34,8 @@ namespace Kan.Forge.Editor
 {
     /// <summary>
     /// Track durations for display (time axis, header, range editing). Read
-    /// lazily off-thread from the file's headers and cached by path — a
-    /// presentation-only cache, the track model is untouched.
+    /// lazily off-thread from the file's headers and cached by path (a
+    /// presentation-only cache; the track model is untouched).
     /// </summary>
     internal static class TrackDurations
     {

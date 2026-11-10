@@ -126,7 +126,7 @@ namespace Kan.Forge.Play
         private readonly double startMs;
 
         /// <param name="elapsedMs">Milliseconds of the file that should have been heard by now.</param>
-        /// <param name="startMs">Where in the file listening starts — like a microphone switched on mid-song (nothing before is heard).</param>
+        /// <param name="startMs">Where in the file listening starts, like a microphone switched on mid-song (nothing before is heard).</param>
         public FileSource(string path, Func<double> elapsedMs, double startMs = 0)
         {
             this.path = path;
@@ -214,7 +214,7 @@ namespace Kan.Forge.Play
         private IntPtr live;
 
         /// <summary>
-        /// Open the source and the describer — what may take a while (a busy
+        /// Open the source and the describer, which may take a while (a busy
         /// audio system once took 5 s to give the microphone, 2026-10-23), so
         /// it may run off the game's thread. Nothing is heard until <see cref="Begin"/>.
         /// </summary>

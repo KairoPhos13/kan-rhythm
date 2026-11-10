@@ -12,16 +12,16 @@ namespace Kan.Core.Tracks
     /// loads lands in a single list, and each track can take a **role**
     /// (owner naming 2026-10-14):
     ///
-    /// - <b>companion</b> (many) — plays under the player during the level;
+    /// - <b>companion</b> (many): plays under the player during the level;
     ///   the mix of the companion tracks <i>is</i> the level audio (the
     ///   beatmap's single audio file);
-    /// - <b>reference</b> (one) — the full performance: transcription runs on
+    /// - <b>reference</b> (one): the full performance; transcription runs on
     ///   it, and the future auto/demo playback plays it with the companion.
     ///
     /// <b>Demux</b> is an action, not a role: <see cref="DemuxPending"/>
     /// queues a track for source separation and the stems join the list.
     ///
-    /// A track that has been demuxed — or that came out of a demux — cannot
+    /// A track that has been demuxed, or that came out of a demux, cannot
     /// be demuxed again ("hace perder el tiempo"); it can still take any
     /// other role. A rendered mixdown is mixed material and cannot be
     /// demuxed either.
@@ -73,7 +73,7 @@ namespace Kan.Core.Tracks
 
         /// <summary>
         /// The part of the file that plays, in the file's own time (owner
-        /// 2026-10-14: trim a track from its sides — and undo it — by
+        /// 2026-10-14: trim a track from its sides, and undo it, by
         /// dragging its edges). The audio never moves: trimming the start
         /// hides what's before it, the track's timing stays the same.
         /// </summary>
@@ -136,11 +136,11 @@ namespace Kan.Core.Tracks
         public bool HasAnyRole => IsReference || IsCompanion;
 
         /// <summary>
-        /// Already demuxed, or produced by a demux — never demuxable again.
+        /// Already demuxed, or produced by a demux: never demuxable again.
         /// </summary>
         public bool IsSeparated;
 
-        /// <summary>Product of a render/mixdown — mixed material, never demuxable.</summary>
+        /// <summary>Product of a render/mixdown: mixed material, never demuxable.</summary>
         public bool IsMixdown;
 
         // ---- content analysis (waveform preview + meaningful-audio marking)
@@ -161,7 +161,7 @@ namespace Kan.Core.Tracks
 
         /// <summary>
         /// The analysis found no meaningful audio: the track is labelled and
-        /// moved to the end of the list (it stays selectable — the user may
+        /// moved to the end of the list (it stays selectable, the user may
         /// know better).
         /// </summary>
         public bool LikelyEmpty;
@@ -278,7 +278,7 @@ namespace Kan.Core.Tracks
         /// <summary>
         /// Import any audio the user has (reference take, stems, extras…).
         /// Returns <see langword="null"/> when the same file is already in
-        /// the set — a track is never added twice.
+        /// the set: a track is never added twice.
         /// </summary>
         public ForgeTrack? Import(string name, string path)
         {

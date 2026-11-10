@@ -20,9 +20,9 @@ using Kan.Core.Score;
 namespace Kan.Forge.Editor.Compose
 {
     /// <summary>
-    /// The selected notes' properties — what gameplay judges about each note:
-    /// pitch (and intonation in cents), timing, duration, intensity and
-    /// playing style. With several notes, pitch and start shift them all;
+    /// The selected notes' properties: what gameplay judges about each note
+    /// (pitch and intonation in cents, timing, duration, intensity and
+    /// playing style). With several notes, pitch and start shift them all;
     /// the other values set them all.
     /// </summary>
     internal partial class NoteInspector : CompositeDrawable
@@ -146,7 +146,7 @@ namespace Kan.Forge.Editor.Compose
             var first = notes[0];
             title.Text = notes.Count == 1 ? $"Note {KanScore.NoteName(first.Midi)}" : $"{notes.Count} notes";
             if (notes.Any(n => n.PitchUnknown))
-                title.Text += @" · pitch unknown — set it below";
+                title.Text += @" · pitch unknown: set it below";
 
             var pitch = new Bindable<string>(KanScore.NoteName(first.Midi));
             pitch.BindValueChanged(v =>
@@ -287,16 +287,16 @@ namespace Kan.Forge.Editor.Compose
 
             protected override LocalisableString GenerateItemText(Articulation item) => item switch
             {
-                Articulation.Legato => @"legato — joined to the previous note",
-                Articulation.Staccato => @"staccato — short and detached",
-                Articulation.Accent => @"accent — played stronger",
-                _ => @"normal — a plain note",
+                Articulation.Legato => @"legato: joined to the previous note",
+                Articulation.Staccato => @"staccato: short and detached",
+                Articulation.Accent => @"accent: played stronger",
+                _ => @"normal: a plain note",
             };
 
             public static string Explain(Articulation a) => a switch
             {
-                Articulation.Legato => @"Legato: the note flows out of the previous one without a new start — on a wind instrument you change fingers without tonguing again; on a piano you hold the old key until the new one sounds.",
-                Articulation.Staccato => @"Staccato: play the note short and let go early, leaving a small silence after it — a light, bouncy feel.",
+                Articulation.Legato => @"Legato: the note flows out of the previous one without a new start. On a wind instrument you change fingers without tonguing again; on a piano you hold the old key until the new one sounds.",
+                Articulation.Staccato => @"Staccato: play the note short and let go early, leaving a small silence after it, a light, bouncy feel.",
                 Articulation.Accent => @"Accent: start the note louder or with more attack than the ones around it, to make it stand out.",
                 _ => @"Normal: start the note clearly and hold it for its full length.",
             };

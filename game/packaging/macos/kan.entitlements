@@ -5,7 +5,7 @@
   Applied by `codesign --options runtime --entitlements kan.entitlements`
   when the APPLE_* secrets are configured; unsigned builds ignore this file.
 
-  com.apple.security.device.audio-input: the microphone — the whole point of
+  com.apple.security.device.audio-input: the microphone, the whole point of
   kan!. Without it a hardened-runtime build gets silence from the mic.
 
   com.apple.security.cs.allow-jit: .NET (CoreCLR) compiles IL with a JIT,

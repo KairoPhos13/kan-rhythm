@@ -42,6 +42,6 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>kan! listens to your instrument to judge your playing. Audio never leaves your computer.</string>
     <key>NSHumanReadableCopyright</key>
-    <string>Copyright (c) KairoPhos and kan-rhythm contributors (MIT). Built on osu!lazer (MIT) — ppy/osu contributors.</string>
+    <string>Copyright (c) KairoPhos and kan-rhythm contributors (MIT). Built on osu!lazer (MIT), ppy/osu contributors.</string>
 </dict>
 </plist>

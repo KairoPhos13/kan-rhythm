@@ -8,7 +8,7 @@ using System.Linq;
 namespace Kan.Core.Play
 {
     /// <summary>
-    /// Three grades (owner 2026-10-21: "five are too many — less is more";
+    /// Three grades (owner 2026-10-21: "five are too many; less is more";
     /// osu!mania's great and ok are gone).
     /// </summary>
     public enum LiveResult
@@ -19,7 +19,7 @@ namespace Kan.Core.Play
         Miss,
     }
 
-    /// <summary>Why a note got its result — what the player is told, in musical words.</summary>
+    /// <summary>Why a note got its result: what the player is told, in musical words.</summary>
     public enum LiveReason
     {
         /// <summary>The right note, judged by its timing.</summary>
@@ -52,8 +52,8 @@ namespace Kan.Core.Play
     public class LiveJudge
     {
         /// <summary>
-        /// The windows are a share of the note's pace — the time to its nearest
-        /// neighbour (<see cref="PaceOf"/>) — either side of it, held within
+        /// The windows are a share of the note's pace, the time to its nearest
+        /// neighbour (<see cref="PaceOf"/>), either side of it, held within
         /// bounds (ms). It was the tempo grid's beat (owner 2026-10-21: "a
         /// percentage of the period … it should sound good, not stress"), but a
         /// beat is how the music was written, not how fast it goes: the same
@@ -133,10 +133,10 @@ namespace Kan.Core.Play
 
         /// <summary>
         /// The pitch's share of a grade (owner 2026-10-22: "time and pitch are
-        /// both judged — out of tune and late may make a meh, a good in pitch
+        /// both judged; out of tune and late may make a meh, a good in pitch
         /// and a perfect in time something between"). A grade is an ellipse
         /// in time × pitch: its timing window on one axis, its pitch budget on
-        /// the other — in tune, exactly the timing windows. This is the good's
+        /// the other, in tune, exactly the timing windows. This is the good's
         /// budget (cents); the perfect's is <see cref="PERFECT_PITCH_SHARE"/> of it, and any pitch within
         /// <see cref="ACCEPT_CENTS"/> is the note, at least a meh. The Easy
         /// mod widens it. Pitches are read after the
@@ -147,7 +147,7 @@ namespace Kan.Core.Play
         /// <summary>
         /// The perfect's share of the pitch budget: 35 cents of the good's 50
         /// (owner 2026-10-23: "a little more lax for a perfect by pitch,
-        /// without a bigger ellipse — another note must still be told and
+        /// without a bigger ellipse; another note must still be told and
         /// punished"; it was half). The good's budget and the semitone stay.
         /// </summary>
         public const double PERFECT_PITCH_SHARE = 0.7;
@@ -156,7 +156,7 @@ namespace Kan.Core.Play
         public double PerfectCents => PitchToleranceCents * PERFECT_PITCH_SHARE;
 
         /// <summary>
-        /// How far off (cents) a played pitch is still the score's note — a
+        /// How far off (cents) a played pitch is still the score's note: a
         /// semitone (owner 2026-10-22: air pressure moves a wind a semitone
         /// either way; learning to place it should not cost the streak). Past
         /// it, it is another note.
@@ -243,7 +243,7 @@ namespace Kan.Core.Play
         /// <summary>
         /// How long after its window a note waits before it is called not
         /// heard: an attack at the window's edge is still on its way (libkan
-        /// confirms an onset some 30–90 ms after it sounds).
+        /// confirms an onset some 30-90 ms after it sounds).
         /// </summary>
         public const double HEARING_MS = 100;
 
@@ -255,9 +255,9 @@ namespace Kan.Core.Play
 
         /// <summary>
         /// A wrong pitch held this many readings in a row (10 ms each) is
-        /// confirmed. libkan's final pitch comes only when a note ends — for a
+        /// confirmed. libkan's final pitch comes only when a note ends (for a
         /// wrong note held until the right one is found, at the very moment of
-        /// finding it — so the readings confirm it sooner.
+        /// finding it), so the readings confirm it sooner.
         /// </summary>
         public const int WRONG_HOLD_READINGS = 15;
 
@@ -266,7 +266,7 @@ namespace Kan.Core.Play
         /// the readings after its attack hold that note this many in a row
         /// (2026-10-23: a C5 attacked out of an F took the F's tail as its
         /// provisional pitch, and its final one came only when the long note
-        /// ended — past the judge's wait). 160 ms: about one cycle of a 5–7 Hz
+        /// ended, past the judge's wait). 160 ms: about one cycle of a 5-7 Hz
         /// vibrato, so the median is its centre.
         /// </summary>
         public const int SETTLE_READINGS = 16;
@@ -278,7 +278,7 @@ namespace Kan.Core.Play
         /// Whether a played pitch is a wrong try at <paramref name="midi"/>,
         /// not one of the ones a learner forgives: the note
         /// an octave off (the detector's slip, not the player's), or a note
-        /// the score expects around it — the previous note still sounding
+        /// the score expects around it: the previous note still sounding
         /// (a typical learner's lag), a chord's other notes, the next note
         /// come early.
         /// </summary>
@@ -378,9 +378,9 @@ namespace Kan.Core.Play
         }
 
         /// <summary>
-        /// Whether the note's pitch sounded around its start — at least
+        /// Whether the note's pitch sounded around its start, at least
         /// <paramref name="readings"/> readings in a row at it, from just
-        /// before the start up to <paramref name="untilMs"/> — even without an
+        /// before the start up to <paramref name="untilMs"/>, even without an
         /// attack of its own (a short note slurred into, 2026-10-15: the wait
         /// mode stopped for a 123 ms note that had been played).
         /// </summary>
@@ -403,13 +403,13 @@ namespace Kan.Core.Play
         /// Judge the score note starting at <paramref name="startMs"/>, or null
         /// while it cannot be decided yet. <paramref name="anyPitch"/>: the score
         /// itself does not know the pitch (the transcriber could not tell).
-        /// <paramref name="legato"/>: the note is slurred from the previous one
-        /// — no attack is expected, so the pitch sounding at its start counts.
+        /// <paramref name="legato"/>: the note is slurred from the previous one.
+        /// No attack is expected, so the pitch sounding at its start counts.
         /// <paramref name="expected"/>: the notes the score has around this one
         /// (the previous, a chord's, the next): played, they are not wrong
         /// tries at it (<see cref="IsWrongTry"/>).
         ///
-        /// A wrong try — its pitch confirmed, before the right note — is a
+        /// A wrong try (its pitch confirmed, before the right note) is a
         /// miss at once (owner 2026-10-17: reported only once the right note
         /// came, the penalty landed on the moment of finding it). A slip put
         /// right before its pitch is confirmed is no try: the right note wins.
@@ -433,8 +433,8 @@ namespace Kan.Core.Play
 
                 bool known = p.Midi != null;
 
-                // Its pitch: the heard one, or the one its readings settle on — not
-                // known yet, or a first reading out of a perfect's budget: a wind's
+                // Its pitch: the heard one, or the one its readings settle on (not
+                // known yet, or a first reading out of a perfect's budget): a wind's
                 // attack takes a moment to find its pitch (the nearer of the two is
                 // graded). A final pitch is the whole note's centre already.
                 float? cents = 0;
@@ -489,7 +489,7 @@ namespace Kan.Core.Play
 
             // No attack found, but the note's pitch arrived at its start: a slur
             // (legato), or an attack too soft to mark an onset. A note held over
-            // from before does not count — a repeated note needs its own attack.
+            // from before does not count: a repeated note needs its own attack.
             if (!anyPitch && nowMs >= startMs + LEGATO_TO_MS && reachedPitch(startMs, midi, !legato, expected) is { } reached)
                 return grade(reached.TimeMs - startMs, LiveReason.Played, midi, reached.Cents);
 
@@ -523,10 +523,10 @@ namespace Kan.Core.Play
         /// Whether a played note only goes on with an earlier try at this note
         /// (owner 2026-10-23: a C6 played 258 ms early and held swelled twice;
         /// each swell came back as an attack and the one nearest the line, 100
-        /// ms late, was taken — "good · late" for an early note). An attack of
+        /// ms late, was taken, "good · late" for an early note). An attack of
         /// the same pitch that no note took, in this note's window, sounded
         /// without a break up to it: one sound, one try, as in osu!. A repeated
-        /// note is no such case — its previous attack was the previous note's.
+        /// note is no such case; its previous attack was the previous note's.
         /// </summary>
         private bool continuesATry(Played p, double startMs)
         {
@@ -621,9 +621,9 @@ namespace Kan.Core.Play
 
         /// <summary>
         /// The cents from <paramref name="midi"/> its readings settled on after
-        /// a heard note's attack — <see cref="SETTLE_READINGS"/> in a row that
+        /// a heard note's attack, <see cref="SETTLE_READINGS"/> in a row that
         /// read as it (<see cref="readsAs"/>), starting within <see cref="SETTLE_WITHIN_MS"/>
-        /// and before the next attack — as their median (a vibrato's centre), or null.
+        /// and before the next attack, as their median (a vibrato's centre), or null.
         /// Of every such run the nearest to the note (owner 2026-10-23: an
         /// ocarina's attack takes a moment of air pressure to find its pitch,
         /// "and it even sounds nice"). <paramref name="settling"/>: a nearer
@@ -726,7 +726,7 @@ namespace Kan.Core.Play
         /// <summary>
         /// A grade from the timing <paramref name="offset"/> and the pitch's
         /// distance <paramref name="cents"/> (signed, from the score's note): the
-        /// first ellipse it lies in — perfect, then good — else a meh. In tune
+        /// first ellipse it lies in (perfect, then good), else a meh. In tune
         /// (0 cents) the ellipses are the timing windows.
         /// </summary>
         private LiveVerdict grade(double offset, LiveReason reason, int? playedMidi, float cents)

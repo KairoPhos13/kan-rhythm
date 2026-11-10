@@ -9,12 +9,12 @@ namespace Kan.Forge.Audio
     /// <summary>
     /// Keeps one audio channel in step with the editor's timeline without
     /// audible corrections. A BASS channel reports its decode position, which
-    /// runs a constant buffer's length ahead of what is heard (50–150 ms), so
+    /// runs a constant buffer's length ahead of what is heard (50-150 ms), so
     /// comparing it with the timeline directly makes every channel look "out
-    /// of sync" forever — and re-seeking it each frame pops (seen 2026-10-14:
+    /// of sync" forever; re-seeking it each frame pops (seen 2026-10-14:
     /// up to 61 resyncs per second). Instead, after each start/seek the
     /// channel's own steady offset is measured once it settles, and only real
-    /// drift away from it is corrected — at most twice a second.
+    /// drift away from it is corrected, at most twice a second.
     /// </summary>
     public class ChannelSync
     {
@@ -46,7 +46,7 @@ namespace Kan.Forge.Audio
         /// <summary>How far ahead to seek so the channel lands in place (a seek takes effect a moment late); learned.</summary>
         private double seekLeadMs;
 
-        /// <summary>Corrections made (each is audible) — for diagnostics.</summary>
+        /// <summary>Corrections made (each is audible), for diagnostics.</summary>
         public int Resyncs { get; private set; }
 
         /// <summary>

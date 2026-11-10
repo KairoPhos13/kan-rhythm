@@ -9,8 +9,8 @@ namespace Kan.Core.Score
     /// <summary>
     /// The score as sound (owner 2026-10-14: someone composing by ear may only
     /// have the accompaniment, so they need to hear where each note goes).
-    /// A plain, soft tone per note — fundamental plus two quiet harmonics, a
-    /// short attack and release — loud as its intensity. It is a guide to
+    /// A plain, soft tone per note (fundamental plus two quiet harmonics, a
+    /// short attack and release) loud as its intensity. It is a guide to
     /// check pitch and timing against the companion, not an instrument model.
     /// Rendered offline into a buffer; nothing here runs on the audio thread.
     /// </summary>

@@ -101,7 +101,7 @@ namespace Kan.Forge.Editor
             if (track.LikelyEmpty)
             {
                 yield return new TagPill(@"no meaningful audio?", FontAwesome.Solid.ExclamationTriangle, colours.Orange1,
-                    @"This track seems to contain no meaningful audio — it was moved to the end of the list. Select it only if you are sure.");
+                    @"This track seems to contain no meaningful audio; it was moved to the end of the list. Select it only if you are sure.");
             }
 
             if (track.DemuxPending && track.CanDemux)
@@ -114,12 +114,12 @@ namespace Kan.Forge.Editor
                 yield return new TagPill(@"from video", FontAwesome.Solid.Film, provider.Content2, @"The audio extracted from the level's video.");
 
             if (track.IsClipped)
-                yield return new TagPill(@"trimmed", FontAwesome.Solid.Cut, provider.Content2, @"Trimmed from its sides — only the part shown plays (drag the sides back out to restore).");
+                yield return new TagPill(@"trimmed", FontAwesome.Solid.Cut, provider.Content2, @"Trimmed from its sides; only the part shown plays (drag the sides back out to restore).");
 
             if (track.IsMixdown)
-                yield return new TagPill(@"mixdown", FontAwesome.Solid.Compress, provider.Content2, @"Mixed material (a render) — it cannot be demuxed.");
+                yield return new TagPill(@"mixdown", FontAwesome.Solid.Compress, provider.Content2, @"Mixed material (a render); it cannot be demuxed.");
             else if (track.IsSeparated)
-                yield return new TagPill(@"separated", FontAwesome.Solid.CodeBranch, provider.Content2, @"Already separated (or a stem) — it is not demuxed again.");
+                yield return new TagPill(@"separated", FontAwesome.Solid.CodeBranch, provider.Content2, @"Already separated (or a stem); it is not demuxed again.");
         }
     }
 }

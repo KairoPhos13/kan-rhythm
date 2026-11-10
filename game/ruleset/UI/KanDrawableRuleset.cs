@@ -63,7 +63,7 @@ namespace Kan.Ruleset.UI
             fitToPlayer();
 
             // Listen for what the player plays (their instrument), else what the level is
-            // written for — decided when listening starts (KanPlayState), so a choice made
+            // written for, decided when listening starts (KanPlayState), so a choice made
             // in the player loader, after the level was prepared, still counts.
 
             var practice = Mods.OfType<Kan.Ruleset.Mods.KanModPractice>().FirstOrDefault();

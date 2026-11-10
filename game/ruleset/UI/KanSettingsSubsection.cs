@@ -111,7 +111,7 @@ namespace Kan.Ruleset.UI
         {
             public NoteDropdown()
             {
-                Items = System.Linq.Enumerable.Range(21, 88).ToArray(); // the piano's keys, A0–C8
+                Items = System.Linq.Enumerable.Range(21, 88).ToArray(); // the piano's keys, A0-C8
             }
 
             protected override LocalisableString GenerateItemText(int item) => KanNotation.Label(item);

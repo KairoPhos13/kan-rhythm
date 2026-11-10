@@ -201,7 +201,7 @@ namespace Kan.Ruleset.UI
                 return;
             }
 
-            // The take's first sample is "now" — as in the mic calibration, whose
+            // The take's first sample is "now", as in the mic calibration, whose
             // measured round trip (micDelayMs) covers everything after it.
             anchorMs = now;
             begin(s, now, openingAs);
@@ -336,7 +336,7 @@ namespace Kan.Ruleset.UI
         /// <summary>One heard fact: to the judge and the trail, and into the replay when recording.</summary>
         private void apply(KanReplayFrame f, bool record = true)
         {
-            // The pause menu is open: what is played is not for the level — not
+            // The pause menu is open: what is played is not for the level, not
             // for the judge, not for the wait (owner 2026-10-17: the song went
             // on as they played, under the pause menu).
             if (UserPaused) return;
@@ -459,8 +459,8 @@ namespace Kan.Ruleset.UI
 
         /// <summary>
         /// Keep the play's recording (in the background: it writes the file),
-        /// with the play's score: when the level ends, so its replay — even
-        /// watched straight from the results — finds it; else when the play goes.
+        /// with the play's score: when the level ends, so its replay, even
+        /// watched straight from the results, finds it; else when the play goes.
         /// </summary>
         private void saveTake()
         {

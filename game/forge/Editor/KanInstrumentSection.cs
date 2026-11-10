@@ -14,8 +14,8 @@ namespace Kan.Forge.Editor
     /// <summary>
     /// Setup → "Instrument" (owner 2026-10-15: "the level can't know its
     /// instrument unless the user transcribes"): what the level is played on.
-    /// It tells the game how to listen — one note at a time (winds, voice) or
-    /// several (piano, guitar) — and the transcriber what to listen for. It
+    /// It tells the game how to listen, one note at a time (winds, voice) or
+    /// several (piano, guitar), and the transcriber what to listen for. It
     /// travels with the level inside its score file (saved a moment after a
     /// change); the track and compose tabs show the same choice.
     /// </summary>
@@ -48,7 +48,7 @@ namespace Kan.Forge.Editor
                 new InstrumentDropdown
                 {
                     Caption = @"played on",
-                    HintText = @"The instrument this level is played on. It tells the game how to listen to the player — one note at a time (winds, voice) or several (piano, guitar) — and the transcriber what to listen for.",
+                    HintText = @"The instrument this level is played on. It tells the game how to listen to the player, one note at a time (winds, voice) or several (piano, guitar), and the transcriber what to listen for.",
                 },
             };
         }

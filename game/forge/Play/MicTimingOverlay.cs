@@ -162,7 +162,7 @@ namespace Kan.Forge.Play
         private void intro()
         {
             text.Text = $"How long your microphone takes, measured the way a level hears you. "
-                        + $"Four clicks count in, then play one short note on each of the next eight — "
+                        + $"Four clicks count in, then play one short note on each of the next eight, "
                         + $"as the ball reaches the ring, with the click. Now: {ForgeTiming.MIC_DELAY_MS.Value:0} ms.";
             start.Text = @"Start";
             start.Enabled.Value = true;
@@ -228,7 +228,7 @@ namespace Kan.Forge.Play
             {
                 // Where a play with the current delay would place it, beside its own click
                 // (owner 2026-10-17: count-in notes, marked against the first click to
-                // play, looked far early — as if they spoiled the measurement). Count-in
+                // play, looked far early, as if they spoiled the measurement). Count-in
                 // answers are grey: they do not count.
                 double heard = calibrator.Onsets[marked++] - currentDelayMs;
                 int nearest = 0;
@@ -269,7 +269,7 @@ namespace Kan.Forge.Play
                     double off = measured - Math.Round(currentDelayMs);
 
                     string verdict = raw < 0
-                        ? $"Your notes landed {-raw:0} ms before the clicks: that is you playing ahead, not the microphone — no device hears a note early. "
+                        ? $"Your notes landed {-raw:0} ms before the clicks: that is you playing ahead, not the microphone; no device hears a note early. "
                           + (Math.Abs(off) < 1 ? "Your mic delay stays at 0 ms." : $"The mic delay can only go down to 0 ms (now {currentDelayMs:0} ms). Try again waiting for each click.")
                         : Math.Abs(off) < 8
                             ? $"With your mic delay ({currentDelayMs:0} ms) your notes landed on the clicks ({off:+0;-0;0} ms): it is right."
@@ -280,7 +280,7 @@ namespace Kan.Forge.Play
                     text.Text = r.Matched == 0
                         ? "No notes were heard near the clicks. Check that the microphone is on and close enough, then try again."
                         : $"{verdict}\n(heard {r.Matched} of {r.Clicks}, spread ±{r.SpreadMs:0} ms)"
-                          + (r.Reliable ? string.Empty : "\nThat is not steady enough to trust — try again, as close to each click as you can.");
+                          + (r.Reliable ? string.Empty : "\nThat is not steady enough to trust: try again, as close to each click as you can.");
                     useIt.Alpha = r.Matched > 0 && Math.Abs(off) >= 1 ? 1 : 0;
                     useIt.Enabled.Value = r.Reliable;
                     useIt.Text = $"Use {measured:0} ms";

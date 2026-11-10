@@ -6,12 +6,12 @@ using System.Collections.Generic;
 namespace Kan.Core.Transcription
 {
     /// <summary>
-    /// One transcribed note as an *editable draft* — the weak-label rule of
+    /// One transcribed note as an *editable draft* (the weak-label rule of
     /// chart-transcription-evaluation.md: measurement output is a proposal,
     /// the human confirms. Measurement fields mirror
     /// <c>kan::TranscribedNote</c> (libkan describes, the game judges); the
     /// nullable "comparison metadata" fields carry facts the judge will use
-    /// later but which the offline transcriber does not produce yet —
+    /// later but which the offline transcriber does not produce yet:
     /// <see langword="null"/> means "unjudged / unmeasured", never "wrong"
     /// (I2 semantics, docs/architecture/measurement-invariants.md).
     /// </summary>
@@ -46,13 +46,13 @@ namespace Kan.Core.Transcription
 
         /// <summary>
         /// The note was truncated/split by a timeline edit (v1 semantics of
-        /// TranscriptionDraft) — shown as a human-fixable fragment, not a
+        /// TranscriptionDraft), shown as a human-fixable fragment, not a
         /// clean measurement.
         /// </summary>
         public bool FragmentedByEdit;
 
         // ---- comparison metadata (inspectable; not produced by the offline
-        // transcriber yet — null = unjudged) ----
+        // transcriber yet: null = unjudged) ----
 
         /// <summary>Pitch trajectory saturated (I2): null = unjudged.</summary>
         public bool? PitchSaturated;

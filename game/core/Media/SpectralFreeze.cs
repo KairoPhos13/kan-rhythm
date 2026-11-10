@@ -10,7 +10,7 @@ namespace Kan.Core.Media
     /// "wait for me" waits, "keep the tone, don't replay a short stretch").
     /// The spectrum of the last few frames before the freeze point is kept,
     /// and a sound with that spectrum and fresh random phases is built by
-    /// overlap-add — the same chord and timbre, without rhythm or attacks.
+    /// overlap-add: the same chord and timbre, without rhythm or attacks.
     /// The overlap-add wraps around the end, so the result loops seamlessly.
     /// Offline (a buffer); nothing here runs on the audio thread.
     /// </summary>

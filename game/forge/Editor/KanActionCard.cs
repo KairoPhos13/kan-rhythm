@@ -22,7 +22,7 @@ namespace Kan.Forge.Editor
     /// <summary>
     /// One optional action of the track tab (demux / transcribe / render).
     /// Says what it will use (live, from the chips), runs on demand, and
-    /// reports its own progress and last outcome in place — nothing scrolls
+    /// reports its own progress and last outcome in place; nothing scrolls
     /// away. Never disabled for a "missing step": nothing is mandatory; a
     /// run without its selection explains what to select instead.
     /// </summary>

@@ -30,7 +30,7 @@ namespace Kan.Ruleset.UI
     {
         /// <summary>
         /// On the now line, where the next note will cross it: an arrow and
-        /// its name, gliding from note to note — the trail (the player's
+        /// its name, gliding from note to note; the trail (the player's
         /// pitch) meets it when the note is played right.
         /// </summary>
         private partial class NextMarker : CompositeDrawable

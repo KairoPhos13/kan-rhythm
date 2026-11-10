@@ -135,7 +135,7 @@ namespace Kan.Core.Tests
         [Test]
         public void PartsAreNumberedWithoutGaps()
         {
-            // Owner 2026-10-17: "verse 9, verse 11" — the intro and breaks were counted.
+            // Owner 2026-10-17: "verse 9, verse 11", the intro and breaks were counted.
             var design = new KanDesign
             {
                 Sections =

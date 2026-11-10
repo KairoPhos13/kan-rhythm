@@ -35,8 +35,8 @@ namespace Kan.Ruleset.Configuration
         }
 
         /// <summary>
-        /// The instrument profile the player chose, or null: "as the level" —
-        /// listen for the level's instrument, play it in its own range (owner
+        /// The instrument profile the player chose, or null ("as the level":
+        /// listen for the level's instrument, play it in its own range; owner
         /// 2026-10-17: the default was "keyboard", so an ocarina player was
         /// heard as a pianist without ever choosing it).
         /// </summary>
@@ -51,8 +51,8 @@ namespace Kan.Ruleset.Configuration
         /// <summary>A choice by its name.</summary>
         /// <summary>
         /// A choice by its name, and what it means for listening (owner
-        /// 2026-10-17: only ask the kind of instrument — how it attacks, one
-        /// note at a time or chords — and its range): "Ocarina · one note at a
+        /// 2026-10-17: only ask the kind of instrument (how it attacks, one
+        /// note at a time or chords) and its range): "Ocarina · one note at a
         /// time", "Piano / keyboard · chords too".
         /// </summary>
         public static string ChoiceLabel(string choice)
@@ -73,7 +73,7 @@ namespace Kan.Ruleset.Configuration
 
         /// <summary>
         /// Whether the player's instrument plays these notes: in its range as
-        /// written, or moved by an octave — nothing folded note by note (that
+        /// written, or moved by an octave, nothing folded note by note (that
         /// changes the melody). Always, while it is "as the level".
         /// </summary>
         public static bool CanPlay(IReadOnlyCollection<int> midis) => Instrument == null || midis.Count == 0 || FitOf(midis).Folded == 0;

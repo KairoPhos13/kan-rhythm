@@ -1,7 +1,7 @@
-# kan! game client — build defaults (owner 2026-10-13: "leave all the
+# kan! game client: build defaults (owner 2026-10-13: "leave all the
 # compile options as defaults in the makefile").
 #
-# Everything the client build needs is defaulted here — no flags to remember:
+# Everything the client build needs is defaulted here, no flags to remember:
 #
 #   make            # everything: native bridge + C# (forge, game client, ruleset, deploy)
 #   make test       # native self-test + C# suites (core: no osu! needed; forge)
@@ -11,17 +11,17 @@
 #
 # Defaults:
 #   BUILD_TYPE   = Release
-#   GGML_VULKAN  = auto (ON when Vulkan headers + glslc exist — the RoFormer
+#   GGML_VULKAN  = auto (ON when Vulkan headers + glslc exist: the RoFormer
 #                  runtime then uses the GPU via ggml_backend_init_best();
 #                  set KAN_DISABLE_VULKAN=1 to force CPU, or BSR_FORCE_CPU=1
 #                  at runtime)
 #   KAN_ENABLE_ROFORMER = ON (self-contained separation, editor-pipeline §7b)
 #
 # Each component stays self-contained (its own CMake project / dotnet
-# project) — this file only sequences them.
+# project); this file only sequences them.
 
 BUILD_TYPE ?= Release
-# dotnet may be user-local (~/.dotnet) on this machine — resolve it by default.
+# dotnet may be user-local (~/.dotnet) on this machine. Resolve it by default.
 DOTNET ?= $(shell command -v dotnet 2>/dev/null || echo $$HOME/.dotnet/dotnet)
 CMAKE ?= cmake
 JOBS ?= $(shell nproc 2>/dev/null || echo 4)
@@ -45,7 +45,7 @@ forge:
 	cd forge && $(DOTNET) build -c $(BUILD_TYPE)
 
 # The game client itself: fork changes (game/client, fork-divergence.md) only
-# reach the executable's folder through this build — the plugin deploy below
+# reach the executable's folder through this build: the plugin deploy below
 # copies kan files only.
 client:
 	cd client/osu.Desktop && $(DOTNET) build -c $(BUILD_TYPE)

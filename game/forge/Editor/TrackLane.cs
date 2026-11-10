@@ -189,7 +189,7 @@ namespace Kan.Forge.Editor
                                         notesLayer = new Container { RelativeSizeAxes = Axes.Both },
                                     },
                                 },
-                                // Always moves the track — while editing too (the body then selects ranges).
+                                // Always moves the track, while editing too (the body then selects ranges).
                                 grip = new MoveGrip(this) { RelativeSizeAxes = Axes.X, Height = 14 },
                                 startHandle = new Box { RelativeSizeAxes = Axes.Y, Width = 5, Colour = colourProvider.Highlight1, Alpha = 0 },
                                 endHandle = new Box { RelativeSizeAxes = Axes.Y, Width = 5, Anchor = Anchor.TopRight, Origin = Anchor.TopRight, Colour = colourProvider.Highlight1, Alpha = 0 },
@@ -511,7 +511,7 @@ namespace Kan.Forge.Editor
 
         /// <summary>
         /// The strip along the top of a track: drag it to move the track in
-        /// time — always, including while editing (owner 2026-10-14: syncing
+        /// time, always, including while editing (owner 2026-10-14: syncing
         /// tracks must stay possible at any moment).
         /// </summary>
         private partial class MoveGrip : CompositeDrawable, IHasTooltip

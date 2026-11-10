@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# Assemble one kan! release payload — the managed part of a build:
+# Assemble one kan! release payload (the managed part of a build):
 # self-contained osu.Desktop publish for a RID plus the kan! plugin files
 # (ruleset, Kan.Forge, Kan.Core), the native bridge and brand/, checked so a
 # missing piece fails the build instead of shipping.
 #
 # The steps are exactly the ones .github/workflows/build.yml runs; they live
-# here (not only in YAML) so a local build can produce the same payload —
+# here (not only in YAML) so a local build can produce the same payload,
 # see game/docs/platform-builds.md and, for the Windows test build,
 # game/packaging/windows/cross-build-native.sh (native bridge) plus this
 # script. The name says windows/ because that is where kan!'s packaging
@@ -37,7 +37,7 @@ if command -v dotnet > /dev/null 2>&1; then DOTNET=dotnet; else DOTNET="$HOME/.d
 
 echo "== kan! payload: $rid -> $out (version $version)"
 
-# kan's own C# must build without a warning (the make check gate) — a local
+# kan's own C# must build without a warning (the make check gate). A local
 # build gets the same gate here; CI runs it earlier as its own step too.
 # %3B is MSBuild's escape for ';' inside a property value: a raw ';' would
 # split the -p: list into bogus properties (MSB1006).
@@ -60,7 +60,7 @@ cp game/ruleset/bin/Release/net10.0/Kan.Forge.dll "$out/"
 cp game/ruleset/bin/Release/net10.0/Kan.Core.dll "$out/"
 
 # P/Invoke resolves "kan_forge_native" to kan_forge_native.dll /
-# libkan_forge_native.dylib / libkan_forge_native.so — pick the name for
+# libkan_forge_native.dylib / libkan_forge_native.so. Pick the name for
 # this RID and search the CMake output directories for it.
 case "$rid" in
     win-*)    native=kan_forge_native.dll ;;

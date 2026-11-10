@@ -36,7 +36,7 @@ using Kan.Core.Tracks;
 namespace Kan.Forge.Editor
 {
     /// <summary>
-    /// The track tab's optional actions — none requires another: separate the instruments of a
+    /// The track tab's optional actions (none requires another): separate the instruments of a
     /// track, transcribe one, render the level audio; each a background job reported on its card.
     /// </summary>
     public partial class KanTracksScreen : EditorScreen, IKeyBindingHandler<PlatformAction>
@@ -55,7 +55,7 @@ namespace Kan.Forge.Editor
             if (queue.Count == 0)
             {
                 demuxCard.Hint(trackSet.Tracks.Count == 0
-                    ? "Nothing to separate yet — import a track in Resources, then give it the demux chip."
+                    ? "Nothing to separate yet: import a track in Resources, then give it the demux chip."
                     : "Give at least one track the demux chip (separated stems and mixdowns can't be demuxed).");
                 return;
             }
@@ -73,7 +73,7 @@ namespace Kan.Forge.Editor
                     // to the end of the list so they don't mislead.
                     trackSet.OrderByMeaning();
                     setWorking(null, null);
-                    string done = $"Demux done — {ForgeFormat.Plural(stemsAdded, "stem", "stems")} joined the set.";
+                    string done = $"Demux done: {ForgeFormat.Plural(stemsAdded, "stem", "stems")} joined the set.";
                     demuxCard.Complete(done);
                     ForgeNotify.Info(notifications, done, FontAwesome.Solid.CodeBranch);
                 }),
@@ -153,7 +153,7 @@ namespace Kan.Forge.Editor
             var reference = trackSet.Reference;
             if (reference == null)
             {
-                transcribeCard.Hint("Give one track the reference chip — transcription uses it automatically.");
+                transcribeCard.Hint("Give one track the reference chip; transcription uses it automatically.");
                 return;
             }
 
@@ -175,7 +175,7 @@ namespace Kan.Forge.Editor
                     ForgeTrackSession.DraftAtUtc = DateTime.UtcNow;
                     ForgeTrackSession.Save();
 
-                    string done = $"Transcription ready from '{reference.Name}': {describe(draft)} — shown on its track and offered in the compose tab.";
+                    string done = $"Transcription ready from '{reference.Name}': {describe(draft)}, shown on its track and offered in the compose tab.";
                     transcribeCard.Complete(done);
                     ForgeNotify.Info(notifications, done, FontAwesome.Solid.Microphone);
                 },
@@ -206,7 +206,7 @@ namespace Kan.Forge.Editor
             if (companions == 0)
             {
                 if (!automatic)
-                    renderCard.Hint("Mark at least one audible track as companion — the level audio is their mix.");
+                    renderCard.Hint("Mark at least one audible track as companion; the level audio is their mix.");
                 return;
             }
 

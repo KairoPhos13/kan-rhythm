@@ -27,7 +27,7 @@ namespace Kan.Ruleset.UI
     public partial class KanPlayState : Component
     {
         /// <summary>
-        /// Wait mode: notes played wrong before right — a miss at once, when the
+        /// Wait mode: notes played wrong before right are a miss at once, when the
         /// wrong note is confirmed (owner 2026-10-15: they break the combo;
         /// 2026-10-17: at once, not when the right note is finally found).
         /// </summary>
@@ -36,8 +36,8 @@ namespace Kan.Ruleset.UI
         private readonly System.Collections.Generic.Dictionary<int, int[]> expectedAround = new System.Collections.Generic.Dictionary<int, int[]>();
 
         /// <summary>
-        /// The notes the score has around a note — the previous one, a chord's
-        /// others, the next ones within the window: played, they are not wrong
+        /// The notes the score has around a note: the previous one, a chord's
+        /// others, the next ones within the window; played, they are not wrong
         /// tries at it (<see cref="LiveJudge.IsWrongTry"/>).
         /// </summary>
         public IReadOnlyCollection<int> ExpectedAround(KanHitObject n)
@@ -96,7 +96,7 @@ namespace Kan.Ruleset.UI
 
         /// <summary>
         /// Wait mode: a wrong pitch held since an attack made for the note is a
-        /// wrong try, without waiting for libkan's final pitch — that comes
+        /// wrong try, without waiting for libkan's final pitch; that comes
         /// when the note ends, i.e. when the right note is found.
         /// </summary>
         private void trackWrongPitch(KanHitObject n, KanReplayFrame f)

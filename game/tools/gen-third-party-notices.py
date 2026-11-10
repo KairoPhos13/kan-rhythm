@@ -6,7 +6,7 @@ in the osu.Desktop dependency closure, and writes a notices file that ships
 with the client and is shown on the in-game about screen (ADR-0010 §5,
 osu-integration.md §4).
 
-Procedure (also usable manually — see game/docs/environment.md):
+Procedure (also usable manually; see game/docs/environment.md):
 
 1. Restore the fork once so the package graph exists:
        cd game/client && dotnet restore osu.Desktop/osu.Desktop.csproj
@@ -81,7 +81,7 @@ def sniff_licence_text(text: str) -> str:
         return "ISC (see licence file in package)"
     if "bsd" in lowered:
         return "BSD (see licence file in package)"
-    return "(custom — see licence file in package)"
+    return "(custom; see licence file in package)"
 
 
 def nuspec_metadata(pkg_id: str, version: str) -> dict[str, str]:
@@ -90,7 +90,7 @@ def nuspec_metadata(pkg_id: str, version: str) -> dict[str, str]:
     pkg_dir = NUGET_CACHE / pkg_id.lower() / version
     nuspecs = sorted(pkg_dir.glob("*.nuspec")) if pkg_dir.is_dir() else []
     if not nuspecs:
-        meta["license"] = "(package not found in NuGet cache — restore first)"
+        meta["license"] = "(package not found in NuGet cache; restore first)"
         return meta
 
     root = ET.fromstring(nuspecs[0].read_text(encoding="utf-8"))
@@ -102,7 +102,7 @@ def nuspec_metadata(pkg_id: str, version: str) -> dict[str, str]:
         value = (license_el.text or "").strip()
         if license_el.get("type") == "file" or re.match(r"^[A-Za-z0-9._-]+$", value) \
                 and value.lower().startswith(("license", "copying", "notice")):
-            # `<license type="file">LICENSE.txt</license>` — resolve by content.
+            # `<license type="file">LICENSE.txt</license>`: resolve by content.
             candidates = [pkg_dir / value] + sorted(pkg_dir.glob("LICENSE*")) \
                 + sorted(pkg_dir.glob("COPYING*"))
             for candidate in candidates:
@@ -123,7 +123,7 @@ def nuspec_metadata(pkg_id: str, version: str) -> dict[str, str]:
             else:
                 meta["license"] = f"see {url}"
         else:
-            # No metadata at all — fall back to sniffing any licence file.
+            # No metadata at all: fall back to sniffing any licence file.
             for candidate in sorted(pkg_dir.glob("LICENSE*")) + sorted(pkg_dir.glob("COPYING*")):
                 if candidate.is_file():
                     meta["license"] = sniff_licence_text(
@@ -145,7 +145,7 @@ def nuspec_metadata(pkg_id: str, version: str) -> dict[str, str]:
 
 def main() -> int:
     if not ASSETS_JSON.is_file():
-        print(f"error: {ASSETS_JSON} not found — run `dotnet restore` in the fork first",
+        print(f"error: {ASSETS_JSON} not found: run `dotnet restore` in the fork first",
               file=sys.stderr)
         return 1
 
@@ -159,7 +159,7 @@ def main() -> int:
         license_id = meta["license"]
         if "LGPL" in license_id or "GPL" in license_id or "AGPL" in license_id \
                 or "Affero" in license_id:
-            hard_warnings.append(f"{pkg_id} {version}: license '{license_id}' — GPL-family "
+            hard_warnings.append(f"{pkg_id} {version}: license '{license_id}': GPL-family "
                                  "licence inherited from upstream osu!lazer. Dynamic-"
                                  "linking redistribution only; must be documented and "
                                  "reviewed before any release (CONTRIBUTING.md §6).")
@@ -167,7 +167,7 @@ def main() -> int:
                            license_id) \
                 and not any(p in license_id for p in PERMISSIVE):
             warnings.append(f"{pkg_id} {version}: license '{license_id}' is not on the "
-                            "permissive allow-list — verify manually (CONTRIBUTING.md §6)")
+                            "permissive allow-list: verify manually (CONTRIBUTING.md §6)")
         rows.append((pkg_id, version, license_id, meta["project"] or meta["repo"]))
 
     licence_text = (FORK_LICENCE.read_text(encoding="utf-8").strip()
@@ -176,10 +176,10 @@ def main() -> int:
     today = datetime.date.today().isoformat()
 
     lines: list[str] = []
-    lines.append("# THIRD PARTY NOTICES — kan! client")
+    lines.append("# THIRD PARTY NOTICES: kan! client")
     lines.append("")
     lines.append(f"Generated {today} by `game/tools/gen-third-party-notices.py` "
-                 "(monorepo kan-rhythm). Do not edit by hand — regenerate instead.")
+                 "(monorepo kan-rhythm). Do not edit by hand: regenerate instead.")
     lines.append("")
     lines.append("The kan! client is built on the osu!lazer fork (github.com/KairoPhos13/kan, "
                  "itself a fork of `ppy/osu`). This file lists every redistributed "
@@ -193,12 +193,12 @@ def main() -> int:
     lines.append("")
     lines.append("## 1. Base project")
     lines.append("")
-    lines.append("- **osu!lazer** (`ppy/osu`) — MIT Licence — Copyright (c) ppy Pty Ltd "
+    lines.append("- **osu!lazer** (`ppy/osu`): MIT Licence, Copyright (c) ppy Pty Ltd "
                  "<contact@ppy.sh> and contributors. kan! is a rebranded fork (ADR-0011); "
                  "upstream copyright headers are preserved in every adapted file.")
-    lines.append("- **osu!framework** (`ppy/osu-framework`) — MIT Licence — Copyright (c) "
+    lines.append("- **osu!framework** (`ppy/osu-framework`): MIT Licence, Copyright (c) "
                  "ppy Pty Ltd <contact@ppy.sh> and contributors.")
-    lines.append("- **osu! Game Resources** (`ppy.osu.Game.Resources`, © ppy Pty Ltd) — CC BY-NC 4.0 for most content, fonts under their own licences (https://github.com/ppy/osu-resources). Used non-commercially; kan!'s own art and sounds replace them as they are made (`brand/`). The osu! name and logo are ppy's trademarks.")
+    lines.append("- **osu! Game Resources** (`ppy.osu.Game.Resources`, © ppy Pty Ltd): CC BY-NC 4.0 for most content, fonts under their own licences (https://github.com/ppy/osu-resources). Used non-commercially; kan!'s own art and sounds replace them as they are made (`brand/`). The osu! name and logo are ppy's trademarks.")
     lines.append("")
     lines.append("Full text of the base project's licence (fork `LICENCE`):")
     lines.append("")
@@ -206,7 +206,7 @@ def main() -> int:
     lines.append(licence_text)
     lines.append("```")
     lines.append("")
-    lines.append("## 2. BASS audio library (un4seen) — special terms")
+    lines.append("## 2. BASS audio library (un4seen): special terms")
     lines.append("")
     lines.append("osu!framework's audio backend uses **BASS / BASSMIX / BASSFX** "
                  "(© 1999-2026 Un4seen Developments). BASS is **not** open source: it is "
@@ -237,11 +237,11 @@ def main() -> int:
 
     lines.append("## 5. Native / platform components")
     lines.append("")
-    lines.append("- **SDL3** (Simple DirectMedia Layer) — Zlib licence — via osu!framework native libraries.")
-    lines.append("- **BASS / BASSMIX / BASSFX** — see section 2 (un4seen commercial terms).")
-    lines.append("- **FFmpeg** binaries (optional, user-provided) — LGPL/GPL components are "
+    lines.append("- **SDL3** (Simple DirectMedia Layer): Zlib licence, via osu!framework native libraries.")
+    lines.append("- **BASS / BASSMIX / BASSFX**: see section 2 (un4seen commercial terms).")
+    lines.append("- **FFmpeg** binaries (optional, user-provided): LGPL/GPL components are "
                  "loaded only if the user supplies them; kan! does not redistribute FFmpeg.")
-    lines.append("- **DiscordRPC** (Discord Game SDK wrapper) — MIT wrapper; Discord SDK "
+    lines.append("- **DiscordRPC** (Discord Game SDK wrapper): MIT wrapper; Discord SDK "
                  "terms apply for Discord integration features.")
     lines.append("")
     lines.append("This notices file is generated, not exhaustive by legal opinion: if any "

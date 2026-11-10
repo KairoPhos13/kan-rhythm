@@ -1,4 +1,4 @@
-// kan_forge_bench — how well does the detector the game uses hear a level?
+// kan_forge_bench: how well does the detector the game uses hear a level?
 //
 // Measures, against ground truth (a validation export of the compose tab:
 // the reference audio + the corrected score as MIDI, or any audio + MIDI):
@@ -6,8 +6,8 @@
 //      precision / recall / F1 of onset + pitch, pitch errors by kind,
 //      duplicates, onset offset;
 //   2. expected mode (libkan candidates, kan_forge_live_expect): the score
-//      tells the describer which note comes next — how many it confirms;
-//   3. decoys: the same with a WRONG expectation (±1, ±2, ±12 semitones) —
+//      tells the describer which note comes next, how many it confirms;
+//   3. decoys: the same with a WRONG expectation (±1, ±2, ±12 semitones),
 //      how often an expectation is "confirmed" although another note was
 //      played (the risk of telling the detector what to expect).
 // Everything runs through the bridge's C ABI, exactly as the game calls it.
@@ -442,10 +442,10 @@ int main(int argc, char** argv) {
         for (size_t j = i + 1; j < found.size() && found[j].onset_ms - found[i].onset_ms <= 30; ++j)
             if (found[j].midi == found[i].midi) { ++dups; break; }
 
-    std::printf("kan_forge_bench — %s\n", audio.c_str());
+    std::printf("kan_forge_bench: %s\n", audio.c_str());
     std::printf("truth: %zu notes (%s); audio %.1f s at %d Hz; profile %s\n", truth.size(), truth_path.c_str(),
                 double(sig.size()) / sr, sr, profile.c_str());
-    std::printf("\n1. BLIND TRANSCRIPTION — engine %s (%.1f s)\n", engine.c_str(), transcribe_s);
+    std::printf("\n1. BLIND TRANSCRIPTION: engine %s (%.1f s)\n", engine.c_str(), transcribe_s);
     std::printf("  found %zu notes: %zu without a pitch (%.1f%%), %zu repeated within 30 ms\n", found.size(), unresolved,
                 pct(unresolved, found.size()), dups);
     std::printf("  transcriber vs truth offset: median %+.0f ms over %zu same-pitch pairs (%s)\n", measured_offset, diffs.size(),
@@ -497,7 +497,7 @@ int main(int argc, char** argv) {
                     pct(r.confirmed, r.armed), pct(r.unresolved, r.armed), pct(r.no_attack, r.armed), r.armed, median(r.similarity));
     }
 
-    std::printf("\n3. EXPECTED MODE PER NOTE (fresh describer around each heard attack) — right vs WRONG expectations\n");
+    std::printf("\n3. EXPECTED MODE PER NOTE (fresh describer around each heard attack): right vs WRONG expectations\n");
     std::printf("  (blind mode named the right pitch for %.1f%% of these %zu notes)\n", pct(blind_right, arms.size()), arms.size());
     std::printf("  %-14s %10s %14s %13s %10s %12s\n", "expectation", "confirmed", "not confirmed", "not measured", "sim (med)", "bound (HIT)");
     FILE* out = csv.empty() ? nullptr : std::fopen(csv.c_str(), "w");

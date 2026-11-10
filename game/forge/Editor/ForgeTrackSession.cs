@@ -14,7 +14,7 @@ namespace Kan.Forge.Editor
 {
     /// <summary>
     /// The editor's track set for the open level: one unified list of
-    /// resources — imported in Resources, arranged/edited in the "track"
+    /// resources, imported in Resources, arranged/edited in the "track"
     /// tab. Both surfaces read and write this set.
     ///
     /// Saved with its level: <see cref="Open"/> switches
@@ -36,7 +36,7 @@ namespace Kan.Forge.Editor
         public static string? DraftSource { get; set; }
 
         /// <summary>
-        /// The instrument the level is written for — the transcriber's
+        /// The instrument the level is written for: the transcriber's
         /// profile (owner 2026-10-14: an ocarina transcribed as "keyboard"
         /// resolved 97 of 609 notes; with its own profile, 546). Used by the
         /// track tab's Transcribe and the compose tab's section tools.

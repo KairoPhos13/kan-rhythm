@@ -7,7 +7,7 @@
     <ImplicitUsings>disable</ImplicitUsings>
     <!-- The tests/ subfolder is its own project. -->
     <DefaultItemExcludes>$(DefaultItemExcludes);tests/**</DefaultItemExcludes>
-    <Description>kan! core — what a level is and how a play is judged, free of the game client: the score and design models, the live judge, timing, tracks and their edits, transcription drafts, and the bridge to libkan</Description>
+    <Description>kan! core: what a level is and how a play is judged, free of the game client (the score and design models, the live judge, timing, tracks and their edits, transcription drafts, and the bridge to libkan)</Description>
     <Version>0.0.0</Version>
   </PropertyGroup>
 
@@ -21,7 +21,7 @@
       libkan_forge_native.so (Linux) / libkan_forge_native.dylib (macOS) /
       kan_forge_native.dll (Windows). Single-config CMake generators (Make,
       Ninja) place the library in the build root; multi-config ones (Visual
-      Studio) in build/<Configuration>/ — both are picked up below.
+      Studio) in build/<Configuration>/; both are picked up below.
     -->
     <None Include="..\forge\native\build\libkan_forge_native.so" Condition="Exists('..\forge\native\build\libkan_forge_native.so')"
           Link="libkan_forge_native.so" CopyToOutputDirectory="PreserveNewest" Visible="false" />

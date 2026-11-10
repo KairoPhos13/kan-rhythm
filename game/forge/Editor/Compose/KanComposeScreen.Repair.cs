@@ -17,7 +17,7 @@ namespace Kan.Forge.Editor.Compose
 {
     /// <summary>
     /// Repairing the audio's timing from compose (owner 2026-10-22: "the
-    /// companion changes tempo because it feels like it, the solo rushes it —
+    /// companion changes tempo because it feels like it, the solo rushes it;
     /// it sounds fine until I want to learn it"). The audio is brought to the
     /// grid: silence put in at the playhead, the section cut out, or the
     /// section played to a new length. Every track of the set takes the same
@@ -49,7 +49,7 @@ namespace Kan.Forge.Editor.Compose
         /// timing tab: it could tell how much syncs this tempo with the next
         /// segment"): the music from the next change on came in off this
         /// tempo's beats by a fraction of one. Silence put in (it came early),
-        /// or that much cut (late) — the smaller — at the playhead, where the
+        /// or that much cut (late), the smaller, at the playhead, where the
         /// creator says the time fits; everything after moves with the music.
         /// Null when there is no next change, or it is already on a beat.
         /// </summary>

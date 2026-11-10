@@ -1,4 +1,4 @@
-// kan_forge_selftest — offline test of the C-ABI bridge with known input
+// kan_forge_selftest: offline test of the C-ABI bridge with known input
 // and expected output (repo rule 5): synthesize a melody, write a WAV,
 // transcribe it through kan_forge_transcribe_file and check the facts.
 //
@@ -15,7 +15,7 @@
 
 namespace {
 
-// Minimal PCM16 mono WAV writer (48 kHz) — no external dependencies.
+// Minimal PCM16 mono WAV writer (48 kHz), no external dependencies.
 bool write_wav(const std::string& path, const std::vector<float>& sig, int sr) {
     std::FILE* f = std::fopen(path.c_str(), "wb");
     if (f == nullptr) return false;
@@ -64,7 +64,7 @@ bool read_wav(const std::string& path, std::vector<float>& sig) {
     return !sig.empty();
 }
 
-// Known input: C5 D5 E5 (500 ms each) + vibrato G5 — same shape as
+// Known input: C5 D5 E5 (500 ms each) + vibrato G5, same shape as
 // tools/chart_scribe --selftest. Expected: at least 3 struck notes.
 std::vector<float> synth_melody(float sr) {
     std::vector<float> sig(size_t(3.2f * sr), 0.0f);
@@ -374,7 +374,7 @@ int main() {
 
     // N+1. Expected mode: the score's next note as a hypothesis. On the C5
     //      attack (300 ms) the right expectation is measured as present and a
-    //      wrong one (D5, +2 semitones) is not — measurement, never verdict.
+    //      wrong one (D5, +2 semitones) is not; measurement, never verdict.
     {
         std::vector<float> sig;
         read_wav(wav, sig);
@@ -406,7 +406,7 @@ int main() {
                          right, wrong);
             ++failures;
         }
-        std::printf("selftest: expected mode similarity — right C5 %.2f, wrong D5 %.2f\n", right, wrong);
+        std::printf("selftest: expected mode similarity (right C5 %.2f, wrong D5 %.2f)\n", right, wrong);
     }
 
     if (failures == 0) std::printf("kan_forge_selftest OK\n");

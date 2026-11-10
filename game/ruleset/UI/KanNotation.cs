@@ -30,7 +30,7 @@ namespace Kan.Ruleset.UI
     /// <summary>
     /// How the staff writes a note (owner 2026-10-15: "notes as letters are
     /// easy to confuse"): its name as letters or as Do-Re-Mi, or none; and,
-    /// optionally, its own colour — each of the twelve notes always the same
+    /// optionally, its own colour: each of the twelve notes always the same
     /// colour, in rainbow order (C red, D amber, E green…), so a note is
     /// known at a glance, on any instrument. Set right before playing (the
     /// player loader's Notation group) or in the ruleset settings.
@@ -118,14 +118,14 @@ namespace Kan.Ruleset.UI
 
             Children = new Drawable[]
             {
-                // Owner 2026-10-17: "it is not clear where the instrument is chosen" —
+                // Owner 2026-10-17: "it is not clear where the instrument is chosen";
                 // it was only in the game's settings; here it is set right before playing.
                 new InstrumentChoice
                 {
                     LabelText = @"My instrument",
                     Current = instrument,
                 },
-                // Owner 2026-10-17: "ocarinas come in many kinds" — the notes this one plays.
+                // Owner 2026-10-17: "ocarinas come in many kinds", the notes this one plays.
                 lowestChoice = new NoteChoice
                 {
                     LabelText = @"Lowest note it plays",
@@ -181,7 +181,7 @@ namespace Kan.Ruleset.UI
         private Bindable<string> instrument = null!;
         private NoteChoice lowestChoice = null!, highestChoice = null!;
 
-        /// <summary>A note by its name, over the piano's keys (A0–C8).</summary>
+        /// <summary>A note by its name, over the piano's keys (A0-C8).</summary>
         private partial class NoteChoice : SettingsDropdown<int>
         {
             public NoteChoice()
@@ -214,12 +214,12 @@ namespace Kan.Ruleset.UI
             }
         }
 
-        /// <summary>"Ocarina (A4–F6). This level: C5–A6 — plays an octave lower."</summary>
+        /// <summary>"Ocarina (A4-F6). This level: C5-A6. Plays an octave lower."</summary>
         private string fitText()
         {
             var score = Beatmaps.KanLevelFiles.LoadScore(beatmap.Value.BeatmapSetInfo);
             var notes = score?.Notes.Where(n => !n.PitchUnknown).Select(n => n.Midi).ToList();
-            string level = notes is { Count: > 0 } ? $"{KanNotation.Label(notes.Min())}–{KanNotation.Label(notes.Max())}" : string.Empty;
+            string level = notes is { Count: > 0 } ? $"{KanNotation.Label(notes.Min())}-{KanNotation.Label(notes.Max())}" : string.Empty;
             string written = Kan.Forge.Pipeline.ForgeJobs.ProfileLabel(score?.Instrument ?? @"keyboard");
 
             // (a change here fits the level again as the play starts: KanDrawableRuleset)
@@ -227,13 +227,13 @@ namespace Kan.Ruleset.UI
             if (KanPlayer.Instrument == null)
                 return $"The game listens for the level's instrument ({written}){(level.Length > 0 ? $"; it plays {level}" : string.Empty)}.";
 
-            string mine = $"{KanNotation.Label(KanPlayer.Lowest)}–{KanNotation.Label(KanPlayer.Highest)}";
+            string mine = $"{KanNotation.Label(KanPlayer.Lowest)}-{KanNotation.Label(KanPlayer.Highest)}";
 
             if (notes == null || notes.Count == 0)
                 return $"Your range: {mine}.";
 
             var fit = KanPlayer.FitOf(notes);
-            return $"Your range: {mine}. This level ({written}): {level} — {KanPlayer.Describe(fit)?.ToLowerInvariant() ?? "fits as it is"}.";
+            return $"Your range: {mine}. This level ({written}): {level}. {KanPlayer.Describe(fit)?.ToLowerInvariant() ?? "fits as it is"}.";
         }
     }
 }

@@ -36,7 +36,7 @@ namespace Kan.Forge.Editor.Compose
     /// click speeds up and slows down): the tempo shown and edited is the one
     /// at the playhead, a tempo change can be put at the playhead, and "the
     /// beat falls here" stretches the tempo before the playhead so the nearest
-    /// beat lands on it — the grid fitted to the music, so the notes stay
+    /// beat lands on it, the grid fitted to the music, so the notes stay
     /// where they sound (<see cref="ScoreSession.GridChangeKeepsNotes"/>).
     /// </summary>
     internal partial class GridTempoBar : CompositeDrawable
@@ -84,12 +84,12 @@ namespace Kan.Forge.Editor.Compose
             // One grid family at a time (owner 2026-10-14: fewer buttons):
             // pick the family, then one of its divisions.
             flow.Add(label(@"grid"));
-            addFamily(flow, @"straight", @"Even divisions of the beat — most music", new[]
+            addFamily(flow, @"straight", @"Even divisions of the beat (most music)", new[]
             {
                 (1, @"1 beat (quarter notes in 4/4)"), (2, @"half a beat (eighth notes)"), (4, @"a quarter beat (sixteenth notes)"),
                 (8, @"an eighth of a beat (thirty-second notes)"), (16, @"a sixteenth of a beat"),
             });
-            addFamily(flow, @"triplets", @"Beats split in three — a swung or rolling feel", new[]
+            addFamily(flow, @"triplets", @"Beats split in three (a swung or rolling feel)", new[]
             {
                 (3, @"a third of a beat (eighth-note triplets)"), (6, @"a sixth of a beat (sixteenth-note triplets)"), (12, @"a twelfth of a beat (thirty-second-note triplets)"),
             });

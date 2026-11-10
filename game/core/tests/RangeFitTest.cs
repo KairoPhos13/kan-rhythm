@@ -11,7 +11,7 @@ namespace Kan.Core.Tests
     [TestFixture]
     public class RangeFitTest
     {
-        private static readonly (int Lowest, int Highest) ocarina = RangeFit.DefaultRange(@"ocarina"); // A4–F6
+        private static readonly (int Lowest, int Highest) ocarina = RangeFit.DefaultRange(@"ocarina"); // A4-F6
 
         [Test]
         public void ALevelThatFitsStaysPut()
@@ -24,7 +24,7 @@ namespace Kan.Core.Tests
         [Test]
         public void ALowMelodyMovesUpAnOctave()
         {
-            // A cello-like line (C3–G3) on an ocarina: one octave up is not enough, two are.
+            // A cello-like line (C3-G3) on an ocarina: one octave up is not enough, two are.
             var low = new[] { 48, 50, 52, 53, 55 };
             var fit = RangeFit.Plan(low, ocarina.Lowest, ocarina.Highest);
 

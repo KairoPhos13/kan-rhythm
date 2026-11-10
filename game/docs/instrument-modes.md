@@ -1,7 +1,7 @@
-# Instrument modes — design direction (owner, 2026-10-12)
+# Instrument modes: design direction (owner, 2026-10-12)
 
 - **Status:** owner direction of record. Executed partially (stock game modes
-  removed — fork F-9/F-10 in [fork-divergence.md](fork-divergence.md));
+  removed, fork F-9/F-10 in [fork-divergence.md](fork-divergence.md));
   remaining work tracked in [../TODO.md](../TODO.md). The owner will describe
   the second work item later; open questions below await it.
 - **Source:** owner decision in the game-client working session, 2026-10-12.
@@ -9,9 +9,9 @@
 ## 1. Direction
 
 **Game modes (osu!standard, taiko, catch, mania) are gone from the kan!
-client. Their place — the mode selector — belongs to INSTRUMENTS.**
+client. Their place, the mode selector, belongs to INSTRUMENTS.**
 
-Rationale (owner): instrument identity is what drives the product — it
+Rationale (owner): instrument identity is what drives the product; it
 selects the judgment profile (attack type, windows), the **instrument-wise
 audio effects**, the helper visuals, and the scoring/leaderboard dimensions.
 "You select the instrument" is therefore a *mode-level* choice, not a skin or
@@ -20,7 +20,7 @@ a setting.
 Consequences already executed:
 
 - The stock ruleset projects are no longer referenced by the desktop client
-  (fork F-9); osu!stable legacy IPC — which hardcodes the stock mode IDs —
+  (fork F-9); osu!stable legacy IPC, which hardcodes the stock mode IDs,
   is removed with them (fork F-10). The projects stay in the fork repo for
   tests/tooling only.
 
@@ -28,7 +28,7 @@ Consequences already executed:
 
 | Priority | Instrument | Category | Notes |
 |---|---|---|---|
-| MVP now | **piano** | Keys (universal profile) | "pretty universal" — one profile, no variants |
+| MVP now | **piano** | Keys (universal profile) | "pretty universal": one profile, no variants |
 | MVP now | **ocarina** | **winds/others** | many ocarina types exist (variants matter) |
 | Traction later | bass | TBD (strings?) | explicitly named by owner |
 | Traction later | guitar | TBD (strings?) | explicitly named by owner |
@@ -38,10 +38,10 @@ Category facts from the owner:
 
 - Ocarina belongs in the **"winds/others"** category (not its own top-level
   category).
-- There will be *many* instruments per category — many ocarina types, many
+- There will be *many* instruments per category: many ocarina types, many
   winds, and "in general a lot of instruments in the others category".
 - Therefore a **personalization menu** will be needed to choose which
-  instruments appear — explicitly deferred ("for the future").
+  instruments appear, explicitly deferred ("for the future").
 
 ## 3. Requirements this creates
 
@@ -67,7 +67,7 @@ Category facts from the owner:
 6. **Persistence in local files** (owner, 2026-10-13): the selection must be
    saved locally so the program remembers it from the last run.
 
-### v0 realised (2026-10-13) — selector + persistence
+### v0 realised (2026-10-13): selector + persistence
 
 Requirements 5 and 6 are implemented in the ruleset plugin (zero fork
 divergence):
@@ -79,7 +79,7 @@ divergence):
   category ↔ instrument tie and display names). Changing category snaps the
   instrument to the category's first entry if needed.
 - **Persistence:** osu!lazer's standard ruleset-settings mechanism
-  (`KanRulesetConfigManager` : `RulesetConfigManager<>`) — the selection is
+  (`KanRulesetConfigManager` : `RulesetConfigManager<>`); the selection is
   stored in the local **`client.realm`** (game storage, e.g.
   `~/.local/share/kan/client.realm`) and reloaded on startup. No custom file
   handling needed; values survive restarts.
@@ -87,7 +87,7 @@ divergence):
   not specified a startup instrument yet).
 - **Still open:** the final placement of the selector at play start (song
   select / play setup), the variant selector (ocarina types), and wiring the
-  selection to instrument-wise effects (kanfx packs) once they exist — all
+  selection to instrument-wise effects (kanfx packs) once they exist, all
   tracked in `../TODO.md`.
 
 ## 4. Architecture options for "instruments in the mode selector"
@@ -102,8 +102,8 @@ divergence):
 `RulesetStore` discovers only DLLs named `osu.Game.Rulesets.*.dll` and
 registers exactly **one** ruleset per assembly (first public `Ruleset`
 subclass). So option A/C need one thin assembly per enabled instrument
-(e.g. `osu.Game.Rulesets.KanPiano.dll`, `osu.Game.Rulesets.KanOcarina.dll`)
-— cheap if the facades are a few dozen lines over the shared core.
+(e.g. `osu.Game.Rulesets.KanPiano.dll`, `osu.Game.Rulesets.KanOcarina.dll`),
+cheap if the facades are a few dozen lines over the shared core.
 
 Existing mapping stays valid ([osu-integration.md §3](../architecture/osu-integration.md)):
 Layer 3 `.kchart` = one difficulty per instrument chart; the instrument pack
@@ -111,11 +111,11 @@ referenced by chart metadata; mods reuse osu! `Mod` classes.
 
 ## 5. Editor interplay (level generation)
 
-The owner works on the level editor (kan!forge, Milestone 3) in parallel —
+The owner works on the level editor (kan!forge, Milestone 3) in parallel;
 it is the vehicle for *generating* levels. Implications for this workstream:
 
 - The editor authors Layer 3 `.kchart` **per instrument** (incl. fingering
-  fields) — it needs the same instrument taxonomy/selection.
+  fields); it needs the same instrument taxonomy/selection.
 - The transcription pipeline already in the monorepo
   (`tools/chart_scribe`, `kan_demo --transcribe` MIDI + log) provides draft
   notes; the editor's `.mid` importer (Milestone 3) should consume that

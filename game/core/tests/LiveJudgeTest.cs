@@ -72,7 +72,7 @@ namespace Kan.Core.Tests
         public void TheNotesAroundAreNoWrongTries()
         {
             // Owner 2026-10-17: the previous note still sounding is a learner's lag,
-            // not a wrong try — the right note a little late is good, not a miss.
+            // not a wrong try: the right note a little late is good, not a miss.
             var judge = new LiveJudge();
             judge.Heard(1, 1010);
             judge.Pitch(1, 70, 0, final: true); // the previous note (70) again, at this one's start
@@ -121,7 +121,7 @@ namespace Kan.Core.Tests
         {
             // The owner's C5 (2026-10-23): attacked out of an F5 114 ms early, its
             // provisional pitch the F's tail, its final pitch only when the
-            // 738 ms note ended. The readings held C5, 25–73 cents sharp.
+            // 738 ms note ended. The readings held C5, 25-73 cents sharp.
             var judge = new LiveJudge();
             judge.Heard(1, 77156);
             judge.Pitch(1, 77, 43, final: false);
@@ -298,8 +298,8 @@ namespace Kan.Core.Tests
 
         /// <summary>
         /// The windows are a share of the note's pace, the time to its nearest
-        /// neighbour: perfect 20 % within 50–120 ms, good
-        /// 45 % within 135–450, meh 80 % within 240–800.
+        /// neighbour: perfect 20 % within 50-120 ms, good
+        /// 45 % within 135-450, meh 80 % within 240-800.
         /// </summary>
         [TestCase(500, 95, LiveResult.Perfect)]   // a beat apart at 120 BPM: perfect ±100
         [TestCase(500, 105, LiveResult.Good)]
@@ -393,9 +393,9 @@ namespace Kan.Core.Tests
             Assert.That(judge(0, 34), Is.EqualTo(LiveResult.Perfect), "on time: the pitch budget");
             Assert.That(judge(0, 36), Is.EqualTo(LiveResult.Good), "on time, past the budget: a good");
             Assert.That(judge(50, 28), Is.EqualTo(LiveResult.Perfect), "half the window, 28 cents: 0.25 + 0.64");
-            Assert.That(judge(70, 28), Is.EqualTo(LiveResult.Good), "0.7 of the window, 28 cents: 0.49 + 0.64 — both near the edge make a good");
+            Assert.That(judge(70, 28), Is.EqualTo(LiveResult.Good), "0.7 of the window, 28 cents: 0.49 + 0.64; both near the edge make a good");
             Assert.That(judge(150, 35), Is.EqualTo(LiveResult.Good), "2/3 of the good window, 35 cents: 0.44 + 0.49");
-            Assert.That(judge(180, 35), Is.EqualTo(LiveResult.Meh), "0.8 of the good window, 35 cents: 0.64 + 0.49 — out of tune and late, a meh");
+            Assert.That(judge(180, 35), Is.EqualTo(LiveResult.Meh), "0.8 of the good window, 35 cents: 0.64 + 0.49, out of tune and late, a meh");
             Assert.That(judge(-180, -35), Is.EqualTo(LiveResult.Meh), "early and flat alike");
         }
 

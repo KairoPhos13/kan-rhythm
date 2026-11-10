@@ -19,8 +19,8 @@ using Kan.Core.Tracks;
 namespace Kan.Forge.Audio
 {
     /// <summary>
-    /// One track played along the level — a set's track in the editor, the
-    /// reference or the score's notes in play, the player's take in a replay:
+    /// One track played along the level (a set's track in the editor, the
+    /// reference or the score's notes in play, the player's take in a replay):
     /// its own mixer (room for per-track filters and gain) and playback channel,
     /// in the game's music volume (its track store hangs from the global one).
     /// </summary>
@@ -52,7 +52,7 @@ namespace Kan.Forge.Audio
         private float boostDb;
 
         // Pitch without a speed change: the frequency moves the pitch (and
-        // the speed), the tempo puts the speed back — their product, the
+        // the speed), the tempo puts the speed back; their product, the
         // track's rate, stays 1, so the channel keeps the timeline.
         private readonly BindableDouble pitchFrequency = new BindableDouble(1);
         private readonly BindableDouble pitchTempo = new BindableDouble(1);

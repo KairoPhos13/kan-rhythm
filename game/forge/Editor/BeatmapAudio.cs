@@ -94,8 +94,8 @@ namespace Kan.Forge.Editor
         /// The stock flow saves after a resource change, via the editor's
         /// internal <c>Save()</c>. Plugin code reaches it by a guarded
         /// reflection call (same pattern as hiding the stock Audio Track
-        /// row): if an upstream rename breaks it, the save is skipped — the
-        /// track still switches — and the user's normal save persists it.
+        /// row): if an upstream rename breaks it, the save is skipped (the
+        /// track still switches), and the user's normal save persists it.
         /// </summary>
         public static void SaveEditor(osu.Game.Screens.Edit.Editor? editor)
         {
@@ -135,8 +135,8 @@ namespace Kan.Forge.Editor
         public static bool Rendering { get; private set; }
 
         /// <summary>
-        /// Render the companion tracks — as heard: edits, filters, trims,
-        /// positions — cut to the level audio window, and install the result
+        /// Render the companion tracks (as heard: edits, filters, trims,
+        /// positions) cut to the level audio window, and install the result
         /// as the level's audio. Call from the update thread; returns the
         /// beatmap file name.
         /// </summary>
@@ -145,7 +145,7 @@ namespace Kan.Forge.Editor
         {
             var companions = set.Companions.ToList();
             if (companions.Count == 0)
-                throw new ForgeException("no companion tracks — mark at least one track as companion");
+                throw new ForgeException("no companion tracks: mark at least one track as companion");
 
             if (Rendering)
                 throw new ForgeException("the level audio is already being rendered");

@@ -69,7 +69,7 @@ namespace Kan.Forge.Tests
         /// <summary>
         /// Pitch shift (owner 2026-10-19: a companion moved about an octave to
         /// the instrument's range): 440 Hz an octave up is 880 Hz, down 220 Hz,
-        /// and the length — the speed — is kept.
+        /// and the length, the speed, is kept.
         /// </summary>
         [TestCase(12, 880.0)]
         [TestCase(-12, 220.0)]

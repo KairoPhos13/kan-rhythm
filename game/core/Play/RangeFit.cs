@@ -22,20 +22,20 @@ namespace Kan.Core.Play
             public bool Changes => OctaveShift != 0 || Folded > 0;
         }
 
-        /// <summary>Default ranges (MIDI, lowest–highest) of the instrument profiles; the player can change them.</summary>
+        /// <summary>Default ranges (MIDI, lowest-highest) of the instrument profiles; the player can change them.</summary>
         public static (int Lowest, int Highest) DefaultRange(string profile) => profile switch
         {
-            @"ocarina" => (69, 89), // 12-hole alto C: A4–F6
-            @"flute" => (60, 96), // C4–C7
-            @"recorder" => (72, 98), // soprano: C5–D7
-            @"guitar" => (40, 88), // E2–E6
-            @"wind_bowed" => (55, 100), // violin: G3–E7
+            @"ocarina" => (69, 89), // 12-hole alto C: A4-F6
+            @"flute" => (60, 96), // C4-C7
+            @"recorder" => (72, 98), // soprano: C5-D7
+            @"guitar" => (40, 88), // E2-E6
+            @"wind_bowed" => (55, 100), // violin: G3-E7
             @"plucked" => (40, 96),
             _ => (21, 108), // keyboard: the piano's 88 keys
         };
 
         /// <summary>
-        /// The player's own range (lowest–highest), or null while their
+        /// The player's own range (lowest-highest), or null while their
         /// instrument is "as the level". The ruleset sets it: its settings
         /// hold the player's instrument.
         /// </summary>

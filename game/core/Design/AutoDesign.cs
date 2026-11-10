@@ -10,7 +10,7 @@ namespace Kan.Core.Design
 {
     /// <summary>
     /// A design from the notes alone (owner 2026-10-15: a level nobody
-    /// designed — say, transcribed by AI — must already look right; the
+    /// designed (say, transcribed by AI) must already look right; the
     /// design tab only improves it):
     ///
     /// - a silence of <see cref="BREAK_MS"/> or more is a <b>break</b> (one
@@ -19,7 +19,7 @@ namespace Kan.Core.Design
     ///   silences, none shorter than <see cref="MIN_PHRASE_MS"/>;
     /// - the busiest, loudest phrases are the <b>climax</b> (chorus): notes
     ///   per second times mean intensity, the top quarter within 90 % of the
-    ///   best — only when the level has phrases to compare.
+    ///   best, only when the level has phrases to compare.
     /// </summary>
     public static class AutoDesign
     {
@@ -108,7 +108,7 @@ namespace Kan.Core.Design
         /// <summary>
         /// A design kept in step with its notes: when its sections are still
         /// automatic (<see cref="KanDesign.Generated"/>) they are generated
-        /// again — the notes may have changed — keeping the level's settings
+        /// again (the notes may have changed), keeping the level's settings
         /// (palette, effects). A design edited by hand is returned as it is.
         /// </summary>
         public static KanDesign Refresh(KanDesign design, IReadOnlyCollection<ScoreNote> notes, double levelLengthMs)

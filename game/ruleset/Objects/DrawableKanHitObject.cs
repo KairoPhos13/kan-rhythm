@@ -14,8 +14,8 @@ using Kan.Core.Play;
 namespace Kan.Ruleset.Objects
 {
     /// <summary>
-    /// The judging side of one score note. It draws nothing — the staff
-    /// (<see cref="KanStaff"/>) draws every note — it asks the live judge for
+    /// The judging side of one score note. It draws nothing; the staff
+    /// (<see cref="KanStaff"/>) draws every note. It asks the live judge for
     /// a verdict each frame and applies it as the game's result.
     /// </summary>
     public partial class DrawableKanHitObject : DrawableHitObject<KanHitObject>

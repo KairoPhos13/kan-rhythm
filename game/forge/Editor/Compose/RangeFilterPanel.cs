@@ -21,7 +21,7 @@ namespace Kan.Forge.Editor.Compose
 {
     /// <summary>
     /// Keep a pitch range: e.g. a level for a piano's
-    /// right hand keeps G4–A8 and drops the rest; the removed notes stay
+    /// right hand keeps G4-A8 and drops the rest; the removed notes stay
     /// listed by pitch so the keys that belong to the hand can be added back.
     /// </summary>
     internal partial class RangeFilterPanel : CompositeDrawable
@@ -135,7 +135,7 @@ namespace Kan.Forge.Editor.Compose
             roll.Invalidate();
             changed();
 
-            show($"Removed {ForgeFormat.Plural(gone.Count, "note", "notes")} outside {KanScore.NoteName(Math.Min(lowMidi, highMidi))}–{KanScore.NoteName(Math.Max(lowMidi, highMidi))}. Add back what belongs:", false);
+            show($"Removed {ForgeFormat.Plural(gone.Count, "note", "notes")} outside {KanScore.NoteName(Math.Min(lowMidi, highMidi))}-{KanScore.NoteName(Math.Max(lowMidi, highMidi))}. Add back what belongs:", false);
             rebuildList();
         }
 

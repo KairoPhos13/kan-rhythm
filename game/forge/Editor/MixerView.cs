@@ -27,7 +27,7 @@ namespace Kan.Forge.Editor
 {
     /// <summary>
     /// The mixing desk for the companion (owner naming 2026-10-14): the
-    /// level audio — what plays under the player — is the mix of the
+    /// level audio, what plays under the player, is the mix of the
     /// companion tracks. One channel strip per track (companion or not,
     /// fader, solo/mute, level) and a master section to preview exactly the
     /// level audio and render it.
@@ -162,7 +162,7 @@ namespace Kan.Forge.Editor
         private ForgeButton bannerSwitch = null!;
         private ForgeButton bannerSwitchBack = null!;
 
-        /// <summary>Says, all the time, what is being heard in this view — and switches it.</summary>
+        /// <summary>Says, all the time, what is being heard in this view, and switches it.</summary>
         private Drawable createListenBanner() => new Container
         {
             RelativeSizeAxes = Axes.X,
@@ -216,7 +216,7 @@ namespace Kan.Forge.Editor
                                 {
                                     bannerSwitch = new ForgeButton(FontAwesome.Solid.Users, @"hear every track")
                                     {
-                                        TooltipText = @"Compare with the tracks that are not in the level audio (a listening aid — nothing changes).",
+                                        TooltipText = @"Compare with the tracks that are not in the level audio (a listening aid; nothing changes).",
                                         Action = () => setLevelAudioPreview(false),
                                     },
                                     bannerSwitchBack = new ForgeButton(FontAwesome.Solid.Headphones, @"hear the level audio")
@@ -245,7 +245,7 @@ namespace Kan.Forge.Editor
             string title = on ? @"You're hearing the level audio" : @"You're hearing every track";
             string text = on
                 ? companions > 0
-                    ? $"Only the {ForgeFormat.Plural(companions, "companion track", "companion tracks")} play, within the level audio's start and end — exactly the final track. Every other track is silent here."
+                    ? $"Only the {ForgeFormat.Plural(companions, "companion track", "companion tracks")} play, within the level audio's start and end, exactly the final track. Every other track is silent here."
                     : @"No companion track yet, so there is nothing to hear: mark tracks as companion below."
                 : @"A listening aid: the tracks that are not companions play too. The level audio will contain only the companion tracks.";
 
@@ -443,7 +443,7 @@ namespace Kan.Forge.Editor
                 {
                     strips.Add(new OsuSpriteText
                     {
-                        Text = @"no tracks yet — import audio in Resources (setup)",
+                        Text = @"no tracks yet: import audio in Resources (setup)",
                         Font = OsuFont.Style.Caption1,
                         Colour = colourProvider.Foreground1,
                         Margin = new MarginPadding(12),
@@ -606,7 +606,7 @@ namespace Kan.Forge.Editor
 
             public override LocalisableString TooltipText
             {
-                get => on ? @"companion: plays under the player (part of the level audio) — click to remove" : @"not a companion — click to make it play under the player";
+                get => on ? @"companion: plays under the player (part of the level audio); click to remove" : @"not a companion; click to make it play under the player";
                 set { }
             }
 

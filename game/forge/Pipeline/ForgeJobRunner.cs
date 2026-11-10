@@ -20,7 +20,7 @@ namespace Kan.Forge.Pipeline
 
     /// <summary>
     /// A first-class failure of a pipeline job (missing model, missing
-    /// separator, unsupported codec, failed download…) — human-readable and
+    /// separator, unsupported codec, failed download…), human-readable and
     /// recoverable, per the editor prompt §3.
     /// </summary>
     public class ForgeException : Exception
@@ -158,7 +158,7 @@ namespace Kan.Forge.Pipeline
                                                                      out int count, err, err_cap);
 
                 if (st == KanForgeStatus.ErrCapacity)
-                    throw new ForgeException($"transcription produced {count} notes, more than the editor buffer — report this");
+                    throw new ForgeException($"transcription produced {count} notes, more than the editor buffer: report this");
 
                 if (st != KanForgeStatus.Ok)
                     throw new ForgeException(KanForgeNative.ErrMessage(err));
@@ -201,7 +201,7 @@ namespace Kan.Forge.Pipeline
                 // must not extend the rendered mix either).
                 var list = tracks.Where(t => !t.Muted).ToList();
                 if (list.Count == 0)
-                    throw new ForgeException("render: no audible tracks — unmute or add tracks first");
+                    throw new ForgeException("render: no audible tracks; unmute or add tracks first");
 
                 var paths = list.Select(t => t.Path).ToArray();
                 var gains = list.Select(t => t.Gain).ToArray();
@@ -232,8 +232,8 @@ namespace Kan.Forge.Pipeline
                 return outWav;
             }, onProgress, uiScheduler);
         /// <summary>
-        /// Render one track the way it is heard — pending edits, filters and
-        /// side trims applied — into <paramref name="outWav"/> ("save as new
+        /// Render one track the way it is heard (pending edits, filters and
+        /// side trims applied) into <paramref name="outWav"/> ("save as new
         /// track"). Returns where the result starts on the timeline.
         /// </summary>
         public static Task<double> RenderTrackAsync(ForgeTrack track, string outWav, Scheduler? uiScheduler = null)
@@ -256,7 +256,7 @@ namespace Kan.Forge.Pipeline
         /// <summary>
         /// The track as heard, as a file: range edits through the native
         /// editor (keeps' gaps and silences first, one trim last), then the
-        /// filters via BASS — the same biquads the preview runs — then the
+        /// filters via BASS (the same biquads the preview runs) then the
         /// pitch shift (BASS_FX, as the preview's). Worker
         /// thread. Intermediate files are added to <paramref name="temps"/>.
         /// </summary>
@@ -319,7 +319,7 @@ namespace Kan.Forge.Pipeline
 
         /// <summary>
         /// Track editor (non-destructive): produce a NEW track from a time
-        /// range of an existing one — KEEP/MUTE/TRIM semantics of
+        /// range of an existing one: KEEP/MUTE/TRIM semantics of
         /// <see cref="KanForgeEditMode"/>. The source is never modified; the
         /// caller adds the result to its track list under a user-chosen name.
         /// </summary>

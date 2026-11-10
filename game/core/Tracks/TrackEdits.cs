@@ -36,7 +36,7 @@ namespace Kan.Core.Tracks
     /// <summary>
     /// A track's pending edits (owner 2026-10-14: "hear before saving"):
     /// range operations and filters that are heard live in the track tab
-    /// and only become a file when the user saves them as a NEW track — the
+    /// and only become a file when the user saves them as a NEW track; the
     /// source is never modified.
     ///
     /// Preview and render agree on one rule set, all in
@@ -181,22 +181,22 @@ namespace Kan.Core.Tracks
             var issues = new List<EditIssue>();
 
             if (TrimSpan is { } span && span.ToMs <= span.FromMs)
-                issues.Add(EditIssue.Error("The trims don't overlap — nothing would be left to save. Remove one of them."));
+                issues.Add(EditIssue.Error("The trims don't overlap: nothing would be left to save. Remove one of them."));
             else if (Ranges.Count > 0 && !hasAudiblePart())
-                issues.Add(EditIssue.Error("Every part is silenced by these edits — nothing would be heard."));
+                issues.Add(EditIssue.Error("Every part is silenced by these edits: nothing would be heard."));
 
             var trim = TrimSpan;
             var keeps = of(KanForgeEditMode.Keep).ToList();
 
             foreach (var r in Ranges)
             {
-                string what = $"'{verb(r.Mode)} {fmt(r.FromMs)}–{fmt(r.ToMs)}'";
+                string what = $"'{verb(r.Mode)} {fmt(r.FromMs)}-{fmt(r.ToMs)}'";
 
                 if (r.Mode != KanForgeEditMode.Trim && trim is { } t && (r.ToMs <= t.FromMs || r.FromMs >= t.ToMs))
                 {
                     issues.Add(EditIssue.Warning(r.Mode == KanForgeEditMode.Keep
-                        ? $"{what} is outside the trim — it won't be in the saved track."
-                        : $"{what} is outside the trim — it has no effect."));
+                        ? $"{what} is outside the trim: it won't be in the saved track."
+                        : $"{what} is outside the trim: it has no effect."));
                     continue;
                 }
 
@@ -204,7 +204,7 @@ namespace Kan.Core.Tracks
                     issues.Add(EditIssue.Warning($"{what} is already silent (it's outside every kept part)."));
 
                 if (r.Mode == KanForgeEditMode.Keep && of(KanForgeEditMode.Mute).Any(m => m.FromMs <= r.FromMs && m.ToMs >= r.ToMs))
-                    issues.Add(EditIssue.Warning($"{what} is fully silenced by a 'silence this' — it won't be heard."));
+                    issues.Add(EditIssue.Warning($"{what} is fully silenced by a 'silence this': it won't be heard."));
             }
 
             return issues;

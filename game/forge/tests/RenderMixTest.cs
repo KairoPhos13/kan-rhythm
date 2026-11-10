@@ -15,7 +15,7 @@ namespace Kan.Forge.Tests
 {
     /// <summary>
     /// "Render a single track for playback" (owner requirement 2026-10-13):
-    /// the track set mixes into one WAV — gains apply, muted tracks are
+    /// the track set mixes into one WAV: gains apply, muted tracks are
     /// excluded, the result covers the longest input.
     /// </summary>
     [TestFixture]

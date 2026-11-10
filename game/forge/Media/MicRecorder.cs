@@ -11,7 +11,7 @@ namespace Kan.Forge.Media
 {
     /// <summary>
     /// Records the default microphone for the compose tab's "record a
-    /// section" tool, through BASS — the audio library the
+    /// section" tool, through BASS, the audio library the
     /// game already ships. Mono float at 48 kHz into a buffer allocated up
     /// front: the capture callback only copies (no allocation, no locks).
     /// </summary>

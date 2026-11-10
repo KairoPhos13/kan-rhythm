@@ -58,7 +58,7 @@ namespace Kan.Forge.Editor
 
             // Before the 2026-10-14 transcription fix, notes crossed into C# as
             // zeros: C-1 at 0 ms with the minimum length. No real note looks
-            // like that — drop them so the score can start over.
+            // like that: drop them so the score can start over.
             int broken = Score.Notes.RemoveAll(IsBrokenNote);
             if (broken > 0)
                 RemovedBrokenNotes = broken;

@@ -20,7 +20,7 @@ namespace Kan.Ruleset.Beatmaps
     /// Reads kan! files that travel inside a level (the score) where no
     /// dependency injection reaches: the beatmap converter. The game's
     /// storage is captured by the ruleset icon (<see cref="KanRulesetIcon"/>),
-    /// which the toolbar loads when the game starts — before any level can be
+    /// which the toolbar loads when the game starts, before any level can be
     /// played.
     /// </summary>
     public static class KanLevelFiles

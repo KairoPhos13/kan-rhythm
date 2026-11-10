@@ -15,8 +15,8 @@ namespace Kan.Core.Tracks
     /// the list order.
     ///
     /// Undo never removes tracks imported elsewhere (Resources): only tracks
-    /// created by the tab's own actions (<see cref="MarkCreated"/>) — edits,
-    /// saves, stems — come and go with the history.
+    /// created by the tab's own actions (edits, saves, stems; <see cref="MarkCreated"/>)
+    /// come and go with the history.
     /// </summary>
     public class ForgeSetHistory
     {

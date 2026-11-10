@@ -21,7 +21,7 @@ namespace Kan.Core.Tracks
 
     /// <summary>
     /// A repair of the timeline's timing (owner 2026-10-22: a cover played
-    /// without a click drifts — "the companion speeds up, the solo rushes it" —
+    /// without a click drifts, "the companion speeds up, the solo rushes it",
     /// and a level made from it cannot be learnt). One edit applies to the
     /// whole level at once: every track of the set (companion and reference,
     /// so the level preview and autoplay hear the repaired reference), the
@@ -32,7 +32,7 @@ namespace Kan.Core.Tracks
     /// <see cref="ToMs"/>) becomes <see cref="NewLengthMs"/> long. Inserting
     /// silence is an empty span that becomes the silence's length; a cut is a
     /// span that becomes nothing. Times are on one timeline (the caller's:
-    /// level time for the score, set time for the tracks — see <see cref="Shifted"/>).
+    /// level time for the score, set time for the tracks; see <see cref="Shifted"/>).
     /// </summary>
     public sealed record TimelineEdit(TimelineEditKind Kind, double FromMs, double ToMs, double NewLengthMs)
     {
@@ -47,7 +47,7 @@ namespace Kan.Core.Tracks
         /// The edit that puts a tempo change at <paramref name="nextMs"/> back on
         /// the beats of the tempo before it (starting at <paramref name="tempoMs"/>,
         /// <paramref name="beatMs"/> a beat): silence put in when the music after
-        /// it came early, a bit cut when late — whichever is smaller. Null when
+        /// it came early, a bit cut when late, whichever is smaller. Null when
         /// it is already on a beat. It goes at <paramref name="atMs"/>, where the
         /// creator says it fits best (owner 2026-10-25: always at the change was
         /// "not exactly where that time goes best"), within the tempo; a cut too

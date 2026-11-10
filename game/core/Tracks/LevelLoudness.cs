@@ -9,7 +9,7 @@ namespace Kan.Core.Tracks
     /// How loud a level's audio is rendered: every level at one reference
     /// loudness, so moving from one to the next never needs the volume
     /// touched (owner 2026-10-23: "when I open the game my ears burst, then
-    /// I have to turn it up because I can barely hear the songs" — eight
+    /// I have to turn it up because I can barely hear the songs", eight
     /// levels spread over 12 dB, from -16.7 to -28.5 LUFS). The reference is
     /// 0 dB; the creator may set a level louder or softer from it.
     /// </summary>

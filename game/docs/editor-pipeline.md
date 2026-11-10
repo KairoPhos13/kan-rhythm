@@ -1,9 +1,9 @@
-# kan!forge — level-creation pipeline (editor × libkan): implementation notes
+# kan!forge, level-creation pipeline (editor × libkan): implementation notes
 
 - **Status:** slice 1 implemented and tested (2026-10-13): the libkan C-ABI
   bridge, the background pipeline with live progress, the editor entry-window
   panel (prompt §2.1) and the temporal-edit → transcription propagation with
-  tests (prompt §2.2 hard requirement). Slices 2–3 (NLE timeline UI,
+  tests (prompt §2.2 hard requirement). Slices 2-3 (NLE timeline UI,
   transcription editor UI) are specified below and tracked in
   [../TODO.md](../TODO.md).
 - **Of record:** the implementation agent prompt
@@ -14,7 +14,7 @@
 ## 1. Architecture
 
 ```
-[source audio: beatmap track | URL]          (game/forge/Editor — entry window)
+[source audio: beatmap track | URL]          (game/forge/Editor: entry window)
         │
         ▼
 Kan.Forge.Pipeline.ForgeJobRunner            background jobs, serialized
@@ -28,12 +28,12 @@ libkan (C++): fetch / separate_stems / transcribe_audio
 
 - **Thin adapter rule** (prompt §3): all libkan invocation lives behind
   `game/forge/native` (C ABI) + `Kan.Core.Native` (P/Invoke). Nothing else in
-  the game calls libkan — upstream osu! merges stay feasible and the eventual
+  the game calls libkan; upstream osu! merges stay feasible and the eventual
   live path (NoteEventStream) has one place to land.
-- **ABI contract:** `kan_forge_api.h` — fixed-size POD note struct
+- **ABI contract:** `kan_forge_api.h`, fixed-size POD note struct
   (`kan_forge_note`, mirrors `kan::TranscribedNote`), caller-owned buffers,
   status enum, progress callback. Booleans are `int32_t`.
-- **Build:** standalone CMake (does not touch the monorepo root build) —
+- **Build:** standalone CMake (does not touch the monorepo root build);
   see [environment.md](environment.md). Offline self-test with synthesized
   input (repo rule 5): `kan_forge_selftest` via ctest.
 
@@ -62,7 +62,7 @@ libkan (C++): fetch / separate_stems / transcribe_audio
   removed/moved segment goes with it; the pieces outside stay where their
   audio stays.
 - A piece whose end was cut is flagged `EndFaded` (the end is inferred, not a
-  release — same semantics as libkan's `end_faded`).
+  release, same semantics as libkan's `end_faded`).
 - Every piece created by an edit is flagged `FragmentedByEdit` so the UI shows
   it as a human-fixable proposal, never as a clean measurement (weak-label
   rule). Whole notes that merely shift stay unflagged.
@@ -100,27 +100,27 @@ disable actions with a hint up front instead of failing halfway.
 ## 6. Formats
 
 - **Level source of truth:** whatever the kan! ruleset stores (prompt §3,
-  docs/architecture/backend-data-model.md) — the draft model is the editable
+  docs/architecture/backend-data-model.md): the draft model is the editable
   working copy in memory for now; persisting it into the beatmap/level store
   is part of slice 3.
 - **Interchange (libkan):** chart text (`.score`), MIDI sketch, human log,
-  JSONL fact stream — import/export targets, not the native format.
+  JSONL fact stream, import/export targets, not the native format.
 - Source audio: the beatmap's audio track (materialised to a temp file for
-  the bridge) or a URL (yt-dlp fetch, "download" progress phase — see §7 for
+  the bridge) or a URL (yt-dlp fetch, "download" progress phase; see §7 for
   the policy).
 
 ## 6a. Glossary (naming convention, owner 2026-10-14)
 
-Use these words everywhere — UI, code, docs, saved files:
+Use these words everywhere (UI, code, docs, saved files):
 
 | Term | Meaning |
 |---|---|
 | **set** | all tracks of a level (`ForgeTrackSet`), saved with the level |
 | **companion** (role, many) | plays under the player during the level (`IsCompanion`) |
 | **level audio** | the beatmap's single audio file (osu!'s "Audio Track") = the mix of the companion tracks, as heard, cut to its start/end (`AudioStartMs/AudioEndMs`). Re-rendered automatically when the companion mix changed (leaving the track tab, saving, closing the Resources picker); there is no manual render button. A file is still needed: gameplay and the other tabs play one audio file |
-| **loudness** | every level audio is levelled to the game's reference, **−20 LUFS** (ITU-R BS.1770, `libkan/loudness.hpp`), its peaks held under −1 dBFS — 0 dB, automatic. The mix desk shows where it sits and sets it ±1 dB at a time from the reference, up to ±12 (`ForgeTrackSet.LoudnessOffsetDb`, saved, undoable). Owner 2026-10-23: eight levels spread over 12 dB (−16.7 to −28.5 LUFS) — "my ears burst, then I can barely hear the songs"; peak protection alone left a loud master at full scale and soft stems far under it. Rendered mixes peak near full scale at about −20 LUFS, so the reference lines them up within ±1 dB without a limiter; a quiet mix with sharp peaks comes up only as far as they allow (the desk says so). The level audio's signature holds the levelling (`LevelLoudness.VERSION`, the offset): a level rendered before is levelled the next time its track tab is left |
+| **loudness** | every level audio is levelled to the game's reference, **−20 LUFS** (ITU-R BS.1770, `libkan/loudness.hpp`), its peaks held under −1 dBFS: 0 dB, automatic. The mix desk shows where it sits and sets it ±1 dB at a time from the reference, up to ±12 (`ForgeTrackSet.LoudnessOffsetDb`, saved, undoable). Owner 2026-10-23: eight levels spread over 12 dB (−16.7 to −28.5 LUFS), "my ears burst, then I can barely hear the songs"; peak protection alone left a loud master at full scale and soft stems far under it. Rendered mixes peak near full scale at about −20 LUFS, so the reference lines them up within ±1 dB without a limiter; a quiet mix with sharp peaks comes up only as far as they allow (the desk says so). The level audio's signature holds the levelling (`LevelLoudness.VERSION`, the offset): a level rendered before is levelled the next time its track tab is left |
 | **reference** (role, one) | the full performance: what gets transcribed, and what the future demo/auto plays together with the companion |
-| **demux** | an action (separate into stems), picked in its card — not a role |
+| **demux** | an action (separate into stems), picked in its card, not a role |
 | **start / starts at** | where the audible part of a track starts on the set's timeline (`TimelineStartMs` = `OffsetMs` + `ClipStartMs`). It never goes before 0:00; the trimmed-away start may (so a left-trimmed track can slide left) |
 | **volume** | in dB, silence (−60) to **+20 dB** (`ForgeTrack.MAX_GAIN` = ×10); preview amplifies above 0 dB with a gain stage on the track's mixer |
 | **Mix the companion** | the view about the final track: it opens hearing the **level audio** (only companion tracks, within its start/end; banner + "hear every track" switch). Solo is hidden there |
@@ -136,18 +136,18 @@ with those names load as companion (`ForgeSetFile` legacy aliases).
 
 Two surfaces, one rule set (owner requirements 2026-10-13):
 
-**Resources (setup) is the ONLY place that reads files** — audio tracks
+**Resources (setup) is the ONLY place that reads files**: audio tracks
 (multiple, via the same navigator pattern as background/video), plus the
 stock rows for video and images. With "video provides the audio" on, the
 video's audio joins the track list automatically (as an accompaniment).
 Nothing else anywhere asks for a path: the **track** tab (a first-class
-editor tab, second after setup — fork F-11) only *selects and arranges* the
+editor tab, second after setup; fork F-11) only *selects and arranges* the
 resources imported or created there.
 
-Roles on each track (owner 2026-10-13): **music** (exactly one — the level's
+Roles on each track (owner 2026-10-13): **music** (exactly one: the level's
 base track, *connected to the editor's Audio Track*; no second import
-surface), **reference** (one — the take transcription uses), **accompaniment**
-(many — what the render mixes), **demux** (queue). Role-bearing tracks are
+surface), **reference** (one: the take transcription uses), **accompaniment**
+(many: what the render mixes), **demux** (queue). Role-bearing tracks are
 highlighted, and the whole set is shown as a list with each track's waveform
 as the row background (never just a count).
 
@@ -155,21 +155,21 @@ as the row background (never just a count).
   navigator is the single entry point for audio (pick repeatedly for
   multiple tracks); the stock video row is the single entry point for video
   (with "video provides the audio" on, the video's audio joins the track
-  list as an accompaniment — the visuals-only case turns the switch off).
+  list as an accompaniment; the visuals-only case turns the switch off).
 - **One unified track list; every track takes a role there:**
-  - **reference** (exactly one, optional) — the original take. Transcription
+  - **reference** (exactly one, optional): the original take. Transcription
     runs on it automatically (no picker), and the future Mod Auto plays to
     it;
-  - **accompaniment** (many) — what the beatmap-audio render mixes;
-  - **demux** (queue) — tracks scheduled for source separation.
+  - **accompaniment** (many): what the beatmap-audio render mixes;
+  - **demux** (queue): tracks scheduled for source separation.
   Volume and mute stay per track.
-- **Demux results rejoin the list** as new tracks and can take any role —
+- **Demux results rejoin the list** as new tracks and can take any role,
   but **a demuxed track is never demuxable again** (neither is a demux
   result or a rendered mixdown): "hace perder el tiempo".
 - **Track editor v1 (non-destructive, owner 2026-10-13):** editing a track
   **creates a NEW track with a user-chosen name** and adds it to the list;
   the source is never modified. Range operations on a track:
-  *keep range only* / *silence range* (both preserve original timing — so an
+  *keep range only* / *silence range* (both preserve original timing, so an
   edited background stays aligned to the song) and *trim to range* (tight
   file, offset lost). The typical case: a section recording two instruments
   (e.g. alto C + bass C ocarinas) yields a cleaned lead track (→ reference,
@@ -178,20 +178,20 @@ as the row background (never just a count).
   their source (a stem stays "separated", a mixdown stays "mixed") and
   start with no roles.
 - **Waveform previews & meaningful-audio marking:** one analysis pass per
-  track (`kan_forge_analyze_track`) feeds a waveform thumbnail on the row —
-  activity is visible *before* selecting anything — and the
+  track (`kan_forge_analyze_track`) feeds a waveform thumbnail on the row
+  (activity is visible *before* selecting anything) and the
   **"no meaningful audio"** rule (both peak and RMS below the noise floor).
   After separation, such stems are labelled ("⚠ seems to contain no
-  meaningful audio — select only if you are sure") and **moved to the end of
+  meaningful audio: select only if you are sure") and **moved to the end of
   the list** so they don't mislead; they stay fully selectable (the user may
   know better).
 - **Nothing is mandatory:** demux and transcription are independent,
-  optional actions — needed in one case, skippable in another. The render
+  optional actions: needed in one case, skippable in another. The render
   only needs its accompaniment selection; a reference is only needed if you
   want transcription (or later the Mod Auto).
 - **Render:** the audible accompaniments are mixed
   (`ForgeJobs.RenderMixAsync` → `kan_forge_mix_tracks`: gains applied,
-  peak-protected) and installed as the beatmap's audio track — playback
+  peak-protected) and installed as the beatmap's audio track; playback
   uses exactly what the editor heard.
 
 Verified live in QA (2026-10-13): track import via navigator, transcription
@@ -201,7 +201,7 @@ semantics covered by `TrackRolesTest` / `MixdownRuleTest`.
 ### 6b.1 Cover credits (owner 2026-10-14)
 
 Setup → **Cover credits**, right under Metadata (`KanCreditsSection`, added
-through the ruleset's setup-section list — no fork edit). Levels are often
+through the ruleset's setup-section list, no fork edit). Levels are often
 built on covers people record for the love of it, sometimes together; the
 song's artist stays in osu!'s metadata, and this credits the performers:
 where the cover was published, each performer's name, what they did and
@@ -260,7 +260,7 @@ it starts. The set spans `max(start + length)`.
   (`EditorClock.ChangeSource`, no fork edit). It resizes as tracks move and
   hands the level music back when you leave the tab. Each track plays on its
   own mixer at its start, following volume, mute and **solo** live. Preview
-  volume caps at 100%; the render applies the full 0–2 gain.
+  volume caps at 100%; the render applies the full 0-2 gain.
 - **Lanes:** each row's track is a clip on one shared time scale (the span
   plus room to move). Drag the clip to move it (10 ms snap), or type
   *starts at (s)*. Click anywhere to jump there. In edit mode, dragging
@@ -325,7 +325,7 @@ it starts. The set spans `max(start + length)`.
   are trimmed natively, then placed at start + clip start) and **save as new
   track** (the window becomes one more trim) all follow it.
 - **Mix the companion** view: a mixing desk (per track: in the song =
-  companion role, fader 0–200 %, meter, solo/mute; master: preview the level audio, master meter, render). **Level audio start and end**
+  companion role, fader 0-200 %, meter, solo/mute; master: preview the level audio, master meter, render). **Level audio start and end**
   (`ForgeTrackSet.AudioStartMs/AudioEndMs`): handles, start/end at the
   playhead, final length shown. The preview plays only that window, and the
   render trims the mix to it.
@@ -380,7 +380,7 @@ cents), duration, intensity and playing style (normal / legato / staccato
   folded to one bin per semitone, 60 dB range; tested with known tones) per
   source, drawn behind the notes in its role colour (companion blue,
   reference yellow, notes pink), following the toggles.
-- **Pitch-range filter:** keep e.g. G4–A8 (`KanScore.KeepRange`); the removed
+- **Pitch-range filter:** keep e.g. G4-A8 (`KanScore.KeepRange`); the removed
   notes are listed by pitch to add back.
 - **Sections:** set at the playhead or from the selected notes, then
   **record with the mic** (BASS capture via `MicRecorder`, preallocated
@@ -393,7 +393,7 @@ cents), duration, intensity and playing style (normal / legato / staccato
   the transcriber's profile family. Until 2026-10-14 the track tab always
   transcribed with the keyboard profile: on an ocarina reference that gave
   258 notes, 161 without a pitch (dropped → "~97"); the ocarina profile gives
-  609. The bridge (`profile_for`) also **opens the pitch range** to A0–C8
+  609. The bridge (`profile_for`) also **opens the pitch range** to A0-C8
   for every family (owner: many ocarina sizes; wrong notes are deleted by
   hand): 617 notes. libkan's presets are unchanged.
 - **Unknown pitch:** a note heard without a resolved pitch is kept (its
@@ -435,7 +435,7 @@ cents), duration, intensity and playing style (normal / legato / staccato
   back. A score written before this adopts the grid it first sees. Design
   sections do not follow yet. Test: `KanScoreTest.NotesFollowTheTempoGrid`.
 - **A tempo that breathes** (owner 2026-10-22: the reference, a cover
-  played without a click, drifts — "the companion changes tempo because it
+  played without a click, drifts: "the companion changes tempo because it
   feels like it, the solo rushes it… it sounds fine until I want to learn
   it"). Syncing is the level maker's job: kan! proposes no tempo map. The
   tempo bar shows and edits the tempo **at the playhead** ("tempo 3/18";
@@ -446,14 +446,14 @@ cents), duration, intensity and playing style (normal / legato / staccato
   takes out the tempo change the playhead is in (the first stays). "Beat
   here" fits the grid to the music, so the notes stay where they sound: the
   grids before and after are joined (`ScoreSession.GridChangeKeepsNotes`),
-  and going between them — undo in the timing tab too — moves no note. The
+  and going between them (undo in the timing tab too) moves no note. The
   other tempo edits follow osu!'s option like the timing tab.
   **The beat is ½ / ×2** (owner 2026-10-23: a level timed at 130 BPM in
   quarters, whose pulse is whole notes) makes every beat half or twice as
   long: the same music counted in another note value. Beats per bar and the
   grid's division follow, so bars and lines stay put. A grid whose beats are
   all a power of two of the score's, at the same points, never moves a note
-  (`KanScore.FollowGrid`), wherever it comes from — the tool, an undo in
+  (`KanScore.FollowGrid`), wherever it comes from: the tool, an undo in
   another tab, a level played before compose saw it. That once squeezed a
   level to half: put to 32.5 BPM, undone to 65 in the design tab, played.
 - **Repair the audio's timing** (owner 2026-10-22; section panel). When
@@ -479,7 +479,7 @@ cents), duration, intensity and playing style (normal / legato / staccato
   after it keep their fit; the step brings them back on undo.
   One `TimelineEdit` (unit-tested: `TimelineEditTest`) applies to the whole
   level (owner: "the changes to the companion must be made to the reference
-  too — the level preview and autoplay play it"): every track of the set,
+  too: the level preview and autoplay play it"): every track of the set,
   companion or not, is rendered again where the edit reaches its file
   (`MediaAudioExtractor.TryRetimeToWav`: silence, cut, or BASS_FX tempo;
   4 ms fades at the joins; a track the edit is before only moves), with
@@ -522,21 +522,21 @@ cents), duration, intensity and playing style (normal / legato / staccato
   level plays, the game may still move the whole level an octave to fit.
   Dev hook steps `copy:from-to`, `paste:at`, `range:low-high`
   (`KAN_DEV_REPAIR`), verified in an isolated instance: 25 notes copied
-  from 20–30 s pasted at 60 s, rows outside E5–D6 dimmed.
+  from 20-30 s pasted at 60 s, rows outside E5-D6 dimmed.
 - **Timing** (`Tracks/ForgeTiming`, kan-forge/timing.json, for gameplay too):
   **mic delay** = the play-along round trip (speakers + player + mic +
   transcriber), the player's, measured before playing a level (2026-10-17:
-  moved out of compose to the player loader, `KanMicTimingOverlay` — see
+  moved out of compose to the player loader, `KanMicTimingOverlay`, see
   gameplay.md; 4 count-in + 8 clicks, median lateness of the live
   describer's onsets, `MicCalibration.Estimate`, trusted with ≥ 2/3
-  answers and spread ≤ 40 ms); applied to section recordings too — compose
+  answers and spread ≤ 40 ms); applied to section recordings too; compose
   keeps the slider and a "measure the mic delay" button that opens the
   same `MicTimingOverlay` (the owner: it has a role there too). **Transcriber delay** = the transcriber's lateness on a file;
   applied to every transcription and, when changed, shifts the whole score
   by the difference (undoable).
 - **Validation export:** "export MIDI" writes a folder with the reference
   audio, `score (corrected).mid` (ground truth; unknown-pitch notes left
-  out), `transcription (automatic).mid` and `about.txt` — both MIDI files in
+  out), `transcription (automatic).mid` and `about.txt`: both MIDI files in
   the reference file's own time (`Score/MidiExport`, SMF format 0, PPQ 960,
   velocity = intensity; read back by `tools/dataset_bench`'s reader within
   one tick).
@@ -544,7 +544,7 @@ cents), duration, intensity and playing style (normal / legato / staccato
 ### 6f.1 The level's instrument (owner 2026-10-15)
 
 Setup → **Instrument** ("played on"), top of the right column: what the
-level is played on — it tells the game how to listen (one note at a time
+level is played on: it tells the game how to listen (one note at a time
 or several) and the transcriber what to listen for. It is stored in the
 level's score file (`KanScore.Instrument`, saved a moment after a change),
 so it travels with the level; the track and compose tabs show the same
@@ -558,8 +558,8 @@ level; autosave `kan-forge/<set>/design.json`, the newer copy wins, like
 the score) says how the level looks and rewards, stretch by stretch:
 
 - **Sections** cover the level's timeline without gaps: intro, phrase,
-  verse, pre-chorus, chorus, bridge, solo, break, outro ("phrase" — owner
-  2026-10-17 — is what the automatic design calls a stretch of music
+  verse, pre-chorus, chorus, bridge, solo, break, outro ("phrase", owner
+  2026-10-17, is what the automatic design calls a stretch of music
   between silences; it called them all "verse" before, which read as if
   verses were missing; designs saved before, file version 1, are
   migrated); a name of the author's
@@ -568,10 +568,10 @@ the score) says how the level looks and rewards, stretch by stretch:
   the screen shows (the music as light then 3-2-1 / the music as light /
   calm and empty); a palette of their own.
 - **The level:** palette (thirteen presets: sakura, ocean, ember,
-  forest, aurora, and — owner 2026-10-15 — holy (white and gold), space,
+  forest, aurora, and, owner 2026-10-15, holy (white and gold), space,
   neon, cowboy, cyberpunk, solarpunk, happy, nature; grade colours are
-  the same in all, backgrounds stay dark enough for the staff to read —
-  unit-tested), sparkle 0–2, glow 0–2,
+  the same in all, backgrounds stay dark enough for the staff to read,
+  unit-tested), sparkle 0-2, glow 0-2,
   section names on/off.
 - **Automatic design** (`AutoDesign`, unit-tested): silences of 3.5 s or
   more are breaks (before the first note the intro, after the last the
@@ -589,8 +589,8 @@ the score) says how the level looks and rewards, stretch by stretch:
   saved into the level when leaving the tab or the editor.
 - **What is heard** (owner 2026-10-17: "it's difficult to understand the
   song without the notes"): the notes play with the companion by default,
-  with the compose tab's toggles — companion (M), reference (R), notes
-  (P) — through the same `ComposeMonitor`, so each tab keeps its own state.
+  with the compose tab's toggles (companion (M), reference (R), notes
+  (P)) through the same `ComposeMonitor`, so each tab keeps its own state.
 
 The editor loads a level without converting its score into objects
 (`KanLevelFiles.EditorLoading`): the osu! format it saves cannot hold a
@@ -598,8 +598,8 @@ kan! note (it crashed on opening a level with a score, 2026-10-15).
 
 ### 6h. The verify tab: the checklist before a level is shared (owner 2026-10-25, fork F-19)
 
-osu!'s general checks counted the beatmap's hit objects — none in a kan!
-level, whose notes live in its score — and reported no drain time and all
+osu!'s general checks counted the beatmap's hit objects (none in a kan!
+level, whose notes live in its score) and reported no drain time and all
 the audio unused. The ruleset turns those off (`AppliesGeneralCheck`) and
 adds its own (`KanBeatmapVerifier`), reading the score and the mix being
 edited, else the level's files. Clicking an issue with a time goes there.
@@ -624,16 +624,16 @@ content-claim exposure. Policy of record:
 
 - **Developer-build tooling only:** the URL field is shown only in
   development builds (or with `KAN_DEV_TOOLS=1`). It stays available for the
-  developer build — pragmatic convenience, accepted risk at the maintainer's
+  developer build, pragmatic convenience, accepted risk at the maintainer's
   own machine.
 - **Not part of the official flow:** the shipped product works on **local
   files** (beatmap audio, user-imported tracks). No yt-dlp dependency, no
   download UX, nothing that can raise platform complaints or claims. (That
   other products get away with embedded YouTube access is luck, not a
-  licence — we do not bet the product on it.)
+  licence; we do not bet the product on it.)
 - `kan_forge_has_downloader()` lets the UI reflect this honestly.
 
-## 7b. Self-contained separation (DONE, 2026-10-13 — libkan lane)
+## 7b. Self-contained separation (DONE, 2026-10-13; libkan lane)
 
 **The official flow never asks the player to install a separator.** The
 requirement of this component (owner 2026-10-13: "libkan handles not having
@@ -655,16 +655,16 @@ lane as:
 
 Status: verified end-to-end (clip separation in-process, 6 stems in
 official order; failure semantics covered by code + review). The
-game-side CLI pre-check that stood in until then is removed — the bridge
+game-side CLI pre-check that stood in until then is removed; the bridge
 trusts `find_separator()`'s honest probe.
 
 Validation follow-ups (game lane, 2026-10-13):
 
 - **GPU:** `ggml_backend_init_best()` picks the GPU automatically, but the
-  backend must be *built* — the game's bridge build enables `GGML_VULKAN`
+  backend must be *built*: the game's bridge build enables `GGML_VULKAN`
   (with a CPU fallback when Vulkan tools are absent; `BSR_FORCE_CPU` is the
   runtime escape hatch). **Note for the libkan lane:** the monorepo root
-  build still compiles ggml CPU-only — defaulting `GGML_VULKAN` ON there
+  build still compiles ggml CPU-only; defaulting `GGML_VULKAN` ON there
   (when Vulkan is available) would give every consumer the GPU path.
 - **Progress:** the runtime forwards per-chunk fractions correctly; the
   game side now passes its progress sink into the separation job (it was
@@ -673,7 +673,7 @@ Validation follow-ups (game lane, 2026-10-13):
 
 ### §7b.2 Performance of the parity gate (needs from libkan, 2026-10-14)
 
-The gate is correct and stays ("a broken GPU path cannot ship stems" — the
+The gate is correct and stays ("a broken GPU path cannot ship stems", the
 owner demand). What a user experiences on the first run after a runtime
 change is a **silent, CPU-heavy one-time probe**, which reads like a
 GPU→CPU regression even though measured runs are 2 s on GPU (RX 6800,
@@ -681,7 +681,7 @@ parity 60.1 dB). The game side now reports the gate as its own progress
 phase with its verdict ("device check (GPU ok)" / "… (CPU fallback)").
 Two perf asks for the libkan lane:
 
-1. **Marker keying** — **done 2026-10-16:** the marker is keyed on the
+1. **Marker keying** (**done 2026-10-16**): the marker is keyed on the
    ggml and BSRoformer pins plus the backend tag (`ok v4 vk ggml <sha> bsr
    <sha>`), so only a pin update re-probes. Before, it embedded
    `__DATE__ __TIME__` of `roformer_runtime.cpp`, so every recompile
@@ -694,7 +694,7 @@ Two perf asks for the libkan lane:
 
 ### §7b.3 Transcriber artefacts (needs from libkan, 2026-10-14)
 
-**Status 2026-10-15:** items 1–2 are fixed in libkan (`main` 2b114bc:
+**Status 2026-10-15:** items 1-2 are fixed in libkan (`main` 2b114bc:
 one record at a time on mono profiles). The slur, tonguing and breath
 articulation (3e6ca04) raises the ocarina F1 from 37.6 % to 57.0 %. Both
 are merged into agent/game; see [transcription-quality.md](transcription-quality.md).
@@ -703,7 +703,7 @@ before the fix still carry the artefacts, and on new ones they find
 nothing to do.
 
 Measured on an ocarina reference with `transcribe_audio` through the bridge
-(open range A0–C8, deterministic over runs). The game cleans both up (§6f),
+(open range A0-C8, deterministic over runs). The game cleans both up (§6f),
 but the source is in libkan:
 
 1. **Duplicate notes:** the ocarina profile reports one sound under two
@@ -719,7 +719,7 @@ but the source is in libkan:
 3. **Expected (candidate) mode, measured 2026-10-15** with
    `kan_forge_bench` (details: [transcription-quality.md](transcription-quality.md)).
    Per note it confirms the right pitch better than blind mode (72.7 % vs
-   65.5 %) and rejects ±1–2 semitones. But:
+   65.5 %) and rejects ±1-2 semitones. But:
    - legato changes don't consume the pending expectation;
    - a pending expectation can't be replaced;
    - monophonic deferral creates the record without its expectation
@@ -737,7 +737,7 @@ produced silently wrong stems. Hardened so this can never lock in:
 
 - int-dot path disabled by default before ggml init (override respected);
 - **one-time CPU/GPU parity gate** (>= 30 dB SNR on content stems) with
-  automatic CPU fallback — a broken GPU path cannot ship stems;
+  automatic CPU fallback: a broken GPU path cannot ship stems;
 - pinned ggml/BSRoformer commits (update only with the parity test green
   on real hardware);
 - upstream report: docs/porting/ggml-vulkan-int-dot-product.md.
@@ -746,6 +746,6 @@ produced silently wrong stems. Hardened so this can never lock in:
 
 | Slice | Covers | Notes |
 |---|---|---|
-| 2. NLE timeline UI | criteria 2–3: up to 6 stem tracks + source + video track laid out in time; cut/move/delete on any track; video trim (YouTube intros/outros/ads); edits propagate | the track set (volume/mute/import) and the propagation engine are done — this is the timeline UI + a time-based track model; per-track volume/mute UI moves from the section into the track headers |
+| 2. NLE timeline UI | criteria 2-3: up to 6 stem tracks + source + video track laid out in time; cut/move/delete on any track; video trim (YouTube intros/outros/ads); edits propagate | the track set (volume/mute/import) and the propagation engine are done; this is the timeline UI + a time-based track model; per-track volume/mute UI moves from the section into the track headers |
 | 3. Transcription editor UI + persistence | criterion 4: per-note pitch/timing/duration/technique editing, comparison metadata inspection ("unjudged" states), persisting the draft into the level store | `KanDraftNote` already models all fields |
 | 4. Environment polish | criterion 5: GPU/CPU auto device + model auto-download flows verified through the UI | mostly verification; the bridge already reports download progress |

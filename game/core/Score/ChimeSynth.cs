@@ -7,8 +7,8 @@ namespace Kan.Core.Score
 {
     /// <summary>
     /// The perfect-hit chime (owner 2026-10-15: "short, never out of tune,
-    /// it should say you're doing great"). A small bell — a sine with a soft
-    /// octave and twelfth, a 3 ms attack and an exponential ring — played
+    /// it should say you're doing great"). A small bell (a sine with a soft
+    /// octave and twelfth, a 3 ms attack and an exponential ring) played
     /// at the note the player just hit, an octave up: it is the melody's
     /// own note, so it always fits the music. Rendered offline into a buffer.
     /// </summary>

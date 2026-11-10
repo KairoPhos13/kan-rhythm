@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cross-compile game/forge/native for Windows x64 (kan_forge_native.dll) in
-# a Docker container with the MinGW-w64 toolchain — no installs on the host,
+# a Docker container with the MinGW-w64 toolchain. No installs on the host,
 # no sudo. The toolchain image (game/packaging/windows/Dockerfile.mingw) is
 # kept locally; every build container is --rm and there is only one at a
 # time (--cpus 6, --parallel 6, nice -n 10).
@@ -19,18 +19,18 @@
 #                          needs nothing beyond Windows system DLLs
 #   CMAKE_SYSTEM_PROCESSOR=x86_64 + GGML_NATIVE=OFF
 #                          correct target architecture for ggml's x86 code
-#                          paths, but portable baseline codegen — no
+#                          paths, but portable baseline codegen: no
 #                          -march=native of the BUILD host (an AVX-512 host
 #                          would otherwise produce a DLL that dies with
 #                          "illegal instruction" on older CPUs)
 #   GGML_OPENMP=OFF        no libgomp-1.dll dependency (the MinGW driver
 #                          will not link libgomp statically next to
 #                          -shared; the macOS builds ship without OpenMP
-#                          too — ggml's own thread pool keeps threading)
+#                          too: ggml's own thread pool keeps threading)
 #
 # Verified after every build (the mission's acceptance check):
 #   - imported DLLs (objdump -p "DLL Name"): only Windows system DLLs
-#     (KERNEL32, msvcrt/ucrt, WS2_32, ...) — no libwinpthread/libgcc/
+#     (KERNEL32, msvcrt/ucrt, WS2_32, ...): no libwinpthread/libgcc/
 #     libstdc++/libgomp
 #   - every entry point declared in game/core/Native/KanForgeNative.cs is
 #     exported by the DLL
@@ -72,7 +72,7 @@ docker run --rm --cpus 6 \
         imports="$(x86_64-w64-mingw32-objdump -p "$dll" | grep "DLL Name")"
         echo "$imports"
         if echo "$imports" | grep -Eiq "libwinpthread|libgcc|libstdc|libgomp|libssp"; then
-            echo "ERROR: a MinGW runtime DLL is imported — link it statically" >&2
+            echo "ERROR: a MinGW runtime DLL is imported; link it statically" >&2
             exit 1
         fi
 

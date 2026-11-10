@@ -10,7 +10,7 @@ using Kan.Core.Transcription;
 
 namespace Kan.Core.Tests
 {
-    /// <summary>The level's score — the notes gameplay judges (compose tab, owner 2026-10-14).</summary>
+    /// <summary>The level's score: the notes gameplay judges (compose tab, owner 2026-10-14).</summary>
     [TestFixture]
     public class KanScoreTest
     {

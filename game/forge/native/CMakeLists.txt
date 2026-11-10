@@ -1,4 +1,4 @@
-# kan_forge_native — thin C-ABI bridge from the KAN client (C#) to libkan
+# kan_forge_native: thin C-ABI bridge from the KAN client (C#) to libkan
 # (audio fetch, source separation, offline transcription).
 #
 # Standalone build on purpose: this component is part of game/ (the client
@@ -10,7 +10,7 @@
 #
 # The C# side (game/forge, Kan.Forge.Native) loads the produced library
 # (libkan_forge_native.so / .dll / .dylib). Keep it in sync with
-# kan_forge_api.h — the ABI is the contract.
+# kan_forge_api.h: the ABI is the contract.
 cmake_minimum_required(VERSION 3.20)
 project(kan_forge_native LANGUAGES C CXX)
 
@@ -27,7 +27,7 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 include(FetchContent)
 
-# Automatic download of miniaudio (MIT-0) — same source as the monorepo root.
+# Automatic download of miniaudio (MIT-0), same source as the monorepo root.
 FetchContent_Declare(
     miniaudio
     GIT_REPOSITORY https://github.com/mackron/miniaudio.git
@@ -37,11 +37,11 @@ FetchContent_Declare(
 FetchContent_MakeAvailable(miniaudio)
 
 # libkan (C++20, header-only core) + its compiled RoFormer separation
-# runtime (KAN_ENABLE_ROFORMER, default ON — the self-contained separation
+# runtime (KAN_ENABLE_ROFORMER, default ON, the self-contained separation
 # of editor-pipeline §7b). Consumers get everything via the libkan target.
 #
 # ggml backend: chosen by KAN_GGML_BACKEND = AUTO | VULKAN | METAL | CPU
-# (default AUTO: Metal on Apple — the platform CI builds macOS with —
+# (default AUTO: Metal on Apple (the platform CI builds macOS with),
 # Vulkan on Linux/Windows when its tools are found, CPU otherwise; single
 # stack: GPU with inherent CPU fallback, BSR_FORCE_CPU stays as the runtime
 # escape hatch). The decision is made in libkan/CMakeLists.txt, which owns
@@ -67,7 +67,7 @@ add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../libkan libkan_build)
 
 add_library(kan_forge_native SHARED kan_forge_api.cpp)
 # P/Invoke resolves "kan_forge_native" to kan_forge_native.dll on Windows:
-# MinGW's CMake would name the DLL libkan_forge_native.dll — drop the lib
+# MinGW's CMake would name the DLL libkan_forge_native.dll: drop the lib
 # prefix there (MSVC has none; POSIX keeps libkan_forge_native.{so,dylib}).
 if(WIN32)
     set_target_properties(kan_forge_native PROPERTIES PREFIX "")
@@ -90,7 +90,7 @@ target_compile_options(kan_forge_selftest PRIVATE ${KAN_WARNING_FLAGS})
 add_test(NAME kan_forge_selftest COMMAND kan_forge_selftest)
 
 # Detection quality against ground truth (validation exports of the compose
-# tab): blind transcription, expected mode and decoys — through this bridge,
+# tab): blind transcription, expected mode and decoys, through this bridge,
 # exactly as the game calls it. Not a test: a measurement tool
 # (game/docs/transcription-quality.md).
 add_executable(kan_forge_bench kan_forge_bench.cpp)

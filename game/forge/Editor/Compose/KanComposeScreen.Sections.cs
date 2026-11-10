@@ -38,8 +38,8 @@ namespace Kan.Forge.Editor.Compose
     {
         /// <summary>
         /// Writes a folder that pairs audio with ground truth: the reference
-        /// audio, the corrected score and the automatic transcription — both
-        /// MIDI files in the reference file's own time, so they line up with
+        /// audio, the corrected score and the automatic transcription; both
+        /// MIDI files are in the reference file's own time, so they line up with
         /// it in any MIDI/audio tool and in tools/dataset_bench.
         /// </summary>
         private void exportForValidation()
@@ -74,13 +74,13 @@ namespace Kan.Forge.Editor.Compose
                 int unknown = score.Notes.Count - known.Count;
                 var scoreNotes = known.Select(n => new MidiExport.Note(n.StartMs + shift, n.DurationMs, n.Midi, MidiExport.Velocity(n.Intensity))).ToList();
                 int outside = scoreNotes.Count(n => n.StartMs < 0);
-                MidiExport.WriteFile(System.IO.Path.Combine(folder, @"score (corrected).mid"), scoreNotes, $"{title} — corrected score", beatLength, beatsPerBar);
+                MidiExport.WriteFile(System.IO.Path.Combine(folder, @"score (corrected).mid"), scoreNotes, $"{title}: corrected score", beatLength, beatsPerBar);
 
                 var about = new System.Text.StringBuilder();
-                about.AppendLine($"kan! validation export — {title}");
+                about.AppendLine($"kan! validation export: {title}");
                 about.AppendLine($"Exported {DateTime.Now:yyyy-MM-dd HH:mm:ss}. Instrument: {Kan.Forge.Pipeline.ForgeJobs.ProfileLabel(ForgeTrackSession.Instrument)}.");
                 about.AppendLine();
-                about.AppendLine($"score (corrected).mid — the score as corrected in the compose tab: {scoreNotes.Count - outside} notes (ground truth).");
+                about.AppendLine($"score (corrected).mid: the score as corrected in the compose tab, {scoreNotes.Count - outside} notes (ground truth).");
                 if (unknown > 0) about.AppendLine($"  {unknown} notes with an unknown pitch (?) were left out: fix or delete them, then export again.");
                 if (outside > 0) about.AppendLine($"  {outside} notes before the reference's first sample were left out.");
 
@@ -88,7 +88,7 @@ namespace Kan.Forge.Editor.Compose
                 {
                     string audioName = @"reference" + System.IO.Path.GetExtension(reference!.Path);
                     System.IO.File.Copy(reference.Path, System.IO.Path.Combine(folder, audioName));
-                    about.AppendLine($"{audioName} — the reference audio ({reference.Name}). Both MIDI files are in its time: 0 ms = its first sample.");
+                    about.AppendLine($"{audioName}: the reference audio ({reference.Name}). Both MIDI files are in its time: 0 ms = its first sample.");
 
                     // The automatic transcription, untouched, when it was made from this reference.
                     if (ForgeTrackSession.Draft is { Notes.Count: > 0 } draft
@@ -96,8 +96,8 @@ namespace Kan.Forge.Editor.Compose
                     {
                         var auto = draft.Notes.Where(n => n.Midi >= 0)
                                         .Select(n => new MidiExport.Note(n.OnsetMs, n.DurMs, n.Midi, 100)).ToList();
-                        MidiExport.WriteFile(System.IO.Path.Combine(folder, @"transcription (automatic).mid"), auto, $"{title} — automatic transcription", beatLength, beatsPerBar);
-                        about.AppendLine($"transcription (automatic).mid — what the transcriber found, before corrections: {auto.Count} notes ({draft.Notes.Count - auto.Count} without a pitch left out).");
+                        MidiExport.WriteFile(System.IO.Path.Combine(folder, @"transcription (automatic).mid"), auto, $"{title}: automatic transcription", beatLength, beatsPerBar);
+                        about.AppendLine($"transcription (automatic).mid: what the transcriber found before corrections, {auto.Count} notes ({draft.Notes.Count - auto.Count} without a pitch left out).");
                     }
                 }
                 else
@@ -195,7 +195,7 @@ namespace Kan.Forge.Editor.Compose
 
             if (take.Length < Kan.Forge.Media.MicRecorder.SAMPLE_RATE / 2)
             {
-                ForgeNotify.Error(notifications, "Nothing was recorded — check that a microphone is connected and allowed.");
+                ForgeNotify.Error(notifications, "Nothing was recorded: check that a microphone is connected and allowed.");
                 return;
             }
 

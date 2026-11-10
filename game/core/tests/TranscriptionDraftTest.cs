@@ -100,7 +100,7 @@ namespace Kan.Core.Tests
             Assert.That(draft.Notes[2].FragmentedByEdit, Is.True, "D was split at the source edge");
             Assert.That(draft.Notes[3].FragmentedByEdit, Is.False, "E was not touched");
             Assert.That(draft.Notes[4].FragmentedByEdit, Is.True, "B's travelling piece is a fragment");
-            Assert.That(draft.Notes[5].FragmentedByEdit, Is.False, "C travelled whole — not a fragment");
+            Assert.That(draft.Notes[5].FragmentedByEdit, Is.False, "C travelled whole, not a fragment");
             Assert.That(draft.Notes[6].EndFaded, Is.True, "D's travelling piece ends at a cut edge");
         }
 

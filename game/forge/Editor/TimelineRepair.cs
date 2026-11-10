@@ -18,8 +18,8 @@ namespace Kan.Forge.Editor
     /// <summary>
     /// A timeline repair (<see cref="TimelineEdit"/>) applied to the open
     /// level: every track of the set rendered again where the edit reaches it,
-    /// then — in one step of the track set's history, linked to the score's
-    /// (<see cref="ScoreHistory.UndoLink"/>) — the tracks, the score and the
+    /// then, in one step of the track set's history, linked to the score's
+    /// (<see cref="ScoreHistory.UndoLink"/>), the tracks, the score and the
     /// design. Undoing it in either tab brings all of them back.
     /// </summary>
     public static class TimelineRepair
@@ -29,7 +29,7 @@ namespace Kan.Forge.Editor
 
         /// <summary>
         /// The level's tempo grid, as the editor holds it: the timing points
-        /// after a repair move with the music (they mark where it is — owner
+        /// after a repair move with the music (they mark where it is, owner
         /// 2026-10-22: "the metronome was already fitted in the timing tab"),
         /// and the step brings them back on undo.
         /// </summary>

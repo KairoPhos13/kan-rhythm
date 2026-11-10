@@ -9,7 +9,7 @@ namespace Kan.Core.Tests
 {
     /// <summary>
     /// The unified track-list roles: one list, roles
-    /// chosen per track — reference (exclusive), accompaniment (many), demux
+    /// chosen per track: reference (exclusive), accompaniment (many), demux
     /// (queue). Separated/mixdown tracks are never demuxable again. Nothing
     /// is mandatory: demux and transcription are independent optional steps.
     /// </summary>

@@ -1,4 +1,4 @@
-# game/brand — kan!'s own art and sounds
+# game/brand: kan!'s own art and sounds
 
 Files here replace osu!'s resources in the game, one file at a time (fork
 F-21, `docs/fork-divergence.md`). The build copies this folder next to the
@@ -18,8 +18,8 @@ Name each file exactly as osu!'s resource it replaces:
 | `Textures/Intro/Triangles/logo-highlight.png` | 1295×1295 | The "triangles" intro: the logo's light |
 | `Textures/Intro/Welcome/welcome_text.png` | 750×156 | The "welcome" intro's text |
 | `Textures/Menu/menu-background-1.jpg` … `-8.jpg` | 2732×1537 | Main menu backgrounds |
-| `Tracks/circles.osz`, `Tracks/triangles.osz`, `Tracks/welcome.osz` | — | Intro music (a beatmap set holding the track) |
-| `Samples/Intro/welcome.mp3`, `Samples/Intro/seeya.mp3` (and `Samples/Intro/Welcome/…`) | — | Voices at start and exit |
+| `Tracks/circles.osz`, `Tracks/triangles.osz`, `Tracks/welcome.osz` | - | Intro music (a beatmap set holding the track) |
+| `Samples/Intro/welcome.mp3`, `Samples/Intro/seeya.mp3` (and `Samples/Intro/Welcome/…`) | - | Voices at start and exit |
 
 The app icons are not resources: replace `client/osu.Desktop/lazer.ico`,
 `client/osu.Desktop/beatmap.ico` and `client/assets/lazer.png` (1024×1024),

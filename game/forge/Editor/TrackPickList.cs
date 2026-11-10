@@ -100,7 +100,7 @@ namespace Kan.Forge.Editor
             {
                 flow.Add(new OsuSpriteText
                 {
-                    Text = @"no tracks yet — import audio in Resources",
+                    Text = @"no tracks yet: import audio in Resources",
                     Font = OsuFont.Style.Caption2,
                     Alpha = 0.6f,
                 });
@@ -165,7 +165,7 @@ namespace Kan.Forge.Editor
                     },
                     new TruncatingSpriteText
                     {
-                        Text = reason == null ? track.Name : $"{track.Name} — {reason}",
+                        Text = reason == null ? track.Name : $"{track.Name}: {reason}",
                         Font = OsuFont.GetFont(size: 13, weight: on ? FontWeight.Bold : FontWeight.Regular),
                         Anchor = Anchor.CentreLeft,
                         Origin = Anchor.CentreLeft,

@@ -25,8 +25,8 @@ using Kan.Ruleset.Objects;
 namespace Kan.Ruleset.Mods
 {
     /// <summary>
-    /// Practice: play one part of the level — a range of
-    /// its design's sections — over and over, without score, then play the
+    /// Practice: play one part of the level (a range of
+    /// its design's sections) over and over, without score, then play the
     /// whole song for real. Scored play keeps the genre's rule (earn the hard
     /// part by getting there); practice is apart from it, as in other music
     /// games. Combines with Wait for me, the speed mods and Autoplay: what
@@ -35,7 +35,7 @@ namespace Kan.Ruleset.Mods
     /// switch it while practising.
     ///
     /// The level is cut to the notes of the chosen sections; a moment after
-    /// the last of them the play restarts by itself — before it would
+    /// the last of them the play restarts by itself, before it would
     /// complete, so practice never fills the local scores.
     /// </summary>
     public partial class KanModPractice : Mod, IApplicableToBeatmap, IApplicableToHUD, IApplicableFailOverride,
@@ -175,8 +175,8 @@ namespace Kan.Ruleset.Mods
 
         /// <summary>
         /// A range picked while practising (keys or the strip). It outlives the
-        /// restart — a restart plays with fresh copies of the mods, and the
-        /// selected mods cannot change during play — and is dropped when the
+        /// restart (a restart plays with fresh copies of the mods, and the
+        /// selected mods cannot change during play) and is dropped when the
         /// player leaves practice.
         /// </summary>
         private static (Guid set, int from, int to)? picked;
@@ -190,7 +190,7 @@ namespace Kan.Ruleset.Mods
 
         public void ApplyToBeatmap(IBeatmap beatmap)
         {
-            // Whatever goes wrong here, the level still loads — whole, without looping
+            // Whatever goes wrong here, the level still loads, whole, without looping
             // (2026-10-16: a failure here restarted the play at once, and the restart
             // failed too, back to song select).
             try
@@ -239,7 +239,7 @@ namespace Kan.Ruleset.Mods
             (chosenFrom, chosenTo) = (from, to);
             rangeStart = design.Sections[from - 1].StartMs;
             rangeEnd = design.Sections[to - 1].EndMs;
-            rangeName = from == to ? partNames[from] : $"{partNames[from]} – {partNames[to]}";
+            rangeName = from == to ? partNames[from] : $"{partNames[from]} to {partNames[to]}";
 
             // Only the part's notes, numbered from 0 again (the play state indexes by them).
             // (a few ms of slack: a note on a section's boundary belongs to it)
@@ -261,13 +261,13 @@ namespace Kan.Ruleset.Mods
             ((Beatmap<KanHitObject>)beatmap).HitObjects = part;
 
             prepared = true;
-            osu.Framework.Logging.Logger.Log($"kan!: practice sections {from}–{to} ({rangeName}), {part.Count - 1} notes, {firstNote / 1000:0.0}–{lastNoteEnd / 1000:0.0} s");
+            osu.Framework.Logging.Logger.Log($"kan!: practice sections {from}-{to} ({rangeName}), {part.Count - 1} notes, {firstNote / 1000:0.0}-{lastNoteEnd / 1000:0.0} s");
         }
 
         /// <summary>The playable section nearest to <paramref name="number"/> (the next one first).</summary>
         private int nearestPlayable(int number)
         {
-            // (2026-10-16: computing the fallback eagerly threw for section 1 — the default)
+            // (2026-10-16: computing the fallback eagerly threw for section 1, the default)
             foreach (int p in playable)
             {
                 if (p >= number) return p;
@@ -307,7 +307,7 @@ namespace Kan.Ruleset.Mods
         /// <summary>
         /// While practising: restarts the play a moment after the part's last
         /// note, and lets the player move around (owner 2026-10-16: "how do I
-        /// go to the next loop, back, choose?") — ← → (or [ ]) the previous or
+        /// go to the next loop, back, choose?"): ← → (or [ ]) the previous or
         /// next section, Shift with them to shorten or lengthen the part, or a
         /// click on the strip of sections at the top (Shift+click: up to there).
         /// </summary>
@@ -636,7 +636,7 @@ namespace Kan.Ruleset.Mods
             }
         }
 
-        /// <summary>A dropdown of the level's sections ("2. Chorus — 0:25").</summary>
+        /// <summary>A dropdown of the level's sections ("2. Chorus: 0:25").</summary>
         public partial class SectionChoice : SettingsDropdown<int>
         {
             protected override OsuDropdown<int> CreateDropdown() => new SectionDropdown();
@@ -680,7 +680,7 @@ namespace Kan.Ruleset.Mods
 
                     var s = sections[item - 1];
                     var at = TimeSpan.FromMilliseconds(s.StartMs);
-                    return $"{names.GetValueOrDefault(item, s.DisplayName)}{(s.Climax ? " ★" : "")} — {(int)at.TotalMinutes}:{at.Seconds:00}";
+                    return $"{names.GetValueOrDefault(item, s.DisplayName)}{(s.Climax ? " ★" : "")}: {(int)at.TotalMinutes}:{at.Seconds:00}";
                 }
             }
         }

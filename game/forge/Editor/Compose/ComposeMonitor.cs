@@ -23,7 +23,7 @@ namespace Kan.Forge.Editor.Compose
     /// <summary>
     /// What the compose tab plays (owner 2026-10-14: toggles for the
     /// companion and the reference, to check how well the notes sit). The
-    /// editor clock runs on the level audio — the companion — which is
+    /// editor clock runs on the level audio (the companion), which is
     /// silenced when its toggle is off; the reference plays in sync on its
     /// own channel, where it sits on the level audio's timeline. The notes
     /// toggle plays the score itself (<see cref="ScoreSynth"/>), rendered a

@@ -26,14 +26,14 @@ namespace Kan.Forge.Editor
 {
     /// <summary>
     /// Plays the set while the track tab is open (owner decision
-    /// 2026-10-14): the editor's own transport — the play bar at the bottom,
-    /// seeking, playback speed — drives a live mix of every track, each on
+    /// 2026-10-14): the editor's own transport (the play bar at the bottom,
+    /// seeking, playback speed) drives a live mix of every track, each on
     /// its own mixer at its start position, following volume, mute and solo
     /// as they change.
     ///
     /// The transport spans the whole set (max(start + length)), not the
     /// level's music: while active, the editor clock runs on a silent track
-    /// of that length (<see cref="EditorClock.ChangeSource"/> — no fork
+    /// of that length (<see cref="EditorClock.ChangeSource"/>; no fork
     /// edit), re-sized as tracks move, and the level's music is restored on
     /// deactivation. It also owns the lanes' shared time scale.
     ///
@@ -147,7 +147,7 @@ namespace Kan.Forge.Editor
 
         /// <summary>
         /// Hear only the level audio: the unmuted companion tracks within the
-        /// level audio window — exactly what the render produces.
+        /// level audio window, exactly what the render produces.
         /// </summary>
         public bool PreviewLevelAudio { get; set; }
 
@@ -221,7 +221,7 @@ namespace Kan.Forge.Editor
 
         public bool IsZoomed { get; private set; }
 
-        /// <summary>Shortest visible span (ms) — the most detail the lanes show.</summary>
+        /// <summary>Shortest visible span (ms), the most detail the lanes show.</summary>
         public const double MIN_VIEW_MS = 1000;
 
         /// <summary>Position of a timeline time in the view (0 = left edge, 1 = right edge).</summary>
@@ -343,7 +343,7 @@ namespace Kan.Forge.Editor
             // Sync to the raw position of the track driving the clock. The
             // editor clock adds the platform, global and level offsets; syncing
             // to it would keep every channel "out of sync" by that amount and
-            // re-seek it each frame — audible pops.
+            // re-seek it each frame, audible pops.
             double timeline = transport != null && ReferenceEquals(clock.Source, transport) ? transport.CurrentTime : clock.CurrentTime;
 
             foreach (var (track, ch) in channels)

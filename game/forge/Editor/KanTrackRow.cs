@@ -36,7 +36,7 @@ namespace Kan.Forge.Editor
 
     /// <summary>
     /// One row of the track tab. Collapsed: name + duration + tags, the
-    /// waveform as the hero strip, and the role chips — the whole state
+    /// waveform as the hero strip, and the role chips; the whole state
     /// reads at a glance. Expanded on demand: volume and the non-destructive
     /// range editor (drag on the waveform, name the new track, pick how to
     /// create it).
@@ -507,7 +507,7 @@ namespace Kan.Forge.Editor
                             showIssues();
                             onRoleChanged();
                         }),
-                        heading(FontAwesome.Solid.Headphones, @"Edits", @"heard live while playing — nothing is written until you save"),
+                        heading(FontAwesome.Solid.Headphones, @"Edits", @"heard live while playing: nothing is written until you save"),
                         new OsuTextFlowContainer(t =>
                         {
                             t.Font = OsuFont.Style.Caption2;
@@ -556,11 +556,11 @@ namespace Kan.Forge.Editor
                             new FormSliderBar<int>
                             {
                                 Caption = @"pitch (semitones) · ±12 = an octave",
-                                HintText = @"Moves every note up or down at the same speed — e.g. a piano part written for another range, moved to your instrument's.",
+                                HintText = @"Moves every note up or down at the same speed: e.g. a piano part written for another range, moved to your instrument's.",
                                 Current = pitch,
                                 KeyboardStep = 1,
                             }),
-                        heading(FontAwesome.Solid.Save, @"Save", @"as a new track — this one is never modified"),
+                        heading(FontAwesome.Solid.Save, @"Save", @"as a new track: this one is never modified"),
                         row(
                             name,
                             new ForgeButton(FontAwesome.Solid.Save, @"save as new track", colours.GreenLight)
@@ -648,7 +648,7 @@ namespace Kan.Forge.Editor
                     _ => @"trim to",
                 };
 
-                pendingList.Add(new PendingChip($"{verb} {ForgeFormat.Time(range.FromMs / 1000)} – {ForgeFormat.Time(range.ToMs / 1000)}", () =>
+                pendingList.Add(new PendingChip($"{verb} {ForgeFormat.Time(range.FromMs / 1000)}-{ForgeFormat.Time(range.ToMs / 1000)}", () =>
                 {
                     history.Record();
                     Track.Edits.Ranges.Remove(range);

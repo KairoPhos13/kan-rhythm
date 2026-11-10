@@ -32,7 +32,7 @@ namespace Kan.Core.Tests
             var track = new ForgeTrack("mix", "/tmp/audio-render.wav");
             track.IsMixdown = ForgeTrack.LooksLikeMixdown(track.Path);
 
-            Assert.That(track.IsMixdown, Is.True, "a rendered mix is mixed material — no re-demix");
+            Assert.That(track.IsMixdown, Is.True, "a rendered mix is mixed material, no re-demix");
 
             var clone = track.Clone();
             Assert.That(clone.IsMixdown, Is.True);

@@ -22,7 +22,7 @@ namespace Kan.Ruleset.UI
     /// best resources to feed the dopamine loop: effects, colours, impact,
     /// rewards"). Every hit lands on it: a burst where the note met the line
     /// (ring, sparks, a flash), bigger the better the hit. A streak heats the
-    /// line up — wider, golden, glowing — with a shockwave at each milestone;
+    /// line up (wider, golden, glowing) with a shockwave at each milestone;
     /// a held note burns at the line while its pitch is kept; a miss cools it
     /// at once with a red jolt. Sparks come from a fixed pool.
     /// </summary>

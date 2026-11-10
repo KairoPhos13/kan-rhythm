@@ -19,10 +19,10 @@ namespace Kan.Ruleset.UI
     /// <summary>
     /// "Wait for me" while the level stands still (owner 2026-10-15: "the
     /// indicator must not freeze with the level, so the player always sees
-    /// what they are playing and why it is wrong — higher, lower"). osu!
+    /// what they are playing and why it is wrong: higher, lower"). osu!
     /// updates nothing inside a stopped ruleset, so this lives in the HUD: it
     /// keeps hearing the player, and draws their pitch live on the now line
-    /// against the note waited for — a dot with a short comet of what they
+    /// against the note waited for: a dot with a short comet of what they
     /// just played, a line to the target, and plain words: higher, lower.
     /// </summary>
     public partial class KanWaitOverlay : CompositeDrawable
@@ -190,7 +190,7 @@ namespace Kan.Ruleset.UI
 
                 hint.Position = new Vector2(goal.X + 40, pos.Y);
                 hint.Colour = colour;
-                hint.Text = n.PitchUnknown || MathF.Abs(off) < 0.5f ? @"that's it — hold it"
+                hint.Text = n.PitchUnknown || MathF.Abs(off) < 0.5f ? @"that's it, hold it"
                     : off < 0 ? $"higher ↑  ({semitones(-off)})"
                     : $"lower ↓  ({semitones(off)})";
             }
@@ -221,7 +221,7 @@ namespace Kan.Ruleset.UI
             var n = subscribed?.WaitingFor;
             if (n == null) return;
 
-            wrong.Text = $"{KanStaff.NoteName(played)} — play {(n.PitchUnknown ? "the note" : KanStaff.NoteName(n.Midi))} · combo lost";
+            wrong.Text = $"{KanStaff.NoteName(played)}: play {(n.PitchUnknown ? "the note" : KanStaff.NoteName(n.Midi))} · combo lost";
             wrong.ClearTransforms();
             wrong.Alpha = 1;
             wrong.Delay(900).FadeOut(400);

@@ -18,7 +18,7 @@ namespace Kan.Forge.Editor
 {
     /// <summary>
     /// Solo: "hear only this track" (Ctrl+click adds it to the tracks
-    /// already soloed). A listening aid only — rules in <see cref="SetMonitor"/>.
+    /// already soloed). A listening aid only: rules in <see cref="SetMonitor"/>.
     /// </summary>
     internal partial class SoloButton : IconButton
     {
@@ -62,14 +62,14 @@ namespace Kan.Forge.Editor
             bool on = monitor.IsSoloed(track);
             IconColour = on ? colours.Yellow : colourProvider.Content2;
             TooltipText = on
-                ? @"soloed — you hear only the soloed tracks (click to stop)"
+                ? @"soloed: you hear only the soloed tracks (click to stop)"
                 : monitor.AnySoloed
                     ? @"solo: hear only this track (Ctrl+click: add it to the solo)"
                     : @"solo: hear only this track (Ctrl+click several tracks to hear them together)";
         }
     }
 
-    /// <summary>Mute: leave the track out of the mix — the level audio too. Saved and undoable.</summary>
+    /// <summary>Mute: leave the track out of the mix (the level audio too). Saved and undoable.</summary>
     internal partial class MuteButton : IconButton
     {
         private readonly ForgeTrack track;
@@ -102,7 +102,7 @@ namespace Kan.Forge.Editor
             Icon = track.Muted ? FontAwesome.Solid.VolumeMute : FontAwesome.Solid.VolumeUp;
             IconColour = track.Muted ? colours.Orange1 : colourProvider.Content2;
             TooltipText = track.Muted
-                ? @"muted — left out of the mix and of the level audio (click to unmute)"
+                ? @"muted: left out of the mix and of the level audio (click to unmute)"
                 : @"mute: leave this track out of the mix and of the level audio";
         }
     }

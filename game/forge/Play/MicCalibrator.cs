@@ -18,8 +18,8 @@ namespace Kan.Forge.Play
     /// <summary>
     /// Measures the microphone delay the way a play hears the player (owner
     /// 2026-10-17: "the program consistently marks me late"; the delay
-    /// measured in compose went through another path — a recorder and an
-    /// offline transcription — and left plays ~45 ms late). Clicks play on a
+    /// measured in compose went through another path (a recorder and an
+    /// offline transcription) and left plays ~45 ms late). Clicks play on a
     /// track; the player answers on the instrument; the live describer
     /// (<see cref="LiveSession"/>, as in a play) hears it, its onsets placed
     /// on the track's clock exactly as a play places them on the level's:

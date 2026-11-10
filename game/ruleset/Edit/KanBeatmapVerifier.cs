@@ -19,8 +19,8 @@ namespace Kan.Ruleset.Edit
 {
     /// <summary>
     /// The verify tab as kan!'s checklist before a level is shared (owner
-    /// 2026-10-25: osu!'s checks counted no notes — kan!'s live in the score,
-    /// not the beatmap — and reported none played and all the audio unused).
+    /// 2026-10-25: osu!'s checks counted no notes (kan!'s live in the score,
+    /// not the beatmap) and reported none played and all the audio unused).
     /// It reads the score and the mix being edited, else the level's files.
     /// </summary>
     public class KanBeatmapVerifier : IBeatmapVerifier
@@ -115,7 +115,7 @@ namespace Kan.Ruleset.Edit
             private class TemplateOutside : IssueTemplate
             {
                 public TemplateOutside(ICheck check)
-                    : base(check, IssueType.Warning, @"{0} is {1} the usual range of {2} ({3}–{4}): not every player reaches it.")
+                    : base(check, IssueType.Warning, @"{0} is {1} the usual range of {2} ({3}-{4}): not every player reaches it.")
                 {
                 }
 

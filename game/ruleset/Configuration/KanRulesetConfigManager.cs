@@ -9,7 +9,7 @@ namespace Kan.Ruleset.Configuration
     /// <summary>
     /// Persists the kan! instrument selection in the local client database
     /// (client.realm, RulesetConfigManager / RealmRulesetSetting rows keyed by
-    /// ruleset short name) — the program remembers the last selection across
+    /// ruleset short name), so the program remembers the last selection across
     /// runs without any custom file handling.
     /// </summary>
     public class KanRulesetConfigManager : RulesetConfigManager<KanRulesetSetting>

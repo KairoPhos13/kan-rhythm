@@ -98,7 +98,7 @@ namespace Kan.Ruleset.UI
             }
 
             int hits = perfect + good + meh;
-            osu.Framework.Logging.Logger.Log($"kan! play: {judged} of {Notes.Count} notes judged — perfect {perfect}, good {good}, meh {meh}, "
+            osu.Framework.Logging.Logger.Log($"kan! play: {judged} of {Notes.Count} notes judged: perfect {perfect}, good {good}, meh {meh}, "
                                              + $"wrong note {wrong}, not heard {notHeard}, pitch unclear {unclear}; "
                                              + $"mean offset {(hits > 0 ? offsets / hits : 0):0} ms; instrument tuning {tuning.Cents:+0;-0;0} cents; "
                                              + $"clock vs listening {(lagFrames > 0 ? lagSum / lagFrames : 0):+0;-0;0} ms ({(lagFrames > 0 ? lagMin : 0):+0;-0;0}..{(lagFrames > 0 ? lagMax : 0):+0;-0;0}), "

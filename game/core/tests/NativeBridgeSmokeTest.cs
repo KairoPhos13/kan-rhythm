@@ -44,7 +44,7 @@ namespace Kan.Core.Tests
             // Separation depends on the compiled RoFormer runtime (libkan
             // KAN_ENABLE_ROFORMER) plus its GGUF model. Whatever the machine
             // provides, the bridge must answer with a controlled, human-readable
-            // status — never a crash.
+            // status, never a crash.
             var err = new byte[512];
             string outDir = Path.Combine(Path.GetTempPath(), "kan-forge-test-stems");
             KanForgeStatus st = KanForgeNative.SeparateStems("definitely-not-here.wav", outDir,

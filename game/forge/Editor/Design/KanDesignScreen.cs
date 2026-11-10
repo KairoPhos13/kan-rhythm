@@ -200,9 +200,9 @@ namespace Kan.Forge.Editor.Design
                     undoButton = button(FontAwesome.Solid.Undo, @"Undo", () => history(DesignSession.Undo), 90),
                     redoButton = button(FontAwesome.Solid.Redo, @"Redo", () => history(DesignSession.Redo), 90),
                     button(FontAwesome.Solid.Save, @"Save into level", () => saveToLevel(true), 150),
-                    companionToggle = button(FontAwesome.Solid.LayerGroup, @"companion", () => monitor.CompanionOn.Toggle(), 128, @"Hear the companion (the level audio) — M"),
-                    referenceToggle = button(FontAwesome.Solid.Microphone, @"reference", () => monitor.ReferenceOn.Toggle(), 124, @"Hear the reference (the full performance) — R"),
-                    notesToggle = button(FontAwesome.Solid.Music, @"notes", () => monitor.NotesOn.Toggle(), 96, @"Hear the notes the player plays — P"),
+                    companionToggle = button(FontAwesome.Solid.LayerGroup, @"companion", () => monitor.CompanionOn.Toggle(), 128, @"Hear the companion (the level audio) (M)"),
+                    referenceToggle = button(FontAwesome.Solid.Microphone, @"reference", () => monitor.ReferenceOn.Toggle(), 124, @"Hear the reference (the full performance) (R)"),
+                    notesToggle = button(FontAwesome.Solid.Music, @"notes", () => monitor.NotesOn.Toggle(), 96, @"Hear the notes the player plays (P)"),
                     status = new OsuSpriteText
                     {
                         Anchor = Anchor.CentreLeft,
@@ -414,7 +414,7 @@ namespace Kan.Forge.Editor.Design
 
             sectionFields.Add(new OsuSpriteText
             {
-                Text = $"{ForgeFormat.Time(s.StartMs / 1000)} – {ForgeFormat.Time(s.EndMs / 1000)}  ({s.DurationMs / 1000:0.0} s)",
+                Text = $"{ForgeFormat.Time(s.StartMs / 1000)}-{ForgeFormat.Time(s.EndMs / 1000)}  ({s.DurationMs / 1000:0.0} s)",
                 Font = OsuFont.GetFont(size: 14, weight: FontWeight.SemiBold),
             });
 
@@ -506,7 +506,7 @@ namespace Kan.Forge.Editor.Design
             protected override LocalisableString GenerateItemText(SectionKind item) => item switch
             {
                 SectionKind.PreChorus => @"pre-chorus",
-                SectionKind.Break => @"break — nothing to play",
+                SectionKind.Break => @"break: nothing to play",
                 _ => item.ToString().ToLowerInvariant(),
             };
         }

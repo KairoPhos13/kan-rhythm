@@ -278,7 +278,7 @@ namespace Kan.Forge.Editor.Compose
                     syncText = new OsuSpriteText { Font = OsuFont.Style.Caption2, Colour = colourProvider.Content2, Margin = new MarginPadding { Top = 4 } },
                     sync = small(FontAwesome.Solid.Link, @"sync with the next tempo",
                         @"The tempos are fitted in the timing tab: the next tempo change came in off the beats of the one at the playhead. "
-                        + @"This puts in the silence (or cuts the bit) that brings it back on them — at the playhead: put it where that time fits best (a pause, a held note). "
+                        + @"This puts in the silence (or cuts the bit) that brings it back on them, at the playhead: put it where that time fits best (a pause, a held note). "
                         + @"Everything after it moves with the music.", tools.SyncWithNextTempo),
                     new OsuSpriteText { Text = @"Timing", Font = OsuFont.GetFont(size: 15, weight: FontWeight.Bold), Margin = new MarginPadding { Top = 8 } },
                     new FormSliderBar<double>
@@ -307,14 +307,14 @@ namespace Kan.Forge.Editor.Compose
             base.Update();
 
             range.Text = tools.HasSection
-                ? $"{ForgeFormat.Time(tools.SectionFromMs / 1000)} – {ForgeFormat.Time(tools.SectionToMs / 1000)} ({(tools.SectionToMs - tools.SectionFromMs) / 1000:0.0} s)"
-                : @"none yet — set its start and end";
+                ? $"{ForgeFormat.Time(tools.SectionFromMs / 1000)}-{ForgeFormat.Time(tools.SectionToMs / 1000)} ({(tools.SectionToMs - tools.SectionFromMs) / 1000:0.0} s)"
+                : @"none yet: set its start and end";
             range.Colour = tools.HasSection ? colourProvider.Content1 : colourProvider.Foreground1;
 
             record.Enabled.Value = tools.Recording || (!tools.Busy && tools.HasSection);
             retranscribe.Enabled.Value = !tools.Busy && !tools.Recording && tools.HasSection;
             recordLabel.Alpha = tools.Recording ? 1 : 0;
-            recordLabel.Text = tools.Recording ? @"● recording — press again to stop early" : string.Empty;
+            recordLabel.Text = tools.Recording ? @"● recording: press again to stop early" : string.Empty;
 
             bool free = !tools.Busy && !tools.Recording;
             insert.Enabled.Value = free;

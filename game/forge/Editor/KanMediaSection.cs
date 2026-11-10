@@ -40,7 +40,7 @@ namespace Kan.Forge.Editor
     /// The editor's **Resources** section (stock osu! rows untouched) with the
     /// kan! import surface merged in (owner rules 2026-10-13):
     ///
-    /// - **Resources is the ONLY place that reads files** — audio tracks
+    /// - **Resources is the ONLY place that reads files**: audio tracks
     ///   (multiple, via the navigator), and the stock rows above for video
     ///   and images. Nothing else anywhere asks for a path.
     /// - With "video provides the audio" on, the video's audio joins the
@@ -174,7 +174,7 @@ namespace Kan.Forge.Editor
                 added.Add(new FormTextBox
                 {
                     Caption = @"Source audio URL (developer tooling)",
-                    PlaceholderText = @"https://… — fetched via yt-dlp; not part of the official flow",
+                    PlaceholderText = @"https://… (fetched via yt-dlp; not part of the official flow)",
                 });
             }
 
@@ -227,7 +227,7 @@ namespace Kan.Forge.Editor
 
         /// <summary>
         /// Owner rule 2026-10-13: Resources has ONE audio import surface (the
-        /// navigator above). The upstream "Audio Track" selector is hidden —
+        /// navigator above). The upstream "Audio Track" selector is hidden;
         /// the 'music' role connects the chosen track to the beatmap audio
         /// instead. Implemented via reflection on an upstream private field:
         /// if a future upstream rename hides the change, the row merely
@@ -272,7 +272,7 @@ namespace Kan.Forge.Editor
 
         /// <summary>
         /// When the beatmap gains a video and "video provides the audio" is
-        /// on, its audio joins the track list (as an accompaniment — the user
+        /// on, its audio joins the track list (as an accompaniment; the user
         /// can re-role it). Runs at most every 30 frames.
         /// </summary>
         private int videoCheckCountdown;
@@ -330,12 +330,12 @@ namespace Kan.Forge.Editor
 
             if (videoFile == null)
                 text = videoProvidesAudio.Current.Value
-                    ? @"↳ no video yet — once you add one above, its audio joins the set."
-                    : @"↳ visuals only — a video's audio will stay out of the set.";
+                    ? @"↳ no video yet: once you add one above, its audio joins the set."
+                    : @"↳ visuals only: a video's audio will stay out of the set.";
             else if (!videoProvidesAudio.Current.Value)
                 text = fromVideo != null
-                    ? $"↳ visuals only from now on — '{fromVideo.Name}' is already in the set (remove it there if unwanted)."
-                    : @"↳ visuals only — the video's audio stays out of the set.";
+                    ? $"↳ visuals only from now on: '{fromVideo.Name}' is already in the set (remove it there if unwanted)."
+                    : @"↳ visuals only: the video's audio stays out of the set.";
             else if (extractingVideo)
                 text = @"↳ extracting the video's audio…";
             else if (fromVideo != null)
@@ -400,7 +400,7 @@ namespace Kan.Forge.Editor
             var track = trackSet.Import(Path.GetFileNameWithoutExtension(file.Name), file.FullName);
             if (track == null)
             {
-                ForgeNotify.Info(notifications, $"'{file.Name}' is already in the set — a track is never added twice.", FontAwesome.Solid.Clone);
+                ForgeNotify.Info(notifications, $"'{file.Name}' is already in the set: a track is never added twice.", FontAwesome.Solid.Clone);
                 explorer.OfType<ExplorerRow>().FirstOrDefault(r => string.Equals(r.Track.Path, file.FullName, StringComparison.OrdinalIgnoreCase))?.Pulse();
                 return;
             }
@@ -416,7 +416,7 @@ namespace Kan.Forge.Editor
         /// <summary>
         /// The whole set as a compact explorer: every
         /// track with its waveform as the row background and its roles as
-        /// chips — selected tracks framed in their role's colour, never just
+        /// chips; selected tracks framed in their role's colour, never just
         /// a count. Rebuilt only when the set actually changes.
         /// </summary>
         private void syncExplorer()

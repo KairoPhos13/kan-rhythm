@@ -11,7 +11,7 @@ namespace Kan.Core.Play
     /// clock runs at the play's rate, may stand still (the wait mode), and
     /// drifts a little from real time. So the level's time is remembered at
     /// each frame, and a heard moment is placed between the frames that saw it
-    /// (a fixed anchor drifted 0–40 ms from the clock, and two notes played
+    /// (a fixed anchor drifted 0-40 ms from the clock, and two notes played
     /// alike could grade differently).
     /// </summary>
     public sealed class ListeningTimeline

@@ -9,8 +9,8 @@ namespace Kan.Core.Design
 {
     /// <summary>
     /// A level's colours (owner 2026-10-15: colours and visual impact per
-    /// level). The judgement colours stay the same in every palette — great
-    /// is gold, ok green, meh blue — so a player reads them anywhere; a
+    /// level). The judgement colours stay the same in every palette (great
+    /// is gold, ok green, meh blue), so a player reads them anywhere; a
     /// palette sets the notes, the background, the trail and the hot line.
     /// Colours are hex strings (RRGGBB), so the editor and the game share them.
     /// </summary>
