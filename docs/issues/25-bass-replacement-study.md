@@ -6,13 +6,13 @@ Size: M
 ## Context
 
 The kan! client's music/SFX playback runs on BASS (un4seen) through
-osu!framework — proprietary binaries under a "free for non-commercial
+osu!framework, proprietary binaries under a "free for non-commercial
 use" licence. The analysis of record is
 [game/docs/bass-licensing.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/bass-licensing.md):
-it presents four options and recommends **option D** — a clean-room
+it presents four options and recommends **option D** (a clean-room
 drop-in replacement of the used BASS API surface (working name
 "kanplay") built entirely from permissive parts (miniaudio decoders +
-device output, Signalsmith via kanfx, our own mixer) — as the permanent
+device output, Signalsmith via kanfx, our own mixer)) as the permanent
 answer, deliberately deferred while the MVP came first. The decision
 trigger is unchanged: before the first public download or first euro
 received. The release is close, so the study needs to be done: not the
@@ -30,7 +30,7 @@ maintainer decision).
    [game/docs/bass-licensing.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/bass-licensing.md)
    into an implementable plan in `docs/` (a new note linked from the
    BASS doc and `docs/TODO.md`):
-   - re-verify the **used API surface** (~25–30 entry points of the
+   - re-verify the **used API surface** (~25-30 entry points of the
      ~136 in the ManagedBass binding): re-audit the exact
      `ppy.osu.Framework` version the fork builds against and list every
      entry point with its call sites (the 2026-10-12 audit is the
@@ -39,7 +39,7 @@ maintainer decision).
      conversion, samples/SFX, device handling, file-procedure streaming,
      mixer subset, tempo/rate FX subset) and map each group to the
      permissive parts (miniaudio decoders, miniaudio/SDL output,
-     Signalsmith Stretch, own mixer — all licences already cleared in
+     Signalsmith Stretch, own mixer; all licences already cleared in
      the doc);
    - specify the shim strategy: forking the MIT `ManagedBass` binding
      and pointing its native-library constant at `libkanplay`, keeping
@@ -54,7 +54,7 @@ maintainer decision).
      playback and SFX, and what "no regression" means.
 2. Estimate effort (per group, per platform) and identify the riskiest
    parts (device handling and file-procedure streaming are the usual
-   suspects — confirm or refute with evidence).
+   suspects, confirm or refute with evidence).
 3. Leave the decision itself to the maintainer: end the note with the
    options as they stand (D plan + cost, one-time licence cost if
    purchased, written verification route) and no recommendation beyond
@@ -77,14 +77,14 @@ maintainer decision).
 
 ## Pointers
 
-- [game/docs/bass-licensing.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/bass-licensing.md) —
+- [game/docs/bass-licensing.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/bass-licensing.md):
   the analysis of record (§1 stack table, §5 options, §6 recommendation)
-- [docs/architecture/osu-integration.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/osu-integration.md) §2/§4 —
+- [docs/architecture/osu-integration.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/osu-integration.md) §2/§4:
   scope boundaries (instrument capture is already ours, miniaudio)
-- `kanfx/` — Signalsmith Stretch already used for the consonance shift
-- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
+- `kanfx/`: Signalsmith Stretch already used for the consonance shift
+- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md):
   measurement harness to extend for playback validation
-- [docs/adr/0010-osu-lazer-base-client.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/adr/0010-osu-lazer-base-client.md) §5 —
+- [docs/adr/0010-osu-lazer-base-client.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/adr/0010-osu-lazer-base-client.md) §5:
   why this is ship-blocking
 
 ## Notes

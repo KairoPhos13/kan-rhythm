@@ -7,7 +7,7 @@ Size: M
 
 kan! listens through a plain microphone in ordinary rooms. The release
 gate in [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
-reads: *ambient-noise false-trigger test — < 1% false onsets at 45 dB SPL
+reads: *ambient-noise false-trigger test: < 1% false onsets at 45 dB SPL
 from 50 cm*. A game that fires notes at you because of a fan or a passing
 car is neither fun nor calm; the adaptive noise gate and high-pass added
 in stage 0 (`precondition.hpp`) were built for this and are tested
@@ -24,7 +24,7 @@ and the real-time path must stay allocation- and lock-free
 1. Build a measurement procedure (document it in
    `docs/dsp/latency-measurements.md` or a new `docs/dsp/` note):
    - a controlled ambient source at ~45 dB SPL at 50 cm (room noise
-     recording played back at a measured level is acceptable — say how
+     recording played back at a measured level is acceptable, say how
      you measured);
    - an instrument at the same distance for the positive control.
 2. Record ambient-only WAVs from at least two rooms (quiet room, room
@@ -51,13 +51,13 @@ and the real-time path must stay allocation- and lock-free
 
 ## Pointers
 
-- `libkan/include/libkan/precondition.hpp` — 35 Hz HPF + adaptive noise
+- `libkan/include/libkan/precondition.hpp`: 35 Hz HPF + adaptive noise
   gate (room-silence calibration)
-- `libkan/tests/` — `libkan_loopback_test`, deterministic `fixture_gen`
-- `apps/kan_cli` — `--loopback <wav>`, `--noise-cal <ms>`, `--no-gate`
-- [docs/architecture/measurement-invariants.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/measurement-invariants.md) —
+- `libkan/tests/`: `libkan_loopback_test`, deterministic `fixture_gen`
+- `apps/kan_cli`: `--loopback <wav>`, `--noise-cal <ms>`, `--no-gate`
+- [docs/architecture/measurement-invariants.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/measurement-invariants.md):
   invariants a threshold change must not break (I1 onset jump rule)
-- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
+- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md):
   existing measurement style to follow
 
 ## Notes

@@ -6,8 +6,8 @@ Technical details in [SPECIFICATION.md](SPECIFICATION.md).
 
 ---
 
-## Milestone 1 — C++ DSP core & zero-latency proof (CLI, no graphics)
-**Months 1–2** · Component: `libkan/` (+ `apps/kan_cli/`)
+## Milestone 1: C++ DSP core & zero-latency proof (CLI, no graphics)
+**Months 1-2** · Component: `libkan/` (+ `apps/kan_cli/`)
 
 Build the C++ library integrating miniaudio, Cycfi Q (BACF), KissFFT, and
 Signalsmith Stretch, plus an automated audio-injection test bench.
@@ -34,8 +34,8 @@ YIN monophonic pitch in cents, live CLI, offline ctest).
 
 ---
 
-## Milestone 2 — One-lane playable prototype ("vertical slice" of game feel)
-**Months 3–4** · Component: `game/` (on osu!lazer — ADR-0010)
+## Milestone 2: One-lane playable prototype ("vertical slice" of game feel)
+**Months 3-4** · Component: `game/` (on osu!lazer, ADR-0010)
 
 Build the kan! client as a **fork of `ppy/osu` (osu!lazer, MIT) + kan
 ruleset** per ADR-0010 and
@@ -64,8 +64,8 @@ input bridging, dual-axis judgment, and calibration UX.
 
 ---
 
-## Milestone 3 — Integrated editor with local AI + biomechanical linter (`kan!forge`)
-**Months 5–7** · Components: `game/` (editor UI), `tools/`, `charts/`
+## Milestone 3: Integrated editor with local AI + biomechanical linter (`kan!forge`)
+**Months 5-7** · Components: `game/` (editor UI), `tools/`, `charts/`
 
 The key tool for community growth: in-game visual editor with real-time
 spectrogram and ONNX Runtime integration (HTDemucs + Basic Pitch).
@@ -80,13 +80,13 @@ spectrogram and ONNX Runtime integration (HTDemucs + Basic Pitch).
 **Release Gates**
 | Metric | Target |
 |---|---|
-| Mapping time: import a 3-min song from scratch → playable, synced level for 2 instruments | < **20 min** (vs 4–6 h traditional manual mapping) |
+| Mapping time: import a 3-min song from scratch → playable, synced level for 2 instruments | < **20 min** (vs 4-6 h traditional manual mapping) |
 | AI draft accuracy (Basic Pitch on isolated stem) | ≥ **80%** of real notes pre-placed with correct time and pitch before human intervention |
 
 ---
 
-## Milestone 4 — Community platform, per-instrument ranking, open beta
-**Months 8–10** · Components: `charts/`, `donations/`, future backend repo
+## Milestone 4: Community platform, per-instrument ranking, open beta
+**Months 8-10** · Components: `charts/`, `donations/`, future backend repo
 
 Backend infrastructure for `.kan` package uploads, per-instrument arrangement
 versioning, anti-cheat leaderboards, and the `kp` performance-points system.
@@ -100,7 +100,7 @@ versioning, anti-cheat leaderboards, and the `kp` performance-points system.
 **Release Gates**
 | Metric | Target |
 |---|---|
-| Download weight to add a new instrument arrangement (violin/flute) to an existing song | < **50 KB** (reuses Layers 1–2) |
+| Download weight to add a new instrument arrangement (violin/flute) to an existing song | < **50 KB** (reuses Layers 1-2) |
 | Anti-cheat: synthetic-audio classifier blocking injected perfect MIDI/synth via virtual cable posing as acoustic mic | ≥ **99%** detection |
 
 ---

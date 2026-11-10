@@ -1,4 +1,4 @@
-# Implementation Agent Prompt — KAN Level Editor × libkan
+# Implementation Agent Prompt: KAN Level Editor × libkan
 
 > **How to use:** give this document to the implementation agent working in
 > `game/` (the KAN client). It is self-contained: what to build, under
@@ -20,11 +20,11 @@ inside `game/`.
    and follow `docs/adr/0010` + `docs/architecture/osu-integration.md`
    for the ruleset integration. The product name is **KAN** (the osu
    name no longer appears in user-facing surfaces you build).
-2. **libkan describes, the game judges** — libkan (C++) emits only
+2. **libkan describes, the game judges**: libkan (C++) emits only
    measurements ("facts"). Never re-derive verdicts from raw audio in the
    game. Contracts to obey:
-   - `docs/architecture/measurement-invariants.md` (I1–I12, T1–T3)
-   - `docs/architecture/game-judging-guide.md` (G1–G6)
+   - `docs/architecture/measurement-invariants.md` (I1-I12, T1-T3)
+   - `docs/architecture/game-judging-guide.md` (G1-G6)
    - `docs/architecture/note-description-stream.md` (fact stream, JSONL v3)
 3. Build must stay clean (no new warnings), tests green, all repo content
    in English. Feature work needs tests (repo rule 5).
@@ -37,25 +37,25 @@ inside `game/`.
 
 Header-only core (`libkan/include/libkan/`), C++20. Key APIs:
 
-- `kan::transcribe_audio(sig, n, sr, profile) -> vector<TranscribedNote>`
-  — offline transcription: one record per struck note with onset (audio
+- `kan::transcribe_audio(sig, n, sr, profile) -> vector<TranscribedNote>`:
+  offline transcription, one record per struck note with onset (audio
   anchor), bias-corrected duration (+ raw end + `end_faded`), pitch
   center + cents, dynamics dB, vibrato rate/depth.
-- `kan::separate_stems(audio, out_dir) -> stem_dir` — source separation
+- `kan::separate_stems(audio, out_dir) -> stem_dir`: source separation
   (single stack: IN-PROCESS GGUF runtime compiled into libkan via
-  `libkan_roformer` — no installed separator; see game/docs/editor-pipeline.md
+  `libkan_roformer`; no installed separator; see game/docs/editor-pipeline.md
   s7b. Any WAV rate accepted; progress via the same contract). Produces stems named
   `bass/drums/guitar/other/piano/vocals.wav` (official order). Models
   auto-download to `models/` (`KAN_ROFORMER_GRADE`: q8 default, f16,
   q4; `KAN_MODEL_URL` switches to our own distribution later).
-- `kan::set_progress(fn, user)` — **the progress contract** (a method,
+- `kan::set_progress(fn, user)`: **the progress contract** (a method,
   not console scraping): callback `(phase, percent)` with phases
   `download`, `separate`, `transcribe`. kan_demo demonstrates the
   consumer pattern (apps/kan_demo/main.cpp `console_progress`).
-- `kan::chart_text(notes)` / `kan::chart_log(notes)` / `kan::chart_midi(notes)`
-  — chart serialization (parse_score-compatible text with `#` annotations,
+- `kan::chart_text(notes)` / `kan::chart_log(notes)` / `kan::chart_midi(notes)`:
+  chart serialization (parse_score-compatible text with `#` annotations,
   MIDI sketch, human-readable log).
-- `kan::NoteEventStream` + `NoteDescriber` — the live fact stream
+- `kan::NoteEventStream` + `NoteDescriber`: the live fact stream
   (HIT/PITCH/CONTENT/EXPRESSION/CLOSE; EXPRESSION carries dyn tier,
   vibrato, bend, envelope). For later live judging; the editor uses the
   offline APIs first.
@@ -64,7 +64,7 @@ Reference consumers (working examples): `tools/dataset_bench`,
 `tools/chart_scribe`, `tools/stem_split`, `apps/kan_demo --transcribe`
 and `--guide`.
 
-### 2. Scope — the editor flow (this phase: connect libkan with KAN)
+### 2. Scope: the editor flow (this phase: connect libkan with KAN)
 
 **Phase goal: the creation pipeline, not the gameplay visualization.**
 Note rendering inside the level comes LATER; do not build it now.
@@ -73,12 +73,12 @@ Note rendering inside the level comes LATER; do not build it now.
 
 The user fills the current fields as today, plus:
 
-- **[ ] Separate audio stems** — a button/toggle that starts separation
+- **[ ] Separate audio stems**: a button/toggle that starts separation
   in the background with a **progress bar**; the user keeps filling the
   form meanwhile. (Phases come from `set_progress`.)
-- **[ ] Generate transcription** — same pattern: background work +
+- **[ ] Generate transcription**, same pattern: background work +
   **progress bar** (its own phase).
-- Both feed from the chosen source audio (local file or URL — see
+- Both feed from the chosen source audio (local file or URL, see
   kan_demo's fetch path for the URL case; downloads report `download`
   progress).
 
@@ -86,27 +86,27 @@ The user fills the current fields as today, plus:
 
 NLE-style multi-track editor:
 
-- **Audio tracks**: each generated stem (up to 6) as its own channel —
+- **Audio tracks**: each generated stem (up to 6) as its own channel,
   or a single source-audio track when separation is not used. Track
   volume/mute per channel (game-editor idea recorded in
   chart-transcription-evaluation.md §3d: e.g. enable an accompaniment
   stem only while the lead instrument is silent).
 - **Video track**: background image or video (osu! already supports
-  background visuals — extend to VIDEO sources). Real use case: YouTube
-  videos with intros/outros/ads **intercalated** — the user trims those
+  background visuals; extend to VIDEO sources). Real use case: YouTube
+  videos with intros/outros/ads **intercalated**; the user trims those
   segments out of the level. Extensible to arbitrary clips.
-- **Editing ops**: cut segments, move them, delete them — on any track.
+- **Editing ops**: cut segments, move them, delete them (on any track).
 - **Temporal edits propagate to the transcription**: cutting/moving an
   audio segment shifts/splits/removes the transcribed notes that fall in
-  it (the transcript is anchored to audio time; keep it consistent —
-  this is a hard requirement, not a nicety).
+  it (the transcript is anchored to audio time; keep it consistent.
+  This is a hard requirement, not a nicety).
 
 #### 2.3 Transcription editor
 
 Per-note editing of the transcribed draft:
 
 - **Note**: pitch (name/octave), onset, duration.
-- **Playing characteristics**: vibrato (rate/depth), bend, dynamics tier —
+- **Playing characteristics**: vibrato (rate/depth), bend, dynamics tier,
   the EXPRESSION facts; editable because the draft is a draft (weak-label
   rule: AI/measurement output is proposal, human confirms).
 - **Comparison metadata**: everything the judge will use later must be
@@ -119,12 +119,12 @@ Per-note editing of the transcribed draft:
 
 - Background jobs run the libkan offline APIs on worker threads; marshal
   progress to the UI thread via the callback (the callback contract is
-  thread-agnostic — decide your dispatch, document it).
+  thread-agnostic; decide your dispatch, document it).
 - Keep libkan invocation behind a thin adapter in `game/` (so upstream
-  osu! merges stay feasible — minimal divergence rule).
+  osu! merges stay feasible, minimal divergence rule).
 - File formats: source of truth for levels is whatever the KAN ruleset
   stores (see `docs/architecture/backend-data-model.md`); the chart text
-  (`.score`) and JSONL facts are libkan interchange formats — import/
+  (`.score`) and JSONL facts are libkan interchange formats; import/
   export them, don't force them as the native format.
 - Error states are first-class: missing model (download failed), missing
   bs_roformer binary, unsupported audio codec, transcription with zero
@@ -150,12 +150,12 @@ Per-note editing of the transcribed draft:
 
 ### 5. References (read before coding)
 
-- `docs/architecture/game-judging-guide.md` — what the judge needs later
+- `docs/architecture/game-judging-guide.md`: what the judge needs later
   (shapes the metadata you expose now)
-- `docs/architecture/chart-transcription-evaluation.md` — Layer 0/1
+- `docs/architecture/chart-transcription-evaluation.md`: Layer 0/1
   decisions, single stack, model acquisition, progress protocol
-- `docs/architecture/measurement-invariants.md` — the balance not to break
-- `tools/dataset_bench/TEST_LOG.md` — measured behaviors and failure
+- `docs/architecture/measurement-invariants.md`: the balance not to break
+- `tools/dataset_bench/TEST_LOG.md`: measured behaviors and failure
   modes (why the metadata exists)
-- `apps/kan_demo/main.cpp` — working end-to-end reference
+- `apps/kan_demo/main.cpp`: working end-to-end reference
   (`--transcribe`, `--guide`, progress consumer)

@@ -8,15 +8,15 @@ Size: M
 kan! targets Linux, Windows and macOS natively
 ([README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)),
 but only the Linux build is verified today: "Windows and macOS builds are
-unverified" ([game/README.md — Status](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md))
+unverified" ([game/README.md: Status](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md))
 and [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
 lists "Windows build and installer verified" as important for a first
 impression. The game is a .NET 10 fork of osu!lazer with a native C++
-bridge (`game/forge/native/`) — both need to build and work on Windows.
+bridge (`game/forge/native/`); both need to build and work on Windows.
 
 One deliberate difference to verify: since fork F-20, kan! **does not**
 install Windows file/link associations (they were osu!'s and would be
-stolen from an installed osu!) — see
+stolen from an installed osu!), see
 [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md).
 The updater reads github.com/KairoPhos13/kan's releases.
 
@@ -41,7 +41,7 @@ The updater reads github.com/KairoPhos13/kan's releases.
 4. If a Windows installer/release packaging exists or is attempted,
    verify install, upgrade and uninstall (uninstall must not remove
    anything belonging to an installed osu!). How releases are built and
-   hosted is a maintainer decision — this issue covers verification and
+   hosted is a maintainer decision; this issue covers verification and
    findings.
 5. Record results in `game/docs/environment.md` and file bugs as
    separate issues.
@@ -59,18 +59,18 @@ The updater reads github.com/KairoPhos13/kan's releases.
 
 ## Pointers
 
-- [game/docs/environment.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/environment.md) —
+- [game/docs/environment.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/environment.md):
   toolchain and command record (extend it)
-- [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md) —
+- [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md):
   F-20 (offline, no associations), F-21/F-22 (brand, icons)
-- [game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md) —
+- [game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md):
   `make` targets; on Windows run the underlying `dotnet`/`cmake` commands
   it wraps
 - `game/tools/gen-third-party-notices.py`, `game/tools/gen-provisional-brand.py`
 
 ## Notes
 
-- Test instances must stay isolated (own data copy, volume 0 — see
+- Test instances must stay isolated (own data copy, volume 0; see
   "Developer tooling" in `game/README.md`); never point test runs at a
   player's real game data or osu! install.
 - Signing/notarisation of release binaries is a pending maintainer

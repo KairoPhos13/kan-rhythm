@@ -1,4 +1,4 @@
-# Technique validation — how the game knows a trick was done right
+# Technique validation: how the game knows a trick was done right
 
 Status: Milestone 1 item 6 implemented (platform-architecture.md §5).
 Reproduce: `ctest --test-dir build -R technique`. API:
@@ -7,7 +7,7 @@ Reproduce: `ctest --test-dir build -R technique`. API:
 ## The contract
 
 libkan **measures**, the instrument pack **supplies expectations**, the game
-**judges**. Expectations are plain data (`*Spec` structs — same rule as
+**judges**. Expectations are plain data (`*Spec` structs, same rule as
 `InstrumentProfile`: no format coupling; charts/spec serializes them later).
 
 | family | examples | measurement | spec |
@@ -22,18 +22,18 @@ Every check returns `TechniqueResult {ok, score, error}` → feeds the
 ## The user-facing example: Japanese vibrato (*yuri*-style)
 
 A chart says "wide slow vibrato here". The pack encodes e.g.
-`VibratoSpec {rate 2–6 Hz, depth ≥ 25 cents, duration ≥ 150 ms}`; a
-classical passage instead asks `5.5–7.5 Hz, 15–45 cents`; a straight-tone
+`VibratoSpec {rate 2-6 Hz, depth ≥ 25 cents, duration ≥ 150 ms}`; a
+classical passage instead asks `5.5-7.5 Hz, 15-45 cents`; a straight-tone
 passage sets `expect_straight = true`. Measured (offline, `technique_test.cpp`):
 
 | execution | readout | yuri spec | classical spec | straight spec |
 |---|---|---|---|---|
 | 4 Hz, ±40 c, 800 ms | rate 4.0 Hz, depth 39.6 c | **ok** (score 0.84) | rejected | rejected |
-| straight tone | not periodic | — | — | **ok** |
-| 200 c oscillation | depth 200 c | rejected (trill, not vibrato) | — | — |
+| straight tone | not periodic | - | - | **ok** |
+| 200 c oscillation | depth 200 c | rejected (trill, not vibrato) | - | - |
 
 Integration: a true FM vibrato read through the YIN pipeline gives
-rate **4.99 Hz** (true 5.0) — the game can tell "vibrato performed at the
+rate **4.99 Hz** (true 5.0); the game can tell "vibrato performed at the
 right speed" from the live stream.
 
 ## Bend / slide (emitted in schema v3)
@@ -70,9 +70,9 @@ stream's EXPRESSION fact (`dyn_tier`) alongside the raw level in dBFS.
   vibrato needs 1.5 s before the game can confirm it. Faster vibratos
   confirm sooner; judgment windows should account for this.
 - Trajectory feeds come from the harmonic path (YIN window ~21 ms attenuates
-  measured depth somewhat — rate, the primary discriminator, is robust;
+  measured depth somewhat; rate, the primary discriminator, is robust;
   BACF per-sample readings will sharpen depth when the confirmation path
   exposes its stream).
 - Spectral signatures are slot templates (Goertzel-style magnitudes):
-  string-harmonic template similarity 1.000 vs 0.558 for a normal pluck —
+  string-harmonic template similarity 1.000 vs 0.558 for a normal pluck,
   clean separation at threshold 0.80.

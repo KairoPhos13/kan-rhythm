@@ -11,7 +11,7 @@ the community formats.
 |---|---|---|
 | osu!lazer fork (`kan`) | `game/client/` (submodule of github.com/KairoPhos13/kan) | fork, rebased onto upstream regularly |
 | kan ruleset (game mode) | `game/ruleset/` → ruleset plugin | C# library loaded by the fork |
-| kan screens (calibration, instrument packs, kan!forge) | `game/screens/` | C# — inside ruleset where possible, fork-level only when necessary |
+| kan screens (calibration, instrument packs, kan!forge) | `game/screens/` | C# (inside ruleset where possible, fork-level only when necessary) |
 | DSP core (onset/pitch/judgment) | `libkan/` | C++20 header-only + shared lib target |
 | FX graph | `kanfx/` | C++20 |
 | C-ABI shim | `libkan/abi/` | thin C API (`extern "C"`), stable ABI surface |
@@ -27,14 +27,14 @@ the community formats.
 [libkan detection threads]  onset / BACF-YIN / Goertzel / calibration
         │ C-ABI event queue (fixed-size, lock-free)
         ▼
-[C# P/Invoke bridge — kan.ruleset.audio]
+[C# P/Invoke bridge: kan.ruleset.audio]
         │
         ▼
-[ruleset judgment + rendering — osu!framework update/draw threads]
+[ruleset judgment + rendering: osu!framework update/draw threads]
 ```
 
 - The C-ABI boundary carries fixed-size POD events (onset, pitch sample,
-  technique findings) and atomic parameter handles — no strings, no allocs
+  technique findings) and atomic parameter handles: no strings, no allocs
   crossing it per frame.
 - Latency gates (ROADMAP M1) remain measured at the C++ boundary; the C#
   side adds presentation latency only (< 1 frame at 120 FPS target).
@@ -53,7 +53,7 @@ the community formats.
 | `kp` ranking | performance points pipeline | server-side (ours); osu! pp code is reference-only |
 | Mods | `Mod` classes | osu!'s mod infrastructure reused directly |
 
-Lossless round-trip is required for Layers 1–3 data; osu!-specific extras
+Lossless round-trip is required for Layers 1-3 data; osu!-specific extras
 (slider paths, combo counters) stay in the `.osz` side only.
 
 ## 6. Rebranding (ADR-0011): keep the UX, change the identity
@@ -66,7 +66,7 @@ decision: [ADR-0011](../adr/0011-rebrand-kan-identity.md).
 |---|---|---|
 | Menus & flow | main menu → song select → results structure, search/grouping UX | skin, palette, typography, logo, menu music |
 | Scoring HUD | number/combo/accuracy presentation grammar | fed by our dual-axis judgment; intonation meters, sustain lanes |
-| In-game visuals | hit-object pipeline, frame pacing | note highway, judgment indicators, fingering/breathing helpers — no approach-circle grammar |
+| In-game visuals | hit-object pipeline, frame pacing | note highway, judgment indicators, fingering/breathing helpers, no approach-circle grammar |
 | Mods | osu! `Mod` classes and overlay UX | kan! mods (NoHelpers, intonation strictness) |
 | Settings/replays | settings screens, key bindings, replay viewer | branding strings, sound design |
 
@@ -75,7 +75,7 @@ Code policy (rebase-ability first): adapted upstream code keeps
 catastrophic merge conflicts); **new** kan! code uses `Kan.*` namespaces;
 user-facing strings in adapted code are rebranded and logged as mechanical
 deltas in `game/docs/fork-divergence.md`. The client window title, about
-screen and installer say **kan!**; upstream osu! appears once — in
+screen and installer say **kan!**; upstream osu! appears once, in
 attribution/credits.
 
 ## 4. License compliance checklist (ship-blocking)
@@ -85,7 +85,7 @@ attribution/credits.
 - [ ] Substantially modified upstream files marked in comments
 - [ ] Upstream-worthy fixes sent back to `ppy/osu` as PRs
 - [ ] BASS licensing resolved (verify / purchase / replace) before any
-      donation-driven release — tracked in game/TODO.md
+      donation-driven release, tracked in game/TODO.md
 - [ ] Kan branding assets clearly distinct (trademark hygiene)
 
 ## 5. Work sequencing

@@ -38,13 +38,13 @@ commercial clones), which osu! itself does not use.
 
 - Anyone may fork and even commercially reuse the code, as long as the
   copyright notice is retained. We accept this: community protection comes
-  from the official servers, brand, and map ecosystem — not from the code
+  from the official servers, brand, and map ecosystem, not from the code
   license (the same trade-off osu! made).
 - Maximum freedom choosing dependencies within the permissive set; GPL
-  tools (Aubio, FFTW, RubberBand, Essentia, JACK) are excluded — see
+  tools (Aubio, FFTW, RubberBand, Essentia, JACK) are excluded: see
   SPECIFICATION.md §1 for the adopted alternatives.
 - A future closed-source backend (rankings, donations, map distribution)
   is compatible with this choice without dual licensing or CLAs.
 - If copyleft protection is ever desired, relicensing requires the consent
-  of all contributors — another reason this decision is recorded now, while
+  of all contributors, another reason this decision is recorded now, while
   the codebase and contributor set are small.

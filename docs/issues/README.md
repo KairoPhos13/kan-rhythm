@@ -1,11 +1,11 @@
-# docs/issues/ — draft GitHub issues for kan!'s public release
+# docs/issues/: draft GitHub issues for kan!'s public release
 
 Drafted issues for the first public release of kan!
 (github.com/KairoPhos13/kan-rhythm). Each file is the body of one issue,
 ready to publish with `gh issue create --body-file`. They implement the
 "Join in" invitation in the root
 [README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md):
-pending work open for anyone — play-testers on other instruments and
+pending work open for anyone: play-testers on other instruments and
 microphones, artists, translators, level creators, web developers.
 
 Ground rules baked into every issue: **calm by design** (forgiving
@@ -50,8 +50,8 @@ accompaniment), and English only
 | 29 | [Server MVP follow-up: public website pages (landing + level catalogue)](29-website-pages.md) | `server` `help wanted` | L |
 | 30 | [Server MVP follow-up: public profile pages (kp stats, per-instrument ranks)](30-profile-pages.md) | `server` | M |
 
-Size key: **S** — hours to a day · **M** — a few days · **L** — a week or
-more of part-time work.
+Size key: **S** (hours to a day) · **M** (a few days) · **L** (a week or
+more of part-time work).
 
 ## How to publish
 
@@ -96,8 +96,8 @@ Notes:
 
 - `--label` accepts a comma-separated list; label names with spaces are
   fine when quoted as above.
-- Publish the whole set at once, or in waves (play-testing 01–10 first,
-  content 11–15 alongside the release announcement) — maintainer's
+- Publish the whole set at once, or in waves (play-testing 01-10 first,
+  content 11-15 alongside the release announcement), maintainer's
   choice. Issue numbers are assigned by GitHub and will not match the
   file numbers; that is expected.
 - Owner-only or private work (repository history, project accounts,

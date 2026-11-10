@@ -7,10 +7,10 @@ Size: M
 
 kan! lets each note carry its own colour, the design tab holds the
 level's palette, and judgment is shown with visual states (keep glowing
-vs fail morph — see
+vs fail morph, see
 [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
 and [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md)).
-Colour is therefore gameplay-relevant information — and for the ~8% of
+Colour is therefore gameplay-relevant information, and for the ~8% of
 men with colour-vision deficiency, a palette chosen at random can make a
 level unreadable. osu!lazer (the client base) already has accessibility
 settings culture to build on, but kan!'s own colour semantics (note
@@ -30,7 +30,7 @@ of "forgiving by default".
    deuteranopia, protanopia, tritanopia variants of the default
    palette) and make sure level-defined palettes can be overridden by
    the player's choice (the player wins over the level).
-3. Enforce the deeper rule: **never colour alone** — pair colour with
+3. Enforce the deeper rule: **never colour alone**; pair colour with
    shape, pattern, or position differences for anything that affects
    judgment. Add a palette contrast check to the design tab/verify tab
    warnings where cheap (e.g. low-contrast note colour on the staff
@@ -50,18 +50,18 @@ of "forgiving by default".
 
 ## Pointers
 
-- `KanNotationSettings` (`game/ruleset/`) — note colour / note size
+- `KanNotationSettings` (`game/ruleset/`): note colour / note size
   settings shown before play
-- `Kan.Forge.Editor.Design.KanDesignScreen` — level palette,
+- `Kan.Forge.Editor.Design.KanDesignScreen`: level palette,
   `kan.design.json`
-- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md):
   judgment visuals ("keep glowing vs fail morph")
-- [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md) —
-  "Judgment indicators (dual-axis …) — kan! visual vocabulary"
+- [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md):
+  "Judgment indicators (dual-axis …), kan! visual vocabulary"
 
 ## Notes
 
 - Good first issue territory: palette work is mostly data and settings
-  UI, no DSP. Larger "never colour alone" changes can land later —
+  UI, no DSP. Larger "never colour alone" changes can land later,
   say what you could not do.
 - Keep the calm tone: this is legibility, not gamification.

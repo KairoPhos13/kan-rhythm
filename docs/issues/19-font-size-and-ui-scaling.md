@@ -9,8 +9,8 @@ kan! is played on a music stand as often as at a desk: a laptop on a
 piano, a monitor across a room, a small window next to sheet music.
 Reading note names on the staff, timing feedback and settings text must
 not require leaning in. osu!lazer has general UI scaling, but kan!'s
-own surfaces — the staff with per-note names (letters or Do-Re-Mi), the
-notation settings (note size), the editor's dense tables — have never
+own surfaces (the staff with per-note names (letters or Do-Re-Mi), the
+notation settings (note size), the editor's dense tables) have never
 been checked for readability, and the release goal is a game anyone can
 pick up ([README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)).
 
@@ -28,7 +28,7 @@ must be legible from a standing player's distance.
    screens, first-run screens), and make the defaults comfortably
    readable without setup.
 3. Make the staff's note-name size follow the player's setting (the
-   notation settings already have a note-size concept —
+   notation settings already have a note-size concept,
    `KanNotationSettings`), and verify long note names (e.g. "F♯4") do
    not clip at any supported size.
 4. Document the result (a short table: screen → control → range) in
@@ -48,18 +48,18 @@ must be legible from a standing player's distance.
 
 ## Pointers
 
-- `KanNotationSettings` (`game/ruleset/`) — note name / note size
+- `KanNotationSettings` (`game/ruleset/`): note name / note size
   settings
 - `KanStaff` / `KanPlayfield` (see
-  [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
-  "The screen") — the staff rendering
+  [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md),
+  "The screen"): the staff rendering
 - osu!lazer's existing scaling settings (the fork's `UserInterface`
-  section) — extend or complement, keep fork deltas minimal and logged
+  section): extend or complement, keep fork deltas minimal and logged
   in [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md)
 
 ## Notes
 
 - Good first issue: UI sizing work with clear acceptance points and no
   DSP involvement.
-- Pair well with `docs/issues/18` (colour-blind palettes) — both are
+- Pair well with `docs/issues/18` (colour-blind palettes); both are
   "the game must be readable" and can share a settings home.

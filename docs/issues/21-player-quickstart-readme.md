@@ -13,7 +13,7 @@ is done and good, but the release checklist in
 [game/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/TODO.md)
 still lists *"the root README for players"* alongside the demo video: a
 player who lands on the repository front page should see themselves
-addressed within a few seconds — what kan! is, what they need
+addressed within a few seconds: what kan! is, what they need
 (instrument + any microphone), how they get playing, and how to share
 levels.
 
@@ -23,7 +23,7 @@ player's first paragraph and path.
 ## What to do
 
 1. Add a short player-facing block near the top of the root README (or
-   restructure the intro slightly — keep changes small and
+   restructure the intro slightly, keep changes small and
    review-friendly):
    - one paragraph for players: play songs on your own instrument, any
      instrument, a plain microphone is enough; free, offline, no
@@ -35,10 +35,10 @@ player's first paragraph and path.
      they land) and where the community lives;
    - keep the existing contributor content intact and linked from
      "Join in".
-2. Tone check against the project's voice: calm, plain, inviting —
+2. Tone check against the project's voice: calm, plain, inviting,
    "practice made fun", never hype or pressure.
 3. Cross-check every claim against reality (nothing that does not work
-   today may be promised; offline/no-account is real today — keep it
+   today may be promised; offline/no-account is real today, keep it
    that way in the wording).
 
 ## Acceptance criteria
@@ -53,11 +53,11 @@ player's first paragraph and path.
 
 ## Pointers
 
-- [README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md) —
+- [README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md):
   current structure (Roadmap, Ecosystem Naming, Join in)
-- [game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md) —
+- [game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md):
   the game's player-oriented description to draw from ("What it does")
-- [CONTRIBUTING.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/CONTRIBUTING.md) —
+- [CONTRIBUTING.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/CONTRIBUTING.md):
   English-only policy and tone expectations
 
 ## Notes

@@ -10,7 +10,7 @@ Adopted from the MIT-licensed osu! ecosystem: the **pp architecture** from
 `ppy/osu-tools` as the reference for `kp` (difficulty attributes →
 performance calc → weighted top-N, extended with our intonation axis and
 per-instrument/input-method weighting), and (deferred) `ppy/osu-server-spectator`
-for multiplayer/spectating. **`ppy/osu-web` is AGPL-3.0 — no code from it
+for multiplayer/spectating. **`ppy/osu-web` is AGPL-3.0: no code from it
 may enter this repository**; its website/profile UX is emulated clean-room
 from public behavior only.
 
@@ -32,8 +32,8 @@ from public behavior only.
 4. **Redis** for cache, rate limits, session tokens, and the score-ingestion
    queue (burst absorption after featured-map events).
 5. **Analytics later**: if event analytics are needed beyond Postgres,
-   ClickHouse/Timescale — deferred decision (own ADR), not day-1.
-6. **Implementation language**: open — TypeScript (NestJS), Go, or Rust all
+   ClickHouse/Timescale: deferred decision (own ADR), not day-1.
+6. **Implementation language**: open: TypeScript (NestJS), Go, or Rust all
    fit; decide by ADR before Milestone 4 implementation. Data model below is
    language-agnostic.
 
@@ -52,7 +52,7 @@ from public behavior only.
 ## 3. Core data model (PostgreSQL sketch)
 
 Naming: snake_case; all tables `id BIGINT GENERATED ALWAYS AS IDENTITY` or
-UUIDv7 (time-ordered — chosen for scores/leaderboards locality). Timestamps
+UUIDv7 (time-ordered, chosen for scores/leaderboards locality). Timestamps
 `timestamptz UTC`. Soft-delete only where legally required.
 
 ```sql
@@ -130,7 +130,7 @@ donations        (id uuid7 pk, user_id fk null, provider, provider_ref
 
 ## 4. Leaderboard semantics
 
-- **Board key** = `(chart_id, input_method, mod_mask)` — per ROADMAP M4 gate:
+- **Board key** = `(chart_id, input_method, mod_mask)`, per ROADMAP M4 gate:
   fair competition across instrument families and input methods (Piano MIDI ≠
   Piano acoustic-mic). Instrument family is derived from the chart's pack.
 - **Ranked-only boards**: charts reach `ranked` through the QA workflow
@@ -139,10 +139,10 @@ donations        (id uuid7 pk, user_id fk null, provider, provider_ref
 - **`kp` computation** (osu!-pp analog): per-user weighted sum over top-N
   ranked scores, `kp_total = Σ kp_i · w^i` (w ≈ 0.95), with a difficulty
   multiplier estimated from chart features (density, technique vocabulary,
-  tempo) — exact formula gets its own ADR + tuning against real data.
+  tempo). The exact formula gets its own ADR + tuning against real data.
 - **Dual-axis scores**: each score row carries BOTH timing counts and
-  intonation purity (`accuracy_cents`) so boards can sort/weight either —
-  this is the "beyond osu!" part; the mix ratio is a ranked-criteria decision.
+  intonation purity (`accuracy_cents`) so boards can sort/weight either.
+  This is the "beyond osu!" part; the mix ratio is a ranked-criteria decision.
 
 ## 5. Score submission & anti-cheat flow
 
@@ -151,7 +151,7 @@ client → POST /scores {chart_id, manifest_sha256, result, replay(curves)}
   1. Idempotency-Key header; reject duplicate submits
   2. Verify: chart exists & ranked; manifest hash matches catalog;
      client_hash is a known-signed build; timing distribution plausibility
-     (humans have variance — zero-jitter perfect runs flag synthetic input)
+     (humans have variance; zero-jitter perfect runs flag synthetic input)
   3. Enqueue → validation worker: replay re-simulation of judgment from
      curves (server-side libkan judgment code, shared C++ core compiled to
      a server tool) → validity verdict
@@ -160,15 +160,15 @@ client → POST /scores {chart_id, manifest_sha256, result, replay(curves)}
 ```
 
 ROADMAP M4 gate: ≥99% block of injected synthetic MIDI posing as acoustic
-mic input (phase micro-fluctuation / organic-noise classifier — research item
-in tools/TODO.md feeds step 2–3).
+mic input (phase micro-fluctuation / organic-noise classifier: research item
+in tools/TODO.md feeds step 2-3).
 
 ## 6. Scalability & operations
 
 - **Scores table**: hash-partitioned by `chart_id` from day one; per-board
   queries hit `leaderboard_entries` (precomputed), never scan scores.
-- **Read path**: Redis cache for boards/profiles (TTL 30–60 s, invalidated on
-  write); object-storage downloads served via CDN presigned URLs — the server
+- **Read path**: Redis cache for boards/profiles (TTL 30-60 s, invalidated on
+  write); object-storage downloads served via CDN presigned URLs. The server
   never proxies `.kan` bytes (this is also the `kan!supporter` fast-download
   hook).
 - **Write path**: score ingestion through Redis queue → batched inserts;
@@ -179,7 +179,7 @@ in tools/TODO.md feeds step 2–3).
   a post-success problem.
 - **Backups**: nightly base + WAL archiving; object storage versioning;
   restore drills documented before public beta.
-- **Privacy**: PII-minimal (no real names, no card data — provider tokens
+- **Privacy**: PII-minimal (no real names, no card data; provider tokens
   only), GDPR export/delete endpoints, donation anonymity option.
 
 ## 7. Client API surface (contract-first)

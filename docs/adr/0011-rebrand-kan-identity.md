@@ -1,4 +1,4 @@
-# ADR-0011: Full rebrand — osu! becomes KAN! (kanade, "you kan!"), a standalone game, not a mod
+# ADR-0011: Full rebrand, osu! becomes KAN! (kanade, "you kan!"), a standalone game, not a mod
 
 - **Status:** Accepted (2026-10-12, project owner decision)
 - **Deciders:** project owner (KairoPhos)
@@ -7,12 +7,12 @@
 ## Context
 
 ADR-0010 adopted osu!lazer as the client base. The product owner refined the
-vision: keep what makes osu! great — menus, scoring presentation, song
-select, mod system, settings, replay UI, the overall UX flow — while
+vision: keep what makes osu! great (menus, scoring presentation, song
+select, mod system, settings, replay UI, the overall UX flow) while
 redesigning the gameplay-critical visuals (judgment indicators, buttons,
 in-game visualization/highway) to fit real-instrument play. And crucially:
 the product must present as **KAN!** (from *kanade* 奏でる, "to play an
-instrument"; in English, "you kan!") — a standalone game, **not an osu!
+instrument"; in English, "you kan!"), a standalone game, **not an osu!
 mod or fork-branded derivative**.
 
 This is also legally the correct posture: **MIT covers copyright, not
@@ -27,9 +27,9 @@ our product identity, regardless of the code license.
   rhythm-game spirit). Tagline: *"Grab your instrument. You kan!"*
 - The client window title, about screen, installer, website, and store
   pages say **kan!** only. Upstream osu! appears exactly once: in the
-  attribution/credits ("Built on osu!lazer (MIT) — ppy/osu contributors"),
+  attribution/credits ("Built on osu!lazer (MIT), ppy/osu contributors"),
   which is both a license obligation and a community-respect statement.
-- Fork repository: **`KairoPhos13/kan`** (github.com/KairoPhos13/kan — created
+- Fork repository: **`KairoPhos13/kan`** (github.com/KairoPhos13/kan; created
   2026-10-12, moved to the KairoPhos13 account 2026-11-09, the
   owner's public identity for the project); submodule path `game/client/`.
 
@@ -37,7 +37,7 @@ our product identity, regardless of the code license.
 
 - Menu structure and navigation flow (main menu → song select → results)
 - Scoring/combo/accuracy presentation *patterns* (numbers, counters, HUD
-  layout grammar) — fed by our dual-axis judgment
+  layout grammar), fed by our dual-axis judgment
 - Song select UX (grouping, sorting, search, carousel patterns)
 - Mod overlay and mod system infrastructure (osu! `Mod` classes)
 - Settings screens, key binding UI, results screen, replay viewer
@@ -52,7 +52,7 @@ our product identity, regardless of the code license.
 - Buttons / HUD controls: instrument-centric visuals (fingering hints,
   breathing windows, intonation meters)
 - In-game visualization: the note highway (single-lane per instrument
-  voice) — approach circles are NOT our grammar; instrument-pack-driven
+  voice). Approach circles are NOT our grammar; instrument-pack-driven
   visuals per platform-architecture.md §5
 - Color palette, typography, logo, default skin, hit/miss SFX, menu music
 - Combo/energy visuals tuned to sustain + intonation (string-glow,

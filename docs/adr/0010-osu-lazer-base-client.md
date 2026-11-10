@@ -14,8 +14,8 @@ this decision was made).
 
 The project owner decided to change strategy: instead of emulating osu!,
 **use osu! as the base**. osu!lazer (`ppy/osu`) and its engine
-(`ppy/osu-framework`) are both **MIT-licensed** — the same license as
-kan-rhythm (ADR-0003) — so they can be forked, adapted, and shipped with
+(`ppy/osu-framework`) are both **MIT-licensed**, the same license as
+kan-rhythm (ADR-0003), so they can be forked, adapted, and shipped with
 attribution. Much of what kan! needs already exists there: game-feel
 feedback, UI framework, skinning, import pipeline, leaderboard client-side
 infrastructure. Building on it yields a rich prototype from day one and lets
@@ -53,7 +53,7 @@ dual-axis judgment, instrument packs, dynamic consonance).
    - Upstream-worthy fixes are contributed back to `ppy/osu` via PRs.
    - **BASS caveat:** osu!framework's audio backend (BASS, un4seen) is free
      for non-commercial use; a donation-funded project is a gray zone.
-     Action: track as a compliance item (see game/TODO.md) — options: verify
+     Action: track as a compliance item (see game/TODO.md). Options: verify
      non-commercial applicability, purchase a commercial license (one-time
      fee, hundreds of USD), or replace/limit the backend. Our own capture
      path (miniaudio, MIT-0) is unaffected.
@@ -65,7 +65,7 @@ dual-axis judgment, instrument packs, dynamic consonance).
   is largely inherited, and effort moves to input bridging, dual-axis
   judgment, and calibration UX.
 - C#/.NET 8 joins the toolchain; contributors need dotnet + CMake. Cross-
-  platform PC (Linux/Windows/macOS) unaffected — osu!lazer runs natively on
+  platform PC (Linux/Windows/macOS) unaffected; osu!lazer runs natively on
   all three.
 - Anti-cheat note: running our own judgment core over P/Invoke keeps score
   semantics under our control (Milestone 4 server re-simulation still works).

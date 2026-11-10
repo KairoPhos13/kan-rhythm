@@ -1,4 +1,4 @@
-# Game judging guide — measured learnings the game must implement
+# Game judging guide: measured learnings the game must implement
 
 **Purpose.** libkan describes; the game judges. Every learning below is
 *measured* (evidence: [`measurement-invariants.md`](measurement-invariants.md),
@@ -6,7 +6,7 @@
 This guide translates each one into a **game-side implementation
 requirement**, so a future gameplay feature cannot silently violate the
 balance of factors that makes judgment fair. Violating a requirement here
-does not produce a "slightly worse" judge — it produces an unfair one.
+does not produce a "slightly worse" judge. It produces an unfair one.
 
 Reference measurements (MAESTRO batch 03a, 37,241 notes vs millisecond
 ground truth; Hallelujah user take, 74 notes):
@@ -17,27 +17,27 @@ ground truth; Hallelujah user take, 74 notes):
 | \|cents\| (excl. saturated) | p50 4.0 c, p95 31.2 c, p99 53.7 c |
 | \|cents\| by register | low (<45) p50 16.4 / p95 67.2 · mid p50 3.7 / p95 25.3 · high p50 3.7 / p95 29.1 |
 | duration err (release bias) | mean +209 ms · p50 210 / p95 246 / p99 249 ms |
-| saturated pitch estimates | 390 / 36,781 found (1.1%) — flagged, excluded |
+| saturated pitch estimates | 390 / 36,781 found (1.1%), flagged, excluded |
 | extra strikes (played, not written) | 29 / 37,241 (0.08%) |
 
 ---
 
 ## 1. Judgment gates (measured → rule)
 
-### G1 — "Played or not" is presence/sim, never amplitude
+### G1: "Played or not" is presence/sim, never amplitude
 
 Amplitude can be leased from neighbor leakage (a never-played note reported
-0.12 amp while its sim collapsed to 0.06 — I7). The game decides
+0.12 amp while its sim collapsed to 0.06; I7). The game decides
 played/not-played from **sim/presence**; amplitude is a loudness fact only.
 
-### G2 — Pitch: gate on |cents|, with the player's own calibration
+### G2 (Pitch): gate on |cents|, with the player's own calibration
 
 - **sim alone never acquits**: a wrong note kept sim 0.91 while bending
   −56 c (I6). Correctness lives in the cents, presence in the sim.
 - **Player intonation profile (T1)**: accumulate the per-note `cents` facts
   over judged-good play (median per pitch region), treat that as the
   player's bias, and judge the **bias-corrected residual** with a tight
-  band (±30–40 c). This is stricter *and* fairer than a fixed ±60 c band.
+  band (±30-40 c). This is stricter *and* fairer than a fixed ±60 c band.
 - **Never judge a `saturated` estimate** (ISS-1): a number at the search
   cap means "ran out of range", not "detuned". The game's only fair action
   for that note's pitch dimension is: do not judge it (or count it as
@@ -47,7 +47,7 @@ played/not-played from **sim/presence**; amplitude is a loudness fact only.
   low-register pitch as advisory; do not convict a bass note with a
   treble-grade band.
 - **Recall table (publish as instrument facts; MAESTRO, 38k notes).**
-  Presence recall depends on register x dynamics — a judge must treat
+  Presence recall depends on register x dynamics. A judge must treat
   unresolvable notes as UNJUDGED, never as player errors:
 
   | segment | recall | note |
@@ -59,34 +59,34 @@ played/not-played from **sim/presence**; amplitude is a loudness fact only.
   | high, loud | 96.5% | |
   | high, soft | **87.4%** | physics-limited (low SNR) |
 
-### G3 — Timing: strike facts and the peak signature
+### G3 (Timing): strike facts and the peak signature
 
 **Legato is a first-class playing style, not an edge case** (user field
 note, 2026-10-08: ocarina and many winds play chained notes as the normal
 style). On instruments with `accepts_legato_boundaries`, a new note opens
-its record at the pitch-shift moment with no attack event — so timing
+its record at the pitch-shift moment with no attack event, so timing
 judgment for those notes must anchor on the **transition moment**, never
 on an attack that does not exist; and presence/advance checks must not
-require strikes (the guide froze on this once — recorded in TEST_LOG).
+require strikes (the guide froze on this once; recorded in TEST_LOG).
 
 HIT timestamps are the strike times (records open at the first measurement
-slot but keep the strike time — I4/§7 of the design doc). For score-anchored
+slot but keep the strike time, I4/§7 of the design doc). For score-anchored
 verification the `t_peak` offset is the visible late/early signature. A note
 more than ~100 ms off its written onset shows it reliably.
 
-### G4 — Duration: judge against the release bias, not raw measurement
+### G4 (Duration): judge against the release bias, not raw measurement
 
 Measured durations carry a systematic **+~200 ms piano release bias** (I8;
-MAESTRO: p50 210 / p99 249 ms — tight and stable). Rules:
+MAESTRO: p50 210 / p99 249 ms, tight and stable). Rules:
 - error is `measured − written − bias`; only errors **beyond the bias and
   its spread** are player-visible;
-- the bias is **instrument-pack data** (plucked/wind releases differ —
+- the bias is **instrument-pack data** (plucked/wind releases differ;
   `end_drop_db` and the release semantics come from the pack profile).
 
-### G6 — Purity mod (optional — user design decision)
+### G6: Purity mod (optional, user design decision)
 
 **Design (by analogy with osu! mods):** casual play does not penalize
-mashing (pressing random keys that include the right ones — measured: the
+mashing (pressing random keys that include the right ones; measured: the
 note gate alone passes the cheat); purity judgment is an **optional mod**
 enabled for the hardcore score tiers. The mod makes a score mean "played
 the notes *and nothing else*".
@@ -100,10 +100,10 @@ chord mashed with 3 random keys):
 | written-set level (absorption) | 0.35 | 2.10 (inflated ~6×) |
 | extra-pitch candidates (recall / noise) | 0 | 13 (all 3 true keys among them, plus neighbors) |
 
-- **Primary fact: per-strike unexplained energy** (`StrikePurity`) — but
+- **Primary fact: per-strike unexplained energy** (`StrikePurity`), but
   ONLY with the **pedal-aware candidate set**. Measured on 1,574 real
   MAESTRO strikes (batch 03f): the raw baseline is p50 0.038 / p99 0.633,
-  which *engulfs* the mash signal (0.061) — a raw threshold would convict
+  which *engulfs* the mash signal (0.061). A raw threshold would convict
   innocents. Cause: on piano the sounding set outlives the key holds
   (sustain pedal), so legitimate pedal ringing counted as "unexplained"
   (~10x pollution). With released notes kept as candidates for 1500 ms
@@ -116,28 +116,28 @@ chord mashed with 3 random keys):
   | 5-10 | 1008 | 0.003 | 0.023 | 0.082 |
   | 11+ | 48 | 0.003 | 0.014 | 0.216 |
 
-  **Out-of-sample (36,126 strikes, year 2006 — batch 04):** the center is
+  **Out-of-sample (36,126 strikes, year 2006, batch 04):** the center is
   stable (p50 0.006) but the tails are heavier than the 2004 pilot
-  suggested (p95 0.064, p99 0.476) — small calibration samples lie about
+  suggested (p95 0.064, p99 0.476). Small calibration samples lie about
   tails. The tail belongs to strikes whose written set already fails
   verification; on **fully verified strikes** (n=34,503) the baseline is
   p50 0.006 / p90 0.030 / **p95 0.052** / p99 0.177.
-- **Conviction rule (refined after batch 04 — measured, not shipped raw):**
+- **Conviction rule (refined after batch 04, measured, not shipped raw):**
   1. Purity is judged ONLY on fully verified strikes (miss-strikes stay
-     unjudged — I2).
+     unjudged, I2).
   2. It is a **trigger**, not a verdict: ~p95 of verified strikes (0.05)
      opens an investigation; conviction needs a second signal to agree
      (extra-pitch candidates or the level-inflation absorption signature).
   3. **Player-relative anomaly** (T1 style) sharpens it further: a strike
      suspicious against the *player's own* distribution over many plays.
   A raw standalone threshold is NOT viable (~5% clean strikes at mash
-  level) — measured and documented rather than shipped.
+  level), measured and documented rather than shipped.
 - **Exclusions:** strikes whose fit fails (sim0 near 0, the max 1.000
   tail) are unjudged, never convicted (I2).
-- **Corroboration:** act on agreement of two signals — purity anomaly AND
+- **Corroboration:** act on agreement of two signals: purity anomaly AND
   extra-pitch candidates or the level-inflation absorption signature.
 - **Secondary: extra-pitch candidates** (`ExtraPitch` list). Total recall
-  but noisy neighbors — informational material for a replay UI
+  but noisy neighbors: informational material for a replay UI
   ("these keys sounded at this strike"), never the judge.
 - **Absorption signature**: when extras are mashed, the written notes'
   fitted levels inflate (2-6×) and their cents bend (−25 c measured). A
@@ -147,7 +147,7 @@ chord mashed with 3 random keys):
   the mod gates a precision sub-score and/or a score multiplier on
   hardcore tiers, exactly like osu!'s difficulty mods.
 
-### G5 — Extra notes: set comparison at strikes
+### G5 (Extra notes): set comparison at strikes
 
 A played-but-not-written note is visible as an *unmatched strike* (T2), and
 **chart-supplied hypotheses** per strike turn the whole question into a set
@@ -161,7 +161,7 @@ Recommended: the game feeds its chart candidates to the describer
 ## 2. Compute scheduling: heavy cavalry on demand
 
 The measurement escalates effort with density (all alive notes fitted
-jointly; extra passes/refinement above 10 alive — validated at the real
+jointly; extra passes/refinement above 10 alive, validated at the real
 Chopin density peak of 27 alive). The game has an advantage the offline
 bench lacks: **the chart knows the density in advance**.
 
@@ -188,8 +188,8 @@ bench lacks: **the chart knows the density in advance**.
   `InstrumentProfile`, never game code paths.
 - **Live and offline behave identically** (I9): replays and live plays must
   judge the same, so practice mode and ranked mode agree.
-- **Changes to any threshold above are analyzed decisions** — see the
-  checklist in `measurement-invariants.md` §4. If a gameplay feature needs
+- **Changes to any threshold above are analyzed decisions** (see the
+  checklist in `measurement-invariants.md` §4). If a gameplay feature needs
   a different band or bias, it comes back as a measured change here first.
 
 ---

@@ -55,6 +55,6 @@ git worktree list
 git worktree remove ../kan-rhythm-agents/<name>
 ```
 
-All worktrees share the same object store and remote — a commit in any lane
+All worktrees share the same object store and remote. A commit in any lane
 is instantly visible to `git log agent/<name>` from everywhere; only the
 maintainer merges into `main`.

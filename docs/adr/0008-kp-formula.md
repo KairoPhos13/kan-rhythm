@@ -1,9 +1,9 @@
-# ADR-0008: `kp` (kan! points) formula — weighted top-N, difficulty multiplier, dual-axis mix
+# ADR-0008: `kp` (kan! points) formula (weighted top-N, difficulty multiplier, dual-axis mix)
 
 - **Status:** Accepted (2026-10-05, confirmed by project owner). Constants
   (600, exponents, 0.65/0.35 mix ratio, w, N) are starting points tunable
   against real play data; changes post-launch require an ADR amendment +
-  full kp recompute (see §4–5).
+  full kp recompute (see §4-5).
 - **Deciders:** server/ + ranked-criteria maintainers (draft by Agent 6)
 - **Related:** [docs/architecture/backend-data-model.md](../architecture/backend-data-model.md)
   §4, [docs/SPECIFICATION.md](../SPECIFICATION.md) (kp = osu!-pp-style
@@ -16,9 +16,9 @@ ranked scores. kan! differs from osu! in one fundamental way: every score row
 carries **two quality axes** ([backend-data-model.md](../architecture/backend-data-model.md)
 §3, `scores` table):
 
-- **Timing axis** — `count_perfect/great/ok/miss`, `timing_avg_ms`,
+- **Timing axis**: `count_perfect/great/ok/miss`, `timing_avg_ms`,
   `timing_dev_ms` (osu!-style hit judgments).
-- **Intonation axis** — `accuracy_cents` (mean absolute pitch deviation in
+- **Intonation axis**: `accuracy_cents` (mean absolute pitch deviation in
   cents; the "sound good" axis unique to real instruments).
 
 A keyboard MIDI player cannot bend pitch; a flute player lives or dies by
@@ -26,7 +26,7 @@ intonation. The formula must reward both axes without letting one mask the
 other, and must keep boards segregated by `(chart_id, input_method, mod_mask)`
 per the ROADMAP M4 fairness gate.
 
-All inputs below are columns that already exist in the schema sketch — no new
+All inputs below are columns that already exist in the schema sketch; no new
 data is required to compute kp v1.
 
 ## Decision (proposed)
@@ -47,7 +47,7 @@ A = T^0.65 · P^0.35                                                # weighted g
 
 - The **geometric** mean (not arithmetic) is deliberate: a run with perfect
   timing but 50-cent-average intonation (or vice versa) collapses toward 0.
-  Neither axis can carry the other — this encodes "rhythm game *and* real
+  Neither axis can carry the other; this encodes "rhythm game *and* real
   music" in the ranking itself.
 - **Mix ratio 0.65 timing / 0.35 cents** is the proposed default. Rationale:
   timing is the primary skill of a rhythm game and is measured on every note;
@@ -99,7 +99,7 @@ kp_total = Σ_{i=1..N} kp_(i) · w^(i−1),   w = 0.95,   N = 100
 - Scores sorted descending; only `validity = 'valid'` scores on `ranked`
   charts count. One score per chart counts (the user's best) to prevent
   farm-by-repetition.
-- The 0.95 decay means ~50 top scores carry >92% of the total — same
+- The 0.95 decay means ~50 top scores carry >92% of the total, same
   shape as osu!-pp, proven to reward breadth + peak skill.
 
 ### 3. Per-instrument-family ranks
@@ -127,13 +127,13 @@ recompute.
 ## Consequences
 
 - Dual-axis identity is enforced mathematically: intonation matters for rank,
-  which no other rhythm game offers — this is the "beyond osu!" surface.
+  which no other rhythm game offers; this is the "beyond osu!" surface.
 - Geometric mixing will feel harsh to players with weak intonation early on;
   the 0.35 exponent on `P` and the MIDI exemption soften this. Expect
-  community debate — the versioning + ranked-criteria process exists to absorb
+  community debate; the versioning + ranked-criteria process exists to absorb
   it without destabilizing boards.
 - `D(chart)` from coarse features will misprice some charts at first; the
   one-score-per-chart + top-N decay limits the damage of any single mispriced
   farm chart, and rank-time recomputation of `D` (on chart update) is cheap.
-- All computation is batchable in SQL/workers — no request-path latency
+- All computation is batchable in SQL/workers: no request-path latency
   impact, consistent with the scalability envelope.

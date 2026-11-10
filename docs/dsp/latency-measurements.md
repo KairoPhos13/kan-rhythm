@@ -1,12 +1,12 @@
 # Milestone 1 latency & gate measurements
 
-Status: living document — every detector change updates the tables below.
+Status: living document; every detector change updates the tables below.
 Gate definitions: [ROADMAP.md](../ROADMAP.md) Milestone 1 · detector A/B:
 [bacf-vs-yin.md](bacf-vs-yin.md).
 
 Legend: **[M]** measured offline (synthesized fixtures, deterministic, no
 hardware) · **[T]** theoretical (derived from measured components + block
-arithmetic) · **[H]** requires hardware loopback (not yet measured — this
+arithmetic) · **[H]** requires hardware loopback (not yet measured: this
 environment has no audio interface; procedure below).
 
 ## Pipeline latency model (consumer thread, 48 kHz)
@@ -30,11 +30,11 @@ Per-stage contribution at the gate configuration (64-sample blocks = 1.33 ms):
 | stage 2 blanking | 8 ms plucked / 15 ms wind-bowed / 6 ms keyboard | [M] profile constant |
 | stage 3 confirm | `blanking + tau_max(f−2st) + 64 pairs + ≤1 block` | [M] see table below |
 
-## Gate 1 — onset latency (hardware → event) ≤ 4.5 ms @ 48 kHz/64
+## Gate 1: onset latency (hardware → event) ≤ 4.5 ms @ 48 kHz/64
 
 **[M]** offline half (file injection, ground-truth onset positions,
 `libkan_loopback_test` + `kan_cli --loopback --latency-report`): detection
-fires on the block containing the energy rise — **+1.33 ms measured** on the
+fires on the block containing the energy rise: **+1.33 ms measured** on the
 onset-grid fixture at 128-sample blocks (block quantization bound: 2.67 ms;
 1.33 ms at the gate's 64-sample blocks).
 **[H]** end-to-end hardware number still needs the loopback-cable rig below.
@@ -45,7 +45,7 @@ headroom to the gate.
 ### Loopback-cable procedure (for [H] measurement)
 
 1. Cable the interface output (channel 0) physically into its input
-   (channel 1) — a real electrical round trip.
+   (channel 1), a real electrical round trip.
 2. `kan_cli --latency-report` runs the harness against the live capture:
    the app timestamps each onset it detects on the input stream.
 3. Emit the impulse burst set (or use `kan_cli --loopback` on
@@ -57,7 +57,7 @@ headroom to the gate.
    uses the median; p99 must stay < 6 ms.
 4. Run the same procedure at 128-sample blocks for the CLI default.
 
-## Gate 2 — monophonic confirmation latency
+## Gate 2: monophonic confirmation latency
 
 Bounded NSDF matcher (`libkan/bounded_pitch.hpp`), plucked profile (8 ms
 blanking), 64-sample blocks, synthesized plucked notes **[M]**:
@@ -87,35 +87,35 @@ t_confirm ≥ blanking + tau(f_expected − 2 st) + pairs + block_quantization
 ```
 
 - **C4**: 8 ms blanking + 4.06 ms longest lag (246.9 Hz) = **12.06 ms
-  before a single correlation pair** — the < 12 ms gate is unreachable for
+  before a single correlation pair**; the < 12 ms gate is unreachable for
   autocorrelation methods under an 8 ms blanking, independent of
   implementation. DFT/Goertzel alternatives do not help at these window
   lengths: the negative-frequency image of a real signal sits ~2 bins away
   at ~1-period windows and tilts the ±200-cent analysis band monotonically
-  (measured: 100+ cent biases — see the bounded_pitch.hpp header notes).
+  (measured: 100+ cent biases; see the bounded_pitch.hpp header notes).
 - **E2**: 8 + 12.9 (lag at 73.9 Hz) + 1.33 (64 pairs) = 22.2 ms floor;
   measured 24.0 ms (the first eligible block barely misses NSDF threshold
   on the decaying envelope, confirming one block later).
 
 ### Resolution paths (for the gate review)
 
-1. **Keyboard profile passes C4**: with 6 ms blanking (piano — the gate's
+1. **Keyboard profile passes C4**: with 6 ms blanking (piano, the gate's
    own example instrument), C4 confirms at **10.7 ms [T]**. Wind profiles
    (15 ms blanking) can never meet < 12 ms and instead judge timing on the
-   air-ramp start via `judgment_offset_ms` (SPECIFICATION §3) — the < 12 ms
+   air-ramp start via `judgment_offset_ms` (SPECIFICATION §3); the < 12 ms
    gate should be read as plucked/keyboard-oriented.
 2. **Score-informed blanking trim**: when the chart expects a note, the
    matcher band (±2 st) already rejects most transient confusion; trimming
    blanking to ~4 ms for the confirmation stage only would bring C4 to
    ~8.7 ms and E2 to ~18.9 ms **[T]**. Blocked on validating accuracy
    against real attack transients (fixtures so far model the full 8 ms
-   inharmonic precursor — a worst case).
+   inharmonic precursor, a worst case).
 3. Accept and re-scope: all measured values pass the SPECIFICATION §2
    budget (< 35 ms) with >2× margin.
 
-## Gate 3 — chord verification < 32 ms, F1 > 94 %
+## Gate 3: chord verification < 32 ms, F1 > 94 %
 
-**[M]** Pass (offline, synthesized strummed triads — `libkan/tests/chord_test.cpp`):
+**[M]** Pass (offline, synthesized strummed triads, `libkan/tests/chord_test.cpp`):
 - Verification completes at **29.3 ms** (8 ms blanking + 21.3 ms window) < 32 ms ✓
 - **Macro F1 = 1.0000** (major/minor/one-wrong-string argmax, 40 trials,
   C3..A4) > 0.94 ✓
@@ -123,7 +123,7 @@ t_confirm ≥ blanking + tau(f_expected − 2 st) + pairs + block_quantization
   backends comparison, spec-deviation proposal and low-register limits:
   [chord-validation.md](chord-validation.md).
 
-## Gate 4 — DSP thread CPU < 3 % of one core
+## Gate 4: DSP thread CPU < 3 % of one core
 
 Consumer-thread analysis cost (offline benches, `-O3 -march=native`,
 x86-64; stage 0/1/ring measured on 2 s of synthesized note, 128-sample
@@ -136,13 +136,13 @@ blocks; matcher/BACF/YIN from `libkan_bacf_bench`) **[M]**:
 | stage 1 onset (128) | ~81 | 0.003 % |
 | stage 3 bounded matcher (per call, 64-sample blocks) | ~450 | < 0.04 % |
 | sustain BACF score-informed (128) | ~1 000 | 0.04 % |
-| sustain YIN 2048-window (if run every block — avoid) | ~160 000 | 6.0 % |
+| sustain YIN 2048-window (if run every block; avoid) | ~160 000 | 6.0 % |
 
 Full pipeline with the recommended configuration (matcher for confirmation,
-BACF for sustain, YIN never on the per-block path): **< 0.1 % [M]** — gate
+BACF for sustain, YIN never on the per-block path): **< 0.1 % [M]**; gate
 passes with >30× margin.
 
-## Gate 5 — zero underruns over 60 min soak
+## Gate 5: zero underruns over 60 min soak
 
 **[H]** Requires the `--soak` mode of kan_cli on real hardware (pending,
 see apps/kan_cli/TODO.md). Offline ring-buffer integrity is ctest-covered;
@@ -150,5 +150,5 @@ the CLI counts callback overruns via miniaudio's performance counters.
 
 ## Changelog
 
-- 2026-10-05: initial tables — bounded NSDF matcher + BACF integration
+- 2026-10-05: initial tables, bounded NSDF matcher + BACF integration
   (items 3); gates 2 and 4 assessed offline; gate 1 budget derived.

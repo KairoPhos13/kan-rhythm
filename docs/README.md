@@ -16,11 +16,11 @@ Architecture deep-dives:
 
 ## Intended contents
 
-- `architecture/` — system overview, audio pipeline diagrams, threading model
-- `adr/` — Architecture Decision Records (numbered, one decision per file,
+- `architecture/`: system overview, audio pipeline diagrams, threading model
+- `adr/`: Architecture Decision Records (numbered, one decision per file,
   e.g. `0001-lock-free-spsc-ring-buffer.md`)
-- `dsp/` — algorithm notes: onset detector tuning, YIN implementation details,
-  latency budget breakdown
+- `dsp/`: algorithm notes (onset detector tuning, YIN implementation details,
+  latency budget breakdown)
 
 ## Ground rules
 

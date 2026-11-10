@@ -1,4 +1,4 @@
-# Tuning compensation — calibration layer
+# Tuning compensation: calibration layer
 
 Status: Milestone 1 item 5 implemented (SPECIFICATION §2 "Dynamic consonance
 module", detector side). Reproduce: `ctest --test-dir build -R calibration`.
@@ -18,7 +18,7 @@ API: `libkan/include/libkan/calibration.hpp` (dependency-free).
   (error 0.05 c), unguided flow infers the same note.
 - Detector-target shift: `target_frequency(440, +12 c) = 443.06 Hz`; the
   bounded matcher confirms the detuned note with **+0.01 c residual** (vs
-  +12.0 c raw against fixed A440 — the exact penalty the compensation
+  +12.0 c raw against fixed A440, the exact penalty the compensation
   removes while scoring stays strict).
 - Per-string matrix: Δc1..Δc6 recovered exactly, `residual_cents()` ≈ 0 on
   compensated targets.
@@ -28,13 +28,13 @@ API: `libkan/include/libkan/calibration.hpp` (dependency-free).
 
 ## Consumers
 
-- `apps/kan_demo --calibrate`: prints Δc and **applies** it — the tuner then
+- `apps/kan_demo --calibrate`: prints Δc and **applies** it; the tuner then
   shows residual vs the instrument's own tuning; `--expect` targets shift by
   the same Δc.
 - `game/` judgment (M2): `residual_cents()` is the intonation axis input.
 - `kanfx/` backing-track pitch shifter (item: Signalsmith Stretch): must
   apply the same `correction_cents()` so instrument and song lock together.
-  Not wired here — libkan stays dependency-light; the shifter lives in
+  Not wired here; libkan stays dependency-light; the shifter lives in
   kanfx's input/backing chain.
 
 ## Notes

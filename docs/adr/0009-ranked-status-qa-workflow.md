@@ -43,33 +43,33 @@ The schema already fixes the vocabulary: `songs.ranked_status` and
   the roll-up shown in the catalog (highest status among its charts). A song
   with one ranked violin chart and one pending guitar chart is perfectly
   normal.
-- Every transition writes an `audit_events` row (actor, reason, payload) —
+- Every transition writes an `audit_events` row (actor, reason, payload),
   append-only, so ranked history is public and appealable.
 
 ### 2. Pipeline stages
 
-**Stage 0 — upload.** `kan!check` runs automatically on every chart upload
+**Stage 0: upload.** `kan!check` runs automatically on every chart upload
 (size gate `< 50 KB`, format validation, biomechanical lint per instrument
 family). Result is stored with the chart. A FAIL blocks submission to
-`pending` outright — no human time is wasted on mechanically broken charts.
+`pending` outright; no human time is wasted on mechanically broken charts.
 Warnings (e.g. borderline fret jumps) do not block but are shown to reviewers.
 
-**Stage 1 — pending / feedback queue.** Mappers submit charts to the review
+**Stage 1: pending / feedback queue.** Mappers submit charts to the review
 queue. Reviewers (role below) leave structured feedback (timing accuracy,
-chart-to-music representation, difficulty honesty, metadata/license hygiene —
+chart-to-music representation, difficulty honesty, metadata/license hygiene:
 license evidence is checked here, matching `songs.license` +
 `audio_license_evidence`). Mappers iterate; the chart returns to the queue
 when the mapper marks feedback addressed.
 
-**Stage 2 — qualification vote.** Two distinct reviewers vote *qualify*; any
+**Stage 2: qualification vote.** Two distinct reviewers vote *qualify*; any
 reviewer may *veto* (one veto = back to pending with mandatory written
 reason). A chart qualifies only if `kan!check` status is PASS at vote time
-(hard gate re-checked server-side — votes on a FAILed chart are rejected by
+(hard gate re-checked server-side; votes on a FAILed chart are rejected by
 the API, not by convention). A short qualification freeze (72 h) follows,
-during which any reviewer can still veto before ranked takes effect — the
-osu! "qualify → ranked" bubble, which catches rushed votes.
+during which any reviewer can still veto before ranked takes effect (the
+osu! "qualify → ranked" bubble, which catches rushed votes).
 
-**Stage 3 — ranked.** Board goes live; kp accrues (ADR-0008). Ranked charts
+**Stage 3: ranked.** Board goes live; kp accrues (ADR-0008). Ranked charts
 are immutable in gameplay-affecting ways: timing/note changes require a new
 `song_versions` row or a new chart, and boards are reset with public audit
 reason. Metadata-only fixes are allowed.
@@ -81,7 +81,7 @@ reason. Metadata-only fixes are allowed.
 | **Mapper** | upload, submit to pending, respond to feedback | mapper |
 | **Chart Reviewer (CR)** | feedback, qualify vote, veto; scoped **per instrument family** (a percussion CR does not vote on bowed-string charts unless dual-rostered) | Beatmap Nominator |
 | **QA Maintainer** | everything a CR can, plus: rank reset, forced graveyard/loved moves, roster appointments/removals, criteria doc ownership | QAT + BN managers |
-| **Moderator** | anti-cheat scope only (verdicts, bans, score invalidation) — explicitly *cannot* rank/unrank charts (separation of powers) | GMT |
+| **Moderator** | anti-cheat scope only (verdicts, bans, score invalidation); explicitly *cannot* rank/unrank charts (separation of powers) | GMT |
 
 - CRs are volunteers appointed by QA Maintainers; appointment/removal is an
   `audit_events` record. Roster size targets: ≥3 CRs per instrument family
@@ -102,7 +102,7 @@ arises.
 ### 5. Loved & graveyard
 
 - **Loved**: community petition (threshold: configurable signature count from
-  users with any ranked play history — anti-Sybil gate) moves a chart out of
+  users with any ranked play history, anti-Sybil gate) moves a chart out of
   ranked without deleting it: playable, scores stored, **no kp, no official
   board**. Escape hatch for fun-but-unrankable charts.
 - **Graveyard**: mapper-abandoned or stale pending charts auto-move after an
@@ -122,11 +122,11 @@ The workflow is enforced server-side (never client-trusted):
 ## Consequences
 
 - Human review time is spent only on charts that already pass mechanical
-  screening — the kan!check hard gate is what makes a volunteer QA model
+  screening; the kan!check hard gate is what makes a volunteer QA model
   scalable to 100k songs.
 - Per-family reviewer scoping keeps instrument-specific playability knowledge
   (bends vs bowing vs breath windows) in the loop; it also means slow roster
-  growth in niche families — mitigated by the QA-maintainer second-vote rule.
+  growth in niche families, mitigated by the QA-maintainer second-vote rule.
 - Ranked immutability + versioned charts guarantees board integrity: a ranked
   board never silently changes difficulty under players' feet.
 - Everything above maps onto the existing schema (status enums, audit_events,

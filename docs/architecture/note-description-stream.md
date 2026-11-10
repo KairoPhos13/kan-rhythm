@@ -1,4 +1,4 @@
-# Per-note description stream ("register by note") — evidence & design
+# Per-note description stream ("register by note"): evidence & design
 
 Status: **Phase 1 evidence + design.** Decisions resolved 2026-10-06 (§7);
 Phase 2 implementation follows this document (§8). The measurement evidence
@@ -8,7 +8,7 @@ turns those measurements into **per-note facts**.
 
 Scope rule (non-negotiable): libkan **describes** what was played. No chart
 pairing, no judgment windows, no correct/wrong verdicts, no practice/timed
-modes — those belong to `game/`. Candidate pitches are an optional *input*
+modes. Those belong to `game/`. Candidate pitches are an optional *input*
 that conditions a measurement; every output is a measurement (presence 0..1,
 cents, amplitude), never a verdict.
 
@@ -18,7 +18,7 @@ from these facts (game-side decision). If a fact is wrong, a player receives
 a wrong penalty, the game feels unfair, and the player quits instead of
 looping the song again. So "one estimate per fact", "no numbers the tool
 distrusts" and "`unresolved` instead of a guess" are not documentation
-hygiene — they are the dopamine-loop protection.
+hygiene. They are the dopamine-loop protection.
 
 ## 1. What the stream is
 
@@ -26,15 +26,15 @@ Today `kan_analyze` collapses a performance into one record per note at the
 *end* of the note. The game needs the opposite ordering: **each attack opens
 a note record, and facts are added as soon as they become available**:
 
-1. **HIT** — onset time + strength. Fixed at the moment of the onset, never
+1. **HIT**: onset time + strength. Fixed at the moment of the onset, never
    revised. This is what the game's instant feel consumes.
-2. **PITCH** — one provisional estimate, then one final estimate (or
+2. **PITCH**: one provisional estimate, then one final estimate (or
    `unresolved`). One consistent estimate per event (note name, Hz and cents
-   always describe the same reading — the Phase-0 rule, generalized).
-3. **CONTENT** — mono vs polyphonic attack; when the caller supplies
+   always describe the same reading, the Phase-0 rule, generalized).
+3. **CONTENT**: mono vs polyphonic attack; when the caller supplies
    candidate pitches, one fact per candidate: presence, cents, amplitude.
-4. **EXPRESSION** — dynamics, envelope (attack/release/sustain), vibrato.
-5. **CLOSE** — note end + summary.
+4. **EXPRESSION**: dynamics, envelope (attack/release/sustain), vibrato.
+5. **CLOSE**: note end + summary.
 
 The same stream feeds `kan_demo`'s display, a JSONL log, and `kan_analyze`
 (offline), using one schema. The live and offline paths must produce
@@ -57,7 +57,7 @@ with left-hand chords under a right-hand melody.
   zero-padded to 131072, harmonic-sum fundamental scoring + peak list).
   A candidate is included when its **f0 carries a real spectral line**, not
   when a harmonic-sum alias suggests it (the 588 Hz line under G3 is G3's
-  3rd harmonic, not a D5). 22 attacks are polyphonic (4–8 sounding
+  3rd harmonic, not a D5). 22 attacks are polyphonic (4-8 sounding
   candidates; A05/A10/A14/A19/A21 exceed `kMaxNotes = 6`); 6 are mono
   moments found by scanning all 244 onsets for single-fundamental spectra.
   Each attack carries 2 negative **controls** (believed absent: easy
@@ -67,13 +67,13 @@ with left-hand chords under a right-hand melody.
   candidate, the validator's presence/refined-cents **and** independent
   f0-line evidence (line position and level) side by side. The evidence
   column caught two wrong entries in the annotation during curation (MIDI
-  42 written where the spectra show 43) — it is a real cross-check.
+  42 written where the spectra show 43). It is a real cross-check.
 - Reported "cents accuracy" = |refined − f0-line| for candidates whose f0
   line is ≥ −10 dB (n = 98). Reported "presence separation" comes from runs
   where the candidate set contains sounding notes **and** controls.
 - Artifacts: `test_results/logs/07-harmonic-probe-{dump,measure,bench}.txt`.
 
-### 2.2 Per-candidate presence separates sounding from absent — inside a
+### 2.2 Per-candidate presence separates sounding from absent: inside a
 complete candidate set
 
 Mixed runs (sounding + controls together, 1024-sample windows at +200 ms):
@@ -84,7 +84,7 @@ Mixed runs (sounding + controls together, 1024-sample windows at +200 ms):
 | control candidates (presence share) | 20 | 0.00 | 0.01 | 0.15 | 0.03 |
 
 Similarity of these runs ≥ 0.88. A presence share below ~0.05 is a reliable
-"absent"; 0.05–0.15 is ambiguous (hard neighbors); sounding notes sit above
+"absent"; 0.05-0.15 is ambiguous (hard neighbors); sounding notes sit above
 that except for very soft chord tones (min 0.07).
 
 ### 2.3 Presence without similarity lies; near-miss candidates absorb energy
@@ -93,11 +93,11 @@ Runs with **only** controls as candidates (nothing real in the set):
 
 | attack class | similarity | max presence handed to an absent note |
 |---|---|---|
-| poly attacks | 0.05–0.33 | 0.51–0.95 |
-| mono attacks | 0.60–0.92 | 0.78–0.83 |
+| poly attacks | 0.05-0.33 | 0.51-0.95 |
+| mono attacks | 0.60-0.92 | 0.78-0.83 |
 
 Two distinct effects: (a) at low similarity the share normalizes to 1 over
-garbage — presence 0.8 at similarity 0.08 means nothing; (b) at 21 ms
+garbage: presence 0.8 at similarity 0.08 means nothing; (b) at 21 ms
 windows the model's resolution is ~47 Hz, so a candidate **one semitone
 away from the true note** (F4 model vs E4 signal, 19.6 Hz apart) explains
 92% of the energy. **Consequence for the stream: a presence number is only
@@ -122,11 +122,11 @@ candidate-conditioned fits and settles the low-register question: **final
 pitch/cents below ~C3 must integrate ≥ 170 ms of audio**; the 21 ms window
 is for provisional facts only. Refined-cents estimates that saturate at the
 ±30 c search bound (typical for absent candidates) are "no evidence", not a
-measurement — the stream flags them instead of printing ±30 c.
+measurement. The stream flags them instead of printing ±30 c.
 
 ### 2.5 More than 6 sounding notes (`kMaxNotes = 6`)
 
-The five annotated attacks with 7–8 sounding candidates, validated with the
+The five annotated attacks with 7-8 sounding candidates, validated with the
 loudest 6 modeled (1024 samples at +200 ms):
 
 | attack | sounding / modeled | similarity | note |
@@ -140,7 +140,7 @@ loudest 6 modeled (1024 samples at +200 ms):
 Unmodeled soft notes barely move the fit; unmodeled mid-register notes
 (A21: D5, G4) redistribute the shares of the modeled set (C3's share rises
 to 0.52). The measurement of the modeled notes stays *ordered* correctly
-but is *biased* — and the stream must say so (`UNEXPLAINED_ENERGY`), not
+but is *biased*, and the stream must say so (`UNEXPLAINED_ENERGY`), not
 pretend the set was complete.
 
 ### 2.6 Decay and pedal
@@ -174,8 +174,8 @@ single-threshold accuracy over the 28 annotated attacks (6 mono / 22 poly):
 | peak count | 7.5 | 26/28 (0.93) |
 
 Today's reliability heuristic (MIX/HOP flags of `kan_analyze`) on the same
-28 attacks: 20/28 (0.71) — it flags 5 of the 6 mono moments as unreliable
-(over-flag) and calls 3 of the 22 poly attacks "reliable" (A01, A08, A17 —
+28 attacks: 20/28 (0.71). It flags 5 of the 6 mono moments as unreliable
+(over-flag) and calls 3 of the 22 poly attacks "reliable" (A01, A08, A17:
 false-mono; A01 is a 4-note chord the mono tracker "confidently" reports as
 G4). Reliability ≠ mono. The stream's CONTENT class should use the
 capture-based classifier; MIX/HOP stay as PITCH-reliability flags only.
@@ -193,9 +193,9 @@ Synthetic chords at the expected pitches, mean of 200 calls, Release build
 
 Cost grows ~quadratic in candidate count (Gram build is
 O(atoms²·window)) and ~linearly in window length. Extrapolated to the
-per-instrument maxima: 10 candidates (piano) ≈ 90 ms / 730 ms. **This contradicts the "~2–4 ms per call"
-CPU claim in docs/dsp/README.md §2.7, which had no backing measurement** —
-that table is updated to the measured numbers in this change. The 29.3 ms
+per-instrument maxima: 10 candidates (piano) ≈ 90 ms / 730 ms. **This contradicts the "~2-4 ms per call"
+CPU claim in docs/dsp/README.md §2.7, which had no backing measurement**.
+That table is updated to the measured numbers in this change. The 29.3 ms
 *verification latency* gate (chord-validation.md) is unaffected: it counts
 audio window, not CPU.
 
@@ -209,7 +209,7 @@ enum class NoteKind : uint8_t { Hit, Pitch, Content, Expression, Close };
 enum class PitchStage : uint8_t { Provisional, Final, Unresolved };
 enum class ContentClass : uint8_t { Unknown, Mono, Polyphonic };
 
-// Audio-true states only — never judgment (no correct/miss/good).
+// Audio-true states only, never judgment (no correct/miss/good).
 enum NoteFlags : uint32_t {
     kFlagNone = 0,
     kFlagMixed = 1u << 0,             // mono pitch validity < 0.5 (overlapped)
@@ -247,27 +247,27 @@ struct NoteEvent {
 
 Semantics per kind:
 
-- **Hit** — `onset_ms` (block-quantized) + `strength` (attack energy) +
+- **Hit**: `onset_ms` (block-quantized) + `strength` (attack energy) +
   the record's hypothesis identity (`midi`, 0/null = blind) + its
   `strike_group` (records struck together share it). Emitted when the
   record opens (strike, or legato `TRANSITION`); **never revised**.
-- **Pitch** — `Provisional`: earliest post-blanking estimate (short window;
+- **Pitch**: `Provisional`: earliest post-blanking estimate (short window;
   may carry `MIX`/`HOP`). `Final`: one consistent estimate (midi + cents,
   Hz derived from the pair) from the longest available evidence (§2.4), or
   `Unresolved` with the flags that say why (polyphonic without candidates,
   hop, similarity too low). Dominant-pitch case: `Final` with
   `kFlagDominant`, stated at a defined window.
-- **Content** — one *class* event (`Mono`/`Polyphonic` +
+- **Content**: one *class* event (`Mono`/`Polyphonic` +
   `n_sounding_lines` = the blind f0-line count, the honest "N unresolved")
   plus, when candidates were supplied, one *candidate* event per candidate
   (`presence` share, `cents`, `amplitude` = fitted component RMS,
   `similarity` of the whole set, `cand_note_id`).
-- **Expression** — dynamics (raw level in dBFS + tier pp..ff from
+- **Expression**: dynamics (raw level in dBFS + tier pp..ff from
   `DynamicsClassifier`: session-relative with a "warming up" state, or
   calibrated soft/loud anchors), envelope, vibrato (claimed only from a
   stable pitch trajectory). Facts only; the spec/verdict layer of
   `technique.hpp` stays where it is.
-- **Close** — `end_ms` (decay-relative), duration, peak. Never revises
+- **Close**: `end_ms` (decay-relative), duration, peak. Never revises
   earlier facts.
 
 ## 4. Design: the candidate-pitch input API
@@ -302,19 +302,19 @@ public:
   scratch at construction (as `HarmonicChordValidator` does); candidate
   sets are copied into fixed slots. In the canonical pipeline the caller
   runs on the same consumer thread as `process_block`, so
-  `set_candidates` is a plain copy — no lock, no cross-thread protocol.
-- **Attribution — nothing to decide.** Every candidate fact is one event
+  `set_candidates` is a plain copy, no lock, no cross-thread protocol.
+- **Attribution: nothing to decide.** Every candidate fact is one event
   carrying **both** ids: `note_id` = the attack whose window produced the
   measurement, `cand_note_id` = the note record the candidate belongs to
   (0 = anonymous hypothesis). No duplication, and consumers can group
   either way: "what did this attack hear" (by `note_id`) or "what happened
   to this held chord note" (by `cand_note_id`).
 - **Candidates are inputs, not truth.** A candidate absent from the audio
-  gets a low presence — the stream reports that measurement. A note nobody
+  gets a low presence. The stream reports that measurement. A note nobody
   hypothesized shows up as `UNEXPLAINED_ENERGY`, never as a guess.
 - Without candidates, CONTENT still emits the class fact
   (`Polyphonic, N unresolved`) and PITCH falls back to dominant-or-
-  unresolved — no blind polyphonic transcription (L2/L10).
+  unresolved: no blind polyphonic transcription (L2/L10).
 
 ## 5. Design: stream, JSONL schema, live/offline equivalence
 
@@ -322,10 +322,10 @@ public:
 
 `NoteEventStream` = `LockFreeRingBuffer<NoteEvent, Capacity>` semantics:
 SPSC, fixed capacity (power of two), `push` (analysis path) / `pop`
-(consumer), **drop-on-full with a `dropped()` counter** — a lossy display
+(consumer), **drop-on-full with a `dropped()` counter**. A lossy display
 may drop, a JSONL log may not; the counter makes loss visible instead of
 silent. The describer holds a fixed array of subscriber streams (≤ 4) and
-pushes each event to all — `tap.hpp`-style fan-out, but push-based
+pushes each event to all, `tap.hpp`-style fan-out, but push-based
 (completeness-oriented, not overwrite/freshness). The audio callback stays
 out of this entirely: it only feeds the existing sample ring buffer.
 
@@ -345,9 +345,9 @@ and offline logs diff cleanly:
 ```
 
 Reading the human transcript (kan_demo / the `.log`): one strike header
-(`▶ strike N — record per struck note:`) followed by one named line per
+(`▶ strike N: record per struck note:`) followed by one named line per
 record (`#id note struck|legato transition`), timestamped fact lines per
-record, and a final **measured score** table — one line per struck note
+record, and a final **measured score** table: one line per struck note
 (onset, its OWN duration, final pitch or honest `unresolved`, evidence,
 tier). That table is the artifact to validate a song against.
 
@@ -369,16 +369,16 @@ Schema rules (the honesty rules of Phase 0, generalized):
 `describe()` is a **pure function of (sample stream, block size, candidate
 sequence)**: time fields derive from sample positions, not wall clocks; all
 estimation is deterministic (fixed scratch, fixed refinement rounds). The
-production block size (64/128 samples) is part of the input contract —
-onset detection quantizes to blocks. Therefore:
+production block size (64/128 samples) is part of the input contract.
+Onset detection quantizes to blocks. Therefore:
 
 > Feeding a WAV offline and feeding the same samples live, at the same block
-> size, must produce **byte-identical JSONL** — regardless of when
+> size, must produce **byte-identical JSONL**, regardless of when
 > candidates are injected (any time before the note finalizes) and of how
 > often the consumer drains the stream.
 
 Enforced by the Phase 2 test `libkan_note_stream_test` fixture 6
-(live-vs-offline equality + determinism) — this is what makes
+(live-vs-offline equality + determinism). This is what makes
 `kan_demo --events`, the JSONL log and `kan_analyze` interchangeable for
 regression diffing. `finalize_due()` must be called at least every ~256 ms
 of audio (the retained history is 0.68 s).
@@ -391,12 +391,12 @@ of audio (the retained history is 0.68 s).
    `kFlagLowRegister`.
 2. **The candidate cap is per instrument (hard cap 10).** Wind
    instruments model 1 note (mono physics), guitar 6 (strings), piano 10
-   (fingers) — `InstrumentProfile` / instrument-pack field
+   (fingers), `InstrumentProfile` / instrument-pack field
    `max_simultaneous_notes`; `HarmonicChordValidator`'s compile-time cap
    rises 6 → 10 (`kMaxAtoms` 120) and the profile value is enforced on
    `set_expected_chord`. Cost grows ~quadratic in candidate count
    (§2.8: measured 34.8 ms for 6 candidates at 21 ms, 280 ms at 170 ms;
-   extrapolated 10 candidates ≈ 90 ms / 730 ms) — so (3) below is not
+   extrapolated 10 candidates ≈ 90 ms / 730 ms), so (3) below is not
    optional. When more candidates than the instrument's cap are supplied,
    the loudest N are described and the fact is flagged
    `UNEXPLAINED_ENERGY` (§2.5).
@@ -405,29 +405,29 @@ of audio (the retained history is 0.68 s).
    bounded, inline with the audio service loop) and `finalize_due()` (at
    most one long-window candidate fit per call, movable to a worker
    thread by the app). libkan owns no threads; it only bounds the work
-   per call. The game rewards on HIT and evaluates intonation later —
-   a final fact arriving 100–500 ms after the attack is by design.
+   per call. The game rewards on HIT and evaluates intonation later.
+   A final fact arriving 100-500 ms after the attack is by design.
 4. **`unresolved` fallback is the default for blind polyphony**:
    `CONTENT: polyphonic, N unresolved` (N = blind f0-line count) plus
    timing/dynamics, plus `Final` with `kFlagDominant` only when one
    candidate dominates at the stated window (§2.6). "Unresolved" must
    never become a penalty: the game treats it as *not measured*, not as
    *wrong* (fairness rule, §1).
-5. **Presence ships with similarity** (§2.3) — the pair
+5. **Presence ships with similarity** (§2.3): the pair
    (`presence` share, `similarity` of the set); the game derives any
    combined score. `HarmonicChordValidator`'s template-level `valid`
-   verdict (fair-share presence floor) is *not* carried into the stream —
-   it fails on real uneven piano chords and is a judgment-shaped concept.
+   verdict (fair-share presence floor) is *not* carried into the stream.
+   It fails on real uneven piano chords and is a judgment-shaped concept.
 6. **Mono/poly class** comes from the blind capture classifier, not from
    MIX/HOP (§2.7). The threshold is instrument-pack data (measured ~0.94
    on piano; wind attacks are mono by physics and bypass the classifier).
-7. **CLOSE is decay-relative** (L7) — pedal tails must not inflate
+7. **CLOSE is decay-relative** (L7). Pedal tails must not inflate
    durations (§2.6). In dense legato textures the mix-relative end closes
    overlapping notes together (the mix never drops 20 dB below a note's
    peak): per-note ends need the candidate-conditioned amplitude
    trajectory (follow-up). Until then merged notes also lose their vibrato
    claim (the readings of a merged note follow the texture → unstable →
-   suppressed) — honest, but lossy.
+   suppressed), honest, but lossy.
 
 ## 7. Decisions (resolved 2026-10-06)
 
@@ -444,11 +444,11 @@ of audio (the retained history is 0.68 s).
 | 3 | heavy final fits on the consumer thread | scheduled work: `finalize_due()` runs at most one long-window fit per call; apps may move it to a worker thread; no threads inside libkan |
 | 4 | presence semantics downstream | ship the pair (`presence`, `similarity`); the game derives any combined score; no pre-mixed number |
 | 5 | `kMaxNotes` | per instrument via `InstrumentProfile::max_simultaneous_notes` (wind 1, guitar 6, piano 10); libkan hard cap 10 |
-| 6 | mono/poly threshold | per instrument pack (piano starts at the measured 0.94; wind bypasses the classifier — mono by physics) |
+| 6 | mono/poly threshold | per instrument pack (piano starts at the measured 0.94; wind bypasses the classifier: mono by physics) |
 | 7 | record model (review refinement) | a record is a **struck note**: an attack execution strikes N notes → N records (`strike_group` ties them), each with its own lifetime (start/end/duration). Wind/bowed profiles (`accepts_legato_boundaries`) also open records on sustained pitch changes (`TRANSITION` flag). Candidate facts live under the record the candidate belongs to, so a note sustaining under later attacks accumulates facts in its own register. |
-| 8 | intonation acceptance | `InstrumentProfile::intonation_band_cents` (pack data): the game judges the residual inside the band, calibration-aware — never raw A440 (field takes measured up to −53 c detune) |
+| 8 | intonation acceptance | `InstrumentProfile::intonation_band_cents` (pack data): the game judges the residual inside the band, calibration-aware, never raw A440 (field takes measured up to −53 c detune) |
 | 9 | vibrato pitch semantics | the final pitch is the **amplitude-weighted center** of the note's trajectory (the center of a vibrato, never its initial value) |
-| 10 | repeated pitch: extension or re-strike? | decided by **energy levels**: a level jump after the strike (>= 1.5x the hold's current level) = RE-STRIKE (`RESTRIKE` flag, new record, old note ends at the strike); no jump = EXTENSION — no new record, the hold continues. Decided at the first measurement slot (~40 ms; the evidence needs it); the HIT keeps its strike timestamp. Chord/candidate path decides per note at the probe fit. |
+| 10 | repeated pitch: extension or re-strike? | decided by **energy levels**: a level jump after the strike (>= 1.5x the hold's current level) = RE-STRIKE (`RESTRIKE` flag, new record, old note ends at the strike); no jump = EXTENSION: no new record, the hold continues. Decided at the first measurement slot (~40 ms; the evidence needs it); the HIT keeps its strike timestamp. Chord/candidate path decides per note at the probe fit. |
 | 11 | window discipline | no measurement window crosses a strike boundary (evidence after a strike belongs to that strike's group); windows may span later attacks only when the candidate set models every sounding note (the joint/verify-score model) |
 
 Kept deliberately on the **game** side (not decided here): how HIT /
@@ -459,7 +459,7 @@ only).
 
 ## 8. Phase 2 implementation plan (decisions resolved, §7)
 
-Status: **shipped, with the record model of §7.7** — `libkan/include/libkan/note_stream.hpp`
+Status: **shipped, with the record model of §7.7**: `libkan/include/libkan/note_stream.hpp`
 (per-struck-note records, own lifetimes from sliding joint-fit trajectories,
 vibrato-center finals, legato `TRANSITION` records, `InstrumentProfile`-driven
 behavior) + ten fixtures (`libkan_note_stream_test`); `kan_analyze --events`;
@@ -468,32 +468,32 @@ strike). JSONL schema **v2** (`strike` groups, `TRANSITION` flag). Measured
 fact latencies (keyboard profile): HIT = onset block (≤ 2.7 ms quantized),
 probe fit ≈ +27 ms (per-record provisional + first candidate facts), final
 pitch + CLOSE at the note's own −20 dB end. Cost note: conditioned fits are
-~quadratic in candidate count (docs/dsp/README §2.7) — the offline
+~quadratic in candidate count (docs/dsp/README §2.7). The offline
 validation pack runs songs in parallel (`JOBS=6`).
 
 Score input for `--verify-score` accepts the user's notation directly: one
-line per written note — `onset_ms  duration  note` — where duration is a
+line per written note, `onset_ms  duration  note`, where duration is a
 rhythm word (`16th`, `8th`, `quarter`, `dotted-quarter`, `half`,
 `dotted-half`, `whole`, Spanish names included) or a millisecond number,
 and the note is a name (`G3`, `F#4`) or a midi number; header lines set the
 grid (`# quarter_ms 656` or `# bpm 91.5`). Measurement uses the joint
 model: at each fit time the candidates are the written notes alive there
-(struck + sustaining) — measured result on the Hallelujah opening
-(user-provided ground truth): **11/11 notes found, similarity 0.87–0.97,
+(struck + sustaining), measured result on the Hallelujah opening
+(user-provided ground truth): **11/11 notes found, similarity 0.87-0.97,
 duration error mean 200 ms, notes without detector attacks still measured**.
 
 **Resource budget (hardware constraint, decided with review): the tool must
-run on ordinary machines — the DSP analysis fits in ≤ 2 worker threads and
+run on ordinary machines; the DSP analysis fits in ≤ 2 worker threads and
 the TOTAL stays ≤ 4 cores** (game + audio keep the rest). The optimization
 order that gets there, all determinism-preserving:
 1. dynamic candidate pruning (candidates that fall <0.05 of their peak leave
-   the fit; cost falls quadratically with candidate count) — 2-4x;
-2. SIMD (AVX2/NEON) for the Gram/YIN/Goertzel loops — 2-4x;
+   the fit; cost falls quadratically with candidate count): 2-4x;
+2. SIMD (AVX2/NEON) for the Gram/YIN/Goertzel loops: 2-4x;
 3. analytic Gram for the sinusoidal atoms (Dirichlet-kernel products,
-   O(atoms²) instead of O(atoms²·window)) — 10-100x on the dominant term;
+   O(atoms²) instead of O(atoms²·window)): 10-100x on the dominant term;
 4. a worker pool for per-strike-group fits, capped at `min(3, cores - 2)`
    with adaptive fit cadence (the 250 ms hop stretches under load) as load
-   shedding — events stay ordered via a commit sequence.
+   shedding. Events stay ordered via a commit sequence.
 GPU acceleration is deliberately OUT: it breaks the byte-identical
 live/offline guarantee (device-dependent reductions) and the budget above
 is met on CPU. Wind/monophonic instruments are trivial (1 candidate); the
@@ -501,10 +501,10 @@ heavy case is piano, and cadence/candidate caps degrade quality gracefully
 before they ever drop facts.
 
 **Measured (2026-10-07, delivered):** the budget is met without the worker
-pool — the pool and the analytic Gram were dropped as unnecessary
+pool. The pool and the analytic Gram were dropped as unnecessary
 complexity once the numbers came in. Path: dynamic pruning + 1 IRLS pass +
 2 refine rounds + 2048 windows + adaptive cadence (87 -> 37 ms/fit), AVX2
-weighted dots in the normal equations (-> ~30), and the decisive one — the
+weighted dots in the normal equations (-> ~30), and the decisive one: the
 residual loops restructured atom-major/time-inner (the time-inner form
 strided 8 KB per atom; -> **10.8 ms/fit**, bit-identical numerics). Heaviest
 take (Hallelujah, 254 s): the conditioned measurement path costs **44 s CPU

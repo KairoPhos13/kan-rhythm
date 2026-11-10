@@ -1,6 +1,6 @@
 # kan! Technical Specification
 
-Status: living document — update via PR when a decision changes.
+Status: living document; update via PR when a decision changes.
 See [ROADMAP.md](ROADMAP.md) for milestones and release gates.
 
 ## 0. Guiding principles
@@ -18,10 +18,10 @@ See [ROADMAP.md](ROADMAP.md) for milestones and release gates.
 
 | System module            | Library                          | License        | Role / why not the alternative                                        |
 |--------------------------|----------------------------------|----------------|------------------------------------------------------------------------|
-| Ultra-low-latency I/O    | **miniaudio** (or RtAudio)       | MIT-0 / MIT    | WASAPI Exclusive, CoreAudio, ALSA/Pulse, AAudio in one header. (Not PortAudio for simplicity; not JACK — GPL.) |
-| Monophonic pitch (2 cycles) | **Cycfi Q**                   | MIT            | BACF bitstream autocorrelation via XOR ops, no FFT. (Not Aubio/Essentia — GPLv3/AGPLv3.) |
-| FFT & filters (chords)   | **KissFFT** or **PFFFT**         | BSD-3          | SIMD FFT feeding Goertzel/chroma template matching in <3 ms CPU. (Not FFTW — GPL.) |
-| Backing-track pitch shift| **Signalsmith Stretch**          | MIT            | Real-time ±50 cents, studio quality, BPM preserved. (Not RubberBand — GPLv2; SoundTouch LGPL only if needed.) |
+| Ultra-low-latency I/O    | **miniaudio** (or RtAudio)       | MIT-0 / MIT    | WASAPI Exclusive, CoreAudio, ALSA/Pulse, AAudio in one header. (Not PortAudio for simplicity; not JACK: GPL.) |
+| Monophonic pitch (2 cycles) | **Cycfi Q**                   | MIT            | BACF bitstream autocorrelation via XOR ops, no FFT. (Not Aubio/Essentia: GPLv3/AGPLv3.) |
+| FFT & filters (chords)   | **KissFFT** or **PFFFT**         | BSD-3          | SIMD FFT feeding Goertzel/chroma template matching in <3 ms CPU. (Not FFTW: GPL.) |
+| Backing-track pitch shift| **Signalsmith Stretch**          | MIT            | Real-time ±50 cents, studio quality, BPM preserved. (Not RubberBand: GPLv2; SoundTouch LGPL only if needed.) |
 | Stem separation (AI)     | **HTDemucs** via **ONNX Runtime**| MIT            | SOTA drums/bass/guitar/piano/other/vocals separation, local GPU/CPU.   |
 | Audio-to-MIDI pre-mapping| **Basic Pitch** (Spotify) via ONNX | Apache-2.0   | <20 MB net, polyphonic audio → MIDI events with pitch bends.           |
 
@@ -37,23 +37,23 @@ through lock-free SPSC ring buffers.
   overlapped hop for continuous analysis.
 
 ### Dual-path processing pipeline
-- **Stage 0 — Preconditioning:** 35 Hz high-pass filter (kills mic stand /
+- **Stage 0 (Preconditioning):** 35 Hz high-pass filter (kills mic stand /
   floor thumps) + adaptive noise gate calibrated to the room's silence.
-- **Stage 1 — Onset detector (Fast Path):** high-frequency-content (HFC)
+- **Stage 1 (Onset detector, Fast Path):** high-frequency-content (HFC)
   energy derivative combined with phase difference. Must fire the rhythmic hit
   event to the game thread in **<4 ms** from the wave entering the buffer.
-- **Stage 2 — Transient blanking:** freeze pitch evaluation for the first
-  **8–12 ms** after onset (configurable per instrument profile: 8 ms plucked
+- **Stage 2 (Transient blanking):** freeze pitch evaluation for the first
+  **8-12 ms** after onset (configurable per instrument profile: 8 ms plucked
   string, 15 ms wind/bowed). Attack transients are inharmonic noise that
   fools pitch algorithms.
-- **Stage 3 — Score-informed validator (Harmonic Path):**
+- **Stage 3 (Score-informed validator, Harmonic Path):**
   - *Map expects 1 note (monophonic):* run Cycfi Q (BACF) bounded to
     **±2 semitones** of the expected note.
   - *Map expects a chord (polyphonic):* run a Goertzel filter bank / 12-bin
     chroma projection targeting the fundamentals + first 3 harmonics of the
     expected chord notes, computing **cosine similarity** against the chart
-    template (threshold ≈ 0.80). Never run blind AMT (needs 100–200 ms
-    windows — kills the osu!-style feel).
+    template (threshold ≈ 0.80). Never run blind AMT (needs 100-200 ms
+    windows; kills the osu!-style feel).
 
 ### Dynamic consonance module (auto-tuned backing track)
 - Store the player's instrument deviation vector (`Δc_global` in cents) from
@@ -83,32 +83,32 @@ through lock-free SPSC ring buffers.
 | Factor                     | Physical problem                                              | Engine solution                                                      |
 |----------------------------|---------------------------------------------------------------|----------------------------------------------------------------------|
 | Acoustic capture (mic)     | Sound travels ~343 m/s: 1 m = 3 ms + room reverb              | Initial background-noise calibration + adaptive noise gate against ghost onsets |
-| Instrument physics         | Plucked string attack ≈ 2 ms; violin/flute ramp 20–40 ms       | Per-instrument-profile rhythm window offset; evaluate start of the air/bow ramp, not peak volume |
-| Operating system           | Standard drivers add 20–60 ms                                  | Direct hardware APIs (WASAPI Exclusive / CoreAudio / AAudio / ALSA) with 64–128-sample buffers |
+| Instrument physics         | Plucked string attack ≈ 2 ms; violin/flute ramp 20-40 ms       | Per-instrument-profile rhythm window offset; evaluate start of the air/bow ramp, not peak volume |
+| Operating system           | Standard drivers add 20-60 ms                                  | Direct hardware APIs (WASAPI Exclusive / CoreAudio / AAudio / ALSA) with 64-128-sample buffers |
 
 ## 4. AI pipeline (local, editor-time only)
 
 AI **never runs in real time during play** (would add >80 ms). It runs
 asynchronously when importing a song in the community editor.
 
-### Stem separator — HTDemucs-6s (FP16/INT8 quantized, ONNX)
+### Stem separator: HTDemucs-6s (FP16/INT8 quantized, ONNX)
 - Input: user-provided `.mp3` / `.ogg` / `.wav` stereo file.
-- Output: 5–6 stems (bass, drums, guitar, piano, other/winds, vocals).
+- Output: 5-6 stems (bass, drums, guitar, piano, other/winds, vocals).
 - Purpose: mute/attenuate (−12 dB) the stem the player performs live;
   isolate stems so the transcriber is not confused by drums.
 - Performance gate: 3-minute song in **<25 s** on entry-level GPU
   (GTX 1650 / Apple M1) or **<90 s** CPU-only.
 
-### Pre-mapping transcriber — Basic Pitch (ONNX)
+### Pre-mapping transcriber: Basic Pitch (ONNX)
 - Input: isolated instrument stem.
 - Output: time matrix of `onset_time, duration, midi_note, confidence,
   pitch_bend_curve`.
 - Purpose: auto-draw ~80% draft notes on the editor spectrogram; the human
-  only fixes the 15–20% of errors and assigns difficulties.
+  only fixes the 15-20% of errors and assigns difficulties.
 
 ## 5. Community file formats
 
-### `.kan` — song package (renamed `.zip` container, like osu!'s `.osz`)
+### `.kan`: song package (renamed `.zip` container, like osu!'s `.osz`)
 ```
 song.kan
 ├── audio_backing.ogg          # Opus/Vorbis @ 48 kHz
@@ -127,7 +127,7 @@ song.kan
 |-------|----------|----------------|
 | 1. Core Sync | Audio file(s)/stems, variable BPM map, bars, exact timestamps | First mapper to upload the song; nobody re-syncs afterwards |
 | 2. Universal Score (`canonical_score.bin`) | Time events (µs) + MIDI/Hz + duration + articulation (staccato, vibrato, slide, chord) | Imported from `.gp5`/`.mid`/`.musicxml` or drawn on the spectrogram |
-| 3. Instrument Chart (`.kchart` files) | Physical adaptation: fret/string, octave transposition, beginner simplifications | Any community member, in minutes, reusing Layers 1–2 (<50 KB upload) |
+| 3. Instrument Chart (`.kchart` files) | Physical adaptation: fret/string, octave transposition, beginner simplifications | Any community member, in minutes, reusing Layers 1-2 (<50 KB upload) |
 
 ## 6. Scoring & adrenaline systems
 
@@ -135,7 +135,7 @@ song.kan
   - *Attack (Timing):* input millisecond accuracy (osu!-style 300/100/50).
   - *Note stability (Sustain/Intonation):* real-time points while holding
     tuning inside the visual sustain lane (like osu! sliders).
-- **Reactive audio:** dynamic backing track with stems — attenuate the
+- **Reactive audio:** dynamic backing track with stems; attenuate the
   original stem while combo is alive (player's real instrument becomes the
   protagonist); music loses force abruptly on miss.
 - **`kp` (kan! points):** osu!-pp-style ranking, leaderboards segmented by
@@ -148,10 +148,10 @@ song.kan
 ## 7. Platform targets
 
 - **PC only:** Linux, Windows, macOS (Steam Deck / SteamOS first-class).
-- No console ports planned — freedom from NDAs, certification, and walled
+- No console ports planned: freedom from NDAs, certification, and walled
   gardens; users freely share `.kan` maps.
 - Business model: **donations** (`kan!supporter`-style: cosmetic benefits,
-  fast direct downloads in-client, profile medals) — see `donations/`.
+  fast direct downloads in-client, profile medals), see `donations/`.
 
 ## 8. Extensibility architecture (osu!-class quality target)
 
@@ -192,7 +192,7 @@ Summary:
 - **osu! reuse (ADR-0012):** `kp` adopts the MIT pp architecture from
   `ppy/osu-tools` (difficulty attributes → performance calc → weighted
   top-N) extended with the intonation axis; spectator/multiplayer may adopt
-  `ppy/osu-server-spectator` (MIT) later; `ppy/osu-web` is AGPL —
+  `ppy/osu-server-spectator` (MIT) later; `ppy/osu-web` is AGPL:
   clean-room UX emulation only, no code ever.
 
 ## 10. Game client base (osu!lazer)
@@ -205,16 +205,16 @@ not a from-scratch engine. Integration architecture:
 - Minimize fork divergence: ruleset-plugin path first; every fork delta
   logged with its upstream-PR status; rebase onto upstream regularly.
 - `libkan`/`kanfx` remain the real-time DSP core behind a C-ABI shim
-  (P/Invoke); osu!framework audio handles music/SFX only — instrument
+  (P/Invoke); osu!framework audio handles music/SFX only. Instrument
   capture and judgment stay ours, so the latency gates remain authoritative.
 - `.kan`/`.kchart` remain the community formats; bidirectional `.kan` ↔
-  `.osz` conversion maps Layers 1–3 onto beatmaps/difficulties/HitObjects.
+  `.osz` conversion maps Layers 1-3 onto beatmaps/difficulties/HitObjects.
 - License compliance is ship-blocking: preserve upstream headers and MIT
   text, ship `THIRD_PARTY_NOTICES`, mark substantially modified files,
   contribute fixes back upstream. BASS (osu!framework's audio backend,
   free for non-commercial use) must be resolved (verify / purchase /
   replace) before any donation-driven release.
-- **Rebrand (ADR-0011):** the product is **kan!** (kanade — "you kan!"), a
+- **Rebrand (ADR-0011):** the product is **kan!** (kanade, "you kan!"), a
   standalone game, not an osu! mod. Keep osu! UX patterns (menus, scoring
   grammar, song select, mods, settings, replays); redesign gameplay visuals
   (judgment indicators, buttons, highway) and identity (logo, palette,

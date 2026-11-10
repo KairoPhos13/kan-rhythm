@@ -1,4 +1,4 @@
-# Upstream issue — ggml-vulkan q8_0 integer dot product gives wrong
+# Upstream issue: ggml-vulkan q8_0 integer dot product gives wrong
 # results on RADV NAVI21 (Mesa)
 
 **Status:** fixed downstream (hardened); ready to file upstream at
@@ -33,7 +33,7 @@ wrong), build flags (no KissFFT; only USE_OPENMP).
 chunk 588800, overlap 2), q8_0 GGUF, separate any music excerpt; compare
 stems against the CPU run. Small clip sufficient (30 s).
 
-**Impact:** silent audio corruption (no error, normal runtime) — very
+**Impact:** silent audio corruption (no error, normal runtime), very
 dangerous for any inference consumer shipping q8_0 + Vulkan.
 
 ## Downstream hardening (this repository)

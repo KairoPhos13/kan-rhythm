@@ -12,7 +12,7 @@ headset mics, and consumer USB mics differ where it counts: laptop mics
 sit next to fan noise and apply their own AGC, headset mics sit close to
 the mouth (plosives, breath blasts) and pick up key/mechanical noise, and
 budget mics have limited bandwidth. The preprocessing stage (35 Hz
-high-pass + adaptive noise gate calibrated to room silence — see
+high-pass + adaptive noise gate calibrated to room silence, see
 [libkan/TODO.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/libkan/TODO.md))
 was built for exactly this, and its calibration flow needs real-world
 validation before we can tell players "any microphone works".
@@ -48,20 +48,20 @@ This is a first-impression item in
 
 ## Pointers
 
-- `apps/kan_cli` — `--noise-cal <ms>`, `--no-gate`, `--profile …`,
+- `apps/kan_cli`: `--noise-cal <ms>`, `--no-gate`, `--profile …`,
   `--latency-report`
-- `libkan` `precondition.hpp` — 35 Hz high-pass + adaptive noise gate
-- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md) —
+- `libkan` `precondition.hpp`: 35 Hz high-pass + adaptive noise gate
+- [docs/dsp/latency-measurements.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/latency-measurements.md):
   how latency is measured
-- [docs/dsp/calibration.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/calibration.md) —
+- [docs/dsp/calibration.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/calibration.md):
   what calibration measures
-- `apps/kan_cli --loopback <wav>` — inject recordings to compare devices
+- `apps/kan_cli --loopback <wav>`: inject recordings to compare devices
   offline
 
 ## Notes
 
 - If a device cannot work at all (e.g. hard AGC that flattens the
-  signal), documenting the boundary is a valuable result — kan! should
+  signal), documenting the boundary is a valuable result; kan! should
   say so honestly rather than pretend.
 - Related issue: the ambient-noise false-trigger gate has its own
   acceptance numbers and is tracked separately in `docs/issues/`.

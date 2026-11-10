@@ -1,9 +1,9 @@
-# kan! Platform Architecture — Extensibility for osu!-class Quality
+# kan! Platform Architecture: Extensibility for osu!-class Quality
 
 Status: accepted design direction. Supersedes nothing; extends
 [SPECIFICATION.md](../SPECIFICATION.md) §2/§6 with the extensibility layer.
 Goal: reach (and exceed) osu! polish by making everything a *versioned,
-data-driven pack* — maps, instruments, effects, skins — over a small stable core.
+data-driven pack* (maps, instruments, effects, skins) over a small stable core.
 
 ## 1. Design principles
 
@@ -16,7 +16,7 @@ data-driven pack* — maps, instruments, effects, skins — over a small stable 
    it targets; unknown optional fields are ignored (forward compatibility).
 3. **Data-driven first, native plugins later.** v0 extensions are JSON/binary
    data consumed by built-in systems. A sandboxed native ABI (for custom DSP
-   nodes or render effects) is a *later* ADR — do not block on it.
+   nodes or render effects) is a *later* ADR. Do not block on it.
 4. **Real-time boundary is sacred.** No pack, effect, or helper may allocate,
    lock, or do I/O on the audio thread. Packs are *loaded* on worker threads;
    the audio thread only reads immutable loaded state + atomic parameters.
@@ -36,7 +36,7 @@ data-driven pack* — maps, instruments, effects, skins — over a small stable 
 ├─────────────────────────────────────────────────────────────┤
 │ miniaudio · Cycfi Q · KissFFT · Signalsmith Stretch (MIT/BSD)│
 └─────────────────────────────────────────────────────────────┘
-         server/ (backend: users, songs, scores, kp) — separate lifecycle
+         server/ (backend: users, songs, scores, kp; separate lifecycle)
 ```
 
 Dependency rule: arrows point down only. `kanfx` may use `libkan` primitives;
@@ -57,9 +57,9 @@ A real-time DSP graph, per-bus effect chains, lock-free parameter automation.
 
 ### Node contract
 
-- `process(const float* in, float* out, uint32 frames)` — RT-safe, no allocs
+- `process(const float* in, float* out, uint32 frames)`: RT-safe, no allocs
 - Parameters are `std::atomic<float>` (or small atomic POD structs) written by
-  game threads, read by the audio thread — the same SPSC discipline as the
+  game threads, read by the audio thread, the same SPSC discipline as the
   ring buffer
 - Graph topology is immutable while playing; rebuild = double-buffered swap
   at a safe point
@@ -69,14 +69,14 @@ A real-time DSP graph, per-bus effect chains, lock-free parameter automation.
 
 ### Judgment taps
 
-The detection pipeline (libkan) attaches to `input` via non-consuming taps —
-effects applied for *monitoring* must never alter what the judges analyze,
+The detection pipeline (libkan) attaches to `input` via non-consuming taps.
+Effects applied for *monitoring* must never alter what the judges analyze,
 except where explicitly designed (e.g. transient blanking happens pre-tap).
 
 ## 4. Visual architecture (in `game/`)
 
 - **Scene graph + systems** (ECS-flavored): highway layer, note layer,
-  hit-effects layer, HUD, background/video, storyboard-like intro layer —
+  hit-effects layer, HUD, background/video, storyboard-like intro layer,
   each an ordered, composable render stage (osu!-framework precedent).
 - **Particle system** data-driven: hit sparks, combo flames, chord bursts
   defined in skin JSON (emitters, curves, sprite sheets), GPU-instanced.
@@ -86,7 +86,7 @@ except where explicitly designed (e.g. transient blanking happens pre-tap).
 - **Skin system**: versioned pack (JSON manifest + atlas + audio SFX), hot
   reload in editor, full replacement of every visual/aural non-gameplay
   element. Default skin ships in `assets/`.
-- Frame-time gate (ROADMAP M2): jitter < 2 ms @ 120 FPS — effects must be
+- Frame-time gate (ROADMAP M2): jitter < 2 ms @ 120 FPS. Effects must be
   budgeted; every layer reports its own frame cost in dev overlay.
 
 ## 5. Instrument packs & per-instrument helpers
@@ -98,7 +98,7 @@ helpers. An **instrument pack** is a data pack containing:
    transient-blanking window, judgment-window offsets (slow-attack winds
    judged on air-ramp start, not peak).
 2. **Articulation/technique vocabulary**: which techniques this instrument
-   supports and how they're judged — mapped 1:1 onto canonical score
+   supports and how they're judged, mapped 1:1 onto canonical score
    articulations:
    | Technique family | Examples | Detection strategy (libkan) |
    |---|---|---|
@@ -106,8 +106,8 @@ helpers. An **instrument pack** is a data pack containing:
    | Articulation | staccato, legato, accent, mute/palm-mute | envelope shape + duration vs expected |
    | Extended | harmonics (string), flutter-tongue (wind), pedal (piano) | spectral signature templates per pack |
 3. **Fingering/notation hints**: per-note physical guidance rendered on the
-   highway — guitar: fret/string bubbles + finger numbers; piano: fingerings
-   and hand splits; winds: fingering diagrams; bowed: bow-direction marks.
+   highway (guitar: fret/string bubbles + finger numbers; piano: fingerings
+   and hand splits; winds: fingering diagrams; bowed: bow-direction marks).
    Data lives in the Layer-3 `.kchart` (e.g. `fret`, `string`, `finger`
    fields); the *renderer* per family lives in the pack.
 4. **Intonation helper config**: sustain-lane width in cents, relative-tuning
@@ -118,7 +118,7 @@ helpers. An **instrument pack** is a data pack containing:
    score-informed validator, SPECIFICATION §2 stage 3).
 
 Beginner→pro axis: every helper is toggleable (hint density, lane width,
-judgment strictness) — difficulty is content, not engine forks.
+judgment strictness). Difficulty is content, not engine forks.
 
 ## 6. Mods system (osu!-parity requirement)
 
@@ -145,10 +145,10 @@ judgment strictness) — difficulty is content, not engine forks.
 
 | Piece | Component | Milestone |
 |---|---|---|
-| FX graph core + built-in nodes | `kanfx/` (new) | M1–M2 (pitchshift/ducker needed for M2 gates) |
+| FX graph core + built-in nodes | `kanfx/` (new) | M1-M2 (pitchshift/ducker needed for M2 gates) |
 | Scene graph, particles, skins | `game/` | M2 |
-| Instrument pack spec | `charts/spec/` | M1–M2 (spec), M2 (runtime) |
-| Helper renderers (fingering, intonation lanes) | `game/` | M2–M3 |
+| Instrument pack spec | `charts/spec/` | M1-M2 (spec), M2 (runtime) |
+| Helper renderers (fingering, intonation lanes) | `game/` | M2-M3 |
 | Technique validators (bend/vibrato/harmonics) | `libkan/` | M1 extension, M3 |
 | Mods framework | `game/` | M2 skeleton, M4 ranked interaction |
 | Pack registry + ranked workflow | `server/` (new) | M4 |

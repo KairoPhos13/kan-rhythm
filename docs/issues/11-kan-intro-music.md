@@ -7,12 +7,12 @@ Size: M
 
 The intro currently plays one of the player's own levels or starts
 silent: fork F-22 muted osu!'s theme music because it is not ours (osu!'s
-resources are CC BY-NC 4.0 and its name and logo are trademarks — see
+resources are CC BY-NC 4.0 and its name and logo are trademarks, see
 [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md)).
 The switch that plays a themed intro (`use_themed_intro` in the fork's
 `IntroScreen.cs`) is deliberately off until kan! has its own track.
 
-kan! deserves a first sound of its own — and the root
+kan! deserves a first sound of its own, and the root
 [README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)
 explicitly invites artists to make it ("Art and sound for kan!'s own
 identity too (logo, menu, intro)"). This is an artist-first task, not a
@@ -22,10 +22,10 @@ programming one: the file placement is already solved.
 
 1. Compose and record (or sequence) a short original intro theme. Design
    brief:
-   - **calm by design**: the intro is a welcome, not a hype moment — no
+   - **calm by design**: the intro is a welcome, not a hype moment; no
      compulsive earworm pressure, no adrenaline cues (see "Ground rules"
      in [game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md));
-   - 5–20 seconds, loops or fades cleanly; fits a rhythm game played on
+   - 5 to 20 seconds, loops or fades cleanly; fits a rhythm game played on
      real instruments (an acoustic-friendly palette suits the brand:
      the logo is a white ring fading to gold);
    - original work only, or a recording you can release under a free
@@ -38,7 +38,7 @@ programming one: the file placement is already solved.
    `IntroScreen.cs` (fork change, logged in
    `game/docs/fork-divergence.md`) and to record the track's credits.
 4. Optional companions: a soft exit sound for the "see ya" moment
-   (`Samples/Intro/…` in the brand folder) — current osu! voices are
+   (`Samples/Intro/…` in the brand folder); current osu! voices are
    never played (F-22).
 
 ## Acceptance criteria
@@ -55,16 +55,16 @@ programming one: the file placement is already solved.
 
 ## Pointers
 
-- [game/brand/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/brand/README.md) —
+- [game/brand/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/brand/README.md):
   `Tracks/` naming, `Samples/Intro/`, the `use_themed_intro` switch
-- [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md) —
+- [game/docs/fork-divergence.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/fork-divergence.md):
   F-22 (what was muted and why)
-- [assets/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/assets/README.md) —
+- [assets/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/assets/README.md):
   asset licensing ground rules (provenance + licence, no GPL/AGPL)
 
 ## Notes
 
-- Never sample, cover closely, or derive from osu!'s theme music —
+- Never sample, cover closely, or derive from osu!'s theme music:
   trademark and licence hygiene, and the project's own identity.
 - If you want to contribute several short candidates, that is welcome;
   the maintainer picks the final one.

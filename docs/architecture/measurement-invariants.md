@@ -1,4 +1,4 @@
-# Measurement invariants — the balance of factors
+# Measurement invariants: the balance of factors
 
 **Purpose.** Every property below is *measured*, not assumed. The system's
 fairness (right playing passes, wrong playing fails loudly) depends on the
@@ -6,7 +6,7 @@ balance among them. A change that alters any invariant must do so as a
 **deliberate, analyzed decision**: re-run the listed evidence, state the new
 tradeoff in this file, and update the affected tests. Silently shifting a
 threshold "because a fixture looked better" has already broken recall once
-(see I1) — that is what this file exists to prevent.
+(see I1). That is what this file exists to prevent.
 
 **Scope.** libkan describes; the game judges. libkan never emits verdicts,
 but its measurements are *load-bearing* for game judging: the rules a judge
@@ -21,7 +21,7 @@ measurements do not have.
 Each entry: **what** the property is, **why** (the measured evidence),
 **what breaks** if it is violated, and the **re-check list**.
 
-### I1 — Onset detector: documented ×3.2 jump rule
+### I1 (Onset detector): documented ×3.2 jump rule
 
 - **What.** The onset threshold is a ×3.2 short-term energy jump, tuned
   on the 28-attack hand-annotated real material (`libkan/tests/
@@ -36,7 +36,7 @@ Each entry: **what** the property is, **why** (the measured evidence),
   stay green (the "late note" and "extra note" signatures depend on the
   detector).
 
-### I2 — One estimate per row; unmeasured is `-`, never a number
+### I2: One estimate per row; unmeasured is `-`, never a number
 
 - **What.** Each JSONL row carries at most one value per field; fields that
   cannot be measured honestly are `-`/null (e.g. pitch on MIX/HOP rows).
@@ -48,10 +48,10 @@ Each entry: **what** the property is, **why** (the measured evidence),
 - **Re-check.** `libkan_note_stream_test` (hopping-note fixture) and the
   JSONL schema doc in `note-description-stream.md` §5.2.
 
-### I3 — Final pitch = amplitude-weighted CENTER of the trajectory
+### I3: Final pitch = amplitude-weighted CENTER of the trajectory
 
 - **What.** The final pitch fact is the amplitude-weighted mean of the
-  fitted pitch over the note's life — the vibrato center — not the initial
+  fitted pitch over the note's life, the vibrato center, not the initial
   value. Gate: mean fit similarity ≥ 0.80 AND presence ≥ 0.05.
 - **Why.** Vibrato and attack transients make the initial value the worst
   estimator; the center halves the cents error on real takes (§2.4 of
@@ -62,7 +62,7 @@ Each entry: **what** the property is, **why** (the measured evidence),
   `--verify-score` pitch stats on `apps/kan_demo/examples/
   hallelujah-score-1.score` (mean ≈ 8 c, max ≈ 31 c).
 
-### I4 — No measurement window crosses a strike boundary
+### I4: No measurement window crosses a strike boundary
 
 - **What.** Evidence after a strike belongs to that strike's group; windows
   never straddle an attack.
@@ -74,7 +74,7 @@ Each entry: **what** the property is, **why** (the measured evidence),
   new-attack fixture; on real data, record counts per strike must stay
   bounded by the instrument cap.
 
-### I5 — Re-strike vs extension decided by level, at the strike
+### I5: Re-strike vs extension decided by level, at the strike
 
 - **What.** A level jump ≥ 1.5× the hold's current level at a strike = new
   record (`RESTRIKE`); no jump = extension of the existing record. Decided
@@ -150,7 +150,7 @@ Each entry: **what** the property is, **why** (the measured evidence),
   the onset time.
 
   Results:
-  - fixture 17: one note after the dip, provisional C (was the F, 76.8–77.0,
+  - fixture 17: one note after the dip, provisional C (was the F, 76.8-77.0,
     then a second record for the C);
   - that C in the owner's take: provisional 73.18 (C5 with its tuning);
   - the whole take (469 attacks):
@@ -172,11 +172,11 @@ Each entry: **what** the property is, **why** (the measured evidence),
   level that falls back before that is the cut, and the release goes on.
 
   Results:
-  - fixture 18: no attack at the cut for clicks of 35–40 % lasting
-    20–30 ms (the old rule opened one each time); a soft tongued note at
+  - fixture 18: no attack at the cut for clicks of 35-40 % lasting
+    20-30 ms (the old rule opened one each time); a soft tongued note at
     35 % that holds still opens at its dip;
   - the owner's take (76 attacks): 10 attacks gone, each followed by
-    silence (about -47 dB) and the real attack 140–200 ms later; 2 real
+    silence (about -47 dB) and the real attack 140-200 ms later; 2 real
     attacks moved onto their rise.
 - **Re-check.** `libkan_note_stream_test` re-strike fixture, fixture 13
   (wind phrases: no record open when the next opens, no twins) and
@@ -184,7 +184,7 @@ Each entry: **what** the property is, **why** (the measured evidence),
   tails), fixture 17 (a tongued note's pitch) and fixture 18 (a tongue's
   cut).
 
-### I6 — Similarity alone is not evidence of correctness; cents must gate
+### I6: Similarity alone is not evidence of correctness; cents must gate
 
 - **What.** A written pitch can absorb energy it does not produce: in the
   counterexample suite a wrong-pitch note kept **sim 0.91** while the fit
@@ -195,20 +195,20 @@ Each entry: **what** the property is, **why** (the measured evidence),
 - **Breaks.** A judge that passes on sim ≥ threshold alone will pass wrong
   notes that are merely detuned-toward; a judge with a wide band (±60 c)
   half-swallows a semitone error (−56 c measured).
-- **Judging rule.** Gate on `|cents|` with a band of **±40–50 c** (see §3);
+- **Judging rule.** Gate on `|cents|` with a band of **±40-50 c** (see §3);
   use sim as a presence check, not a correctness check.
 
-### I7 — Amplitude can be leased; presence/sim say whether a note sounds
+### I7: Amplitude can be leased; presence/sim say whether a note sounds
 
 - **What.** A note that was never played can report a non-trivial fitted
-  amplitude from neighbor leakage (0.12 measured) — while its sim collapses
+  amplitude from neighbor leakage (0.12 measured), while its sim collapses
   (0.06).
 - **Why.** Measured in `libkan_score_error_test` (missing-note case).
 - **Breaks.** Amplitude-threshold judges convict silence or acquit ghosts.
 - **Judging rule.** "Played or not" is decided by sim/presence; amplitude is
   a loudness fact only.
 
-### I8 — Duration measurements carry a documented +~200 ms release bias
+### I8: Duration measurements carry a documented +~200 ms release bias
 
 - **What.** Measured durations exceed written ones by ≈ +200 ms (mean;
   max ≈ 302 ms) on piano: the release decay after key-off counts as
@@ -222,7 +222,7 @@ Each entry: **what** the property is, **why** (the measured evidence),
   plus tolerance; a duration error must exceed the bias to be visible
   (`libkan_score_error_test` wrong-duration case asserts exactly this).
 
-### I9 — Live and offline paths are byte-identical
+### I9: Live and offline paths are byte-identical
 
 - **What.** The same audio through the live and offline paths produces the
   same events. GPU is deliberately excluded (it would break this).
@@ -230,21 +230,21 @@ Each entry: **what** the property is, **why** (the measured evidence),
   bug reports become unreproducible.
 - **Breaks.** Any device-dependent fast path, threading race, or
   nondeterministic reduction (this is also why the analysis budget is
-  single-threaded per take — see I11).
+  single-threaded per take; see I11).
 - **Re-check.** `libkan_note_stream_test` live/offline equality fixture.
 
-### I10 — Instruments are data, not code
+### I10: Instruments are data, not code
 
 - **What.** Instrument behavior (max_simultaneous_notes, mono_poly_threshold,
   accepts_legato_boundaries, intonation_band_cents) lives in
   `InstrumentProfile` (pack data). libkan's hard cap is 10 notes.
 - **Why.** A flute or melodica must be a new profile, not new code paths;
-  otherwise every instrument change risks re-breaking I1–I9.
+  otherwise every instrument change risks re-breaking I1-I9.
 - **Breaks.** Hardcoding instrument assumptions in the analysis invalidates
   the whole chain for the next instrument.
 - **Re-check.** Adding an instrument must not touch `libkan/` at all.
 
-### I11 — Resource budget: ≤ 2 analysis threads, ≤ 4 cores total
+### I11 (Resource budget): ≤ 2 analysis threads, ≤ 4 cores total
 
 - **What.** DSP analysis ≤ 2 worker threads; total process ≤ 4 cores on an
   ordinary machine. The measured budget is met single-threaded (Hallelujah
@@ -257,7 +257,7 @@ Each entry: **what** the property is, **why** (the measured evidence),
 - **Re-check.** `libkan_harmonic_probe --bench`; wall time on the 254 s
   take must not regress beyond ~1.5×.
 
-### I12 — Real-time safety of the event path
+### I12: Real-time safety of the event path
 
 - **What.** The audio callback only pushes fixed-size POD events through the
   lock-free ring buffer: no allocation, no locking, no I/O on that path.
@@ -273,9 +273,9 @@ Each entry: **what** the property is, **why** (the measured evidence),
 ## 2. Accepted tradeoffs (decided, not accidental)
 
 These are *shallow* gaps we accept today. Each one is closed by a named
-future option — never by quietly weakening an invariant above.
+future option, never by quietly weakening an invariant above.
 
-### T1 — A wrong note can pass as "detuned" (accepted)
+### T1: A wrong note can pass as "detuned" (accepted)
 
 A semitone error bent to −56 c looks like intonation under a ±60 c band.
 We accept that error of *characterization* (wrong note ≈ badly detuned) as
@@ -284,20 +284,20 @@ covered by a tight band), and harshness would punish the very real detune
 of acoustic takes (measured −25 c mean, up to −53 c).
 
 - **Closing option (future, game-side):** a per-player **intonation
-  profile** — the game accumulates the per-note `cents` facts libkan
+  profile**. The game accumulates the per-note `cents` facts libkan
   already emits (pitch, cents, amplitude per note event), computes the
   player's bias per pitch region over judged-good play, and judges
-  bias-corrected with a tight band (±30–40 c). This needs **no new libkan
+  bias-corrected with a tight band (±30-40 c). This needs **no new libkan
   code**: the contract is that the stream always carries per-note cents and
   amplitude with the semantics of I3 (center of trajectory).
 - **If someone tightens the band at game level**, they must re-check the
   detune stats on real takes (I3 re-check) so honest detune is not
   convicted.
 
-### T2 — Extra pitch inside a written chord is weakly visible (accepted)
+### T2: Extra pitch inside a written chord is weakly visible (accepted)
 
 A player adding a voice to a chord the score already contains shows only a
-mild sim drop (0.88–0.90 vs 0.95–0.97 measured). It usually does not sound
+mild sim drop (0.88-0.90 vs 0.95-0.97 measured). It usually does not sound
 wrong and does not break immersion; convicting it from blind evidence would
 require the over-proposal machinery we deliberately do not want.
 
@@ -308,18 +308,18 @@ require the over-proposal machinery we deliberately do not want.
   strikes the score cannot account for; the sim drop is visible in the
   report for anyone who looks.
 
-### T3 — Accelerators (GPU) stay out of the validated core (decided)
+### T3: Accelerators (GPU) stay out of the validated core (decided)
 
 Large-scale evaluation (e.g. MAESTRO, ~200 h) tempts GPU acceleration: the
 workload is millions of small independent fits. We keep the analysis core
 CPU-only anyway, because **the benchmark must validate exactly the code the
-game runs** — measuring a GPU numerical path while shipping a CPU one would
-validate the wrong product — and GPU floating point is not byte-stable
+game runs** (measuring a GPU numerical path while shipping a CPU one would
+validate the wrong product) and GPU floating point is not byte-stable
 across drivers (it would violate I9).
 
 - **Scaling levers that do not break the balance:** offline `--jobs` (the
   ≤2 analysis threads of I11 bound the *live* path, not offline packs;
-  user decision: 4–6 threads OK offline), coarser `--fit-step` for triage
+  user decision: 4-6 threads OK offline), coarser `--fit-step` for triage
   runs, and deterministic `--limit`/`--offset` paging over the dataset.
   Measured: full MAESTRO ≈ 34 CPU-h ≈ 3 h wall at 12 jobs.
 - **Closing option (future):** a GPU *batch* backend may be added to the
@@ -340,7 +340,7 @@ compute scheduling, player calibration, and the "must never" list) live in
 
 1. **Presence/played-or-not:** sim/presence gates (sim ≥ 0.60 found;
    ≈ 0 means not played). Never amplitude (I7).
-2. **Pitch correctness:** gate on `|cents|`, band **±40–50 c** (I6);
+2. **Pitch correctness:** gate on `|cents|`, band **±40-50 c** (I6);
    optionally bias-corrected per player (T1). sim is a presence check
    only.
 3. **Timing:** use the strike time facts; for score-anchored verification
@@ -360,7 +360,7 @@ compute scheduling, player calibration, and the "must never" list) live in
    the same inputs: real-attack recall, `--verify-score` stats on
    `hallelujah-score-1.score`, `--bench` wall time).
 2. Run the full suite: `ctest --test-dir build` (19 tests), including
-   `libkan_score_error_test` — the counterexample signatures are the
+   `libkan_score_error_test`. The counterexample signatures are the
    fairness floor.
 3. Update the affected invariant in this file (what/why/what-breaks) and
    any cross-referenced doc.

@@ -1,4 +1,4 @@
-# Score-informed chord validation — design & results
+# Score-informed chord validation: design & results
 
 Status: Milestone 1 gate 3 measured offline (synthesized strummed triads).
 Reproduce: `ctest --test-dir build -R 'chord|chroma'` (`libkan/tests/
@@ -29,14 +29,14 @@ mono-vs-polyphonic separation are measured in
 | metric | Harmonic LS | Goertzel bank | Chroma (KissFFT) |
 |---|---|---|---|
 | macro F1 (argmax over confusions) | **1.0000** ✓ gate | 0.71 (marginal limit) | 0.58 |
-| true similarity avg / min | 0.976 / 0.942 | 0.932 / — | 0.611 / — |
-| false similarity avg / max | 0.852 / 0.989* | 0.909 / 0.977 | — / — |
+| true similarity avg / min | 0.976 / 0.942 | 0.932 / - | 0.611 / - |
+| false similarity avg / max | 0.852 / 0.989* | 0.909 / 0.977 | - / - |
 | true chords verified (threshold + floor) | 38/40 (C4+: 20/20) | 40/40 | 2/24 |
 | false acceptances | 46/120 (C4+: 10/60) | n/a | **0/72** |
 
 \* false max 0.989 occurs only in the **C3 register**: the major/minor third
 is ~9 Hz there and no method resolves it inside a 21 ms window (a
-fundamental time-frequency limit — one mainlobe is ~48 Hz wide). Even
+fundamental time-frequency limit: one mainlobe is ~48 Hz wide). Even
 there, argmax discrimination holds (true templates score higher: 1.0 F1),
 and the low-register *absolute-threshold* question is settled over the
 note's sustain (the chart judge integrates refined cents over time).
@@ -46,7 +46,7 @@ note's sustain (the chart judge integrates refined cents over time).
 SPECIFICATION §2 stage 3 suggests a Goertzel bank / 12-bin chroma with
 cosine similarity ≈ 0.80. Measured: marginal magnitude slots smear across
 neighboring semitones inside the latency budget (kernel mainlobe 94 Hz vs
-18.5 Hz E4–Eb4 spacing) — macro-F1 0.71. The fix is not a different
+18.5 Hz E4-Eb4 spacing); macro-F1 0.71. The fix is not a different
 window but a *joint model*: the LS validator explains the whole chord at
 once, exploiting phase coherence across harmonics (E4's 3rd harmonic is
 resolved at 21 ms even though its fundamental is not). This is a

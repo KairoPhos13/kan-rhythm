@@ -1,4 +1,4 @@
-# BACF (Cycfi Q) vs YIN — offline A/B benchmark
+# BACF (Cycfi Q) vs YIN: offline A/B benchmark
 
 Status: measured offline on synthesized signals (no microphone), Milestone 1.
 Reproduce: `ctest --test-dir build -R bacf_bench` (or run
@@ -13,15 +13,15 @@ Gate definitions: [ROADMAP.md](../ROADMAP.md) Milestone 1 · latency analysis:
   48 kHz, 128-sample blocks (the bounded matcher runs at the gate's
   64-sample granularity).
 - Detectors compared:
-  - **YIN score-informed** — `HybridDetector::detect_pitch` on a rolling
+  - **YIN score-informed**: `HybridDetector::detect_pitch` on a rolling
     2048-sample window, search bounded to ±2 semitones of the expected note.
-  - **YIN SI adaptive window** — same, window shrunk to ~2.5 periods of the
+  - **YIN SI adaptive window**: same, window shrunk to ~2.5 periods of the
     expected note.
-  - **BACF score-informed** — `BacfDetector` (Cycfi Q v1.5.0 `pitch_detector`,
+  - **BACF score-informed**: `BacfDetector` (Cycfi Q v1.5.0 `pitch_detector`,
     MIT) constructed with the ±2-semitone band as its lowest/highest
     frequency; 2-frame confirmation.
-  - **BACF blind** — same over the full 60–1200 Hz range (no chart input).
-  - **Bounded matched filter** — `BoundedPitchMatcher` (`bounded_pitch.hpp`):
+  - **BACF blind**: same over the full 60-1200 Hz range (no chart input).
+  - **Bounded matched filter**, `BoundedPitchMatcher` (`bounded_pitch.hpp`):
     NSDF over the bounded lag band on the clean post-blanking window,
     parabolic sub-sample interpolation. This is libkan's own fast
     confirmation stage; included because it beats both libraries on
@@ -62,23 +62,23 @@ Per-note confirmation latency (ms) and bounded-matcher error (cents):
   Score-informed YIN averages ~7 cents. The bounded matcher is sub-cent
   from A2 up; its only weak spot is E2 (−15 cents), where the correlation
   overlap is a small fraction of the long period.
-- **Latency:** YIN with a fixed 2048-window is window-bound (~37–48 ms
+- **Latency:** YIN with a fixed 2048-window is window-bound (~37-48 ms
   regardless of note). BACF's internal analysis window scales with the
   lowest frequency of its search range, so score-informed BACF confirms
-  1.5–2× faster than blind BACF but still needs ~2 periods plus its
+  1.5-2× faster than blind BACF but still needs ~2 periods plus its
   median-filter settling. The bounded matcher confirms from
-  `blanking + longest lag + 64 pairs` of clean audio — the fastest of the
+  `blanking + longest lag + 64 pairs` of clean audio, the fastest of the
   three on every note.
 - **CPU:** BACF and the bounded matcher cost ~1 µs per 2.67 ms block
-  (<0.05 % of a core each). YIN on a 2048 window costs ~90–160 µs per call
-  (up to ~6 % of a core if called every block — the ROADMAP's <3 % DSP CPU
+  (<0.05 % of a core each). YIN on a 2048 window costs ~90-160 µs per call
+  (up to ~6 % of a core if called every block; the ROADMAP's <3 % DSP CPU
   gate requires keeping full-window YIN off the per-block path).
 
 ## Decision (Milestone 1)
 
-- **Fast confirmation stage:** `BoundedPitchMatcher` — lowest latency,
+- **Fast confirmation stage:** `BoundedPitchMatcher`, lowest latency,
   lowest CPU, confirmation-grade cents.
-- **Intonation/sustain tracking:** **BACF score-informed** — best cents
+- **Intonation/sustain tracking:** **BACF score-informed**, best cents
   accuracy at negligible CPU; `set_expected_note()` per chart event.
 - **Blind fallback (no chart context, calibration flows):** YIN on the
   rolling window (`HybridDetector::detect_pitch`), which is also the
@@ -90,7 +90,7 @@ Per-note confirmation latency (ms) and bounded-matcher error (cents):
 ## Caveats
 
 - Synthesized signals only; real instrument attacks (longer inharmonic
-  precursors, room reverb) will push confirmation latencies up — track via
+  precursors, room reverb) will push confirmation latencies up; track via
   the loopback harness (`--latency-report`) and re-run this bench whenever
   the detector changes.
 - BACF numbers use Cycfi Q v1.5.0 with −45 dB hysteresis, 2-frame

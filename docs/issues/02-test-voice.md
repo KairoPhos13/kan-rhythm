@@ -14,16 +14,16 @@ smear, consonants that look like onsets but carry no pitch, breath and
 room noise, glides between notes, and pitch that drifts with effort and
 volume. kan! has never been play-tested with singing.
 
-The description stream already models some of this — vibrato, expression
+The description stream already models some of this: vibrato, expression
 facts, "unresolved" pitch states
-([docs/architecture/note-description-stream.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/note-description-stream.md))
-— but only play-testing shows whether it feels fair.
+([docs/architecture/note-description-stream.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/architecture/note-description-stream.md)),
+but only play-testing shows whether it feels fair.
 
 ## What to do
 
 1. Build and run the game (`make run` in `game/`) and the raw tools
    (`apps/kan_demo`, `apps/kan_analyze`).
-2. Sing at least one easy level end to end (humming or syllables — try
+2. Sing at least one easy level end to end (humming or syllables, try
    both), and check in `kan_demo`'s free-tuner mode:
    - onset detection on consonant vs hummed attacks;
    - pitch stability with and without vibrato;
@@ -47,15 +47,15 @@ facts, "unresolved" pitch states
 
 ## Pointers
 
-- `apps/kan_demo` — free-tuner mode (onset flash, note, Hz, cents,
+- `apps/kan_demo`: free-tuner mode (onset flash, note, Hz, cents,
   stability bar)
-- `libkan/include/libkan/technique.hpp` — vibrato/bend/expression
+- `libkan/include/libkan/technique.hpp`: vibrato/bend/expression
   validators (plain-data specs)
-- `libkan` relative-tuning mode (`RelativeTuningTracker`) — intended for
+- `libkan` relative-tuning mode (`RelativeTuningTracker`): intended for
   instruments without fixed pitch
-- [docs/dsp/technique-validation.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/technique-validation.md) —
+- [docs/dsp/technique-validation.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/docs/dsp/technique-validation.md):
   what the validators measure today
-- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md):
   judging rules (timing windows follow the music's pace)
 
 ## Notes

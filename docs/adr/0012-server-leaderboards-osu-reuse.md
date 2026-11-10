@@ -1,4 +1,4 @@
-# ADR-0012: Server & leaderboards — osu! ecosystem reuse policy (with license boundaries)
+# ADR-0012: Server & leaderboards (osu! ecosystem reuse policy, with license boundaries)
 
 - **Status:** Accepted (2026-10-12, project owner decision)
 - **Deciders:** project owner (KairoPhos)
@@ -8,14 +8,14 @@
 ## Context
 
 The game client now builds on osu!lazer (ADR-0010). The owner asked to
-extend the same strategy — take osu!'s excellent features, adapt them,
-rebrand to kan! — to the **server and leaderboards**.
+extend the same strategy (take osu!'s excellent features, adapt them,
+rebrand to kan!) to the **server and leaderboards**.
 
 License verification of the osu! ecosystem (GitHub API, 2026-10-12):
 
 | Repository | License | Adoptable? |
 |---|---|---|
-| `ppy/osu` (osu!lazer client) | MIT | ✅ Yes — ADR-0010 |
+| `ppy/osu` (osu!lazer client) | MIT | ✅ Yes (ADR-0010) |
 | `ppy/osu-tools` (performance/pp calculator) | MIT | ✅ Yes |
 | `ppy/osu-server-spectator` (multiplayer/spectator, SignalR) | MIT | ✅ Yes |
 | `ppy/osu-web` (website + API v2 backend) | **AGPL-3.0** | ❌ **No** |
@@ -49,7 +49,7 @@ credited; substantially divergent parts are marked.
 
 Score overlays on beatmap pages, personal-best markers, ranking panels,
 profile/rank history graphs: all exist in the client (MIT, already our
-base) — adapt and rebrand per ADR-0011. osu-web's *website* UX (beatmap
+base). Adapt and rebrand per ADR-0011. osu-web's *website* UX (beatmap
 listing, user profiles, forum) may be emulated as clean-room design (see §5).
 
 ### 4. Multiplayer/spectator: adopt `osu-server-spectator` (MIT) later
@@ -61,7 +61,7 @@ OpenAPI at that time.
 
 ### 5. osu-web clean-room rule (AGPL contamination boundary)
 
-No code from `osu-web` enters this repository — ever. Website/profile UX
+No code from `osu-web` ever enters this repository. Website/profile UX
 may be emulated from **public behavior and screenshots** (ideas and UX
 patterns are not copyrightable; code and creative expression are).
 Contributors who have read osu-web source in depth should not implement

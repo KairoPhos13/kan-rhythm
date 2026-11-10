@@ -8,8 +8,8 @@ Size: L
 kan! is "by the community, for the community"
 ([README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/README.md)),
 and the community's raw material is levels. The editor (kan!forge) is
-powerful and already working — track roles, local stem separation,
-transcription drafts, compose/design/verify tabs — but its only
+powerful and already working (track roles, local stem separation,
+transcription drafts, compose/design/verify tabs), but its only
 documentation is an **implementation note** for developers
 ([game/docs/editor-pipeline.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/editor-pipeline.md))
 and the player-oriented summary in
@@ -26,24 +26,24 @@ and `docs/issues/14` (companions) both need a document to point at.
 1. Write a creator-facing handbook (suggest `game/docs/level-creation-guide.md`,
    linked from `game/README.md` and the root README's "Join in") in
    plain language, aimed at musicians, not programmers:
-   - **What a level is** — a song's score: reference track, companion
+   - **What a level is**, a song's score: reference track, companion
      (the accompaniment that plays along), the score, per-instrument
      arrangements, the look;
-   - **Getting a song in** — local files only (URL/YouTube fetching is
+   - **Getting a song in**, local files only (URL/YouTube fetching is
      developer tooling, see the pipeline doc §7); licences: what may be
      used and why (link `charts/docs/free-song-candidates.md` for
      freely shareable material);
-   - **Tracks tab** — roles (reference / accompaniment / demux), what
+   - **Tracks tab**: roles (reference / accompaniment / demux), what
      separation does and does not do, the "never demuxable again" rule,
      cutting/moving ranges, cover credits;
-   - **Compose tab** — the score editor: transcription drafts as a
+   - **Compose tab**, the score editor: transcription drafts as a
      starting point (trust, then fix), pitch/onset/duration editing,
      tempo and sync points, the "unjudged" semantics;
-   - **Design tab** — the level's look (calm and readable beats busy);
-   - **Verify tab** — the checklist explained: unreachable notes, two
+   - **Design tab**: the level's look (calm and readable beats busy);
+   - **Verify tab**, the checklist explained: unreachable notes, two
      notes at once on one-note instruments, guessed pitches, audio
      length/loudness; what each warning means and how to fix it;
-   - **Sharing** — file formats today (`.kan`/`.kchart` direction:
+   - **Sharing**, file formats today (`.kan`/`.kchart` direction:
      [charts/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/charts/README.md)),
      and the golden rule: every level must play on more than one
      instrument family where the music allows.
@@ -68,14 +68,14 @@ and `docs/issues/14` (companions) both need a document to point at.
 
 ## Pointers
 
-- [game/docs/editor-pipeline.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/editor-pipeline.md) —
+- [game/docs/editor-pipeline.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/editor-pipeline.md):
   the source of truth (§6a glossary, §6b tracks, §6f compose, §6g
   design, §6h verify, §7 URL policy)
-- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md) —
+- [game/docs/gameplay.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/docs/gameplay.md):
   how plays are judged (write charts that judge fairly)
-- [game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md) —
+- [game/README.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/game/README.md):
   the player-facing feature summary to stay consistent with
-- `charts/docs/free-song-candidates.md` — songs that are free to use
+- `charts/docs/free-song-candidates.md`: songs that are free to use
 
 ## Notes
 
