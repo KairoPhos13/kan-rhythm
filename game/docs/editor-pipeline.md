@@ -1,4 +1,4 @@
-# kan!forge, level-creation pipeline (editor × libkan): implementation notes
+# kan!forge level-creation pipeline (editor × libkan): implementation notes
 
 - **Status:** slice 1 implemented and tested (2026-10-13): the libkan C-ABI
   bridge, the background pipeline with live progress, the editor entry-window
@@ -568,7 +568,7 @@ the score) says how the level looks and rewards, stretch by stretch:
   the screen shows (the music as light then 3-2-1 / the music as light /
   calm and empty); a palette of their own.
 - **The level:** palette (thirteen presets: sakura, ocean, ember,
-  forest, aurora, and, owner 2026-10-15, holy (white and gold), space,
+  forest, aurora, and (owner, 2026-10-15) holy (white and gold), space,
   neon, cowboy, cyberpunk, solarpunk, happy, nature; grade colours are
   the same in all, backgrounds stay dark enough for the staff to read,
   unit-tested), sparkle 0-2, glow 0-2,
