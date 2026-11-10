@@ -55,10 +55,12 @@ endif()
 # Warning policy: -Wall -Wextra (repo rule, CONTRIBUTING §4). MSVC has no
 # such flags (/Wall there would enable the SDK's noisy informational
 # warnings), so it gets /W4 plus the _USE_MATH_DEFINES that libkan headers
-# using M_PI need.
+# using M_PI need, and _CRT_SECURE_NO_WARNINGS: getenv/fopen are standard C
+# used portably here, and MSVC's C4996 getenv_s/fopen_s advice has no POSIX
+# equivalent.
 if(MSVC)
     set(KAN_WARNING_FLAGS /W4)
-    add_compile_definitions(_USE_MATH_DEFINES)
+    add_compile_definitions(_USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
 else()
     set(KAN_WARNING_FLAGS -Wall -Wextra)
 endif()
@@ -78,7 +80,9 @@ target_compile_options(kan_forge_native PRIVATE ${KAN_WARNING_FLAGS})
 if(UNIX AND NOT APPLE)
     target_link_libraries(kan_forge_native PRIVATE pthread m dl)
 elseif(APPLE)
-    target_link_libraries(kan_forge_native PRIVATE pthread m)
+    # libm is part of libSystem on macOS (libkan already links it; a second
+    # -lm only makes ld warn about a duplicate library).
+    target_link_libraries(kan_forge_native PRIVATE pthread)
 endif()
 
 # Offline self-test (known synthesized input -> expected transcribed notes),

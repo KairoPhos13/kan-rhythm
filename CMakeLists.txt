@@ -18,6 +18,9 @@ endif()
 if(MSVC)
     add_compile_options(/O2 /arch:AVX2)
     add_compile_definitions(_USE_MATH_DEFINES) # libkan headers use M_PI
+    # getenv/fopen are standard C and used portably here; MSVC's C4996
+    # "unsafe, use getenv_s/fopen_s" advice has no POSIX equivalent.
+    add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
     add_compile_options(-O3 -march=native -Wall -Wextra)
 endif()

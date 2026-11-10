@@ -64,7 +64,9 @@ std::vector<float> reference_window() {
             for (int h = 1; h < 6; ++h) x[size_t(i)] += env * 0.3 / h * std::sin(2.0 * kPi * tone[0] * h * t);
         }
     }
-    return std::vector<float>(x.begin(), x.end());
+    std::vector<float> out(x.size());
+    for (size_t i = 0; i < x.size(); ++i) out[i] = float(x[i]);
+    return out;
 }
 
 template <size_t N>
