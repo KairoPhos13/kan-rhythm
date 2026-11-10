@@ -5,12 +5,12 @@
 #   <song>.jsonl  the per-note description stream (one schema for all tools)
 #   <song>.candidates  chart-stand-in hypotheses (piano takes only)
 #
-# Audio lives in test_results/audio/ (gitignored — supply your own copies);
+# Audio lives in test_results/audio/ (gitignored, supply your own copies);
 # outputs land in test_results/validation/. Piano takes get auto-generated
 # candidate hypotheses (libkan_harmonic_probe --emit-candidates) so every
 # chord attack is described per candidate; monophonic takes need none.
 #
-# Songs run in PARALLEL (default 6 jobs — the per-song analysis is
+# Songs run in PARALLEL (default 6 jobs: the per-song analysis is
 # single-threaded; override with JOBS=4 ./run_validation.sh).
 #
 # Usage: ./run_validation.sh
@@ -25,7 +25,7 @@ AUD="$ROOT/test_results/audio"
 OUT="$ROOT/test_results/validation"
 
 if [ ! -x "$BIN" ]; then
-    echo "kan_demo not found — build first:" >&2
+    echo "kan_demo not found; build first:" >&2
     echo "  cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j" >&2
     exit 1
 fi

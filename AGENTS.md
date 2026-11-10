@@ -15,7 +15,7 @@ Follow these rules for every change in this repository. Full details in
    Architecture of record: `docs/architecture/platform-architecture.md` and
    `docs/architecture/backend-data-model.md`. The `game/` client is a fork
    of `ppy/osu` (osu!lazer, MIT) + ruleset per `docs/adr/0010` and
-   `docs/architecture/osu-integration.md` — preserve upstream attribution
+   `docs/architecture/osu-integration.md`. Preserve upstream attribution
    (CONTRIBUTING.md §6) and keep fork divergence minimal.
 3. **Real-time safety.** Code on the audio callback path must not allocate,
    block, lock, or do I/O. Use the lock-free ring buffer in `libkan/`.

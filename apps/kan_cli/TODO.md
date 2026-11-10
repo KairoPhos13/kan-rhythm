@@ -1,4 +1,4 @@
-# apps/kan_cli — TODO
+# apps/kan_cli: TODO
 
 Reference CLI consumer of `libkan`. Used to validate Milestone 1 gates
 without any graphics engine.

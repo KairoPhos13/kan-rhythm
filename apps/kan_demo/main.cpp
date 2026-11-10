@@ -1,8 +1,8 @@
-// kan_demo — live real-instrument demo for libkan (Milestone 1 pipeline).
+// kan_demo: live real-instrument demo for libkan (Milestone 1 pipeline).
 //
-// Feeds the microphone through the full detection stack — stage 0
+// Feeds the microphone through the full detection stack (stage 0
 // preconditioning, fast onset, profile-driven transient blanking, harmonic
-// pitch confirmation — and shows live rhythm + intonation feedback in the
+// pitch confirmation) and shows live rhythm + intonation feedback in the
 // terminal. Built for "grab an ocarina and try it" sessions; see README.md
 // for what is and is not covered yet.
 //
@@ -220,7 +220,7 @@ struct Pipeline {
         }
 
         // Stage 2: transient blanking. Freeze pitch evaluation AND stop the
-        // trackers from ingesting the inharmonic attack — feeding it in
+        // trackers from ingesting the inharmonic attack; feeding it in
         // corrupts the autocorrelation state (the reason a naive first read
         // lands a semitone high on breathy instruments).
         if (in_blanking) {
@@ -231,7 +231,7 @@ struct Pipeline {
         // Stage 3: harmonic pitch on clean audio only.
         if (expect_mode) {
             // Score-informed: bounded matcher over a fixed clean window
-            // (its design size — a growing window breaks the NSDF peak).
+            // (its design size: a growing window breaks the NSDF peak).
             clean.insert(clean.end(), conditioned, conditioned + block);
             if (clean.size() > need) clean.erase(clean.begin(), clean.end() - need);
             if (clean.size() >= need) {
@@ -264,7 +264,7 @@ struct Pipeline {
 
 // ---------------------------------------------------------------------------
 // Per-note description stream (docs/architecture/note-description-stream.md):
-// facts as they become available — HIT (fixed at the onset), provisional
+// facts as they become available: HIT (fixed at the onset), provisional
 // pitch (display-only), CONTENT (mono/polyphonic + per-candidate
 // measurements), final pitch or honest "unresolved", EXPRESSION, CLOSE.
 // With --events the same facts go to a JSONL log (the schema kan_analyze
@@ -279,12 +279,12 @@ void print_event(const kan::NoteEvent& e, FILE* jsonl) {
     }
     switch (e.kind) {
     case kan::NoteKind::Hit: {
-        // Records struck together share one visual strike header — the
+        // Records struck together share one visual strike header; the
         // model is "one record per struck note", and the log now reads so.
         static uint32_t s_last_strike = 0;
         if (e.u.hit.strike_group != s_last_strike) {
             s_last_strike = e.u.hit.strike_group;
-            std::printf("\n[%9.1f] ▶ strike %u — record per struck note:\n",
+            std::printf("\n[%9.1f] ▶ strike %u: record per struck note:\n",
                         double(e.t_ms), e.u.hit.strike_group);
         }
         char name[8];
@@ -397,7 +397,7 @@ std::vector<CandidateLine> load_candidates(const char* path) {
 
 // ---------------------------------------------------------------------------
 // Synthesized ocarina-ish tone for --selftest: breathy attack (turbulence
-// noise burst ~25 ms — real wind instruments have this, and it is what the
+// noise burst ~25 ms: real wind instruments have this, and it is what the
 // HFC onset detector locks onto), then a nearly pure sine with a weak 2nd
 // harmonic at C5 +8 cents.
 std::vector<float> synth_ocarina_note(float freq, float seconds) {
@@ -514,7 +514,7 @@ int run_selftest() {
         cs.entries[0] = {0, 60.0f, 1}; // struck here (own record each)
         cs.entries[1] = {0, 64.0f, 1};
         cs.entries[2] = {0, 67.0f, 1};
-        cs.entries[3] = {0, 69.0f, 1}; // A4: absent — must not be invented
+        cs.entries[3] = {0, 69.0f, 1}; // A4: absent, must not be invented
         desc.set_candidates(cs);
 
         bool provisional = false, absent_low = false;
@@ -556,7 +556,7 @@ int run_selftest() {
     }
 
     // File input path (--input): writing a WAV and decoding it back must
-    // describe byte-identically to feeding the same samples directly — the
+    // describe byte-identically to feeding the same samples directly; the
     // file mode runs the exact live consumer (live/offline equivalence).
     {
         auto describe_jsonl = [](const std::vector<float>& sig) {
@@ -629,17 +629,17 @@ int run_selftest() {
 
 void print_usage() {
     std::printf(
-        "kan_demo — live real-instrument demo for libkan\n"
+        "kan_demo: live real-instrument demo for libkan\n"
         "\n"
         "Usage: kan_demo [options]\n"
         "  --instrument <name>   ocarina | flute | recorder | guitar | piano\n"
         "                        (default: ocarina)\n"
         "  --input <wav>         offline validation: run the exact live\n"
-        "                        pipeline over a recording (no audio device) —\n"
+        "                        pipeline over a recording (no audio device),\n"
         "                        same events, same schema as a live session\n"
         "  --expect <note>       score-informed mode: confirm the expected\n"
         "                        note (e.g. C5, A4, F#5) with the bounded\n"
-        "                        matcher — the game's confirmation path.\n"
+        "                        matcher, the game's confirmation path.\n"
         "                        Also feeds the note as a CONTENT candidate\n"
         "                        (presence/cents measured per attack)\n"
         "  --engine <yin|bacf>   free-tuner pitch engine (default yin; bacf =\n"
@@ -648,20 +648,20 @@ void print_usage() {
         "                        noise gate calibrates; prints the global\n"
         "                        detuning Δc in cents and applies it\n"
         "  --vibrato             live vibrato readout (rate Hz / depth cents)\n"
-        "                        from the cents trajectory — technique check\n"
+        "                        from the cents trajectory, technique check\n"
         "  --csv <file>          write per-note events (onset ms, note, Hz,\n"
-        "                        cents, vibrato) — the descriptor feature\n"
+        "                        cents, vibrato), the descriptor feature\n"
         "                        stream for later evaluation\n"
         "  --events <f.jsonl>    write the per-note description stream (HIT /\n"
         "                        provisional / CONTENT / final / EXPRESSION /\n"
         "                        CLOSE facts; same schema as kan_analyze\n"
-        "                        --events — live/offline diffable) and show\n"
+        "                        --events, live/offline diffable) and show\n"
         "                        the facts progressively on screen\n"
         "  --candidates <f>      candidate hypotheses per attack (one line per\n"
         "                        attack: '@<t_ms> midi midi ...' binds to the\n"
         "                        attack at that time, or plain 'midi ...' for\n"
         "                        the next attack; include notes still\n"
-        "                        sustaining) — conditions the CONTENT\n"
+        "                        sustaining). Conditions the CONTENT\n"
         "                        measurements (presence/cents/amplitude)\n"
         "  --no-gate             disable the adaptive noise gate\n"
         "  --noise-cal <ms>      room-silence calibration window (default 500)\n"
@@ -973,7 +973,7 @@ int main(int argc, char** argv) {
     }
 
     std::printf("====================================================\n");
-    std::printf("  kan! demo — live instrument check (libkan v0.1)\n");
+    std::printf("  kan! demo: live instrument check (libkan v0.1)\n");
     std::printf("  Instrument: %-8s %s\n", inst.name, inst.hint);
     std::printf("  Audio: %u Hz / %u samples\n", SAMPLE_RATE, BLOCK_SIZE);
     std::printf("  Engine: %s\n",
@@ -1097,7 +1097,7 @@ int main(int argc, char** argv) {
     }
 
     // The display is rendered FROM the event stream (the same facts the
-    // JSONL log carries) — one schema for display, log and offline tools.
+    // JSONL log carries), one schema for display, log and offline tools.
     // The validation artifact: one line per struck note at the end of the
     // log (its whole life in one place).
     struct NoteSummary {
@@ -1296,7 +1296,7 @@ int main(int argc, char** argv) {
                          double(cents), double(vib_rate_last), double(vib_depth_last));
         }
 
-        // Live tuner line (single-line refresh) — raw readout, live sessions
+        // Live tuner line (single-line refresh): raw readout, live sessions
         // only. In --input mode the stream transcript IS the display.
         if (input_path == nullptr) {
             char bar[17];
@@ -1350,7 +1350,7 @@ int main(int argc, char** argv) {
     };
 
     // Per-block consumer: the SAME code path for the capture ring (live)
-    // and for a decoded recording (--input) — live/offline equivalence. The
+    // and for a decoded recording (--input), live/offline equivalence. The
     // description stream sees every block of the session (its clock starts
     // at session start), so event times are session/file-absolute.
     auto consume_block = [&](const float* blk) {
@@ -1390,7 +1390,7 @@ int main(int argc, char** argv) {
 
         // The description stream consumes the same stage-0 audio: facts as
         // they become available (HIT/provisional inline; long-window final
-        // measurements via finalize_due — movable to a worker thread).
+        // measurements via finalize_due, movable to a worker thread).
         desc.process_block(pipeline.conditioned_last, BLOCK_SIZE);
         while (desc.finalize_due()) {}
         drain_events();
@@ -1455,7 +1455,7 @@ int main(int argc, char** argv) {
             file.insert(file.end(), chunk, chunk + got);
         }
         ma_decoder_uninit(&dec);
-        std::printf("input: %s (%.1f s) — live pipeline, offline\n",
+        std::printf("input: %s (%.1f s); live pipeline, offline\n",
                     input_path, double(file.size()) / double(SAMPLE_RATE));
         for (size_t off = 0; off + BLOCK_SIZE <= file.size(); off += BLOCK_SIZE) {
             consume_block(&file[off]);
@@ -1477,7 +1477,7 @@ int main(int argc, char** argv) {
     desc.flush();
     drain_events();
 
-    // Measured session summary — the data behind the claims, straight from
+    // Measured session summary: the data behind the claims, straight from
     // the same events the display and the JSONL log carry.
     std::printf("\n\n--- note description stream ---\n");
     std::printf("records: %d | content: mono %d, polyphonic %d\n",
@@ -1530,7 +1530,7 @@ int main(int argc, char** argv) {
     if (calibrate && !cal_done) {
         std::printf("calibration: not enough steady readings; hold one note for ~2 s.\n");
     }
-    std::printf("Reminder: this is a detection demo — timing/pitch are measured,\n"
+    std::printf("Reminder: this is a detection demo; timing/pitch are measured,\n"
                 "not judged. Scoring, backing-track consonance and visual feedback\n"
                 "live in later milestones (see apps/kan_demo/README.md).\n");
 

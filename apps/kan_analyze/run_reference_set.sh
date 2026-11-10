@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Reference-set analyzer: run the performance descriptor (kan_analyze) over
-# a folder of songs and collect per-song logs (text + JSON) — the repeatable
+# a folder of songs and collect per-song logs (text + JSON), the repeatable
 # version of the reference run.
 #
 # Usage:
@@ -21,7 +21,7 @@
 #   guitar -> guitar profile
 # anything else -> ocarina (override by renaming the file).
 #
-# This script and the analyzer never download audio — provide recordings
+# This script and the analyzer never download audio; provide recordings
 # yourself (WAV/MP3/FLAC/OGG). For the six reference songs:
 #   1. Nier Automata - Weight of the World (piano)      -> *_piano.*
 #   2. Frieren - Time Flows Ever Onward (ocarina)       -> *_ocarina.*
@@ -37,7 +37,7 @@ ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 BIN="$ROOT/build/apps/kan_analyze/kan_analyze"
 
 if [ ! -x "$BIN" ]; then
-    echo "kan_analyze not found at $BIN — build first:" >&2
+    echo "kan_analyze not found at $BIN; build first:" >&2
     echo "  cmake -B build -DCMAKE_BUILD_TYPE=Release && cmake --build build -j" >&2
     exit 1
 fi

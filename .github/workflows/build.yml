@@ -8,7 +8,7 @@
 #   macos-latest    osx-arm64   native bridge: AppleClang, ggml Metal backend
 #   macos-15-intel  osx-x64     native bridge: AppleClang, ggml Metal backend
 #   ubuntu-latest   linux-x64   native bridge: GCC, ggml Vulkan backend
-# (The mission asked for macos-13; GitHub retired that runner image — the
+# (The mission asked for macos-13; GitHub retired that runner image. The
 # Intel label is macos-15-intel now, see docs.github.com "GitHub-hosted
 # runners reference".)
 #
@@ -158,7 +158,7 @@ jobs:
       # --- kan!'s C# (make check equivalents) ------------------------------
       # Warnings are errors for kan's own code (Makefile STRICT). %3B is
       # MSBuild's escape for ';' inside a property value (MSB1006 otherwise).
-      - name: kan! C# — warnings as errors
+      - name: kan! C# warnings as errors
         shell: bash
         run: |
           for p in game/core/Kan.Core.csproj game/forge/Kan.Forge.csproj game/ruleset/Kan.Ruleset.csproj; do
@@ -170,7 +170,7 @@ jobs:
       # stub file so the RoFormer model (a ~200 MB download) is never fetched
       # during tests: probes fail fast and every caller answers with a
       # controlled error. SeparationTest is the one suite that needs the real
-      # model + minutes of CPU — it runs locally (make test), not here.
+      # model + minutes of CPU; it runs locally (make test), not here.
       - name: kan! C# tests (core)
         shell: bash
         env:
@@ -221,7 +221,7 @@ jobs:
 
       # Signing and notarization need a paid Apple Developer account; they
       # run only when the secrets are configured and are skipped otherwise
-      # (the zip is then unsigned — platform-builds.md explains what that
+      # (the zip is then unsigned: platform-builds.md explains what that
       # means for players). Secrets: APPLE_CERTIFICATE (base64 .p12),
       # APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID,
       # APPLE_PASSWORD (app-specific), APPLE_TEAM_ID.

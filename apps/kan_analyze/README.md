@@ -1,9 +1,9 @@
-# kan_analyze — song performance descriptor
+# kan_analyze: song performance descriptor
 
 Describes **how a piece is played**: per-note events (onset, pitch, cents,
 duration, envelope, vibrato) + song-level features (tempo, intonation,
 articulation mix, range). These are the same features a learner is evaluated
-on — a reference descriptor is both the **level seed** and the **rubric**.
+on: a reference descriptor is both the **level seed** and the **rubric**.
 
 ```bash
 kan_analyze my_recording.mp3 --instrument ocarina [--json]
@@ -16,14 +16,14 @@ kan_analyze my_recording.wav --events notes.jsonl # per-note description stream
 - Output: text report or `--json` (machine-readable events + features);
   `--events <f.jsonl>` writes the per-note description stream (HIT /
   provisional / CONTENT / final / EXPRESSION / CLOSE facts,
-  `libkan/note_stream.hpp`) — the same schema `kan_demo --events` logs
+  `libkan/note_stream.hpp`), the same schema `kan_demo --events` logs
   live, byte-identical on the same audio.
 - One estimate per event: `midi`/`hz`/`cents` describe the same reading of
   the note (Hz derived from the note + cents pair). Rows the tool cannot
   estimate honestly print `-` (text) / `null` (JSON) in those columns.
 - Reliability flags: `MIX` (low pitch validity = polyphonic/overlapped) and
   `HOP` (tracker hopping between sources) are listed but **excluded** from
-  statistics — blind mono analysis cannot separate polyphony; chords and
+  statistics. Blind mono analysis cannot separate polyphony; chords and
   companions belong to the score-informed path (`HarmonicChordValidator`).
 
 Findings, measured outputs and corner cases: `docs/dsp/performance-analysis.md`.

@@ -1,4 +1,4 @@
-// kan_analyze — song performance descriptor.
+// kan_analyze: song performance descriptor.
 //
 // Describes HOW a piece is played: per-note events (time, pitch, cents,
 // duration, envelope, vibrato) plus song-level features (tempo, intonation,
@@ -38,7 +38,7 @@ constexpr size_t B = 128;
 // Pitch columns (midi / freq_hz / cents) are ONE consistent estimate: the
 // fixed per-note reference is the nearest equal-tempered note of the first
 // reading, `cents` is the mean deviation from that reference over the note,
-// and `freq_hz` is DERIVED from (midi, cents) — never measured separately.
+// and `freq_hz` is DERIVED from (midi, cents), never measured separately.
 // A row therefore cannot print a note name, an Hz value and a cents value
 // that disagree with each other.
 struct NoteRec {
@@ -85,7 +85,7 @@ void add_note(std::vector<float>& out, float t0, float freq, float dur,
         } else {
             const float decay = std::exp(-1.2f * (t - 0.008f));
             // Vibrato = frequency modulation integrated into phase (a
-            // t*vib(t) shortcut mixes in a huge spurious FM term — the
+            // t*vib(t) shortcut mixes in a huge spurious FM term; the
             // analyzer caught that as fake 20-46 Hz "vibrato").
             const float mod = (vibrato_hz > 0.0f && t > 0.15f)
                 ? std::pow(2.0f, (vib_depth_c / 1200.0f)
@@ -147,7 +147,7 @@ std::vector<float> make_scenario(const char* name) {
         // whose dominance swaps every 120 ms. Total energy stays constant
         // (cos^2 + sin^2 = 1) and the swap is continuous, so the onset
         // detector sees ONE attack while the blind pitch tracker hops
-        // between the two fundamentals — the measured HOP failure mode on
+        // between the two fundamentals, the measured HOP failure mode on
         // companion-instrument material.
         s.assign(size_t(3.0f * SR), 0.0f);
         add_note(s, 0.3f, 659.26f, 0.4f, 0.5f, 1, 0, 0, 1u); // clean mono note
@@ -263,7 +263,7 @@ Report analyze(const std::vector<float>& sig, const char* source,
         n.duration_ms = n.end_ms - n.onset_ms;
     }
     // Envelope + validity need per-note series; recompute from the last
-    // note's buffers only for the final note — simpler: track during the
+    // note's buffers only for the final note; simpler: track during the
     // loop. (Second pass over the signal is cheap at offline speed.)
     // Re-run with per-note capture:
     {
@@ -327,7 +327,7 @@ Report analyze(const std::vector<float>& sig, const char* source,
             }
             if (!s.cents.empty()) {
                 // Continuous deviation relative to a FIXED reference (the
-                // note's first reading) — nearest-note cents wrap around at
+                // note's first reading): nearest-note cents wrap around at
                 // ±50 and destroy vibrato trajectories.
                 const float m0 = 69.0f + 12.0f * std::log2(s.cents_freq0 / 440.0f);
                 const float ref_midi = std::floor(m0 + 0.5f);
@@ -379,7 +379,7 @@ Report analyze(const std::vector<float>& sig, const char* source,
 // ---------------------------------------------------------------------------
 // Pitch columns are printed only for rows that carry one honest estimate:
 // an unreliable row (MIX/HOP) or a row without any pitch reading shows "-"
-// (JSON: null) — never numbers derived from an estimator the tool distrusts.
+// (JSON: null), never numbers derived from an estimator the tool distrusts.
 bool pitch_estimated(const NoteRec& n) { return n.freq_hz > 0.0f && n.reliable; }
 
 // One per-note table row, padded exactly like the header below.
@@ -445,7 +445,7 @@ int write_event_stream(const std::vector<float>& sig,
 // ---------------------------------------------------------------------------
 void print_report(const Report& r, bool json, FILE* out) {
     // Song-level features = the learner-evaluation rubric. MIX regions
-    // (polyphony/duet overlaps) are unreliable for mono pitch — listed and
+    // (polyphony/duet overlaps) are unreliable for mono pitch, listed and
     // counted, but excluded from the intonation/vibrato statistics.
     std::vector<float> iois;
     for (size_t i = 1; i < r.notes.size(); ++i) {
@@ -529,8 +529,8 @@ void print_report(const Report& r, bool json, FILE* out) {
 // ---------------------------------------------------------------------------
 // --selftest: the report must never lie. On synthesized fixtures with known
 // content (including the "hop" fixture: one attack, two competing sources),
-// it checks that (a) each row's note/Hz/cents cells come from ONE estimate —
-// the three cells verify each other numerically — and (b) rows the tool
+// it checks that (a) each row's note/Hz/cents cells come from ONE estimate
+// (the three cells verify each other numerically) and (b) rows the tool
 // flags MIX/HOP (or that carry no pitch at all) show "-" / null in those
 // cells instead of contradicting numbers.
 int midi_from_name(const char* token) {
@@ -695,7 +695,7 @@ int main(int argc, char** argv) {
         else if (std::strcmp(argv[i], "--events") == 0 && i + 1 < argc) events_out = argv[++i];
         else if (std::strcmp(argv[i], "--out") == 0 && i + 1 < argc) out_wav = argv[++i];
         else if (std::strcmp(argv[i], "--help") == 0) {
-            std::printf("kan_analyze — song performance descriptor\n"
+            std::printf("kan_analyze: song performance descriptor\n"
                         "  kan_analyze <audio.wav|mp3|flac> [--instrument ocarina|flute|"
                         "recorder|guitar|piano] [--json|--json-out f.json]\n"
                         "  kan_analyze --synth <ocarina|piano|duet|fx|hop> [...] [--out f.wav]\n"

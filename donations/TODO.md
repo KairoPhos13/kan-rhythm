@@ -1,6 +1,6 @@
-# donations/ — TODO
+# donations/: TODO
 
-The donation engine — financial support for the whole project
+The donation engine, financial support for the whole project
 (osu!-style: the game is free, the community sustains it).
 
 ## Design phase (write docs/adr + design doc BEFORE code)
@@ -9,7 +9,7 @@ The donation engine — financial support for the whole project
       no predatory DLCs)
 - [ ] Provider evaluation: Stripe, PayPal, Open Collective, GitHub Sponsors
       (fees, availability in target regions, payout model, API quality)
-- [ ] `kan!supporter` tier design — cosmetic-only benefits:
+- [ ] `kan!supporter` tier design (cosmetic-only benefits):
   - [ ] Profile medals / badges
   - [ ] Fast direct map downloads in-client
   - [ ] Username cosmetics, profile background

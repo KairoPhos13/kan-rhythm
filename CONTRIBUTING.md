@@ -15,7 +15,7 @@ repository must be written in English:
 - Issue reports
 
 This applies even though the core team may speak other languages natively.
-If you are not fluent, write your best English — reviewers will help with
+If you are not fluent, write your best English; reviewers will help with
 wording, never penalize. Do not commit machine-translated walls of text
 without reading them; keep it simple and clear instead.
 
@@ -25,7 +25,7 @@ proper i18n system; the source-of-truth strings stay in English.
 ## 2. Repository layout
 
 This is a monorepo. Each top-level component is designed so it can be
-extracted into its own repository later — keep components self-contained
+extracted into its own repository later. Keep components self-contained
 and never reach into another component's internals.
 
 | Folder        | Component                                                  |
@@ -37,7 +37,7 @@ and never reach into another component's internals.
 | `charts/`     | `.kan`/`.kchart` song data + format specification          |
 | `tools/`      | CLI utilities (incl. **kan!check** playability linter)     |
 | `server/`     | Backend: users, catalog, scores, leaderboards (`kp`)       |
-| `donations/`  | Donation engine — financial support (`kan!supporter`)      |
+| `donations/`  | Donation engine: financial support (`kan!supporter`)      |
 | `assets/`     | Graphics, sounds, fonts                                    |
 | `docs/`       | Specification, roadmap, ADRs                               |
 
@@ -72,7 +72,7 @@ as errors and runs the native self-test and both C# suites
 (see `game/README.md`).
 
 Every PR must build cleanly with `-Wall -Wextra` (warnings are errors in
-spirit — do not add new ones) and pass all tests. DSP changes must include
+spirit; do not add new ones) and pass all tests. DSP changes must include
 an offline test with a known expected result (see `libkan/tests/dsp_test.cpp`).
 
 ## 5. Commits & PRs
@@ -90,7 +90,7 @@ Code is MIT (see `LICENSE`). Do not add dependencies with licenses
 incompatible with MIT (GPL/AGPL) without discussing it first.
 miniaudio (MIT-0 / public domain) is the reference for acceptable licensing.
 
-The kan! client is built on a fork of `ppy/osu` (osu!lazer, MIT — ADR-0010).
+The kan! client is built on a fork of `ppy/osu` (osu!lazer, MIT; ADR-0010).
 Working with third-party open-source code obliges us to respect it in kind:
 
 - Preserve every upstream copyright header and license text; never strip

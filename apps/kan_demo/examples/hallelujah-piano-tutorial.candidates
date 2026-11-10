@@ -1,11 +1,11 @@
 # Candidate hypotheses for the Hallelujah piano tutorial take
-# (test_results/audio/07-hallelujah-piano-tutorial_piano.wav — download your
+# (test_results/audio/07-hallelujah-piano-tutorial_piano.wav, download your
 # own copy; audio is not committed). Hand-written from long-window spectral
 # inspection of 28 attacks (method + evidence:
 # docs/architecture/note-description-stream.md §2 and
 # libkan/tests/harmonic_probe_notes.hpp, which this file mirrors).
 #
-# These are HYPOTHESES, not ground truth — exactly the role the chart plays
+# These are HYPOTHESES, not ground truth, exactly the role the chart plays
 # in the game: "these pitches are believed sounding at this attack". The
 # stream measures each one (presence / cents / amplitude) and flags what the
 # candidates do not explain. Use with:
@@ -17,7 +17,7 @@
 # Format: "@<onset_ms> midi midi ..." binds the list to the attack nearest
 # that time; plain "midi ..." lines apply to successive attacks.
 # Candidates marked (sustaining) belong to earlier attacks and are re-
-# measured under the new attack — the API's still-sustaining case.
+# measured under the new attack, the API's still-sustaining case.
 
 # 2979: C-major spread under a G4 melody
 @2979 60 48 67 55
@@ -28,7 +28,7 @@
 @26971 72 67 55 53 62
 # 34309: lone melody note (mono attack)
 @34309 64
-# 34976: F-major spread — 7 sounding (over the 6-candidate fit; the
+# 34976: F-major spread, 7 sounding (over the 6-candidate fit; the
 # softest is described in the overflow and the set is flagged)
 @34976 65 53 67 69 72 41 64
 @49301 43 62 55 58 47 67
@@ -37,14 +37,14 @@
 @80304 74 55 67 62
 # 86309: lone melody note (mono attack)
 @86309 64
-# 96307: F-major spread — 8 sounding (over the cap)
+# 96307: F-major spread, 8 sounding (over the cap)
 @96307 69 45 53 57 41 65 60 48
 @108309 67 48 79 55 60
 @119309 64 48 55 60 67
 @130971 74 72 67 62 55
 # 138309: lone melody note (mono attack)
 @138309 64
-# 139301: F-major spread — 8 sounding (over the cap)
+# 139301: F-major spread, 8 sounding (over the cap)
 @139301 45 69 57 65 72 53 41 60
 @152973 62 55 74 43 48 67
 @161304 52 57 69 45 71 64
@@ -54,9 +54,9 @@
 @182976 74 67 72 62 55
 # 190309: lone melody note (mono attack)
 @190309 64
-# 191301: F-major spread — 8 sounding (over the cap)
+# 191301: F-major spread, 8 sounding (over the cap)
 @191301 45 69 65 57 53 72 60 41
 @205301 62 43 55 74 67
-# 220976: pedal-rich texture — 8 sounding (over the cap)
+# 220976: pedal-rich texture, 8 sounding (over the cap)
 @220976 48 50 43 55 72 62 74 67
 @237301 43 55 62 59 47 67

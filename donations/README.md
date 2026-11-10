@@ -1,10 +1,10 @@
 # donations/
 
-The donation engine — the financial support layer for the whole kan-rhythm
+The donation engine, the financial support layer for the whole kan-rhythm
 project (osu!-style: the game stays free, the community sustains it via
 `kan!supporter`).
 
-**Status:** planned — see [TODO.md](TODO.md) for the scoped task list.
+**Status:** planned, see [TODO.md](TODO.md) for the scoped task list.
 
 ## Vision
 
@@ -21,7 +21,7 @@ project transparently. Possible scope (to be defined in a design doc under
 ## Ground rules
 
 - English only (see root `CONTRIBUTING.md`)
-- **Security first:** secrets/API keys never live in this repo — use
+- **Security first:** secrets/API keys never live in this repo; use
   environment variables or a secrets manager, and document the required
   variables in this README
 - Handle money-related data with care: no donor PII in logs, follow the

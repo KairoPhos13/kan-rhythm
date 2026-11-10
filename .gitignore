@@ -7,7 +7,7 @@ compile_commands.json
 dist/
 game/forge/native/build-win-x64/
 
-# Test results and analysis artifacts (audio + descriptors) — generated,
+# Test results and analysis artifacts (audio + descriptors), generated,
 # not committed. Regenerate with apps/kan_analyze/run_reference_set.sh.
 test_results/
 

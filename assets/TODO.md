@@ -1,4 +1,4 @@
-# assets/ — TODO
+# assets/: TODO
 
 ## Before first asset lands
 
@@ -9,10 +9,10 @@
 ## Milestone 2 (vertical slice) needs
 
 - [ ] kan! logo / wordmark (ADR-0011 identity: kanade 奏でる / "you kan!",
-      osu!-adjacent spirit, clearly distinct from osu! branding — no osu!
+      osu!-adjacent spirit, clearly distinct from osu! branding, no osu!
       logos or distinctive skin elements, trademark hygiene)
 - [ ] Identity kit v0: color palette, typography pair, default skin shell
-      (judgment indicators, buttons, highway visuals — kan! vocabulary, not
+      (judgment indicators, buttons, highway visuals; kan! vocabulary, not
       osu! approach-circle grammar)
 - [ ] Note highway sprites: approach circles, hit sparks, fail morph (broken string)
 - [ ] Impact SFX set: PERFECT/GREAT/MISS feedback sounds
