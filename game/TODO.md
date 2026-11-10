@@ -37,9 +37,10 @@ Blocking (legal and safety):
       and would take them from an installed osu! (F-20). kan!'s own file
       type and link scheme: later
 - [ ] User-facing "osu!" strings: English first pass done
-      (2026-10-27); left: other languages' translations, osu!-only
-      features still reachable (osu!stable import, osu! tutorial button),
-      list in `docs/fork-divergence.md`
+      (2026-10-27); left: other languages' translations and the unused
+      strings of the hidden osu!-only features (osu!stable import,
+      osu! tutorial button; cleared from the UI by F-24/F-28), list in
+      `docs/fork-divergence.md`
 - [ ] Bundled songs free to distribute (public domain, Creative Commons or
       original): none popular. Players share their own levels as files
 - [ ] Separation model (owner decision): not shipped, downloaded on first

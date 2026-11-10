@@ -40,6 +40,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-11-09 | `e012336` | `a132ea8183` (branch `agent/game`) | Repository home is the KairoPhos13 account | green (strings only) |
 | 2026-11-09 | `daeac53` | `4fa5313` (branch `main`) | `0fdaf70` clause-separating dashes removed from kan!-added text; `4fa5313` the osu! README replaced with kan!'s own (F-25) | green (0 warnings / 0 errors; make check green, comments/notices/UI strings only) |
 | 2026-11-10 | `4fa5313` | `bb17154f0b` (branch `main`) | F-24 server is `kan-api.kairophos.link`; F-26 account creation without osu!'s warning and email promises | green (0 warnings / 0 errors) |
+| 2026-11-10 | `bb17154f0b` | `09e4cfb4f2` (branch `agent/hide-osu`) | F-28 osu!stable import and osu!-only links hidden from the UI (issue 24) | green (0 warnings / 0 errors; make check green) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -449,6 +450,43 @@ Policy (rebase-ability first, ADR-0011 §4):
   `ScreenEntry`.
 - **Upstream-PR:** no.
 
+### F-28: osu!-only features cleared from the UI (2026-11-10, commit `09e4cfb4f2`)
+
+- **What:** the osu!stable import is never offered. `FirstRunSetupOverlay`
+  only adds the `ScreenImportFromStable` step when
+  `KanEndpointConfiguration.UsesOsuAssets` is true (never), and
+  `BatchImportSettings` (settings, debug builds, "Batch Import") hides
+  its "Import ... from stable" buttons the same way. The two osu!-only
+  links in settings (general section, quick actions) are hidden:
+  "Learn more about lazer" (osu!'s wiki) and "Report an issue" (osu!'s
+  forums). The dead "tutorial" settings-search keyword on "Run setup
+  wizard" is swept. The osu! tutorial button needed no new delta: F-24's
+  rewrite of `ScreenBeatmaps` already removed "Get the osu! tutorial"
+  (with the bundled osu! beatmaps download); this change verifies it is
+  gone. Upstream code paths stay: `ScreenImportFromStable`, the
+  `BatchImportSettings` buttons, the `LegacyImportManager` importer, and
+  the osu!stable locations they read (registry keys, `osu!` folders,
+  F-3). The now-unused strings are left to the string sweep lane.
+- **Why:** issue 24, before the first public release. kan! is a
+  standalone game (ADR-0011) and plays `.kan` levels, not osu! beatmaps
+  (conversion is future work in `tools/`); importing from osu!stable
+  promised something kan! does not do, kan! has no tutorial yet
+  (`game/docs/gameplay.md` is the seed), and the two links led players
+  into osu!'s wiki and forums. What replaces them (a kan! level importer,
+  a kan! tutorial, kan!'s own help and issue tracker) is the maintainer's
+  call.
+- **Verified:** `make check` green (0 warnings / 0 errors). Code
+  verified: the only paths composing the import step or the import
+  buttons sit behind `UsesOsuAssets` (always false), and no settings or
+  first-run surface links to osu! any more. A running-client check of the
+  first-run flow and the settings overlay was not done here (the game is
+  not launched on this build machine): the acceptance criterion
+  "verified in a running client" is left for the maintainer.
+- **Merge-conflict cost:** low; one extra condition on an existing `if`
+  in two files, one removed keyword, two removed settings buttons, one
+  removed using, and a doc line in a kan!-authored file.
+- **Upstream-PR:** no (product-scope decision).
+
 ### String sweep, first pass (2026-10-27)
 
 The game's own name in English strings that mean the game itself:
@@ -475,7 +513,9 @@ features are not kan!'s.
   installed since F-20; needs kan!'s own file types and link scheme
 - `osu.Game/OsuGameBase.cs`: `OSU_PROTOCOL = "osu://"` (product decision:
   keep for compatibility or move to `kan://`)
-- osu!-only features still reachable (osu!stable import in first-run
-  setup and settings, the osu! tutorial button, the osu! music theme)
+- osu!-only features: none reachable since F-22 (the osu! music theme),
+  F-24 (the osu! tutorial button) and F-28 (the osu!stable import in
+  first-run setup and settings, the osu!-only settings links); their
+  unused strings are left to this sweep
 - Default skin/logo/triangle assets and the `lazer.ico` app icon: replaced
   through `game/brand/` (F-21) once kan!'s are made
