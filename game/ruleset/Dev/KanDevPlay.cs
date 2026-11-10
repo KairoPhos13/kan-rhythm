@@ -27,7 +27,8 @@ namespace Kan.Ruleset.Dev
     /// itself so gameplay can be checked without anyone at the screen (run it
     /// on a virtual display with its own data folder). With KAN_LIVE_INPUT
     /// the "player" is a recording; KAN_DEV_SCREENSHOTS="20,45" saves
-    /// screenshots that many seconds into the level. KAN_DEV_SCREEN=select
+    /// screenshots that many seconds into the level (KAN_DEV_PLAY is a set id,
+    /// or title:<song title>). KAN_DEV_SCREEN=select
     /// opens song select on that level instead of playing it (the screen a
     /// player goes through; owner 2026-10-15: it crashed there).
     /// KAN_DEV_MODS="HT,NF" plays with those mods (acronyms);
@@ -100,18 +101,29 @@ namespace Kan.Ruleset.Dev
 
         private void start()
         {
-            if (!Guid.TryParse(Environment.GetEnvironmentVariable(PLAY_ENV), out var setId))
+            string target = Environment.GetEnvironmentVariable(PLAY_ENV) ?? string.Empty;
+            BeatmapSetInfo? set;
+
+            // A set id, or "title:<song title>" (exact title of a level in the data folder).
+            if (Guid.TryParse(target, out var setId))
+                set = beatmaps.QueryBeatmapSet(s => s.ID == setId)?.PerformRead(s => s.Detach());
+            else if (target.StartsWith(@"title:", StringComparison.Ordinal))
             {
-                Logger.Log($"kan! dev play: {PLAY_ENV} is not a beatmap set id", level: LogLevel.Important);
+                string title = target[@"title:".Length..];
+                set = realm.Run(r => r.All<BeatmapSetInfo>().AsEnumerable()
+                                      .FirstOrDefault(s => !s.DeletePending && s.Beatmaps.Any(b => b.Metadata.Title == title))?.Detach());
+            }
+            else
+            {
+                Logger.Log($"kan! dev play: {PLAY_ENV} is neither a beatmap set id nor title:<song title>", level: LogLevel.Important);
                 return;
             }
 
-            var set = beatmaps.QueryBeatmapSet(s => s.ID == setId)?.PerformRead(s => s.Detach());
             var info = set?.Beatmaps.FirstOrDefault();
 
             if (info == null)
             {
-                Logger.Log($"kan! dev play: no level with set id {setId}", level: LogLevel.Important);
+                Logger.Log($"kan! dev play: no level for {target}", level: LogLevel.Important);
                 return;
             }
 
@@ -241,6 +253,17 @@ namespace Kan.Ruleset.Dev
                             },
                         });
                         Logger.Log($"kan! dev play: showing {controls.Length} mod settings", level: LogLevel.Important);
+                    }, 4000);
+                }
+
+                // KAN_DEV_SCROLL=modselect: song select's mod overlay, open (for screenshots).
+                if (Environment.GetEnvironmentVariable(@"KAN_DEV_SCROLL") == @"modselect")
+                {
+                    Scheduler.AddDelayed(() =>
+                    {
+                        var overlay = game.ChildrenOfType<osu.Game.Overlays.Mods.ModSelectOverlay>().FirstOrDefault();
+                        overlay?.Show();
+                        Logger.Log($"kan! dev play: mod select {(overlay == null ? "not found" : "open")}", level: LogLevel.Important);
                     }, 4000);
                 }
 

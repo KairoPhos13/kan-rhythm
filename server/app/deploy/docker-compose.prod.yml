@@ -20,6 +20,7 @@ services:
       # Only set to "cloudflare" when a proxy we control (e.g. Cloudflare
       # Tunnel) fronts the app; forwarded client IPs are never trusted without it.
       TRUST_PROXY: ${TRUST_PROXY:-}
+      WEBSITE_URL: ${WEBSITE_URL:-}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       STORAGE_LOCAL_DIR: /data
       S3_ENDPOINT: ${S3_ENDPOINT:-}

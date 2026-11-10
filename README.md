@@ -65,6 +65,7 @@ kan-rhythm/
 ├── libkan/      real-time C++ engine that listens: onsets, pitch, chords, tuning
 ├── kanfx/       real-time audio effects: buses, pitch shift, ducking
 ├── server/      online services: accounts, level catalogue, scores, leaderboards
+├── web/         the website at kan.kairophos.link: what kan! is, downloads
 ├── charts/      level formats and free song candidates
 ├── apps/        developer apps on libkan (kan_demo live tuner, kan_analyze, kan_cli)
 ├── tools/       content tools: stem split, chart drafting, benchmarks

@@ -27,6 +27,11 @@ export interface AppConfig {
    * limiting and absolute URLs use https. Never trusted otherwise.
    */
   trustProxy: TrustProxyMode;
+  /**
+   * `WEBSITE_URL`: kan!'s public website. A browser that opens the API root is
+   * redirected there; empty keeps the plain JSON answer for everyone.
+   */
+  websiteUrl: string;
   oauth: {
     clientId: string;
     clientSecret: string;
@@ -59,6 +64,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     port: int(env.PORT, 3000),
     databaseUrl: env.DATABASE_URL ?? 'postgres://kan:kan@localhost:55432/kan',
     trustProxy: parseTrustProxy(env.TRUST_PROXY),
+    websiteUrl: (env.WEBSITE_URL ?? '').trim(),
     oauth: {
       // The game ships these as constants (public by nature: like osu!lazer's
       // client, it is distributed to everyone; the real protection is user

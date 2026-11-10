@@ -235,8 +235,8 @@ ServerUrl     = KAN_SERVER_URL env var (testing / community servers)
 ```
 
 So nothing is configured in the game for players: **the built-in default URL
-becomes `https://api.example.org`** (Claude edits the client's
-`default_server_url`). For testing against this deployment set the environment
+is the deployed server** (the client's `default_server_url`, today
+`https://kan-api.kairophos.link`). For testing against this deployment set the environment
 variable `KAN_SERVER_URL=https://api.example.org` before starting the game.
 
 ## 12. Update / restore

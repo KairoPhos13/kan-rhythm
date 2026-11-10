@@ -39,6 +39,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-11-09 | `e32d2a3` | `e012336` (branch `agent/game`) | F-24 updater reads kan-rhythm releases | green (0 warnings / 0 errors) |
 | 2026-11-09 | `e012336` | `a132ea8183` (branch `agent/game`) | Repository home is the KairoPhos13 account | green (strings only) |
 | 2026-11-09 | `daeac53` | `4fa5313` (branch `main`) | `0fdaf70` clause-separating dashes removed from kan!-added text; `4fa5313` the osu! README replaced with kan!'s own (F-25) | green (0 warnings / 0 errors; make check green, comments/notices/UI strings only) |
+| 2026-11-10 | `4fa5313` | `bb17154f0b` (branch `main`) | F-24 server is `kan-api.kairophos.link`; F-26 account creation without osu!'s warning and email promises | green (0 warnings / 0 errors) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -406,7 +407,8 @@ Policy (rebase-ability first, ADR-0011 §4):
 
 - **What:** `KanEndpointConfiguration` takes the server address from
   `KAN_SERVER_URL` (development, tests, community servers) or a built-in
-  default (empty until kan!'s server is deployed), with a public OAuth
+  default (`https://kan-api.kairophos.link`, kan!'s server since
+  2026-11-10; empty before that; `kan.kairophos.link` is the website), with a public OAuth
   client (`kan-client` / `kan-public-client`, like osu!lazer's, shipped in
   every copy). `UsesOsuAssets` (always false) now guards the menu banner,
   the supporter note and osu!'s ranked-metadata cache, which come from
@@ -430,6 +432,21 @@ Policy (rebase-ability first, ADR-0011 §4):
   submission (next, against the deployed server).
 - **Merge-conflict cost:** low; one kan! file, a few lines in six files;
   `ScreenBeatmaps` rewritten (upstream changes there need a manual look).
+- **Upstream-PR:** no.
+
+### F-26: account creation without osu!'s policy and promises (2026-11-10, commit `bb17154f0b`)
+
+- **What:** `ScreenWelcome` goes straight to the form (`ScreenEntry`);
+  osu!'s `ScreenWarning` (one account per person, osu!'s help centre link)
+  is no longer reached but stays in the tree. `ScreenEntry`'s email note
+  says what kan!'s server really does: the address only tells accounts
+  apart, is never shown, and no email is sent (no verification, no password
+  reset). English only: the note is a kan! string, not a localised one.
+- **Why:** the warning linked to a help page kan!'s server does not have
+  and stated osu!'s rules; the email note promised notifications and
+  password recovery kan! does not offer.
+- **Merge-conflict cost:** low; one line in `ScreenWelcome`, two in
+  `ScreenEntry`.
 - **Upstream-PR:** no.
 
 ### String sweep, first pass (2026-10-27)

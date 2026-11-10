@@ -26,6 +26,8 @@ services:
       # Behind the tunnel: trust CF-Connecting-IP for rate limiting and use
       # https in generated URLs. Never set this without a trusted proxy.
       TRUST_PROXY: ${TRUST_PROXY:-cloudflare}
+      # Browsers that open the API root go to the website (empty: JSON only).
+      WEBSITE_URL: ${WEBSITE_URL:-}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-s3}
       STORAGE_LOCAL_DIR: /data
       S3_ENDPOINT: ${S3_ENDPOINT:-}

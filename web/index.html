@@ -1,0 +1,524 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>kan! · Learn ocarina with a free rhythm game</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Learn ocarina with kan!, a free rhythm game and ocarina practice app for real instruments. Play songs through your microphone and learn at your own pace.">
+<link rel="canonical" href="https://kan.kairophos.link/">
+<meta name="robots" content="index, follow">
+<meta name="theme-color" content="#17131f">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://kan.kairophos.link/">
+<meta property="og:site_name" content="kan!">
+<meta property="og:title" content="kan! · Learn ocarina with a free rhythm game">
+<meta property="og:description" content="A free, calm rhythm game you play on a real instrument. Learn ocarina songs through your microphone, at your own pace.">
+<meta property="og:image" content="https://kan.kairophos.link/shots/play.jpg">
+<meta property="og:image:width" content="1600">
+<meta property="og:image:height" content="900">
+<meta property="og:image:alt" content="kan! during a level: notes on lanes named by pitch travel to the line where they are played.">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="kan! · Learn ocarina with a free rhythm game">
+<meta name="twitter:description" content="A free, calm rhythm game you play on a real instrument. Learn ocarina songs through your microphone, at your own pace.">
+<meta name="twitter:image" content="https://kan.kairophos.link/shots/play.jpg">
+<meta name="twitter:image:alt" content="kan! during a level: notes on lanes named by pitch travel to the line where they are played.">
+<link rel="icon" type="image/png" href="favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=DM+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a sticky bar with the menu; one centred column (64rem) that
+   alternates a short text with a real in-game screenshot, the way a player
+   would meet the game: play, write a level, split its tracks, practise. */
+:root {
+  --night: #17131f;      /* page ground, the dusk end of the menu sky */
+  --dusk: #221b2e;       /* raised surfaces */
+  --bar: rgba(23,19,31,0.86);
+  --line: #362d44;       /* hairlines */
+  --ivory: #f2ecf5;      /* text */
+  --mist: #b4a8c2;       /* secondary text, violet-biased grey */
+  --gold: #e0ab4c;       /* the one accent */
+  --gold-deep: #a8731c;
+  --display: "Fredoka", "Nunito", ui-rounded, "Segoe UI", system-ui, sans-serif;
+  --body: "Atkinson Hyperlegible", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --mono: "DM Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  --step--1: 0.875rem; --step-0: 1.0625rem; --step-1: 1.3rem; --step-2: clamp(1.5rem, 3vw, 1.9rem); --step-3: clamp(2rem, 4.6vw, 3.1rem);
+  --col: 64rem;
+  --sec-pad: 4rem;
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+html { background: var(--night); scroll-padding-top: 5rem; }
+body {
+  margin: 0; background: var(--night); color: var(--ivory);
+  font-family: var(--body); font-size: var(--step-0); line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 10; background: var(--night); }
+a { color: var(--gold); text-underline-offset: 3px; }
+a:hover { color: var(--ivory); }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
+.wrap {
+  width: 100%; max-width: calc(var(--col) + 2 * 16px); margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+h1, h2, h3 { font-family: var(--display); font-weight: 600; line-height: 1.15; text-wrap: balance; margin: 0; }
+h2 { font-size: var(--step-2); }
+h3 { font-size: var(--step-1); font-weight: 500; }
+p { margin: 0; }
+.label { font-family: var(--mono); font-size: 0.8rem; letter-spacing: 0.07em; text-transform: uppercase; color: var(--gold); }
+
+/* Header */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 5;
+  background: var(--bar); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--line);
+}
+.top .wrap { display: flex; align-items: center; gap: 1.5rem; min-height: 4rem; }
+.brand { display: flex; align-items: center; gap: 0.6rem; text-decoration: none; color: var(--ivory); flex: none; }
+.brand img { width: 34px; height: 34px; }
+.brand span { font-family: var(--display); font-weight: 600; font-size: 1.3rem; }
+.menu { display: flex; gap: 0.25rem; margin: 0; padding: 0; list-style: none; flex: 1; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.menu::-webkit-scrollbar { display: none; }
+.menu a {
+  display: block; padding: 0.4rem 0.75rem; border-radius: 999px; white-space: nowrap;
+  color: var(--mist); text-decoration: none; font-size: 0.95rem;
+}
+.menu a:hover { color: var(--ivory); background: var(--dusk); }
+.top .btn { flex: none; padding: 0.45rem 1rem; font-size: 0.95rem; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-family: var(--display); font-weight: 500; font-size: 1.05rem;
+  padding: 0.7rem 1.3rem; border-radius: 999px; text-decoration: none;
+  border: 1px solid var(--gold); transition: background-color .2s, color .2s, border-color .2s;
+}
+.btn-primary { background: var(--gold); color: var(--night); }
+.btn-primary:hover { background: var(--ivory); border-color: var(--ivory); color: var(--night); }
+.btn-ghost { color: var(--ivory); background: transparent; }
+.btn-ghost:hover { background: var(--dusk); color: var(--ivory); }
+
+/* Hero */
+.hero { position: relative; isolation: isolate; overflow: hidden; }
+.hero::before {
+  content: ""; position: absolute; inset: 0 0 35% 0; z-index: -2;
+  background: url("dusk.jpg") center / cover no-repeat; opacity: 0.75;
+}
+.hero::after {
+  content: ""; position: absolute; inset: 0; z-index: -1;
+  background: linear-gradient(180deg, rgba(23,19,31,0.2) 0%, rgba(23,19,31,0.7) 45%, var(--night) 66%);
+}
+.hero .wrap { padding-block: 4rem 3rem; display: grid; gap: 2.5rem; justify-items: center; text-align: center; }
+.hero-copy { display: grid; gap: 1.1rem; max-width: 42rem; justify-items: center; }
+.hero h1 { font-size: var(--step-3); }
+.lede { font-size: var(--step-1); line-height: 1.5; color: var(--ivory); }
+.actions { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; }
+.fine { font-size: var(--step--1); color: var(--mist); }
+
+/* Screenshots */
+.shot {
+  margin: 0; width: 100%; max-width: 100%; display: grid; gap: 0.6rem;
+}
+.shot img {
+  display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; object-fit: cover;
+  border-radius: 12px; border: 1px solid var(--line);
+  box-shadow: 0 24px 60px -24px rgba(0,0,0,0.7);
+  background: var(--dusk);
+}
+.shot figcaption { font-size: var(--step--1); color: var(--mist); text-align: left; }
+.hero .shot { max-width: 56rem; }
+.shot.wide { margin-top: 2.5rem; }
+
+/* Feature rows */
+/* Sections: dividers span the content column only, never the window. */
+.feature, .plain { padding-block: var(--sec-pad); }
+.feature + .feature > .wrap, .plain > .wrap, footer > .wrap { position: relative; }
+.feature + .feature > .wrap::before, .plain > .wrap::before, footer > .wrap::before {
+  content: ""; position: absolute; height: 1px; background: var(--line);
+  top: calc(-1 * var(--sec-pad));
+  left: max(16px, env(safe-area-inset-left, 0px)); right: max(16px, env(safe-area-inset-right, 0px));
+}
+footer > .wrap::before { top: -2rem; }
+.row { display: grid; gap: 2rem; align-items: center; }
+.text { display: grid; gap: 0.85rem; max-width: 34rem; min-width: 0; }
+.text p { color: var(--mist); }
+.text ul { margin: 0; padding-left: 1.1rem; color: var(--mist); display: grid; gap: 0.35rem; }
+.text strong { color: var(--ivory); font-weight: 700; }
+@media (min-width: 56rem) {
+  .row { grid-template-columns: 5fr 7fr; gap: 3.5rem; }
+  .row.flip { grid-template-columns: 7fr 5fr; }
+  .row.flip .text { order: 2; }
+}
+
+/* Mods */
+.mods { display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr)); gap: 0.75rem; min-width: 0; }
+.mod { border: 1px solid var(--line); border-radius: 12px; padding: 0.9rem 1rem; display: grid; gap: 0.25rem; align-content: start; min-width: 0; }
+.mod.gentle { background: var(--dusk); }
+.mod b { font-family: var(--display); font-weight: 500; font-size: 1.05rem; }
+.mod span { color: var(--mist); font-size: var(--step--1); line-height: 1.45; }
+.mod i { font-style: normal; font-family: var(--mono); font-size: 0.72rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--gold); }
+
+/* Plain sections */
+
+.head { display: grid; gap: 0.6rem; margin-bottom: 2rem; max-width: 40rem; }
+.head p { color: var(--mist); }
+.pair { display: grid; grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr)); gap: 1.25rem; }
+.status { padding: 1.4rem; border-radius: 14px; display: grid; gap: 0.6rem; align-content: start; min-width: 0; }
+.status.now { background: var(--dusk); border: 1px solid var(--gold-deep); }
+.status.soon { border: 1px dashed var(--line); }
+.status p { color: var(--mist); }
+.pill { justify-self: start; font-family: var(--mono); font-size: 0.75rem; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.2rem 0.6rem; border-radius: 999px; }
+.now .pill { background: var(--gold); color: var(--night); }
+.soon .pill { border: 1px solid var(--line); color: var(--mist); }
+.range { font-family: var(--mono); color: var(--ivory); font-size: 0.95rem; }
+
+.platforms { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: 1rem; }
+.platform {
+  display: grid; gap: 0.3rem; padding: 1.1rem 1.25rem; border-radius: 14px;
+  border: 1px solid var(--line); text-decoration: none; color: var(--ivory); min-width: 0;
+  transition: border-color .2s, background-color .2s;
+}
+.platform:hover { border-color: var(--gold); background: var(--dusk); color: var(--ivory); }
+.platform strong { font-family: var(--display); font-weight: 500; font-size: 1.15rem; }
+.platform span { color: var(--mist); font-size: var(--step--1); }
+.platform code { font-family: var(--mono); font-size: 0.8rem; color: var(--gold); overflow-wrap: anywhere; }
+.platform.mine { border-color: var(--gold-deep); background: var(--dusk); }
+.platform .yours { justify-self: start; font-family: var(--mono); font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; color: var(--night); background: var(--gold); padding: 0.1rem 0.5rem; border-radius: 999px; }
+.notes { margin-top: 1.5rem; display: grid; gap: 0.5rem; color: var(--mist); font-size: var(--step--1); max-width: 44rem; }
+
+.three { display: grid; grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr)); gap: 2rem; }
+.three > div { display: grid; gap: 0.5rem; align-content: start; min-width: 0; }
+.three p { color: var(--mist); }
+
+footer { padding-block: 2rem 3rem; color: var(--mist); font-size: var(--step--1); }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem 2rem; }
+footer p { max-width: 36rem; }
+
+@media (max-width: 40rem) {
+  .top .btn { display: none; }
+  .top .wrap { gap: 0.75rem; }
+  .hero .wrap { padding-block: 2.5rem 2rem; }
+  :root { --sec-pad: 2.75rem; }
+}
+@media (prefers-reduced-motion: reduce) { .btn, .platform { transition: none; } }
+</style>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": ["VideoGame", "SoftwareApplication"],
+      "name": "kan!",
+      "url": "https://kan.kairophos.link/",
+      "description": "kan! is a free, calm rhythm game you play on a real instrument. It listens through your microphone and follows the notes you play, so you can learn ocarina songs at your own pace. Free, no ads, and you can play without an account.",
+      "applicationCategory": "GameApplication",
+      "genre": ["Rhythm game", "Music education"],
+      "operatingSystem": "Windows, macOS, Linux",
+      "offers": {
+        "@type": "Offer",
+        "price": "0",
+        "priceCurrency": "USD"
+      },
+      "isAccessibleForFree": true,
+      "author": {
+        "@type": "Person",
+        "name": "KairoPhos"
+      },
+      "image": "https://kan.kairophos.link/shots/play.jpg",
+      "downloadUrl": "https://github.com/KairoPhos13/kan-rhythm/releases/latest",
+      "license": "https://opensource.org/licenses/MIT",
+      "sameAs": [
+        "https://github.com/KairoPhos13/kan-rhythm"
+      ]
+    },
+    {
+      "@type": "FAQPage",
+      "mainEntity": [
+        {
+          "@type": "Question",
+          "name": "Is kan! free?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Yes. kan! is free, with no ads and nothing to buy. The code is public, so anyone can read what the game does."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which instruments can I play in kan!?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "kan! is tested today on the ocarina, including a 12-hole alto C ocarina, and on instruments that play one note at a time. Other instruments and chords will come as the community tests them."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Does kan! record my microphone?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. kan! listens only while you play. The sound is analysed on your computer and is never recorded or sent anywhere."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Do I need an account?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "No. You can play and make levels without one. An account adds level downloads and leaderboards, and you create it inside the game."
+          }
+        },
+        {
+          "@type": "Question",
+          "name": "Which systems does kan! run on?",
+          "acceptedAnswer": {
+            "@type": "Answer",
+            "text": "Windows 10 or 11 (64-bit), macOS on Apple silicon and Intel, and Linux (64-bit). You need a microphone; the one in a laptop works."
+          }
+        }
+      ]
+    }
+  ]
+}
+</script>
+</head>
+<body>
+
+<header class="top">
+  <nav class="wrap" aria-label="Main">
+    <a class="brand" href="#"><img src="logo.png" alt="" width="34" height="34"><span>kan!</span></a>
+    <ul class="menu">
+      <li><a href="#play">Play</a></li>
+      <li><a href="#make">Make levels</a></li>
+      <li><a href="#practice">Practice</a></li>
+      <li><a href="#instruments">Instruments</a></li>
+      <li><a href="#privacy">Privacy</a></li>
+      <li><a href="#faq">FAQ</a></li>
+      <li><a href="https://github.com/KairoPhos13/kan-rhythm">Source</a></li>
+    </ul>
+    <a class="btn btn-primary" href="#download">Download</a>
+  </nav>
+</header>
+
+<main>
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-copy">
+        <span class="label">A free rhythm game for real instruments</span>
+        <h1>Play your songs on the instrument in your hands.</h1>
+        <p class="lede">kan! listens through your microphone and follows the notes you play. No buttons, no plastic controllers: just your ocarina and a song you love. A calm way to learn an instrument with a game.</p>
+        <div class="actions">
+          <a class="btn btn-primary" id="dl-main" href="#download">Download kan!</a>
+          <a class="btn btn-ghost" href="#play">See how it plays</a>
+        </div>
+        <p class="fine">Free, no ads. An early version, made for calm practice.</p>
+      </div>
+      <figure class="shot">
+        <img src="shots/play.jpg" alt="kan! during a level: notes on lanes named by pitch travel to the line where they are played; a perfect note lights up the ring." width="1600" height="900">
+      </figure>
+    </div>
+  </section>
+
+  <section class="feature" id="play">
+    <div class="wrap row">
+      <div class="text">
+        <span class="label">Play</span>
+        <h2>The note arrives. You play it.</h2>
+        <p>Each note travels on the lane of its pitch, so you can read the melody as it comes. Play it on your instrument when it reaches the line: kan! checks the pitch and the timing as you play, on your own computer.</p>
+        <p>It is forgiving by default. A little early or a little flat is still a good note, and nothing pushes you to keep a streak.</p>
+      </div>
+      <figure class="shot">
+        <img src="shots/play-2.jpg" alt="A note played perfectly at the line, with an E5 and a G5 waiting on their lanes." width="1600" height="900" loading="lazy">
+      </figure>
+    </div>
+  </section>
+
+  <section class="feature" id="make">
+    <div class="wrap row flip">
+      <div class="text">
+        <span class="label">Make levels &middot; kan!forge</span>
+        <h2>Turn any song into a level</h2>
+        <p>Bring a song from your computer. kan!forge listens to it, writes the notes for your instrument, and lays them over the music so you can see every phrase.</p>
+        <p>Then fix what it got wrong in a piano roll: draw, move and snap notes to the beat, set the tempo, and test the level before you share it.</p>
+      </div>
+      <figure class="shot">
+        <img src="shots/compose.jpg" alt="The compose view of kan!forge: a piano roll of pink notes drawn over the song's spectrogram, with tools for snapping, tempo and timing repair." width="1600" height="900" loading="lazy">
+      </figure>
+    </div>
+  </section>
+
+  <section class="feature" id="tracks">
+    <div class="wrap row">
+      <div class="text">
+        <span class="label">Make levels &middot; tracks</span>
+        <h2>Split a song into its parts</h2>
+        <p>kan! can separate a recording into stems, so you can take the melody out and play it yourself while the rest of the band keeps playing.</p>
+        <ul>
+          <li><strong>The companion</strong> is what plays under you while you play.</li>
+          <li><strong>The reference</strong> is the full performance, to listen to and learn from.</li>
+        </ul>
+        <p>The separation runs on your computer. Nothing is uploaded.</p>
+      </div>
+      <figure class="shot">
+        <img src="shots/tracks.jpg" alt="The tracks tab of kan!forge: a song separated into guitar and vocals, each marked as the companion or the reference, with the separate and transcribe actions below." width="1600" height="900" loading="lazy">
+      </figure>
+    </div>
+  </section>
+
+  <section class="feature" id="practice">
+    <div class="wrap">
+      <div class="row">
+        <div class="text">
+          <span class="label">Practice</span>
+          <h2>Learn ocarina songs at your own pace</h2>
+          <p>Mods change how a level plays. The gentle ones help beginners learn; the strict ones are there when you want a challenge. You choose, nothing is forced.</p>
+        </div>
+        <div class="mods" role="list">
+          <div class="mod gentle" role="listitem"><i>Learn</i><b>Wait for me</b><span>The level waits at each note until you play it.</span></div>
+          <div class="mod gentle" role="listitem"><i>Learn</i><b>Practice</b><span>Loop one part of the level, slow it down, or listen to it first.</span></div>
+          <div class="mod gentle" role="listitem"><i>Learn</i><b>Half time</b><span>The same notes, slower: from 75 % down to 50 %.</span></div>
+          <div class="mod gentle" role="listitem"><i>Learn</i><b>Easy</b><span>Wider timing, and notes up to 75 cents out of tune still count.</span></div>
+          <div class="mod" role="listitem"><i>Challenge</i><b>By heart</b><span>Each note shows only for a moment: play the song from memory.</span></div>
+          <div class="mod" role="listitem"><i>Challenge</i><b>Hard rock</b><span>Stricter timing windows.</span></div>
+        </div>
+      </div>
+      <figure class="shot wide">
+        <img src="shots/mods.jpg" alt="The mod selection in kan!: gentle mods such as Easy, Half Time, Wait for me and Practice, and challenges such as Hard Rock, Hidden and By heart." width="1600" height="900" loading="lazy">
+      </figure>
+    </div>
+  </section>
+
+  <section class="plain" id="instruments">
+    <div class="wrap">
+      <div class="head">
+        <span class="label">Instruments</span>
+        <h2>Tested on ocarina today, more as we play together</h2>
+        <p>kan! is built for any instrument, but each one needs real players to test it. This is where it stands.</p>
+      </div>
+      <div class="pair">
+        <div class="status now">
+          <span class="pill">Tested</span>
+          <h3>Ocarina, and instruments that play one note at a time</h3>
+          <p>Developed and played daily on a 12-hole alto C ocarina.</p>
+          <p class="range">A4 &middot; B4 &middot; C5 &hellip; E6 &middot; F6</p>
+        </div>
+        <div class="status soon">
+          <span class="pill">Soon</span>
+          <h3>Everything else</h3>
+          <p>Other instruments and chords will come as the community tries them and helps polish them. If you play something else, your feedback shapes what comes next.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="plain" id="download">
+    <div class="wrap">
+      <div class="head">
+        <span class="label">Download</span>
+        <h2>Get kan!</h2>
+        <p>Unzip it and open kan!. You need a microphone; the one in a laptop works.</p>
+      </div>
+      <div class="platforms">
+        <a class="platform" data-os="windows" href="https://github.com/KairoPhos13/kan-rhythm/releases/latest/download/kan-win-x64.zip">
+          <strong>Windows</strong><span>Windows 10 or 11, 64-bit</span><code>kan-win-x64.zip</code>
+        </a>
+        <a class="platform" data-os="mac-arm" href="https://github.com/KairoPhos13/kan-rhythm/releases/latest/download/kan-osx-arm64.zip">
+          <strong>macOS, Apple silicon</strong><span>M1 and newer</span><code>kan-osx-arm64.zip</code>
+        </a>
+        <a class="platform" data-os="mac-intel" href="https://github.com/KairoPhos13/kan-rhythm/releases/latest/download/kan-osx-x64.zip">
+          <strong>macOS, Intel</strong><span>Older Macs</span><code>kan-osx-x64.zip</code>
+        </a>
+        <a class="platform" data-os="linux" href="https://github.com/KairoPhos13/kan-rhythm/releases/latest/download/kan-linux-x64.zip">
+          <strong>Linux</strong><span>64-bit</span><code>kan-linux-x64.zip</code>
+        </a>
+      </div>
+      <div class="notes">
+        <p>On macOS the app is not signed yet, so the first time macOS will say it cannot check the developer. Control-click kan! and choose Open.</p>
+        <p>Windows and macOS builds are new and still being tested on real machines. If something goes wrong, tell us on <a href="https://github.com/KairoPhos13/kan-rhythm/issues">GitHub</a>. All versions are on the <a href="https://github.com/KairoPhos13/kan-rhythm/releases">releases page</a>.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="plain" id="privacy">
+    <div class="wrap">
+      <div class="head">
+        <span class="label">Privacy</span>
+        <h2>What stays with you</h2>
+      </div>
+      <div class="three">
+        <div>
+          <h3>Your microphone</h3>
+          <p>kan! listens only while you play. The sound is analysed on your computer and is never recorded or sent anywhere.</p>
+        </div>
+        <div>
+          <h3>Your account, if you want one</h3>
+          <p>You can play and make levels without one. An account adds level downloads and leaderboards; create it inside the game. Your email is never shown to anyone, and kan! sends no email.</p>
+        </div>
+        <div>
+          <h3>Free and open</h3>
+          <p>No ads and nothing to buy. The code is public, so anyone can read what the game does.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="plain" id="faq">
+    <div class="wrap">
+      <div class="head">
+        <span class="label">FAQ</span>
+        <h2>Questions, answered</h2>
+      </div>
+      <div class="three">
+        <div>
+          <h3>Is kan! free?</h3>
+          <p>Yes. kan! is free, with no ads and nothing to buy. The code is public, so anyone can read what the game does.</p>
+        </div>
+        <div>
+          <h3>Which instruments can I play in kan!?</h3>
+          <p>kan! is tested today on the ocarina, including a 12-hole alto C ocarina, and on instruments that play one note at a time. Other instruments and chords will come as the community tests them.</p>
+        </div>
+        <div>
+          <h3>Does kan! record my microphone?</h3>
+          <p>No. kan! listens only while you play. The sound is analysed on your computer and is never recorded or sent anywhere.</p>
+        </div>
+        <div>
+          <h3>Do I need an account?</h3>
+          <p>No. You can play and make levels without one. An account adds level downloads and leaderboards, and you create it inside the game.</p>
+        </div>
+        <div>
+          <h3>Which systems does kan! run on?</h3>
+          <p>Windows 10 or 11 (64-bit), macOS on Apple silicon and Intel, and Linux (64-bit). You need a microphone; the one in a laptop works.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p>Made by KairoPhos. Source code on <a href="https://github.com/KairoPhos13/kan-rhythm">GitHub</a>.</p>
+    <p>kan! is built on <a href="https://github.com/ppy/osu">osu!lazer</a> (MIT licence) by ppy. It is not affiliated with or endorsed by osu! or ppy.</p>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // Mark the card for this visitor's system (guessed from the browser); every
+  // system stays listed, and the main buttons keep pointing at the list.
+  var ua = navigator.userAgent || "", os = null;
+  if (/Windows/i.test(ua)) os = "windows";
+  else if (/Macintosh|Mac OS X/i.test(ua) && !/iPhone|iPad/i.test(ua)) os = "mac";
+  else if (/Linux/i.test(ua) && !/Android/i.test(ua)) os = "linux";
+  if (!os) return;
+  // A browser cannot tell an Apple silicon Mac from an Intel one: both Mac cards are marked.
+  document.querySelectorAll('.platform[data-os^="' + os + '"]').forEach(function (link) {
+    var tag = document.createElement("span");
+    tag.className = "yours";
+    tag.textContent = "Your system";
+    link.insertBefore(tag, link.firstChild);
+    link.classList.add("mine");
+  });
+})();
+</script>
+</body>
+</html>

@@ -64,8 +64,8 @@ Playable and in daily testing, close to its first public release.
   come from the osu!lazer base and are being replaced.
 - **Online:** optional. kan! has its own small server
   ([server/](../server/)) for accounts, downloading levels and
-  leaderboards; it never talks to osu!'s servers. Without a server
-  configured, the game is fully offline.
+  leaderboards, at `kan-api.kairophos.link`; it never talks to osu!'s
+  servers. Playing and making levels never need it.
 - **Instruments and platforms:** tested mostly on ocarina, and on Linux.
   Windows and macOS builds are produced by CI and still need testing on
   real machines.

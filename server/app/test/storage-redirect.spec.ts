@@ -56,6 +56,7 @@ describe('download endpoint with the s3 driver', () => {
       port: 3000,
       databaseUrl: '',
       trustProxy: 'none',
+      websiteUrl: '',
       oauth: {
         clientId: 'kan-client',
         clientSecret: 'secret',
