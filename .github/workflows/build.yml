@@ -283,6 +283,11 @@ jobs:
     permissions:
       contents: write
     steps:
+      # The release notes, when written (docs/releases/<tag>.md).
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout: docs/releases
+
       - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
@@ -294,6 +299,8 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          notes="docs/releases/$GITHUB_REF_NAME.md"
+          if [ -f "$notes" ]; then set -- --notes-file "$notes"; else set -- --generate-notes; fi
           gh release create "$GITHUB_REF_NAME" --draft \
-            --title "kan! $GITHUB_REF_NAME" --generate-notes \
+            --title "kan! $GITHUB_REF_NAME" "$@" \
             dist/kan-*.zip
