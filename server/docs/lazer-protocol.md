@@ -403,23 +403,23 @@ bytes). Out of MVP scope; the client only shows the button when `has_replay` is 
 
 ---
 
-## 6. Login-time extras, chat/notifications and hubs (client behaviour; not implemented)
+## 6. Login-time extras, chat/notifications and hubs (client behaviour; the marked routes are implemented-empty)
 
 ### 6.1 HTTP calls around login
 
-| Request | Route | When | Can it block login? |
-|---|---|---|---|
-| Token | `POST /oauth/token` | `attemptConnect` | yes: failure logs out (`APIAccess.cs:360-368`) |
-| Me | `GET /api/v2/me/` | right after token | yes (`APIAccess.cs:415-433`) |
-| Friends | `GET /api/v2/friends` | after `SetLocalUser` (`game/client/osu.Game/Online/API/LocalUserState.cs:75-83`) | no: queued, failures logged |
-| Blocks | `GET /api/v2/blocks` | same (`LocalUserState.cs:170`) | no |
-| Favourites | `GET /api/v2/me/beatmapset-favourites` | same (`LocalUserState.cs:191`) | no |
-| Notifications | `GET /api/v2/notifications` | notifications WS (re)connect | no, but its `notification_endpoint` field is the only source of the chat/notifications WS URL (`game/client/osu.Game/Online/API/Requests/Responses/APINotificationsBundle.cs:17-18`) |
-| Chat updates | `GET /api/v2/chat/updates?channel=&since=&includes[]=presence` | on WS connect / channel manager load (`game/client/osu.Game/Online/Chat/WebSocketChatClient.cs:41-51`) | no |
-| Channels | `GET /api/v2/chat/channels` | after chat presence (`game/client/osu.Game/Online/Chat/ChannelManager.cs:119-120`) | no |
-| Messages | `GET /api/v2/chat/channels/{id}/messages` | on channel join (`ChannelManager.cs:495-507`) | no |
-| Chat ack | `POST /api/v2/chat/ack` (`since`, `history_since`) | on every state change + every 60 s (`ChannelManager.cs:126,540-544`) | no |
-| Seasonal backgrounds | `GET /api/v2/seasonal-backgrounds` | background loader (`game/client/osu.Game/Graphics/Backgrounds/SeasonalBackgroundLoader.cs:57,64`) | no |
+| Request | Route | When | Can it block login? | Server |
+|---|---|---|---|---|
+| Token | `POST /oauth/token` | `attemptConnect` | yes: failure logs out (`APIAccess.cs:360-368`) | implemented |
+| Me | `GET /api/v2/me/` | right after token | yes (`APIAccess.cs:415-433`) | implemented |
+| Friends | `GET /api/v2/friends` | after `SetLocalUser` (`game/client/osu.Game/Online/API/LocalUserState.cs:75-83`) | no: queued, failures logged | implemented-empty |
+| Blocks | `GET /api/v2/blocks` | same (`LocalUserState.cs:170`) | no | implemented-empty |
+| Favourites | `GET /api/v2/me/beatmapset-favourites` | same (`LocalUserState.cs:191`) | no | implemented-empty |
+| Notifications | `GET /api/v2/notifications` | notifications WS (re)connect | no, but its `notification_endpoint` field is the only source of the chat/notifications WS URL (`game/client/osu.Game/Online/API/Requests/Responses/APINotificationsBundle.cs:17-18`) | **implemented-empty**: `{"notifications": [], "has_more": false, "notification_endpoint": ""}` (no WS endpoint, so the client never connects) |
+| Chat updates | `GET /api/v2/chat/updates?channel=&since=&includes[]=presence` | on WS connect / channel manager load (`game/client/osu.Game/Online/Chat/WebSocketChatClient.cs:41-51`) | no | not implemented (client stays quiet) |
+| Channels | `GET /api/v2/chat/channels` | after chat presence (`game/client/osu.Game/Online/Chat/ChannelManager.cs:119-120`) | no | not implemented (client stays quiet) |
+| Messages | `GET /api/v2/chat/channels/{id}/messages` | on channel join (`ChannelManager.cs:495-507`) | no | not implemented (client stays quiet) |
+| Chat ack | `POST /api/v2/chat/ack` (`since`, `history_since`) | on every state change + every 60 s (`ChannelManager.cs:126,540-544`) | no | **implemented-empty**: `{"silences": []}` |
+| Seasonal backgrounds | `GET /api/v2/seasonal-backgrounds` | background loader (`game/client/osu.Game/Graphics/Backgrounds/SeasonalBackgroundLoader.cs:57,64`) | no | **implemented-empty**: `{"ends_at": "<past>", "backgrounds": []}` |
 
 Also on startup: the main-menu banner polls a **hardcoded ppy URL** (`assets.ppy.sh`) but only when
 `KanEndpointConfiguration.HasServer` is true (`game/client/osu.Game/Screens/Menu/OnlineMenuBanner.cs:70-72,98`);
@@ -441,12 +441,15 @@ it stays disabled unless we flip that flag, and it points at ppy infrastructure 
 
 - Connectors only connect while `APIState` is `Online`/`RequiresSecondFactorAuth`; `Offline`/`Failing`
   disconnects them.
-- There is **no empty-URL guard** in the hub clients: an empty/invalid URL makes the connect attempt
-  throw, which is caught and only logged (`PersistentEndpointClientConnector.cs:129-155`), then
-  retried with exponential back-off (3 s → 120 s). **Never** an error dialog, never a state change,
-  never a login failure. The same applies when the notifications endpoint is missing/invalid
-  (`WebSocketNotificationsClientConnector.cs:36` null deref → same back-off loop).
-- With the current kan! defaults (all URLs empty, `APIUrl` empty) nothing ever connects at all
+- Since fork F-27 there **is** an empty-URL guard at the connector level
+  (`PersistentEndpointClientConnector.cs`): when a connector has no endpoint to connect to (an empty
+  hub URL, or a `GET notifications` answer without a `notification_endpoint`), it makes no connection
+  attempt at all, retries nothing, and settles with `IsConnected` false, which UIs read as the service
+  being "not available" rather than still connecting. Before F-27 an empty/invalid URL made the connect
+  attempt throw (`UriFormatException`), and a missing notifications endpoint dereferenced null; both
+  were caught, logged and retried with exponential back-off (3 s → 120 s), which is the retry noise the
+  owner saw in the network log.
+- With the current kan! defaults (all hub URLs empty) nothing ever connects at all
   (`APIAccess.cs:198-203`).
 - Consequence for the MVP server: implementing **none** of the hubs is safe. The only user-visible
   loss is chat/notifications and multiplayer/spectator. To avoid a permanent background retry
@@ -572,6 +575,9 @@ Two client-side caveats worth knowing before deciding on media hosting:
 | `GET /api/v2/beatmaps/{id}/scores` (leaderboard) | 3 | must |
 | `GET /api/v2/scores/{id}/download` (replay) | 3 | later (`has_replay: false`) |
 | `GET /api/v2/friends`, `/blocks`, `/me/beatmapset-favourites` | 1 | should (return empty collections; otherwise silent retry noise) |
-| `GET /api/v2/chat/*`, `GET /api/v2/notifications`, `GET /api/v2/seasonal-backgrounds` | - | out of MVP (fail silently client-side) |
-| SignalR hubs (spectator/multiplayer/metadata) | - | out of MVP (silent back-off client-side) |
+| `GET /api/v2/notifications` | - | **implemented-empty** (empty bundle, `notification_endpoint: ""`: no WS to connect to) |
+| `POST /api/v2/chat/ack` | - | **implemented-empty** (`{"silences": []}`) |
+| `GET /api/v2/seasonal-backgrounds` | - | **implemented-empty** (empty list, ended `ends_at`) |
+| `GET /api/v2/chat/updates`, `/chat/channels`, `/chat/channels/{id}/messages` | - | out of MVP (fail silently client-side) |
+| SignalR hubs (spectator/multiplayer/metadata) | - | out of MVP (the client settles as "not available" without them since fork F-27) |
 | `POST /api/v2/session/verify*` (2FA) | - | out of MVP (omit `session_verification_method`) |
