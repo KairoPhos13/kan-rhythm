@@ -35,7 +35,7 @@ export function formError(fieldErrors: {
 export class UsersService {
   constructor(private readonly db: DbService) {}
 
-  /** `POST /users` — validation happens before anything is written. */
+  /** `POST /users`: validation happens before anything is written. */
   async register(input: RegistrationInput): Promise<UserRow> {
     const errors: { username?: string[]; user_email?: string[]; password?: string[] } = {};
     const username = (input.username ?? '').trim();

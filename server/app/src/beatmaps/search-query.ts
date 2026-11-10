@@ -9,14 +9,14 @@
 export interface SearchFilters {
   /** Free text over title/artist/creator/source/tags. */
   query?: string;
-  /** `s` — category (see CATEGORY_SQL). */
+  /** `s`: category (see CATEGORY_SQL). */
   category: string;
-  /** `m` — ruleset/mode int; filters difficulties' `mode_int`. */
+  /** `m`: ruleset/mode int; filters difficulties' `mode_int`. */
   mode?: number;
-  /** `g` / `l` — genre and language ids. */
+  /** `g` / `l`: genre and language ids. */
   genre?: number;
   language?: number;
-  /** `sort` — `{criteria}_{asc|desc}`. */
+  /** `sort`: `{criteria}_{asc|desc}`. */
   sort: string;
   offset: number;
   limit: number;

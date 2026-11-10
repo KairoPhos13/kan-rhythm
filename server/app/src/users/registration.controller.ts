@@ -1,5 +1,5 @@
 /**
- * `POST /users` — registration exactly as the client sends it
+ * `POST /users`: registration exactly as the client sends it
  * (server/docs/lazer-protocol.md §2): form fields `user[username]`,
  * `user[user_email]`, `user[password]`; validation failures answer with the
  * `form_error` shape the client parses.

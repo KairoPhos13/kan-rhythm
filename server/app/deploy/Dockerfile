@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# kan! server — single-process image (ARM64 Graviton friendly: node:22-alpine
+# kan! server: single-process image (ARM64 Graviton friendly: node:22-alpine
 # is multi-arch and no x86-only native modules are used).
 
 FROM node:22-alpine AS build

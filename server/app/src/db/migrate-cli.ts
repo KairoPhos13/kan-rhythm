@@ -1,4 +1,4 @@
-/** CLI: `npm run migrate` — applies pending SQL migrations. */
+/** CLI: `npm run migrate` applies pending SQL migrations. */
 import 'dotenv/config';
 import { loadConfig } from '../config';
 import { createPool } from './db.service';

@@ -31,7 +31,7 @@ export class BeatmapsController {
     @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
-  /** `GET /api/v2/beatmapsets/search` — cursor paging via `cursor[key]`. */
+  /** `GET /api/v2/beatmapsets/search`: cursor paging via `cursor[key]`. */
   @Get('beatmapsets/search')
   async search(
     @Query() query: QueryParams,
@@ -67,7 +67,7 @@ export class BeatmapsController {
     return set;
   }
 
-  /** `GET /api/v2/beatmapsets/{id}/download` — the `.osz` archive. */
+  /** `GET /api/v2/beatmapsets/{id}/download`: the `.osz` archive. */
   @Get('beatmapsets/:id/download')
   @UseGuards(AuthGuard)
   async download(
@@ -117,7 +117,7 @@ export class BeatmapsController {
     return beatmap;
   }
 
-  /** `GET /api/v2/beatmaps/?ids[]=` — batch lookup. */
+  /** `GET /api/v2/beatmaps/?ids[]=`: batch lookup. */
   @Get('beatmaps')
   async batchLookup(@Query() query: QueryParams): Promise<{ beatmaps: Record<string, unknown>[] }> {
     const raw = query['ids'] ?? query['ids[]'];

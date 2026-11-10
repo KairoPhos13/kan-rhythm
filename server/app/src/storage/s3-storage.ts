@@ -49,7 +49,7 @@ export class S3Storage implements Storage {
 
   /**
    * Downloads are answered with a 302 to this URL (the client follows
-   * redirects transparently — osu! itself ships .osz archives that way,
+   * redirects transparently; osu! itself ships .osz archives that way,
    * see server/docs/osu-server-feasibility.md §7).
    */
   presign(key: string, expiresInSeconds: number): Promise<string> {

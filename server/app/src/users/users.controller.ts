@@ -72,7 +72,7 @@ export class UsersController {
     return this.lookupUser(lookup, key);
   }
 
-  /** `GET /api/v2/users/{id}/scores/{type}` — profile best/recent sections. */
+  /** `GET /api/v2/users/{id}/scores/{type}`: profile best/recent sections. */
   @Get('users/:lookup/scores/:type')
   async userScores(
     @Param('lookup') lookup: string,

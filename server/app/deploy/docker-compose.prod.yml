@@ -1,6 +1,6 @@
 # Production stack for one small host (AWS t4g.micro class: 1 GB RAM).
 # Memory budget for the whole stack: <= 700 MB (app 300 + postgres 320 + caddy 60).
-# Configuration comes from deploy/.env (never committed) — see DEPLOY.md.
+# Configuration comes from deploy/.env (never committed); see DEPLOY.md.
 services:
   app:
     build:

@@ -1,10 +1,10 @@
--- 0002_types_and_uuidv7.sql — shared enum types and the UUIDv7 generator.
+-- 0002_types_and_uuidv7.sql: shared enum types and the UUIDv7 generator.
 --
 -- Per docs/architecture/backend-data-model.md §3: identifiers are UUIDv7
--- (time-ordered — chosen for scores/leaderboards locality). PostgreSQL 18
+-- (time-ordered: chosen for scores/leaderboards locality). PostgreSQL 18
 -- ships a built-in uuidv7(); this function is the portable equivalent for
 -- PG 16/17 and can be dropped when the fleet moves to PG 18.
--- Layout: RFC 9562 — 48-bit unix-ms timestamp, version nibble 0x7,
+-- Layout per RFC 9562: 48-bit unix-ms timestamp, version nibble 0x7,
 -- variant bits 10, remaining 74 bits from gen_random_bytes().
 
 CREATE OR REPLACE FUNCTION uuid_v7() RETURNS uuid

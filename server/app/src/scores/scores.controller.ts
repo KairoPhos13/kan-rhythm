@@ -17,7 +17,7 @@ export class ScoresController {
     private readonly auth: AuthService,
   ) {}
 
-  /** `POST /api/v2/beatmaps/{id}/solo/scores` — create a score token. */
+  /** `POST /api/v2/beatmaps/{id}/solo/scores`: create a score token. */
   @Post('beatmaps/:id/solo/scores')
   @UseGuards(AuthGuard)
   async createToken(
@@ -33,7 +33,7 @@ export class ScoresController {
     });
   }
 
-  /** `PUT /api/v2/beatmaps/{id}/solo/scores/{token}` — submit the score. */
+  /** `PUT /api/v2/beatmaps/{id}/solo/scores/{token}`: submit the score. */
   @Put('beatmaps/:id/solo/scores/:token')
   @UseGuards(AuthGuard)
   async submit(
@@ -48,7 +48,7 @@ export class ScoresController {
     return this.scores.submit(user, beatmapId, tokenId, body ?? {});
   }
 
-  /** `GET /api/v2/beatmaps/{id}/scores` — leaderboard (`mode=kan`). */
+  /** `GET /api/v2/beatmaps/{id}/scores`: leaderboard (`mode=kan`). */
   @Get('beatmaps/:id/scores')
   async leaderboard(
     @Param('id') id: string,

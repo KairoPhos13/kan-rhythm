@@ -6,7 +6,7 @@
  * in Cloudflare's `CF-Connecting-IP` header (or, as a fallback, the first hop
  * of `X-Forwarded-For`). Those headers are trivially spoofable by anyone who
  * talks to the app directly, so they are only trusted when
- * `TRUST_PROXY=cloudflare` is set explicitly — never otherwise.
+ * `TRUST_PROXY=cloudflare` is set explicitly, never otherwise.
  */
 
 export type TrustProxyMode = 'none' | 'cloudflare';

@@ -1,5 +1,5 @@
 /**
- * Test fixtures: a minimal, self-made `.osz` archive (no copyrighted audio —
+ * Test fixtures: a minimal, self-made `.osz` archive (no copyrighted audio: a
  * a generated silent WAV and a generated 1x1 PNG) with one valid `.osu`.
  */
 import AdmZip from 'adm-zip';

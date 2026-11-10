@@ -60,7 +60,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
     databaseUrl: env.DATABASE_URL ?? 'postgres://kan:kan@localhost:55432/kan',
     trustProxy: parseTrustProxy(env.TRUST_PROXY),
     oauth: {
-      // The game ships these as constants (public by nature — like osu!lazer's
+      // The game ships these as constants (public by nature: like osu!lazer's
       // client, it is distributed to everyone; the real protection is user
       // passwords and bearer tokens). They must match the client's values.
       clientId: env.OAUTH_CLIENT_ID ?? 'kan-client',

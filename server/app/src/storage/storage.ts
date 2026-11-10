@@ -2,9 +2,9 @@
  * File storage abstraction for level archives and covers.
  *
  * Two drivers (server/docs/mvp-scope.md §6):
- *  - `local`: files under a local directory (dev, tests) — downloads stream
+ *  - `local`: files under a local directory (dev, tests); downloads stream
  *    from disk;
- *  - `s3`: any S3-compatible store (Cloudflare R2, AWS S3) — downloads are
+ *  - `s3`: any S3-compatible store (Cloudflare R2, AWS S3); downloads are
  *    answered with a 302 to a short-lived presigned URL.
  */
 import { Readable } from 'node:stream';

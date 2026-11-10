@@ -1,4 +1,4 @@
--- 0006_trust_billing.sql — cheat_verdicts, audit_events (range-partitioned,
+-- 0006_trust_billing.sql: cheat_verdicts, audit_events (range-partitioned,
 -- append-only), donations. Implements docs/architecture/backend-data-model.md
 -- §3 "trust" and "billing" exactly.
 --
@@ -40,7 +40,7 @@ CREATE INDEX audit_events_entity_idx ON audit_events (entity_type, entity_id);
 CREATE INDEX audit_events_actor_idx ON audit_events (actor_id, created_at);
 
 -- Append-only enforcement: no UPDATE/DELETE through SQL. (The ingest role
--- should additionally be granted INSERT/SELECT only — see migrations README.)
+-- should additionally be granted INSERT/SELECT only; see migrations README.)
 CREATE RULE audit_events_no_update AS ON UPDATE TO audit_events
     DO INSTEAD NOTHING;
 CREATE RULE audit_events_no_delete AS ON DELETE TO audit_events

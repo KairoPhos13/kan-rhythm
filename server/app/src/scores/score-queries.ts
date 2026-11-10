@@ -93,7 +93,7 @@ export interface Leaderboard {
 
 /**
  * Best score per user, ranked by `total_score` desc then date asc (the client
- * re-sorts by total score itself and assigns list positions — §5.4 — but the
+ * re-sorts by total score itself and assigns list positions (§5.4) but the
  * `user_score` position comes from here).
  */
 export function computeLeaderboard(

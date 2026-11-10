@@ -1,11 +1,11 @@
-# kan! server MVP (lazer protocol) — scope
+# kan! server MVP (lazer protocol): scope
 
 **Status: Draft for owner review.**
 
 Protocol facts used throughout: [`lazer-protocol.md`](lazer-protocol.md) (clean-room from the
 client's MIT source). Distribution decision: [`osu-server-feasibility.md`](osu-server-feasibility.md)
-§7-8, recommendation **B** (small own server, lazer protocol). Hosting: [`hosting-study.md`](hosting-study.md)
-— target host is the owner's AWS **t4g.micro** (ARM64 Graviton, 1 GB RAM, 4 GB free disk) which
+§7-8, recommendation **B** (small own server, lazer protocol). Hosting: [`hosting-study.md`](hosting-study.md).
+The target host is the owner's AWS **t4g.micro** (ARM64 Graviton, 1 GB RAM, 4 GB free disk) which
 already runs a Nebula lighthouse (~10-50 MB RSS).
 
 ## 1. Budget and shape
@@ -94,7 +94,7 @@ never contain passwords or tokens.
 `docker compose up -d` → `npm run migrate` → `npm run import -- <file.osz>` → `npm run start:dev`;
 tests: `npm test` (unit + e2e against the dev postgres), `npm run lint`, `npm run build`.
 
-## 8. Client changes needed in the fork (Claude will make these — **not** done by the server work)
+## 8. Client changes needed in the fork (Claude will make these; **not** done by the server work)
 
 1. **Trusted media hosts:** `game/client/osu.Game/Online/TrustedDomainOnlineStore.cs:12-21` only
    loads online textures from `*.ppy.sh`, so covers/avatars from our domain silently do not render.
@@ -105,14 +105,14 @@ tests: `npm test` (unit + e2e against the dev postgres), `npm run lint`, `npm ru
 
 ## 9. Risks
 
-- **Protocol drift** vs client updates — `lazer-protocol.md` stays the checked contract; e2e tests
+- **Protocol drift** vs client updates: `lazer-protocol.md` stays the checked contract; e2e tests
   walk the client's exact JSON shapes.
-- **1 GB RAM is tight** (`hosting-study.md` reviewer note) — `mem_limit`s + swap; re-measure after
+- **1 GB RAM is tight** (`hosting-study.md` reviewer note): `mem_limit`s + swap; re-measure after
   first deploy. The import CLI runs as a one-shot container/command, not as a service.
 - **No anti-cheat** in MVP: scores are trusted as submitted (matches "simple beats clever" scale).
-- **`ruleset_id 0` collision** with osu!standard semantics — stored as data
+- **`ruleset_id 0` collision** with osu!standard semantics: stored as data
   (`ruleset_short_name='kan'`, `ruleset_id=0`) so nothing assumes "0 = osu!standard".
-- **No pp / difficulty calculation** — star ratings are 0 and leaderboards rank by total score;
+- **No pp / difficulty calculation**: star ratings are 0 and leaderboards rank by total score;
   revisiting this later means an ADR-0008 `kp` pass, not a schema change.
-- **Covers/previews empty** until the client changes of §8 land — expected, documented in
-  `lazer-protocol.md` §8.3.
+- **Covers/previews empty** until the client changes of §8 land (expected, documented in
+  `lazer-protocol.md` §8.3).

@@ -1,5 +1,5 @@
 # Recommended production stack: Cloudflare Tunnel in front of the API
-# (see DEPLOY.md). No published ports at all — the host's public IP (also the
+# (see DEPLOY.md). No published ports at all; the host's public IP (also the
 # Nebula lighthouse) stays hidden, TLS terminates at Cloudflare's edge, and
 # cloudflared reaches the app on the compose network as http://app:3000.
 #

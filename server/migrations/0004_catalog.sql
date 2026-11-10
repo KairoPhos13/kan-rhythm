@@ -1,4 +1,4 @@
--- 0004_catalog.sql — instrument packs, songs, song versions, charts.
+-- 0004_catalog.sql: instrument packs, songs, song versions, charts.
 -- Implements docs/architecture/backend-data-model.md §3 "instruments" and
 -- "catalog" exactly. Blobs live in object storage; the DB stores keys +
 -- SHA-256 only (never bytes).

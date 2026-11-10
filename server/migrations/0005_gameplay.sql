@@ -1,4 +1,4 @@
--- 0005_gameplay.sql — scores (hash-partitioned), replays, kp_stats,
+-- 0005_gameplay.sql: scores (hash-partitioned), replays, kp_stats,
 -- leaderboard_entries. Implements docs/architecture/backend-data-model.md
 -- §3 "gameplay" and §6 scalability decisions:
 --

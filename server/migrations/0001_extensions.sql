@@ -1,4 +1,4 @@
--- 0001_extensions.sql — required PostgreSQL extensions.
+-- 0001_extensions.sql: required PostgreSQL extensions.
 -- Target: PostgreSQL 16+ (validated on postgres:16-alpine).
 --
 -- citext  : case-insensitive usernames/emails (PostgreSQL License)

@@ -1,6 +1,6 @@
 # kan! server threat model (design phase)
 
-Status: draft v1 — design-phase deliverable ([server/TODO.md](../TODO.md)).
+Status: draft v1, design-phase deliverable ([server/TODO.md](../TODO.md)).
 Scope: the `server/` backend as specified in
 [docs/architecture/backend-data-model.md](../../docs/architecture/backend-data-model.md)
 and [server/api/openapi.yaml](../api/openapi.yaml). Client-side threats
@@ -13,7 +13,7 @@ tampering**, **Sybil ranking farming**, **webhook forgery**. A short
 
 ## Trust assumptions
 
-1. The game client runs on hardware the player controls — it is **untrusted**.
+1. The game client runs on hardware the player controls; it is **untrusted**.
    Everything it sends is an unverified claim until server-side checks pass.
 2. `client_hash` is a *signed build fingerprint*: releases are signed by the
    project; the server only accepts hashes from the known-signed build list.
@@ -29,13 +29,13 @@ tampering**, **Sybil ranking farming**, **webhook forgery**. A short
    (libkan-derived, compiled as a server tool) re-simulates hit judgments
    from replay curves. This is the root of score trust.
 
-## Threat 1 — Score spoofing
+## Threat 1: Score spoofing
 
 **Actor:** competitive cheater wanting leaderboard rank/kp without playing.
 
 **Attack vectors**
 - S1. Craft a `POST /scores` body with inflated counts, combo, kp-relevant
-  accuracy values — never played the chart.
+  accuracy values, never having played the chart.
 - S2. Inject synthetic MIDI/synth audio through a virtual cable posing as
   acoustic mic input (ROADMAP M4 gate: ≥99% block).
 - S3. Replay a *captured legitimate submission* (someone else's HTTP body)
@@ -55,9 +55,9 @@ tampering**, **Sybil ranking farming**, **webhook forgery**. A short
 | S3 | Submission is authenticated (bearer token from device flow) and bound to the token's user; `Idempotency-Key` dedup prevents replaying the same key for duplicate rows | `POST /scores` (`Idempotency-Key` header required, 422 when missing; 401 without token) |
 | S4 | `client_hash` must appear in the known-signed-build list; unknown builds rejected with 409 `UNKNOWN_CLIENT_BUILD`; build list rotation invalidates cracked clients | `POST /scores` → `scores.client_hash` |
 | S5 | `chart_id` must exist and be `ranked`; `manifest_sha256` must equal the catalog value for that chart's song version | `POST /scores` → 409 `CHART_NOT_RANKED` / `MANIFEST_MISMATCH`; `song_versions.manifest_sha256` |
-| — | No replay uploaded ⇒ score cannot leave `pending`; replay upload is bound to the submission via `replay_sha256` (see Threat 2) | `ScoreSubmitAck.replay_upload`, `replays` row required for validation |
-| — | Rate limits per user/IP on submission (Redis-backed) blunt brute-force and flood attempts | `POST /scores` → 429 |
-| — | Confirmed cheating: `validity='cheat'`, board exclusion, moderation queue, user flag/ban; all actions audited | `cheat_verdicts`, `scores.validity`, `audit_events` |
+| - | No replay uploaded ⇒ score cannot leave `pending`; replay upload is bound to the submission via `replay_sha256` (see Threat 2) | `ScoreSubmitAck.replay_upload`, `replays` row required for validation |
+| - | Rate limits per user/IP on submission (Redis-backed) blunt brute-force and flood attempts | `POST /scores` → 429 |
+| - | Confirmed cheating: `validity='cheat'`, board exclusion, moderation queue, user flag/ban; all actions audited | `cheat_verdicts`, `scores.validity`, `audit_events` |
 
 **Residual risk:** a *human* playing with an instrument-like synthetic rig
 that passes the organic-noise classifier (e.g. re-performing MIDI through a
@@ -65,7 +65,7 @@ physical speaker/mic loopback). Accepted for v1; the classifier arms race is
 expected (osu! precedent) and the ≥99% gate targets the naive virtual-cable
 case.
 
-## Threat 2 — Replay tampering
+## Threat 2: Replay tampering
 
 **Actor:** cheater submitting a genuine-looking replay that does not
 correspond to the claimed score, or swapping/editing replay blobs after
@@ -83,18 +83,18 @@ submission.
 
 | # | Mitigation | Where |
 |---|---|---|
-| R1 | Re-simulation is the authority: judgments are re-derived **from the curves**; if derived results disagree with the claimed `result` beyond tolerance, the score is `invalid`/flagged — a crafted replay must actually *play* the claimed performance, which reduces to Threat 1 S2 (classifier sees the curves) | validation worker; `scores.validity` |
-| R2 | `replay_sha256` is declared **in the signed submission body** before upload; the presigned `PUT` accepts only bytes hashing to that value (verified at ingest) — a borrowed blob has the wrong hash unless the whole submission was copied, which the auth binding (S3) already blocks | `POST /scores` request body; `ScoreSubmitAck.replay_upload` |
+| R1 | Re-simulation is the authority: judgments are re-derived **from the curves**; if derived results disagree with the claimed `result` beyond tolerance, the score is `invalid`/flagged. A crafted replay must actually *play* the claimed performance, which reduces to Threat 1 S2 (classifier sees the curves) | validation worker; `scores.validity` |
+| R2 | `replay_sha256` is declared **in the signed submission body** before upload; the presigned `PUT` accepts only bytes hashing to that value (verified at ingest). A borrowed blob has the wrong hash unless the whole submission was copied, which the auth binding (S3) already blocks | `POST /scores` request body; `ScoreSubmitAck.replay_upload` |
 | R3 | Blobs are content-addressed: catalog/storage keys record SHA-256; object-storage versioning + bucket write restricted to the ingest role; download URLs are presigned and short-lived, never world-writable | `replays.storage_key`/`curves_key`, ops config (backend-data-model §3/§6) |
 | R4 | One replay row per score (`replays.score_id` PK); the presigned upload URL is single-use and scoped to the score's storage key; re-upload requires a new submission | `replays` PK; `GET /scores/{id}/replay` serves only what was ingested |
-| — | Public replay availability only for `valid` scores on `ranked` charts — invalid/cheat replays are evidence, restricted to owner + moderators | `GET /scores/{score_id}/replay` (403 semantics) |
+| - | Public replay availability only for `valid` scores on `ranked` charts; invalid/cheat replays are evidence, restricted to owner + moderators | `GET /scores/{score_id}/replay` (403 semantics) |
 
 **Residual risk:** a full performance-replay generation tool (bot that plays
 the game through the real audio path). This is Threat 1 S2 at the highest
 sophistication level; detection is the classifier + moderation, not the
 schema.
 
-## Threat 3 — Sybil ranking farming
+## Threat 3: Sybil ranking farming
 
 **Actor:** operator of many fake accounts inflating a rank, farming
 leaderboard positions, or gaming the ranked-review/loved petition process.
@@ -112,19 +112,19 @@ leaderboard positions, or gaming the ranked-review/loved petition process.
 
 | # | Mitigation | Where |
 |---|---|---|
-| Y1 | Board uniqueness: one score per user per board, and kp counts **one score per chart per user** (ADR-0008) — alt accounts cannot multiply a single player's chart kp; board capacity pressure is per-account, raising cost linearly | `leaderboard_entries` (PK includes user slot via `UNIQUE(score_id)` + upsert per user), ADR-0008 §2 |
-| Y1 | Device-flow authorization requires a browser session; signup rate-limited per IP/ASN (Redis); country ranks derive from `users.country` which is profile data, cheap to fake — country boards are explicitly secondary to global/family ranks | `POST /auth/device/code` (429), `/ranks/*` |
+| Y1 | Board uniqueness: one score per user per board, and kp counts **one score per chart per user** (ADR-0008). Alt accounts cannot multiply a single player's chart kp; board capacity pressure is per-account, raising cost linearly | `leaderboard_entries` (PK includes user slot via `UNIQUE(score_id)` + upsert per user), ADR-0008 §2 |
+| Y1 | Device-flow authorization requires a browser session; signup rate-limited per IP/ASN (Redis); country ranks derive from `users.country` which is profile data, cheap to fake; country boards are explicitly secondary to global/family ranks | `POST /auth/device/code` (429), `/ranks/*` |
 | Y2 | Alt detection inputs are recorded from day one: `scores.client_hash`, submission IP metadata in ingest audit (payload, not a PII column), timing/cent "biometric" similarity of curves across accounts feeds the moderation classifier | `audit_events.payload`, `cheat_verdicts.evidence`, moderation module |
-| Y3 | Loved petitions require signatures from users **with ranked play history** (ADR-0009 §5) — a fresh Sybil has no ranked scores; review votes require the Chart Reviewer role (appointed humans), never open to self-serve signup | loved-petition endpoint (post-v1), `POST /charts/{id}/vote` (403 role check) |
+| Y3 | Loved petitions require signatures from users **with ranked play history** (ADR-0009 §5). A fresh Sybil has no ranked scores; review votes require the Chart Reviewer role (appointed humans), never open to self-serve signup | loved-petition endpoint (post-v1), `POST /charts/{id}/vote` (403 role check) |
 | Y4 | Bans attach to `users.disabled_at` **and** to device/credential fingerprints (`user_credentials.external_id` per provider); OAuth-first signup means alt creation costs a real provider account each | moderation module; `user_credentials`, `users.disabled_at` |
-| — | All moderation actions (flag, ban, verdict, appeal outcome) are append-only audited and appealable | `audit_events`, `cheat_verdicts`, moderation endpoints (implementation phase) |
+| - | All moderation actions (flag, ban, verdict, appeal outcome) are append-only audited and appealable | `audit_events`, `cheat_verdicts`, moderation endpoints (implementation phase) |
 
 **Residual risk:** determined operators with aged OAuth identities and
 residential proxies. Accepted: the economic design (kp decay + one-score-per-
 chart) makes Sybil farming *low-yield per account*, which is the real defense
 (osu! precedent). Detection continues async via the classifier.
 
-## Threat 4 — Webhook forgery
+## Threat 4: Webhook forgery
 
 **Actor:** attacker fabricating donation events to obtain `kan!supporter`
 entitlements without paying, or poisoning financial records.
@@ -140,11 +140,11 @@ entitlements without paying, or poisoning financial records.
 | # | Mitigation | Where |
 |---|---|---|---|
 | W1 | HMAC signature **required and verified before any processing**; unsigned/bad-signature → 401 without parsing the body into domain logic. Keys live in the secret manager, never in the repo | `POST /webhooks/{provider}` (`X-Kan-Webhook-Signature` header, `webhookSignature` security scheme) |
-| W2 | Signed payload includes the provider delivery timestamp; deliveries older than 5 minutes are rejected (replay window). Events are deduplicated by `provider_ref` (UNIQUE in `donations`): redelivery acks 200 with no side effects — at-least-once safe | `POST /webhooks/{provider}`, `donations.provider_ref UNIQUE` |
+| W2 | Signed payload includes the provider delivery timestamp; deliveries older than 5 minutes are rejected (replay window). Events are deduplicated by `provider_ref` (UNIQUE in `donations`): redelivery acks 200 with no side effects, at-least-once safe | `POST /webhooks/{provider}`, `donations.provider_ref UNIQUE` |
 | W3 | TLS termination at the edge; signature covers the **raw body bytes** (canonical verification), so any mutation invalidates it | webhook verification middleware |
 | W4 | Per-source rate limiting + flood monitoring; verification is cheap and stateless, entitlement granting is queued (never synchronous in the handler), so floods degrade gracefully | `POST /webhooks/{provider}` → 429; billing worker queue |
-| — | Entitlement grants are idempotent and derived from persisted events, not from the request: `supporter_entitlements` rows reference `donations` via `receipt_ref`; revocation on refund/chargeback is a status-driven job | `donations.status`, `supporter_entitlements` |
-| — | Every webhook acceptance/rejection and every entitlement change writes an `audit_events` row for forensics | `audit_events` |
+| - | Entitlement grants are idempotent and derived from persisted events, not from the request: `supporter_entitlements` rows reference `donations` via `receipt_ref`; revocation on refund/chargeback is a status-driven job | `donations.status`, `supporter_entitlements` |
+| - | Every webhook acceptance/rejection and every entitlement change writes an `audit_events` row for forensics | `audit_events` |
 
 **Residual risk:** provider-side key compromise. Mitigation is operational:
 key rotation runbook, provider dashboard reconciliation job (post-v1), and
@@ -167,7 +167,7 @@ identified and entitlements revoked in bulk.
 - Synthetic-MIDI injection test corpus replayed through `POST /scores` +
   validation worker must hit the ≥99% block gate (ROADMAP M4).
 - Webhook endpoint contract tests: unsigned, mis-signed, stale-timestamp,
-  duplicate `provider_ref` — all rejected or acked without side effects.
+  duplicate `provider_ref`, all rejected or acked without side effects.
 - Idempotency test: duplicate `Idempotency-Key` returns the original ack with
   `duplicate: true` and inserts nothing.
 - Re-simulation mismatch test: edited curves blob → score never reaches

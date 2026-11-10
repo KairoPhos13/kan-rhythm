@@ -73,7 +73,7 @@ export class BeatmapsService {
   }
 
   /**
-   * `GET /api/v2/beatmaps/lookup?id|checksum|filename` — checksum first (it is
+   * `GET /api/v2/beatmaps/lookup?id|checksum|filename`: checksum first (it is
    * the `.osu` MD5), then id, then filename (§4.3).
    */
   async lookupBeatmap(
@@ -108,7 +108,7 @@ export class BeatmapsService {
     return this.serialiseBeatmap(row, set);
   }
 
-  /** `GET /api/v2/beatmaps/?ids[]=` — batch lookup. */
+  /** `GET /api/v2/beatmaps/?ids[]=`: batch lookup. */
   async getBeatmaps(ids: number[]): Promise<Record<string, unknown>[]> {
     if (ids.length === 0) return [];
     const result = await this.db.query<BeatmapRow>(

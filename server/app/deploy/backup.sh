@@ -1,5 +1,5 @@
 #!/bin/sh
-# kan! server — nightly PostgreSQL backup to a local directory (upload it to
+# kan! server: nightly PostgreSQL backup to a local directory (upload it to
 # object storage from there, e.g. with rclone; see DEPLOY.md §7).
 #
 # Usage: BACKUP_DIR=/var/backups/kan ./backup.sh

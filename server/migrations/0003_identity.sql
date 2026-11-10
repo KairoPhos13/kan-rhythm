@@ -1,4 +1,4 @@
--- 0003_identity.sql — users, credentials, supporter entitlements.
+-- 0003_identity.sql: users, credentials, supporter entitlements.
 -- Implements docs/architecture/backend-data-model.md §3 "identity" exactly.
 -- PII-minimal: no real names; email only for account recovery/notifications.
 

@@ -60,7 +60,7 @@ export class ScoresService {
   ) {}
 
   /**
-   * `POST /api/v2/beatmaps/{id}/solo/scores` — creates the score token for a
+   * `POST /api/v2/beatmaps/{id}/solo/scores`: creates the score token for a
    * play. `beatmap_hash` must be the MD5 of the player's local `.osu`.
    */
   async createToken(
@@ -95,7 +95,7 @@ export class ScoresService {
   }
 
   /**
-   * `PUT /api/v2/beatmaps/{id}/solo/scores/{token}` — consumes the token and
+   * `PUT /api/v2/beatmaps/{id}/solo/scores/{token}`: consumes the token and
    * stores the score. Returns the score and its leaderboard position (§5.2).
    */
   async submit(
@@ -180,7 +180,7 @@ export class ScoresService {
   }
 
   /**
-   * `GET /api/v2/beatmaps/{id}/scores` — best score per user, top 50, plus the
+   * `GET /api/v2/beatmaps/{id}/scores`: best score per user, top 50, plus the
    * requesting user's own best (`user_score`).
    */
   async leaderboard(

@@ -1,7 +1,7 @@
 /**
  * Periodic cleanup of expired rows: `oauth_tokens` and `score_tokens` would
  * otherwise grow forever (review note). Runs once at start-up and then every
- * hour on a plain `setInterval` — the timer is `unref()`ed so it never keeps
+ * hour on a plain `setInterval`; the timer is `unref()`ed so it never keeps
  * the process alive, and is cleared on module destroy.
  */
 import { Injectable, Logger, OnModuleDestroy, OnModuleInit } from '@nestjs/common';
@@ -15,7 +15,7 @@ export const PURGE_INTERVAL_MS = 60 * 60 * 1000;
  *  - `oauth_tokens`: a row is dead once its refresh token has expired (access
  *    tokens live far shorter and the client refreshes proactively);
  *  - `score_tokens`: rows that were used (a play was submitted) or that expired
- *    more than a day ago (the play was abandoned) — a day of slack keeps a
+ *    more than a day ago (the play was abandoned); a day of slack keeps a
  *    token around for late submissions within its own lifetime.
  */
 export const PURGE_STATEMENTS = {

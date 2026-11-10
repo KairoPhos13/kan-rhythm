@@ -4,10 +4,10 @@ The kan! backend platform: accounts, song/chart catalog, score submission,
 leaderboards (`kp`), replays, ranked workflow, events/audit, and donation
 entitlements.
 
-**Status:** planned (Milestone 4) — see [TODO.md](TODO.md).
+**Status:** planned (Milestone 4), see [TODO.md](TODO.md).
 Design of record: [docs/architecture/backend-data-model.md](../docs/architecture/backend-data-model.md).
 
-## MVP (lazer protocol) — implemented in `app/`
+## MVP (lazer protocol): implemented in `app/`
 
 A standalone MVP now lives in [`app/`](app/): a NestJS + PostgreSQL 16 server
 speaking the **osu!lazer client protocol** (clean-room from the client's MIT
@@ -18,7 +18,7 @@ small PostgreSQL on a 1 GB ARM64 host (`app/deploy/`), and levels are imported
 from `.osz` via `npm run import` into S3-compatible object storage (or local
 disk in dev). The long-term design below is unchanged.
 
-## Design artifacts (design phase — complete, drafts pending ratification)
+## Design artifacts (design phase: complete, drafts pending ratification)
 
 | Artifact | Location |
 |---|---|
@@ -45,7 +45,7 @@ disk in dev). The long-term design below is unchanged.
 
 - English only (root `CONTRIBUTING.md`)
 - PII-minimal, GDPR-aware; no payment card data ever (provider tokens only)
-- Secrets via environment/secret manager only — never in the repo
+- Secrets via environment/secret manager only, never in the repo
 - This component will extract into the `kan-web` repository at Milestone 4;
   keep it free of dependencies on game/libkan code except the shared
   judgment re-simulation tool (explicit, versioned)

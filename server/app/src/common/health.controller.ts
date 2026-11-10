@@ -1,5 +1,5 @@
 /**
- * Ops health endpoint (not part of the lazer protocol — the game client never
+ * Ops health endpoint (not part of the lazer protocol: the game client never
  * calls it). It exists for deployment checks ("Check it works" in
  * deploy/DEPLOY.md) and exercises absolute URL building behind a tunnel.
  */

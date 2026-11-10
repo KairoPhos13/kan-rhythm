@@ -3,8 +3,8 @@
 A small, self-hostable server that the **unmodified osu!lazer client** (the kan!
 fork) can talk to: accounts, level browsing/downloading, score submission and
 per-level leaderboards. It implements the wire protocol the client already
-speaks — clean-room from the client's MIT source, see
-[`../docs/lazer-protocol.md`](../docs/lazer-protocol.md) — and the MVP scope in
+speaks (clean-room from the client's MIT source, see
+[`../docs/lazer-protocol.md`](../docs/lazer-protocol.md)) and the MVP scope in
 [`../docs/mvp-scope.md`](../docs/mvp-scope.md).
 
 One NestJS process (Node 22, TypeScript) + PostgreSQL 16. No Redis, no workers,
@@ -64,13 +64,13 @@ npm run typecheck
 | `PORT` | `3000` | HTTP port |
 | `DATABASE_URL` | `postgres://kan:kan@localhost:55432/kan` | PostgreSQL connection string |
 | `OAUTH_CLIENT_ID` | `kan-client` | client id the game sends |
-| `OAUTH_CLIENT_SECRET` | `kan-public-client` | client "secret" the game sends — **public by design**, see below |
+| `OAUTH_CLIENT_SECRET` | `kan-public-client` | client "secret" the game sends, **public by design**, see below |
 | `ACCESS_TOKEN_TTL_SECONDS` | `86400` | access token lifetime (keep ≫ 30 s) |
 | `REFRESH_TOKEN_TTL_SECONDS` | `2592000` | refresh token lifetime (rotated on use) |
 | `SCORE_TOKEN_TTL_SECONDS` | `1800` | score token lifetime (one play) |
 | `STORAGE_DRIVER` | `local` | `local` or `s3` |
 | `STORAGE_LOCAL_DIR` | `./data` | root directory for the local driver |
-| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | — | S3-compatible store (Cloudflare R2 / AWS S3) |
+| `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | - | S3-compatible store (Cloudflare R2 / AWS S3) |
 | `DOWNLOAD_URL_EXPIRY_SECONDS` | `300` | expiry of the presigned download URLs |
 | `TRUST_PROXY` | *(empty)* | `cloudflare` behind Cloudflare Tunnel: trust `CF-Connecting-IP` for rate limiting and use `https` in generated URLs. Never trust forwarded headers without it |
 
@@ -84,7 +84,7 @@ CLIENT_ID     = "kan-client";        // OAUTH_CLIENT_ID
 CLIENT_SECRET = "kan-public-client"; // OAUTH_CLIENT_SECRET
 ServerUrl     = KAN_SERVER_URL env var (testing / community servers)
                 ?? built-in default URL (becomes https://api.<domain> when
-                deployed — Claude edits the client)
+                deployed; Claude edits the client)
 ```
 
 So the server-side values in `.env` are `OAUTH_CLIENT_ID=kan-client` and
@@ -96,7 +96,7 @@ hashed bearer and refresh tokens. Keep the values in sync with the client build.
 Two small client-side changes are needed later for media (documented in
 [`../docs/mvp-scope.md`](../docs/mvp-scope.md) §8): widen the trusted texture
 hosts beyond `*.ppy.sh` and point preview audio at the server. Covers and
-previews are returned empty until then — the client tolerates that.
+previews are returned empty until then. The client tolerates that.
 
 ## Level import
 
@@ -111,7 +111,7 @@ and later sends as `beatmap_hash`), and extracts the cover image. Re-importing a
 archive whose set id is already present updates the set instead of duplicating
 it. Imported sets are `ranked` for now, so leaderboards show immediately.
 
-Only mode-0 (kan!-playable) difficulties are imported — kan! claims legacy
+Only mode-0 (kan!-playable) difficulties are imported: kan! claims legacy
 ruleset id 0, so taiko/catch/mania difficulties cannot be played. They are
 skipped with a log line and stripped from the stored archive; an archive with no
 mode-0 difficulty is rejected (nothing is written, exit code 1).
@@ -120,7 +120,7 @@ mode-0 difficulty is rejected (nothing is written, exit code 1).
 
 See [`deploy/DEPLOY.md`](deploy/DEPLOY.md). The recommended stack is
 **Cloudflare Tunnel** (`deploy/docker-compose.tunnel.yml`: app + postgres +
-cloudflared, no published ports — the host's public IP stays hidden) with level
+cloudflared, no published ports; the host's public IP stays hidden) with level
 files in Cloudflare R2; `mem_limit`s sum to 684 MB and `deploy/DEPLOY.md` covers
 the domain, R2, tunnel, backups and a restore drill. The direct-exposure
 alternative (Caddy, `deploy/docker-compose.prod.yml`) is documented there too.

@@ -1,7 +1,7 @@
 /**
  * Absolute URL building. Behind Cloudflare Tunnel TLS terminates at the edge,
  * so the app answers plain HTTP on the compose network while the public URL is
- * `https://…` — anything absolute (health output today, media URLs later per
+ * `https://…`. Anything absolute (health output today, media URLs later per
  * server/docs/mvp-scope.md §8) must say `https` when `TRUST_PROXY=cloudflare`.
  */
 import { TrustProxyMode } from './client-ip';
@@ -13,7 +13,7 @@ export function requestHost(headers: Record<string, unknown> | undefined): strin
   const raw = headers?.['host'];
   const value = Array.isArray(raw) ? raw[0] : raw;
   const host = typeof value === 'string' ? value.trim() : '';
-  // Reject anything but a plain hostname[:port] — a poisoned Host header must
+  // Reject anything but a plain hostname[:port]: a poisoned Host header must
   // never end up inside a generated URL.
   return host !== '' && HOST_PATTERN.test(host) ? host : 'localhost';
 }

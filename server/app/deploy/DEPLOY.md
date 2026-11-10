@@ -34,9 +34,9 @@ Contents:
 ## 1. Cloudflare account and domain
 
 1. Create a Cloudflare account with the project mailbox (the `KairoPhos`
-   address — never a personal one) and turn on two-factor authentication.
+   address, never a personal one) and turn on two-factor authentication.
 2. In **Cloudflare Registrar**, buy the domain (e.g. `kan.example.org`'s parent
-   `example.org`). WHOIS redaction is **on by default** — leave it on. Nothing
+   `example.org`). WHOIS redaction is **on by default**; leave it on. Nothing
    in the public registration data should name a person.
 3. Let Cloudflare manage DNS for the domain (the dashboard walks through it).
 
@@ -47,7 +47,7 @@ Contents:
    fine; R2 egress is free (see `server/docs/hosting-study.md` §4).
 2. **Manage R2 API Tokens → Create API token**: scope it to *these two buckets*
    only (Object Read & Write). Copy the **Access Key ID** and **Secret Access
-   Key** now — they go into `deploy/.env` only (step 5), never into git, chat or
+   Key** now; they go into `deploy/.env` only (step 5), never into git, chat or
    a ticket. If the token leaks, revoke it and create a new one.
 
 ## 3. Create the tunnel
@@ -64,7 +64,7 @@ Contents:
 
 ## 4. Prepare the AWS box
 
-SSH in (`ssh ubuntu@<host>` — the user depends on the AMI) and give the 1 GB
+SSH in (`ssh ubuntu@<host>`, the user depends on the AMI) and give the 1 GB
 host a swap file (turns memory spikes into EBS latency instead of OOM kills):
 
 ```bash
@@ -95,7 +95,7 @@ folder) and remember where it lives, e.g. `~/kan-rhythm/server/app`.
 
 ## 5. Configure deploy/.env
 
-Create `server/app/deploy/.env` — it is gitignored and must never be committed:
+Create `server/app/deploy/.env`; it is gitignored and must never be committed:
 
 ```bash
 cd server/app/deploy
@@ -120,7 +120,7 @@ OAUTH_CLIENT_SECRET=kan-public-client
 
 Two notes:
 
-- **`OAUTH_CLIENT_SECRET` is not a secret** — the game ships `kan-client` /
+- **`OAUTH_CLIENT_SECRET` is not a secret**: the game ships `kan-client` /
   `kan-public-client` as constants (like osu!lazer's public client). Real
   protection is user passwords (argon2id) and hashed bearer/refresh tokens.
 - **`TRUST_PROXY=cloudflare`** makes the app trust `CF-Connecting-IP` for rate
@@ -142,7 +142,7 @@ Logs (no passwords or tokens are logged):
 
 ## 7. Security group
 
-On the AWS instance's security group: **close inbound 80 and 443** — with
+On the AWS instance's security group: **close inbound 80 and 443**; with
 Cloudflare Tunnel nothing needs to listen publicly (the tunnel dials out).
 **Keep the Nebula UDP port and SSH exactly as they are.**
 
@@ -254,16 +254,16 @@ docker stats --no-stream      # limits: app 300m, postgres 320m, cloudflared 64m
 free -h                       # some swap in use under load is expected
 ```
 
-- **Tunnel shows "Down"** — `docker compose -f docker-compose.tunnel.yml logs
+- **Tunnel shows "Down"**: `docker compose -f docker-compose.tunnel.yml logs
   cloudflared`; the token must match the tunnel in the dashboard.
-- **`curl https://api.example.org/` fails with 502/530** — app not running or
+- **`curl https://api.example.org/` fails with 502/530**: app not running or
   the public hostname points at something other than `http://app:3000`.
-- **The game client logs out after one request** — a stray HTTP 401 kills the
+- **The game client logs out after one request**: a stray HTTP 401 kills the
   session (see `server/docs/lazer-protocol.md` §0); check the app log for the
   failing route.
-- **Downloads fail with a signed-URL error** — `S3_*` values wrong or the token
+- **Downloads fail with a signed-URL error**: `S3_*` values wrong or the token
   cannot read the bucket; check with `rclone lsf remote:kan-levels/`.
-- **Host OOMs** — grow the swap file to 2 GB and lower `mem_limit` of `app`
+- **Host OOMs**: grow the swap file to 2 GB and lower `mem_limit` of `app`
   first; keep postgres at `shared_buffers=64MB`. Re-measure real numbers after
   the first week and update the limits if there is headroom.
 
@@ -271,13 +271,13 @@ free -h                       # some swap in use under load is expected
 
 `docker-compose.prod.yml` is the old direct-exposure stack (Caddy for TLS,
 ports 80/443 published, `app` + `postgres` + `caddy`, 680 MB). Use it only if
-the tunnel is not an option — it **publishes the host's public IP**, which is
+the tunnel is not an option; it **publishes the host's public IP**, which is
 the Nebula lighthouse, and needs inbound 80/443 in the security group. Two
 caveats if you do:
 
 - Set `TRUST_PROXY` **empty** there (we only trust Cloudflare's headers): the
   rate limiter then keys all clients to the Caddy container address, which
-  makes the limits global instead of per player — another reason to prefer the
+  makes the limits global instead of per player, another reason to prefer the
   tunnel.
 - Point the domain's DNS A/AAAA record at the host and replace `kan.example.org`
   in `Caddyfile` before starting.

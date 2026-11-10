@@ -1,5 +1,5 @@
 /**
- * `POST /oauth/token` — the only authentication endpoint the client uses
+ * `POST /oauth/token`: the only authentication endpoint the client uses
  * (server/docs/lazer-protocol.md §1). Password + refresh_token grants,
  * form-encoded bodies.
  */

@@ -1,10 +1,10 @@
 /**
  * Importer tests (review fixes): difficulty identity is
- * (beatmapset_id, version, mode) — archives can carry two difficulties with the
- * same `Version` in different modes — and only mode-0 difficulties are playable
- * in kan! (it claims legacy ruleset id 0), so the others are skipped and
- * stripped from the stored archive; an archive without any playable difficulty
- * is rejected with nothing written and CLI exit code 1.
+ * (beatmapset_id, version, mode) since archives can carry two difficulties with
+ * the same `Version` in different modes, and only mode-0 difficulties are
+ * playable in kan! (it claims legacy ruleset id 0), so the others are skipped
+ * and stripped from the stored archive; an archive without any playable
+ * difficulty is rejected with nothing written and CLI exit code 1.
  */
 import { spawn } from 'node:child_process';
 import { mkdtempSync, readdirSync, rmSync, writeFileSync, statSync } from 'node:fs';

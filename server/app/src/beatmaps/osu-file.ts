@@ -22,9 +22,9 @@ export interface OsuMetadata {
   version: string;
   source: string;
   tags: string;
-  /** `BeatmapID:` — 0 when absent. */
+  /** `BeatmapID:`, 0 when absent. */
   beatmapId: number;
-  /** `BeatmapSetID:` — 0 when absent. */
+  /** `BeatmapSetID:`, 0 when absent. */
   beatmapSetId: number;
 }
 
@@ -127,7 +127,7 @@ export function parseOsu(text: string): OsuFileInfo {
     }
 
     if (section === 'Events') {
-      // `0,0,"background.jpg",0,0` — a background; `Video,...` is ignored.
+      // `0,0,"background.jpg",0,0`: a background; `Video,...` is ignored.
       const event = /^\s*0\s*,/.exec(line);
       if (event) {
         const quoted = /"([^"]*)"/.exec(line);
@@ -301,7 +301,7 @@ export function rewriteOsu(text: string, ids: { beatmapId: number; beatmapSetId:
   return (hadBom ? '\uFEFF' : '') + body;
 }
 
-/** MD5 of the exact bytes stored in the archive — the client's checksum. */
+/** MD5 of the exact bytes stored in the archive, the client's checksum. */
 export function md5Of(content: string | Buffer): string {
   return createHash('md5')
     .update(typeof content === 'string' ? Buffer.from(content, 'utf8') : content)

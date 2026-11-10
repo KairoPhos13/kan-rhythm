@@ -1,4 +1,4 @@
--- tests/smoke.sql — round-trip through every table of the schema.
+-- tests/smoke.sql: round-trip through every table of the schema.
 -- Not part of the deploy sequence; run after migrations on a throwaway DB.
 -- Every statement must succeed; final SELECTs print what landed.
 

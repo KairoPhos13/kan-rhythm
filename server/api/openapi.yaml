@@ -218,7 +218,7 @@ paths:
     delete:
       tags: [profiles]
       operationId: eraseMe
-      summary: GDPR erasure — anonymize/delete personal data
+      summary: "GDPR erasure: anonymize/delete personal data"
       description: |
         PII-minimal by design: no card data is ever stored (provider references
         only). Erasure anonymizes the username/email, revokes tokens and
@@ -234,7 +234,7 @@ paths:
     get:
       tags: [profiles]
       operationId: exportMe
-      summary: GDPR data export — presigned URL to a JSON archive
+      summary: "GDPR data export: presigned URL to a JSON archive"
       description: Assembles all stored personal data (PII-minimal by design) into a downloadable archive.
       responses:
         '202':
@@ -709,7 +709,7 @@ paths:
     post:
       tags: [ranked-review]
       operationId: voteChart
-      summary: Chart Reviewer vote — qualify, veto, or rank-reset
+      summary: "Chart Reviewer vote: qualify, veto, or rank-reset"
       description: |
         Server-side enforced (ADR-0009): voter must hold the Chart Reviewer
         role for the chart's instrument family, must not be the mapper or song
@@ -759,14 +759,14 @@ paths:
       summary: Submit a score (idempotent)
       description: |
         Submission pipeline (backend-data-model §5):
-        1. `Idempotency-Key` dedup — replaying the same key returns the
+        1. `Idempotency-Key` dedup: replaying the same key returns the
            original result, never a second row.
         2. Synchronous plausibility checks: chart exists and is `ranked`;
            `manifest_sha256` matches the catalog; `client_hash` is a known
            signed build; timing distribution plausibility (zero-jitter perfect
            runs flag synthetic input).
         3. Accepted scores are enqueued for async validation (replay
-           re-simulation with the shared C++ judgment core) — `validity`
+           re-simulation with the shared C++ judgment core); `validity`
            starts as `pending`.
         4. On `valid`: kp recompute + board upsert. On `cheat`: moderation
            queue, board exclusion.
@@ -789,7 +789,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ScoreSubmitAck'
         '200':
-          description: Duplicate `Idempotency-Key` — original ack replayed.
+          description: "Duplicate `Idempotency-Key`: original ack replayed."
           content:
             application/json:
               schema:
@@ -877,7 +877,7 @@ paths:
       description: |
         Board key = `(chart_id, input_method, mod_mask)`. Ranked charts only;
         unranked charts return 409 `BOARD_NOT_RANKED`. Served from
-        `leaderboard_entries` (never a scores scan), Redis-cached 30–60 s.
+        `leaderboard_entries` (never a scores scan), Redis-cached 30-60 s.
       parameters:
         - $ref: '#/components/parameters/ChartId'
         - name: input_method
@@ -994,7 +994,7 @@ paths:
       operationId: receiveBillingWebhook
       summary: Billing provider webhook receiver (donations)
       description: |
-        PII-minimal and PCI-free by design: kan! never stores card data —
+        PII-minimal and PCI-free by design: kan! never stores card data,
         provider references only. Security contract:
         - The request MUST carry the provider's HMAC signature header
           (e.g. `X-Kan-Webhook-Signature: sha256=<hex>`, scheme documented per
@@ -1328,7 +1328,7 @@ components:
 
     KpStats:
       type: object
-      description: Per ADR-0008 — weighted top-N totals, dual-axis.
+      description: "Per ADR-0008: weighted top-N totals, dual-axis."
       properties:
         user_id:
           type: string
@@ -1575,7 +1575,7 @@ components:
         size_bytes:
           type: integer
           maximum: 51200
-          description: GATE — under 50 KB.
+          description: "GATE: under 50 KB."
         mapper_id:
           type: string
           format: uuid
