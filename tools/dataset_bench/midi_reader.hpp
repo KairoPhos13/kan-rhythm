@@ -1,5 +1,5 @@
 #pragma once
-// Minimal Standard MIDI File (SMF) reader/writer — the ground-truth side of
+// Minimal Standard MIDI File (SMF) reader/writer: the ground-truth side of
 // dataset benchmarking. Extracts note on/off pairs with millisecond accuracy
 // through the tempo map. Durations are key-hold times (note_off), which is
 // exactly what the release-bias invariant (measurement-invariants.md I8) is

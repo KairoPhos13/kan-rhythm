@@ -4,7 +4,7 @@
 //
 // What it measures: score-anchored verification (the same
 // kan::score_verify::measure_score core the probe and the counterexample
-// suite use) — per-note similarity, cents vs ground truth, duration error,
+// suite use): per-note similarity, cents vs ground truth, duration error,
 // peak-time offset, and unmatched strikes. It measures; it never judges.
 // The measured invariants and their balance live in
 // docs/architecture/measurement-invariants.md.

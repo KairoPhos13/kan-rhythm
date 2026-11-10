@@ -23,7 +23,7 @@ cd tools/dataset_bench/data
 # download and unzip maestro-v3.0.0.zip here -> ./maestro-v3.0.0/
 ```
 
-**License:** CC BY-NC-SA 4.0 — research and non-commercial use only. Keep
+**License:** CC BY-NC-SA 4.0, research and non-commercial use only. Keep
 the attribution in any published result that uses these runs.
 
 Ground truth comes from the aligned MIDI (`midi_filename` in
@@ -54,11 +54,11 @@ exactly what the release-bias invariant (I8) is measured against.
 
 Outputs in `<out>/` (default `dataset_bench_out/`):
 
-- `notes.csv` — one row per ground-truth note: `file, onset_ms,
+- `notes.csv`: one row per ground-truth note (`file, onset_ms,
   dur_written_ms, midi, found, sim, cents, amp, meas_dur_ms, dur_err_ms,
-  t_peak_ms, onset_err_ms`
-- `files.csv` — per-file summary
-- `summary.txt` — dataset aggregate with the invariant guardrails (I3 pitch
+  t_peak_ms, onset_err_ms`)
+- `files.csv`: per-file summary
+- `summary.txt`: dataset aggregate with the invariant guardrails (I3 pitch
   center, I8 release-bias estimate)
 
 `--dump-score file.mid` prints a converted score text for inspection.
@@ -69,11 +69,11 @@ Measured on real MAESTRO data (batch 01 of `TEST_LOG.md`): **15.2× real
 time on 5 jobs** (the score-anchored core is far cheaper than the blind
 stream), so the full 200 h is roughly **13 h wall at 5 jobs, ~7 h at 12**,
 and half that with `--fit-step 150` for triage runs. The `summary.txt`
-throughput line reports the achieved real-time factor — run in batches and
+throughput line reports the achieved real-time factor; run in batches and
 track findings in `TEST_LOG.md` (user workflow: batches, fixes between
 batches, never the whole dataset blind).
 
-**GPU (decided):** the analysis core stays CPU-only (invariants I9/I11 —
+**GPU (decided):** the analysis core stays CPU-only (invariants I9/I11:
 the benchmark must validate exactly the code the game runs). A GPU batch
 backend would only be acceptable as an *optional* accelerator behind an
 equivalence test against CPU on a reference subset (|Δcents| ≤ 1 c,
@@ -89,7 +89,7 @@ the live ≤2-analysis-thread budget: `--jobs` may use the machine's cores.
   discovery function like `discover_maestro`. No changes to `libkan`.
 - **Another instrument**: set the right `kan::InstrumentProfile` in the
   pack; `libkan` gains no code (invariant I10). The runner's
-  `bench_entry` currently uses the keyboard profile — a per-entry profile
+  `bench_entry` currently uses the keyboard profile; a per-entry profile
   field is the planned extension point when the second instrument lands.
 
 ## Ground rules

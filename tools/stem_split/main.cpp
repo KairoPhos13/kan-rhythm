@@ -1,4 +1,4 @@
-// kan_stem_split — Layer 0 helper: music source separation (Demucs) and
+// kan_stem_split, Layer 0 helper: music source separation (Demucs) and
 // stem remixing for game modes. Separate a song into instrument stems,
 // then rebuild audio from selected stems: "autoplay" = all; "piano mode" =
 // all minus the piano (the player supplies it); ensemble modes = backing

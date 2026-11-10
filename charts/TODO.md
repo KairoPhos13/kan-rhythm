@@ -1,4 +1,4 @@
-# charts/ — TODO
+# charts/: TODO
 
 Song/chart data and the **`.kan`** / **`.kchart`** format specification.
 Spec reference: [docs/SPECIFICATION.md](../docs/SPECIFICATION.md) §5.
@@ -29,7 +29,7 @@ Spec reference: [docs/SPECIFICATION.md](../docs/SPECIFICATION.md) §5.
 ## Reference data (`official/`)
 
 - [ ] 1 demo song fully authored (public-domain/CC recording) with
-      guitar + flute + piano arrangements — exercises all 3 layers
+      guitar + flute + piano arrangements, exercising all 3 layers
 - [ ] Golden test fixtures: `.kan` files used by tools/ validator tests
 
 ## Rules

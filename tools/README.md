@@ -3,14 +3,14 @@
 Command-line utilities that support development and content creation for
 kan-rhythm, including the **kan!check** biomechanical playability linter.
 
-**Status:** planned — see [TODO.md](TODO.md) for the scoped task list.
+**Status:** planned, see [TODO.md](TODO.md) for the scoped task list.
 
 ## Intended tools
 
-- **Chart validator** — schema/timing/pitch checks for files in `charts/`
-- **Audio analysis** — offline onset/pitch extraction to help author charts
-- **Latency calibration** — measure and report input/audio offset per device
-- **Asset packer** — process files from `assets/` for the game client
+- **Chart validator**: schema/timing/pitch checks for files in `charts/`
+- **Audio analysis**: offline onset/pitch extraction to help author charts
+- **Latency calibration**: measure and report input/audio offset per device
+- **Asset packer**: process files from `assets/` for the game client
 
 ## Ground rules
 

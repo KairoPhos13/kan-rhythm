@@ -1,28 +1,28 @@
-# tools/ — TODO
+# tools/: TODO
 
 CLI utilities supporting development and content creation.
 
 ## Chart tooling
 
-- [ ] `kanchart-validate` — schema/timing/pitch validator for `.kan` packages
+- [ ] `kanchart-validate`: schema/timing/pitch validator for `.kan` packages
       and `.kchart` files (used as CI gate for charts/)
-- [ ] `kanchart-info` — dump manifest, layers, difficulties of a package
-- [ ] `kanchart-pack` / `kanchart-unpack` — author-friendly (un)packing of
+- [ ] `kanchart-info`: dump manifest, layers, difficulties of a package
+- [ ] `kanchart-pack` / `kanchart-unpack`: author-friendly (un)packing of
       `.kan` containers with SHA-256 manifest regeneration
-- [ ] `kanchart-convert` — bidirectional `.kan` ↔ `.osz` (osu! beatmap)
-      conversion (ADR-0010, osu-integration.md §3): Layers 1–3 → audio +
+- [ ] `kanchart-convert`: bidirectional `.kan` ↔ `.osz` (osu! beatmap)
+      conversion (ADR-0010, osu-integration.md §3): Layers 1-3 → audio +
       control points + ruleset HitObjects + difficulties; round-trip
       lossless for kan! data; osu!-only extras kept on the `.osz` side
 
 ## Audio analysis
 
-- [ ] `kananalyze` — offline onset/pitch extraction over a WAV (libkan in
+- [ ] `kananalyze`: offline onset/pitch extraction over a WAV (libkan in
       `--loopback` mode) to assist manual chart authoring
 - [ ] Spectrogram renderer to PNG for docs/review of reference songs
 
 ## Calibration
 
-- [ ] `kancalibrate` — measure and report per-device input/audio latency
+- [ ] `kancalibrate`: measure and report per-device input/audio latency
       offset; produce calibration profiles consumed by the game client
 - [ ] Loopback latency harness support (Milestone 1 gate: ≤ 4.5 ms onset)
 

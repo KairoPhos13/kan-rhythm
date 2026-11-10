@@ -1,4 +1,4 @@
-// kan_chart_scribe — offline transcription helper: audio -> chart draft
+// kan_chart_scribe, offline transcription helper: audio -> chart draft
 // (.score), MIDI sketch (.mid) and a readable log (.log). Accepts a local
 // audio file or a YouTube URL (via yt-dlp, if installed). The output is a
 // DRAFT for human review (chart-transcription-evaluation.md): facts, not
@@ -120,7 +120,7 @@ int main(int argc, char** argv) {
         if (dl.empty()) {
             std::fprintf(stderr,
                 "[ERROR] no downloader (yt-dlp/youtube-dl) for URLs. "
-                "Install with: pip install --user yt-dlp — or pass a "
+                "Install with: pip install --user yt-dlp, or pass a "
                 "local audio file.\n");
             return 1;
         }
@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "[ERROR] cannot decode audio: %s\n", audio.c_str());
         return 1;
     }
-    std::printf("[audio] %s — %.1f s @ 48 kHz\n", audio.c_str(),
+    std::printf("[audio] %s: %.1f s @ 48 kHz\n", audio.c_str(),
                 double(sig.size()) / 48000.0);
 
     kan::InstrumentProfile prof = kan::InstrumentProfile::keyboard();
@@ -175,6 +175,6 @@ int main(int argc, char** argv) {
         f.write(reinterpret_cast<const char*>(mid.data()), std::streamsize(mid.size()));
     }
     std::printf("[done] %zu notes -> %s.{score,log,mid}\n", notes.size(), out.c_str());
-    std::printf("       (draft for review — facts, not verdicts)\n");
+    std::printf("       (draft for review: facts, not verdicts)\n");
     return 0;
 }
