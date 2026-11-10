@@ -1,4 +1,4 @@
-# game/client — fork divergence log
+# game/client: fork divergence log
 
 Every change made **inside the fork** (`game/client/` = submodule of
 `github.com/KairoPhos13/kan`, itself a fork of `ppy/osu`) is logged here:
@@ -21,7 +21,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 
 | Date | Old pin | New pin | Why | Build |
 |---|---|---|---|---|
-| 2026-10-12 | *(none — first wiring)* | `816df139fd` (upstream `ppy/osu` master) | fork created + submodule wired (previous session) | green |
+| 2026-10-12 | *(none, first wiring)* | `816df139fd` (upstream `ppy/osu` master) | fork created + submodule wired (previous session) | green |
 | 2026-10-12 | `816df139fd` | `2970c68` (branch `agent/game` on `github.com/KairoPhos13/kan`) | Phase 0 rebrand baseline (entries F-1…F-6) | green (0 warnings / 0 errors, verified on Linux) |
 | 2026-10-13 | `2970c68` | `e704f03` (branch `agent/game`) | owner direction: stock game modes + osu!stable legacy IPC removed (entries F-9/F-10) | green (0 warnings / 0 errors; run verified with only the kan! ruleset) |
 | 2026-10-13 | `e704f03` | `ec02860` (branch `agent/game`) | ruleset-provided "tracks" editor tab (entry F-11) | green (0 warnings / 0 errors; tab verified live) |
@@ -34,10 +34,11 @@ Policy (rebase-ability first, ADR-0011 §4):
 | 2026-10-27 | `400efe6` | `9a6beeb` (branch `agent/game`) | F-19 ruleset-filtered general verify checks | green (0 warnings / 0 errors; verify tab verified in an isolated instance) |
 | 2026-10-27 | `9a6beeb` | `5e3d1b2` (branch `agent/game`) | F-20 offline until kan!'s servers, F-21 brand resources, string sweep first pass | green (0 warnings / 0 errors; no ppy.sh request and a brand logo in an isolated instance) |
 | 2026-11-09 | `5e3d1b2` | `2c3660d` (branch `agent/game`) | F-22 no osu! voice or theme music, gold logo disc, provisional icons | green (0 warnings / 0 errors; isolated run: kan! intro outline, gold menu logo, kan! backgrounds) |
-| 2026-11-09 | `2c3660d` | `2c3660d` (unchanged; branch `agent/ci` holds no fork commit) | F-23 platform builds — Windows/macOS packaging lives outside the fork (`game/packaging/`, CI), no fork change | n/a — pin unchanged; Linux build verified green (see F-23) |
+| 2026-11-09 | `2c3660d` | `2c3660d` (unchanged; branch `agent/ci` holds no fork commit) | F-23 platform builds: Windows/macOS packaging lives outside the fork (`game/packaging/`, CI), no fork change | n/a, pin unchanged; Linux build verified green (see F-23) |
 | 2026-11-09 | `2c3660d` | `e32d2a3` (branch `agent/game`) | F-24 kan!'s own server, never osu!'s | green (0 warnings / 0 errors; isolated run logged in against the local kan! server, no ppy.sh request) |
 | 2026-11-09 | `e32d2a3` | `e012336` (branch `agent/game`) | F-24 updater reads kan-rhythm releases | green (0 warnings / 0 errors) |
 | 2026-11-09 | `e012336` | `a132ea8183` (branch `agent/game`) | Repository home is the KairoPhos13 account | green (strings only) |
+| 2026-11-09 | `daeac53` | `4fa5313` (branch `main`) | `0fdaf70` clause-separating dashes removed from kan!-added text; `4fa5313` the osu! README replaced with kan!'s own (F-25) | green (0 warnings / 0 errors; make check green, comments/notices/UI strings only) |
 
 > **⚠ Push blocker (2026-10-13):** the build machine has **no GitHub
 > credentials** (SSH keys rejected, no HTTPS token), so commits `0f5db37`,
@@ -50,7 +51,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 
 ## Entries
 
-### F-1 — `osu.Game/OsuGameBase.cs`: `GAME_NAME` → `kan!`
+### F-1 (`osu.Game/OsuGameBase.cs`): `GAME_NAME` → `kan!`
 
 - **What:** `GAME_NAME` constants ("osu!" / "osu! (development)") become
   "kan!" / "kan! (development)". One-line delta + marker comment.
@@ -62,10 +63,10 @@ Policy (rebase-ability first, ADR-0011 §4):
 - **Upstream-PR:** none (product-specific string; upstream will never want
   this).
 
-### F-2 — `osu.Desktop/osu.Desktop.csproj`: assembly/product identity → `kan`
+### F-2 (`osu.Desktop/osu.Desktop.csproj`): assembly/product identity → `kan`
 
 - **What:** `AssemblyName` `osu!` → `kan`, `Title`/`AssemblyTitle`/`Product`
-  → `kan!`, `Description` → `kan! — grab your instrument. You kan!`.
+  → `kan!`, `Description` → `kan!: grab your instrument. You kan!`.
 - **Why:** ADR-0011 §4: "assembly names and package IDs for *our* artifacts
   say kan; upstream assembly references keep their names". The executable is
   our artifact (verified: build output `kan.dll` + `kan` apphost).
@@ -73,46 +74,46 @@ Policy (rebase-ability first, ADR-0011 §4):
   occasionally edits `Description`/`Version` tooling lines).
 - **Upstream-PR:** none.
 
-### F-3 — `osu.Desktop/Program.cs`: `base_game_name` → `kan`
+### F-3 (`osu.Desktop/Program.cs`): `base_game_name` → `kan`
 
 - **What:** storage/user-data root name `osu`/`osu-development` →
   `kan`/`kan-development`. The osu!**stable** import paths
   (`getStableInstallPathFromRegistry("osu!")`, `LocalApplicationData\osu!`)
-  are intentionally unchanged — they locate the user's osu! install.
+  are intentionally unchanged; they locate the user's osu! install.
 - **Why:** standalone product identity: kan! keeps its own data folder
   (verified live: `~/.local/share/kan/`). Also avoids colliding with a user's
   osu!lazer data.
 - **Merge-conflict cost:** low (constants; upstream touches them rarely).
 - **Upstream-PR:** none.
 
-### F-4 — `osu.Game/Screens/Menu/IntroSequence.cs`: splash text → `kan!`
+### F-4 (`osu.Game/Screens/Menu/IntroSequence.cs`): splash text → `kan!`
 
 - **What:** intro/splash `welcomeText` "welcome" → "kan!" (one line).
 - **Why:** deliverable "splash says kan!". The intro's *visuals* (rings,
   osu! logo texture) are upstream assets and part of the identity-design
-  work (game/TODO.md "Identity design v0") — not touched here.
+  work (game/TODO.md "Identity design v0"), not touched here.
 - **Merge-conflict cost:** low.
 - **Upstream-PR:** none.
 
-### F-5 — about screen: `KanAboutSettings` + `GeneralSection` hook
+### F-5 (about screen): `KanAboutSettings` + `GeneralSection` hook
 
 - **What:** new file
   `osu.Game/Overlays/Settings/Sections/General/KanAboutSettings.cs`
   (namespace `Kan.Client`) + one `Add(new Kan.Client.KanAboutSettings());`
   line in `osu.Game/Overlays/Settings/Sections/GeneralSection.cs`.
   Shows "kan!", "Grab your instrument. You kan!", the credits line
-  "Built on osu!lazer (MIT) — ppy/osu contributors", and the embedded
+  "Built on osu!lazer (MIT), ppy/osu contributors", and the embedded
   `THIRD_PARTY_NOTICES.md`.
 - **Why:** deliverable "about screen says kan!; credits name ppy/osu
   contributors"; osu-integration.md §4 requires the notices to be shown
   in-client. Settings → General is the most discoverable hook point that
   does not require invasive UI changes.
-- **Merge-conflict cost:** minimal — the hook is one line in a list where
+- **Merge-conflict cost:** minimal; the hook is one line in a list where
   upstream rarely conflicts; the rest is a new file.
 - **Upstream-PR:** none (though a generic "about screen" concept could be
-  proposed upstream someday — not a fix).
+  proposed upstream someday, not a fix).
 
-### F-6 — `osu.Game/osu.Game.csproj`: embed `THIRD_PARTY_NOTICES.md`
+### F-6 (`osu.Game/osu.Game.csproj`): embed `THIRD_PARTY_NOTICES.md`
 
 - **What:** `<EmbeddedResource Include="..\THIRD_PARTY_NOTICES.md"
   LogicalName="THIRD_PARTY_NOTICES.md"/>` (one ItemGroup).
@@ -120,17 +121,17 @@ Policy (rebase-ability first, ADR-0011 §4):
 - **Merge-conflict cost:** minimal (own labelled ItemGroup).
 - **Upstream-PR:** none.
 
-### F-7 — `THIRD_PARTY_NOTICES.md` at the fork root (generated artifact)
+### F-7: `THIRD_PARTY_NOTICES.md` at the fork root (generated artifact)
 
 - **What:** generated by `game/tools/gen-third-party-notices.py` (monorepo);
   lists the licence identity of the fork + all ~140 NuGet packages in the
   `osu.Desktop` closure + the full upstream MIT text + BASS terms pointer.
 - **Why:** license compliance (ADR-0010 §5, CONTRIBUTING §6).
-- **Merge-conflict cost:** none (new file, regenerated — never merged with
+- **Merge-conflict cost:** none (new file, regenerated; never merged with
   upstream).
 - **Upstream-PR:** none.
 
-### F-8 — ruleset plugin naming constraint (no fork change, recorded for context)
+### F-8: ruleset plugin naming constraint (no fork change, recorded for context)
 
 - **What:** the kan ruleset assembly is named `osu.Game.Rulesets.Kan.dll`
   while its namespaces are `Kan.*` (`game/ruleset/`).
@@ -142,16 +143,16 @@ Policy (rebase-ability first, ADR-0011 §4):
 - **Upstream-PR:** none (could be a nice upstream feature: accept arbitrary
   ruleset assembly names).
 
-### F-9 — stock game modes removed from the desktop client
+### F-9: stock game modes removed from the desktop client
 
 - **What:** dropped the four `osu.Game.Rulesets.{Osu,Catch,Mania,Taiko}`
   project references from `osu.Desktop/osu.Desktop.csproj`. The projects
   stay in the fork repository (tests/tooling still use them); they are just
   not built into or shipped with the desktop client. After this change the
   client output contains only `osu.Game.Rulesets.Kan.dll` (note: stale
-  ruleset DLLs linger in an existing build output folder — `dotnet clean` or
+  ruleset DLLs linger in an existing build output folder: `dotnet clean` or
   delete them once).
-- **Why:** owner direction 2026-10-12: kan! has **no osu! game modes** —
+- **Why:** owner direction 2026-10-12: kan! has **no osu! game modes**;
   the mode selector belongs to **instruments** (see the monorepo's
   `game/docs/instrument-modes.md`). Also aligns with ADR-0011 ("not a
   mod"): presenting osu!standard/taiko/catch/mania as playable modes was
@@ -161,28 +162,28 @@ Policy (rebase-ability first, ADR-0011 §4):
   upstream occasionally touches these lines when adding rulesets).
 - **Upstream-PR:** none (product-scope decision).
 
-### F-10 — osu!stable legacy IPC removed
+### F-10: osu!stable legacy IPC removed
 
 - **What:** deleted `osu.Desktop/LegacyIpc/` (4 files) and its wiring in
   `osu.Desktop/Program.cs`.
 - **Why:** it exists solely to serve osu!stable clients (legacy difficulty
   calculation over TCP port 45357) and hardcodes the stock legacy ruleset
-  IDs 0–3 (`OsuRuleset`/`TaikoRuleset`/`CatchRuleset`/`ManiaRuleset`) — the
+  IDs 0-3 (`OsuRuleset`/`TaikoRuleset`/`CatchRuleset`/`ManiaRuleset`), the
   only compile-time dependency of the desktop client on the stock modes.
   kan! has no osu!stable legacy. Removed together with F-9 (owner direction
   2026-10-12).
 - **Merge-conflict cost:** low-medium (deleting upstream files; these files
-  rarely change upstream — rebase conflict only if upstream edits them).
+  rarely change upstream; rebase conflict only if upstream edits them).
 - **Upstream-PR:** none (this is upstream functionality others may want; we
   simply do not ship it).
 
-### F-11 — ruleset-provided "tracks" editor tab
+### F-11: ruleset-provided "tracks" editor tab
 
 - **What:** `EditorScreenMode.Tracks` + `Ruleset.CreateTracksEditorScreen()`
   virtual (returns null → the tab is hidden) + `Editor`: tab visibility
   filtered by the hook, screen instance created once and reused. The screen
   implementation lives in kan code (`Kan.Forge.Editor.KanTracksScreen`).
-- **Why:** owner direction 2026-10-13 — the track editor (unified resource
+- **Why:** owner direction 2026-10-13: the track editor (unified resource
   list, roles, non-destructive track editing, actions) is a first-class
   editor tab next to setup/compose/design/timing/verify. ADR-0010 §2
   explicitly allows first-class kan!forge screens; the hook itself is
@@ -192,12 +193,12 @@ Policy (rebase-ability first, ADR-0011 §4):
   verify. Aligning the beat grid to each section first saves problems
   when composing. Mode values are only kept in memory (`EditorState`), and
   shortcuts select tabs by name, so nothing stored depends on the order.
-- **Merge-conflict cost:** low — one enum member (plus the moved `Timing`
+- **Merge-conflict cost:** low; one enum member (plus the moved `Timing`
   member), one virtual, two small touch points in `Editor.cs`.
 - **Upstream-PR:** candidate ("ruleset-provided editor screens") once the
   shape settles; not yet offered.
 
-### F-12 — editor summary timeline follows the editor clock's length
+### F-12: editor summary timeline follows the editor clock's length
 
 - **What:** `TimelinePart.updateRelativeChildSize()` (bottom-bar summary
   timeline: progress marker, breaks, bookmarks, kiai, control points,
@@ -210,28 +211,28 @@ Policy (rebase-ability first, ADR-0011 §4):
   track's scale: the marker ran out after 1 s while playback continued. For
   every stock tab the value is identical, because the clock's source *is* the
   beatmap track, with the same 60 s fallback while loading.
-- **Merge-conflict cost:** very low — one line in one method.
+- **Merge-conflict cost:** very low; one line in one method.
 - **Upstream-PR:** candidate (consistency fix: the summary timeline should
   scale with the clock it displays); not yet offered.
 
-### F-13 — ruleset-provided "compose" editor screen
+### F-13: ruleset-provided "compose" editor screen
 
 - **What:** `Ruleset.CreateComposeEditorScreen()` virtual (returns null →
   the stock `ComposeScreen`); `Editor`: the compose case asks the ruleset
   first, and the timestamp-selection hand-off only queries a
   `HitObjectComposer` when the stock `ComposeScreen` is showing.
-- **Why:** owner direction 2026-10-14 — kan!'s compose tab is the
+- **Why:** owner direction 2026-10-14: kan!'s compose tab is the
   transcription/score editor (piano roll: notes with pitch, duration,
   intensity and style, spectrogram, mic section recording). osu!'s
   `HitObjectComposer` is built around placing objects on a playfield; the
   kan! screen lives in plugin code (`Kan.Forge.Editor.KanComposeScreen`),
   like the track tab (F-11).
-- **Merge-conflict cost:** low — one virtual, one line in the mode switch,
+- **Merge-conflict cost:** low; one virtual, one line in the mode switch,
   one guard.
 - **Upstream-PR:** candidate together with F-11 ("ruleset-provided editor
   screens").
 
-### F-14 — gameplay clock with a hit-object-less source beatmap
+### F-14: gameplay clock with a hit-object-less source beatmap
 
 - **What:** `MasterGameplayClockContainer.findEarliestStartTime` reads the
   first hit object's time with `FirstOrDefault()` (0 when there is none)
@@ -240,82 +241,82 @@ Policy (rebase-ability first, ADR-0011 §4):
   its score file (`kan.score.json`); the ruleset's converter turns them into
   hit objects, but the *source* beatmap that this method reads may have
   none, which threw "Sequence contains no elements" on entering the level.
-- **Merge-conflict cost:** trivial — one line.
+- **Merge-conflict cost:** trivial; one line.
 - **Upstream-PR:** candidate (harmless robustness fix).
 
-### F-15 — ruleset-provided "design" editor screen
+### F-15: ruleset-provided "design" editor screen
 
 - **What:** `Ruleset.CreateDesignEditorScreen()` virtual (returns null →
   the stock `DesignScreen`); `Editor`: the design case asks the ruleset
   first.
-- **Why:** owner direction 2026-10-15 — kan!'s design tab is the level's
+- **Why:** owner direction 2026-10-15: kan!'s design tab is the level's
   look and rewards (sections, rests, climaxes, palette, effect strength),
   saved as `kan.design.json` in the level. osu!'s design screen is a
   storyboard view. The screen lives in plugin code
   (`Kan.Forge.Editor.Design.KanDesignScreen`), like F-11 and F-13.
-- **Merge-conflict cost:** low — one virtual, one line in the mode switch.
+- **Merge-conflict cost:** low; one virtual, one line in the mode switch.
 - **Upstream-PR:** candidate together with F-11/F-13 ("ruleset-provided
   editor screens").
 
-### F-16 — ruleset-provided player loader settings
+### F-16: ruleset-provided player loader settings
 
 - **What:** `Ruleset.CreatePlayerLoaderSettings()` virtual (empty by
   default); `PlayerLoader` appends its groups after the stock visual /
   audio / input groups of the side panel.
-- **Why:** owner direction 2026-10-15 — the notation (note names as
+- **Why:** owner direction 2026-10-15: the notation (note names as
   letters or Do-Re-Mi, a colour per note, note size) is chosen right
   before playing, in the panel that opens when a level is picked. The
   group lives in plugin code (`Kan.Ruleset.UI.KanNotationSettings`).
-- **Merge-conflict cost:** low — one virtual, one expression in
+- **Merge-conflict cost:** low; one virtual, one expression in
   `PlayerLoader`'s panel.
 - **Upstream-PR:** candidate (rulesets may want per-play settings there).
 
-### F-17 — ruleset-chosen result time
+### F-17: ruleset-chosen result time
 
 - **What:** `DrawableHitObject.ResultTime` virtual (default
   `Time.Current`); `ApplyResult` stamps `Result.RawTime` with it.
-- **Why:** owner report 2026-10-17 — the hit error meter (tortoise / hare)
+- **Why:** owner report 2026-10-17: the hit error meter (tortoise / hare)
   always said "late". kan! decides a note when its pitch arrives, after
   the attack, so stamping "now" added the detection wait (+50 ms or more)
   to every hit, in the meters and the results' timing graph.
   `DrawableKanHitObject` stamps a hit at the note's start + the judge's
   offset (the attack). Accuracy and score were not affected (they go by
   the result type).
-- **Merge-conflict cost:** low — one virtual property and one changed
+- **Merge-conflict cost:** low; one virtual property and one changed
   assignment in `ApplyResult`.
 - **Upstream-PR:** candidate (any ruleset that decides after the input).
 
-### F-18 — patched MessagePack and SignalR packages
+### F-18: patched MessagePack and SignalR packages
 
-- **What:** `osu.Game/osu.Game.csproj` — `MessagePack` 3.1.8 → 3.1.12;
+- **What:** `osu.Game/osu.Game.csproj`: `MessagePack` 3.1.8 → 3.1.12;
   `Microsoft.AspNetCore.SignalR.Client`, `.Protocols.MessagePack`,
   `.Protocols.NewtonsoftJson` 10.0.12 → 10.0.13 (patch releases).
-- **Why:** owner report 2026-10-23 — every build printed NuGet security
+- **Why:** owner report 2026-10-23: every build printed NuGet security
   advisories: GHSA-qhrr-8q5h-9q3h (MessagePack, moderate; fixed in 3.1.9),
   GHSA-86xp-94pg-8r6r and GHSA-334f-vvp4-7g6p (SignalR, moderate and high;
   fixed in 10.0.13). The build is now free of them. Left as upstream holds
   them, silenced on purpose: AutoMapper 13.0.1 (its fix is 15.1.1, past
   its licence change) and SixLabors.ImageSharp 3.1.11 (its fixes are in
   4.1.2, a major version).
-- **Merge-conflict cost:** low — version numbers; take upstream's when it
+- **Merge-conflict cost:** low; version numbers; take upstream's when it
   has moved past them.
 - **Upstream-PR:** not needed (upstream bumps these routinely).
 
-### F-19 — a ruleset leaves out general verifier checks
+### F-19: a ruleset leaves out general verifier checks
 
 - **What:** `Ruleset.AppliesGeneralCheck(ICheck)` virtual (default true);
   `Screens/Edit/Verify/IssueList.cs` drops the general checks' issues the
   ruleset says do not apply.
-- **Why:** owner 2026-10-25 — the verify tab reported "less than 30 seconds
+- **Why:** owner 2026-10-25: the verify tab reported "less than 30 seconds
   of drain time, currently 0" and "100% unused audio at the end" for every
   kan! level: its notes live in the score, not in the beatmap's hit
   objects. kan! turns those checks off and runs its own
   (`KanBeatmapVerifier`, editor-pipeline.md §6h).
-- **Merge-conflict cost:** low — one virtual method and a filter in
+- **Merge-conflict cost:** low; one virtual method and a filter in
   `IssueList.Refresh`.
 - **Upstream-PR:** candidate (any ruleset with objects outside the beatmap).
 
-### F-20 — no osu! servers: offline until kan! has its own
+### F-20 (no osu! servers): offline until kan! has its own
 
 - **What:** `Online/KanEndpointConfiguration.cs` (new): every address empty,
   `HasServer` false; `OsuGameBase.CreateEndpoints` always returns it.
@@ -337,10 +338,10 @@ Policy (rebase-ability first, ADR-0011 §4):
   osu-server-spectator) turns it back on.
 - **Verified:** an isolated run's logs show no request to any ppy.sh host
   (before: the metadata cache from assets.ppy.sh).
-- **Merge-conflict cost:** low — one new file and one-line guards.
+- **Merge-conflict cost:** low; one new file and one-line guards.
 - **Upstream-PR:** no (kan!-specific).
 
-### F-21 — kan!'s art and sounds over osu!'s resources
+### F-21: kan!'s art and sounds over osu!'s resources
 
 - **What:** `KanBrandResources.cs` (new): a resource store over the
   `brand` folder next to the executable, added to `Resources` ahead of
@@ -352,11 +353,11 @@ Policy (rebase-ability first, ADR-0011 §4):
   back to osu!'s.
 - **Verified:** a test `Textures/Menu/logo.png` showed as the main menu's
   logo in an isolated run.
-- **Merge-conflict cost:** low — one new file, three lines in
+- **Merge-conflict cost:** low; one new file, three lines in
   `OsuGameBase`, one item group in the project file.
 - **Upstream-PR:** no.
 
-### F-22 — no osu! voice or theme music; gold logo disc; provisional icons
+### F-22: no osu! voice or theme music; gold logo disc; provisional icons
 
 - **What:** `IntroScreen`: the menu voice ("welcome to osu!", "see ya")
   and osu!'s theme track are never played, whatever the stored settings
@@ -378,14 +379,14 @@ Policy (rebase-ability first, ADR-0011 §4):
 - **Verified:** isolated run: the intro draws the kan! outline and says
   "welcome to kan!" with no voice; the main menu shows the gold logo
   over kan!'s backgrounds.
-- **Merge-conflict cost:** low — a few lines in four files, binary icons.
+- **Merge-conflict cost:** low; a few lines in four files, binary icons.
 - **Upstream-PR:** no.
 
-### F-23 — platform builds (2026-11-09): no fork change needed
+### F-23 (platform builds, 2026-11-09): no fork change needed
 
-- **What:** nothing — **no file in the fork was touched**. Windows/macOS
+- **What:** nothing: **no file in the fork was touched**. Windows/macOS
   release builds were added in the kan-rhythm repository
-  (`.github/workflows/build.yml`, `game/packaging/macos/` — the `kan!.app`
+  (`.github/workflows/build.yml`, `game/packaging/macos/`: the `kan!.app`
   bundle with `Info.plist`, `NSMicrophoneUsageDescription` and the hardened
   runtime entitlements, assembled in CI). Recorded here so the platform work
   is traceable in this log; the pin-log row above records that the submodule
@@ -401,7 +402,7 @@ Policy (rebase-ability first, ADR-0011 §4):
 - **Merge-conflict cost:** none.
 - **Upstream-PR:** no (but a generic "external macOS bundle" helper could be
   useful upstream; not offered).
-### F-24 — kan!'s own server, and never osu!'s
+### F-24: kan!'s own server, and never osu!'s
 
 - **What:** `KanEndpointConfiguration` takes the server address from
   `KAN_SERVER_URL` (development, tests, community servers) or a built-in
@@ -427,7 +428,7 @@ Policy (rebase-ability first, ADR-0011 §4):
   documented); no request to any `ppy.sh` host. Not yet verified in game:
   catalogue download, online match of a downloaded level, score
   submission (next, against the deployed server).
-- **Merge-conflict cost:** low — one kan! file, a few lines in six files;
+- **Merge-conflict cost:** low; one kan! file, a few lines in six files;
   `ScreenBeatmaps` rewritten (upstream changes there need a manual look).
 - **Upstream-PR:** no.
 
@@ -442,15 +443,20 @@ startup error for old Windows (`Program.cs`); the editor's title
 osu!supporter, Featured Artists, the osu! music theme) are left: those
 features are not kan!'s.
 
-## String sweep — remaining scope (deferred, game/TODO.md)
+### F-25: `README.md` rewritten for the kan! game client (2026-11-09, commit `4fa5313`)
+
+- **What:** the fork root `README.md` (upstream osu!'s) is replaced with
+  kan!'s own player-facing README.
+
+## String sweep: remaining scope (deferred, game/TODO.md)
 
 - Translations: the strings above change only in English. Other languages
   come from `osu.Game.Resources`' translations and still say osu!.
-- `osu.Desktop/NVAPI.cs` — NVIDIA profile names
+- `osu.Desktop/NVAPI.cs`: NVIDIA profile names
 - `osu.Desktop/Windows/WindowsAssociationManager.cs` +
-  `osu.Game/Localisation/WindowsAssociationManagerStrings.cs` — not
+  `osu.Game/Localisation/WindowsAssociationManagerStrings.cs`: not
   installed since F-20; needs kan!'s own file types and link scheme
-- `osu.Game/OsuGameBase.cs` — `OSU_PROTOCOL = "osu://"` (product decision:
+- `osu.Game/OsuGameBase.cs`: `OSU_PROTOCOL = "osu://"` (product decision:
   keep for compatibility or move to `kan://`)
 - osu!-only features still reachable (osu!stable import in first-run
   setup and settings, the osu! tutorial button, the osu! music theme)
