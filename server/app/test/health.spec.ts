@@ -49,6 +49,13 @@ describe('API root', () => {
     expect(response.headers['location']).toBe('https://kan.example.org');
   });
 
+  it('sends the game\'s forgot-password link to the website', async () => {
+    app = await appWith({ WEBSITE_URL: 'https://kan.example.org' });
+    const response = await request(app.getHttpServer()).get('/home/password-reset');
+    expect(response.status).toBe(302);
+    expect(response.headers['location']).toBe('https://kan.example.org/#password');
+  });
+
   it('keeps the JSON for a browser when no website is configured', async () => {
     app = await appWith({});
     const response = await request(app.getHttpServer()).get('/').set('Accept', BROWSER_ACCEPT);

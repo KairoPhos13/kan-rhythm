@@ -29,4 +29,19 @@ export class HealthController {
       api: absoluteUrl(base, 'api/v2'),
     };
   }
+
+  /**
+   * The game's "forgot password" link opens `{server}/home/password-reset` in
+   * the browser (osu!'s page). kan! sends no email, so there is no reset: the
+   * link goes to the website's explanation instead of a 404.
+   */
+  @Get('home/password-reset')
+  passwordReset(@Res({ passthrough: true }) response: Response): Record<string, unknown> | undefined {
+    if (this.config.websiteUrl !== '') {
+      response.redirect(302, absoluteUrl(this.config.websiteUrl, '#password'));
+      return undefined;
+    }
+    response.status(404);
+    return { error: 'kan! has no password reset yet: it sends no email.' };
+  }
 }

@@ -203,6 +203,9 @@ footer > .wrap::before { top: -2rem; }
 .signup .btn { justify-self: start; cursor: pointer; }
 .signup .btn[disabled] { opacity: 0.6; cursor: progress; }
 .result { font-size: var(--step--1); color: var(--mist); }
+.note { display: grid; gap: 0.4rem; padding: 1rem 1.1rem; border-radius: 12px; border: 1px dashed var(--line); }
+.note h3 { font-size: 1.05rem; }
+.note:target { border-color: var(--gold); border-style: solid; }
 .result.ok { color: var(--ivory); background: rgba(224,171,76,0.12); border: 1px solid var(--gold-deep); padding: 0.8rem 1rem; border-radius: 10px; }
 .result.bad { color: #f0a08f; }
 .notes { margin-top: 1.5rem; display: grid; gap: 0.5rem; color: var(--mist); font-size: var(--step--1); max-width: 44rem; }
@@ -467,6 +470,10 @@ footer p { max-width: 36rem; }
         <p>An account is optional. It lets you download levels from kan!'s catalogue and see your scores on the leaderboards.</p>
         <p>After you create it, open kan!, click the sign-in panel at the top right and sign in with the same username and password.</p>
         <p class="fine">kan! sends no email, so there is no password reset yet: keep your password somewhere safe.</p>
+        <div class="note" id="password">
+          <h3>Forgot your password?</h3>
+          <p>kan! cannot send you a reset link, because it sends no email. <a href="https://github.com/KairoPhos13/kan-rhythm/issues">Open an issue on GitHub</a> with your username, and we will help you set a new password. Never write your password or your email there.</p>
+        </div>
       </div>
       <form class="signup" id="signup" novalidate>
         <div class="field">

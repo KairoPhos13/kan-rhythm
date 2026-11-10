@@ -8,6 +8,7 @@
 import { INestApplication } from '@nestjs/common';
 import { json, urlencoded } from 'express';
 import { AllExceptionsFilter } from './common/http';
+import { multipartFields } from './common/multipart';
 import { websiteCors } from './common/website-cors';
 import { loadConfig } from './config';
 
@@ -21,5 +22,7 @@ export function configureApp(app: INestApplication): void {
   app.use(websiteCors(loadConfig().websiteUrl));
   app.use(json({ limit: '256kb' }));
   app.use(urlencoded({ extended: true, limit: '64kb' }));
+  // The game posts its forms as multipart/form-data (text fields only).
+  app.use(multipartFields());
   app.useGlobalFilters(new AllExceptionsFilter());
 }

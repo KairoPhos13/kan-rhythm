@@ -27,7 +27,7 @@ All line numbers were checked against the client sources in this worktree.
 | Method | GET unless a request class sets `req.Method` | e.g. `CreateSoloScoreRequest.cs:29` |
 | Headers sent | `Accept-Language` (culture code), `x-api-version` (int), `Authorization: Bearer {token}` when a token exists | `game/client/osu.Game/Online/API/APIRequest.cs:137-141` |
 | User agent | `kan!` | `game/client/osu.Game/Online/API/OsuJsonWebRequest.cs:19` |
-| Request params | `AddParameter` on POST/PUT/PATCH/DELETE = **form body** (`application/x-www-form-urlencoded`); on GET = query string. Some requests use `AddRaw` + `ContentType: application/json` | `game/client/osu.Game/Online/Solo/CreateSoloScoreRequest.cs:30-32`, `game/client/osu.Game/Online/Rooms/SubmitScoreRequest.cs:29-36` |
+| Request params | `AddParameter` on POST/PUT/PATCH/DELETE = **form body**, sent by osu!framework as **`multipart/form-data`** (verified against the shipped `osu.Framework.dll`, 2026-11-10; the server parses multipart text fields, urlencoded and JSON); on GET = query string. Some requests use `AddRaw` + `ContentType: application/json` | `game/client/osu.Game/Online/Solo/CreateSoloScoreRequest.cs:30-32`, `game/client/osu.Game/Online/Rooms/SubmitScoreRequest.cs:29-36` |
 | JSON | Newtonsoft. Unknown response fields are ignored; missing fields keep C# defaults. Deserialisation of a typed response that yields `null` is treated as request failure | `game/client/osu.Game/Online/API/APIRequest.cs:94-106` |
 | Error body (any API request) | `{"error": "<displayable message>"}`: decoded on failure into `APIException` | `game/client/osu.Game/Online/API/APIRequest.cs:251-255`, `:216-231` |
 | Error body (token endpoint) | `{"error": "...", "hint": "...", "message": "..."}`: user sees `hint` if set, else `error` | `game/client/osu.Game/Online/API/OAuth.cs:217-229` |
@@ -45,7 +45,7 @@ Client-side request gating: while `APIState.Offline`, every queued request fails
 Client class: `game/client/osu.Game/Online/API/OAuth.cs` (`AccessTokenRequest*`, `:160-215`),
 response model `game/client/osu.Game/Online/API/OAuthToken.cs`.
 
-Auth needed: none (the client credentials are in the body). Body is form-encoded.
+Auth needed: none (the client credentials are in the body). Body is a multipart form.
 
 | Form field | Password grant | Refresh grant | Notes |
 |---|---|---|---|
@@ -80,7 +80,7 @@ Client class: `game/client/osu.Game/Online/API/RegistrationRequest.cs`; call sit
 `game/client/osu.Game/Online/API/APIAccess.cs:502-556` (`CreateAccount`), UI
 `game/client/osu.Game/Overlays/AccountCreation/ScreenEntry.cs:187`.
 
-Auth needed: none. Method POST, form-encoded (`RegistrationRequest.cs:17-19`), header
+Auth needed: none. Method POST, multipart form (`RegistrationRequest.cs:17-19`), header
 `Accept: application/json` (`:21`).
 
 | Form field | Notes |
