@@ -23,11 +23,12 @@ Contents:
 7. [Security group](#7-security-group)
 8. [Check it works](#8-check-it-works)
 9. [Import levels](#9-import-levels)
-10. [Backups (pg_dump to R2) and a restore drill](#10-backups-pg_dump-to-r2-and-a-restore-drill)
-11. [What to put in the game](#11-what-to-put-in-the-game)
-12. [Update / restore](#12-update--restore)
-13. [Memory watch and troubleshooting](#13-memory-watch-and-troubleshooting)
-14. [Alternative: direct exposure with Caddy](#14-alternative-direct-exposure-with-caddy)
+10. [Players: password reset and accounts](#10-players-password-reset-and-accounts)
+11. [Backups (pg_dump to R2) and a restore drill](#11-backups-pg_dump-to-r2-and-a-restore-drill)
+12. [What to put in the game](#12-what-to-put-in-the-game)
+13. [Update / restore](#13-update--restore)
+14. [Memory watch and troubleshooting](#14-memory-watch-and-troubleshooting)
+15. [Alternative: direct exposure with Caddy](#15-alternative-direct-exposure-with-caddy)
 
 ---
 
@@ -210,7 +211,43 @@ docker compose -f docker-compose.tunnel.yml exec app \
   set instead of duplicating it. Imported sets are `ranked`, so leaderboards
   show immediately.
 
-## 10. Backups (pg_dump to R2) and a restore drill
+## 10. Players: password reset and accounts
+
+kan! sends no email, so a player who forgets their password asks the owner (the
+website's "Forgot your password?" note points at GitHub issues). The admin CLI
+in the app container handles that and the small account tasks around it. It
+prints account names and dates only: never email addresses, password hashes or
+tokens.
+
+```bash
+cd server/app/deploy
+# list accounts: id, username, join date, last visit
+docker compose -f docker-compose.tunnel.yml exec app node dist/admin/cli.js users
+# set a new random password for one player
+docker compose -f docker-compose.tunnel.yml exec app node dist/admin/cli.js reset-password <username>
+# delete an account that owns no beatmap sets (--yes is required)
+docker compose -f docker-compose.tunnel.yml exec app node dist/admin/cli.js delete-user <username> --yes
+```
+
+Quote usernames that contain spaces, e.g. `reset-password "some player"`.
+
+- `reset-password` prints a new random password once (20 characters from a
+  readable alphabet) and deletes the player's OAuth tokens, so every signed-in
+  client must sign in again. kan! has no change-password screen, so **give the
+  new password to the player privately** (a direct message, never the public
+  issue) and tell them to keep it safe. Running the command again is how the
+  password is changed later.
+- `delete-user` removes the account with everything that references it: scores,
+  score tokens and OAuth tokens, in one transaction. It **refuses** while the
+  player owns beatmap sets: the schema could leave those sets without an owner
+  (`ON DELETE SET NULL`) but ownerless sets have no place in the catalog. Move
+  them to another account first (`UPDATE beatmapsets SET user_id = ...` in
+  psql) or delete the sets, then run the command again.
+- The exit code is 0 on success and 1 on any problem (unknown user, refused
+  deletion, bad arguments); usage text is printed when the arguments do not
+  parse.
+
+## 11. Backups (pg_dump to R2) and a restore drill
 
 Every night a systemd timer dumps the database, keeps 14 days on the host
 (`/var/backups/kan`) and uploads the dump to the `kan-backups` bucket, where
@@ -257,7 +294,7 @@ With `STORAGE_DRIVER=s3` the level archives themselves live in R2 and need no
 extra backup; with `STORAGE_DRIVER=local` also back up the `kan-storage` volume
 (`docker run --rm -v kan-storage:/data -v /var/backups/kan:/backup alpine tar czf /backup/kan-storage.tar.gz -C /data .`).
 
-## 11. What to put in the game
+## 12. What to put in the game
 
 The client (`game/client/osu.Game/Online/KanEndpointConfiguration.cs`) picks
 its server like this:
@@ -274,7 +311,7 @@ is the deployed server** (the client's `default_server_url`, today
 `https://kan-api.kairophos.link`). For testing against this deployment set the environment
 variable `KAN_SERVER_URL=https://api.example.org` before starting the game.
 
-## 12. Update / restore
+## 13. Update / restore
 
 ```bash
 cd server/app && git pull        # or copy the new tree
@@ -282,7 +319,7 @@ cd deploy
 docker compose -f docker-compose.tunnel.yml up -d --build
 ```
 
-## 13. Memory watch and troubleshooting
+## 14. Memory watch and troubleshooting
 
 ```bash
 docker stats --no-stream      # limits: app 300m, postgres 320m, cloudflared 64m
@@ -302,7 +339,7 @@ free -h                       # some swap in use under load is expected
   first; keep postgres at `shared_buffers=64MB`. Re-measure real numbers after
   the first week and update the limits if there is headroom.
 
-## 14. Alternative: direct exposure with Caddy
+## 15. Alternative: direct exposure with Caddy
 
 `docker-compose.prod.yml` is the old direct-exposure stack (Caddy for TLS,
 ports 80/443 published, `app` + `postgres` + `caddy`, 680 MB). Use it only if
