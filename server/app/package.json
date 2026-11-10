@@ -17,6 +17,8 @@
     "migrate": "node dist/db/migrate-cli.js",
     "preimport": "npm run build",
     "import": "node dist/import/cli.js",
+    "preadmin": "npm run build",
+    "admin": "node dist/admin/cli.js",
     "test": "jest",
     "lint": "eslint src test"
   },
