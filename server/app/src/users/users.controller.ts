@@ -27,6 +27,7 @@ export class UsersController {
   @Get('me')
   @UseGuards(AuthGuard)
   async me(@CurrentUser() user: AuthenticatedUser): Promise<Record<string, unknown>> {
+    await this.users.touchLastVisit(user.id);
     return toApiUser(user, await this.users.statisticsFor(user.id));
   }
 
@@ -40,6 +41,8 @@ export class UsersController {
   @Get('me/:mode')
   @UseGuards(AuthGuard)
   async meForMode(@CurrentUser() user: AuthenticatedUser): Promise<Record<string, unknown>> {
+    // Same visit tracking as `me`, throttled the same way in SQL.
+    await this.users.touchLastVisit(user.id);
     // Per-mode statistics are not separated in the MVP: same payload.
     return toApiUser(user, await this.users.statisticsFor(user.id));
   }

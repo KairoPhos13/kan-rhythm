@@ -66,6 +66,9 @@ export class AuthService {
       ok = false;
     }
     if (!ok) throw oauthError(400, 'invalid_grant', 'Incorrect username or password');
+    // A sign-in is a definite visit: record it unconditionally. The
+    // five-minute throttle in `UsersService.touchLastVisit` is for /me polls.
+    await this.db.query(`UPDATE users SET last_visit = now() WHERE id = $1`, [user.id]);
     return this.issueTokens(user.id);
   }
 

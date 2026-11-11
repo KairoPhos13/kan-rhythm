@@ -143,6 +143,15 @@ describe('client flow (lazer protocol)', () => {
     return response.body as Tokens;
   }
 
+  /** The stored `users.last_visit` as epoch milliseconds, 0 when never written. */
+  async function storedLastVisit(userId: number): Promise<number> {
+    const result = await pool.query<{ last_visit: Date | null }>(
+      'SELECT last_visit FROM users WHERE id = $1',
+      [userId],
+    );
+    return result.rows[0]?.last_visit?.getTime() ?? 0;
+  }
+
   it('registers a player with the client registration form fields', async () => {
     const response = await register('AliceOsu', 'alice@example.org', 'correct horse battery');
     expect(response.status).toBe(201);
@@ -239,6 +248,46 @@ describe('client flow (lazer protocol)', () => {
       .set('Authorization', 'Bearer not-a-real-token');
     expect(invalid.status).toBe(401);
     expect(invalid.body.error).toBeTruthy();
+  });
+
+  it('records last_visit when the player signs in', async () => {
+    // Never written before: the sign-in fills it in.
+    await pool.query('UPDATE users SET last_visit = NULL WHERE id = $1', [userAId]);
+    await login('AliceOsu', 'correct horse battery');
+    expect(await storedLastVisit(userAId)).toBeGreaterThan(0);
+
+    // A sign-in always writes, even a minute after the previous one: the
+    // five-minute throttle belongs to the /me poll below, not to signing in.
+    await pool.query(`UPDATE users SET last_visit = now() - interval '1 minute' WHERE id = $1`, [
+      userAId,
+    ]);
+    const before = await storedLastVisit(userAId);
+    await login('AliceOsu', 'correct horse battery');
+    expect((await storedLastVisit(userAId)) - before).toBeGreaterThan(30_000);
+  });
+
+  it('writes last_visit from /me at most once per five minutes', async () => {
+    // Stale on purpose: outside the throttle window, so the first /me writes.
+    await pool.query(`UPDATE users SET last_visit = now() - interval '10 minutes' WHERE id = $1`, [
+      userAId,
+    ]);
+    const stale = await storedLastVisit(userAId);
+
+    for (const route of ['/api/v2/me', '/api/v2/me/kan']) {
+      const response = await request(app.getHttpServer())
+        .get(route)
+        .set('Authorization', `Bearer ${tokensA.access_token}`);
+      expect(response.status).toBe(200);
+    }
+    const written = await storedLastVisit(userAId);
+    expect(written - stale).toBeGreaterThan(5 * 60 * 1000);
+
+    // Inside the window: the routes answer but must not write again.
+    const again = await request(app.getHttpServer())
+      .get('/api/v2/me')
+      .set('Authorization', `Bearer ${tokensA.access_token}`);
+    expect(again.status).toBe(200);
+    expect(await storedLastVisit(userAId)).toBe(written);
   });
 
   it('keeps the optional login-time endpoints quiet with empty collections', async () => {
