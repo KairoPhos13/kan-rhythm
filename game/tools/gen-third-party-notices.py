@@ -4,7 +4,9 @@
 Collects the license metadata of the osu!lazer fork and every NuGet package
 in the osu.Desktop dependency closure, and writes a notices file that ships
 with the client and is shown on the in-game about screen (ADR-0010 §5,
-osu-integration.md §4).
+osu-integration.md §4). The native components, the osu! resources' fonts
+and the separation model that is downloaded at first use are named by hand
+in sections 1, 5 and 6 (they carry no NuGet metadata).
 
 Procedure (also usable manually; see game/docs/environment.md):
 
@@ -15,6 +17,14 @@ Procedure (also usable manually; see game/docs/environment.md):
 3. Review the diff of game/client/THIRD_PARTY_NOTICES.md and commit it in
    the fork repository (it is embedded into osu.Game and displayed by the
    about screen).
+
+A lane that has the fork checked out elsewhere (read-only) can still
+generate the file: point --fork-dir at that checkout and write a hand-off
+copy for the fork lane to commit into the fork:
+
+       python3 game/tools/gen-third-party-notices.py \
+           --fork-dir /path/to/kan/game/client \
+           --out game/tools/out/THIRD_PARTY_NOTICES.md
 
 License texts of the individual packages are not copied verbatim here (they
 are redistributable inside the NuGet packages themselves and each package
@@ -29,6 +39,7 @@ Dependency policy: MIT / MIT-0 / BSD / Apache-2.0 / Zlib / ISC / CC0 only
 
 from __future__ import annotations
 
+import argparse
 import datetime
 import json
 import pathlib
@@ -37,10 +48,7 @@ import sys
 import xml.etree.ElementTree as ET
 
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
-FORK_DIR = REPO_ROOT / "game" / "client"
-ASSETS_JSON = FORK_DIR / "osu.Desktop" / "obj" / "project.assets.json"
-OUTPUT = FORK_DIR / "THIRD_PARTY_NOTICES.md"
-FORK_LICENCE = FORK_DIR / "LICENCE"
+DEFAULT_FORK_DIR = REPO_ROOT / "game" / "client"
 NUGET_CACHE = pathlib.Path.home() / ".nuget" / "packages"
 
 PERMISSIVE = ("MIT", "MIT-0", "BSD", "Apache", "Zlib", "ISC", "CC0", "CC-PDDC",
@@ -48,9 +56,9 @@ PERMISSIVE = ("MIT", "MIT-0", "BSD", "Apache", "Zlib", "ISC", "CC0", "CC-PDDC",
               "Microsoft .NET library licence", "public domain")
 
 
-def package_dirs() -> list[tuple[str, str]]:
+def package_dirs(assets_json: pathlib.Path) -> list[tuple[str, str]]:
     """Return (id, version) for every package in the osu.Desktop closure."""
-    assets = json.loads(ASSETS_JSON.read_text(encoding="utf-8"))
+    assets = json.loads(assets_json.read_text(encoding="utf-8"))
     out = []
     for key, meta in assets.get("libraries", {}).items():
         if meta.get("type") != "package":
@@ -143,13 +151,34 @@ def nuspec_metadata(pkg_id: str, version: str) -> dict[str, str]:
     return meta
 
 
-def main() -> int:
-    if not ASSETS_JSON.is_file():
-        print(f"error: {ASSETS_JSON} not found: run `dotnet restore` in the fork first",
-              file=sys.stderr)
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(
+        description="Generate THIRD_PARTY_NOTICES.md for the kan! client.")
+    parser.add_argument(
+        "--fork-dir", type=pathlib.Path, default=DEFAULT_FORK_DIR,
+        help="checkout of the osu! fork to read (osu.Desktop/obj/"
+             "project.assets.json and LICENCE; default: game/client)")
+    parser.add_argument(
+        "--out", type=pathlib.Path, default=None,
+        help="output path (default: <fork-dir>/THIRD_PARTY_NOTICES.md, the "
+             "file the fork embeds and the about screen shows)")
+    return parser.parse_args(argv)
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = parse_args(sys.argv[1:] if argv is None else argv)
+    fork_dir = args.fork_dir
+    assets_json = fork_dir / "osu.Desktop" / "obj" / "project.assets.json"
+    fork_licence = fork_dir / "LICENCE"
+    output = args.out if args.out is not None \
+        else fork_dir / "THIRD_PARTY_NOTICES.md"
+
+    if not assets_json.is_file():
+        print(f"error: {assets_json} not found: run `dotnet restore` in the "
+              "fork first", file=sys.stderr)
         return 1
 
-    packages = package_dirs()
+    packages = package_dirs(assets_json)
     warnings: list[str] = []
     hard_warnings: list[str] = []
 
@@ -160,9 +189,10 @@ def main() -> int:
         if "LGPL" in license_id or "GPL" in license_id or "AGPL" in license_id \
                 or "Affero" in license_id:
             hard_warnings.append(f"{pkg_id} {version}: license '{license_id}': GPL-family "
-                                 "licence inherited from upstream osu!lazer. Dynamic-"
-                                 "linking redistribution only; must be documented and "
-                                 "reviewed before any release (CONTRIBUTING.md §6).")
+                                 "licence inherited from upstream osu!lazer. Kept as "
+                                 "separate assemblies/libraries with dynamic linking "
+                                 "(ADR-0013); re-review before any paid release "
+                                 "(CONTRIBUTING.md §6).")
         elif not re.search(r"\b(MIT|BSD|Apache|Zlib|ISC|CC0|MPL|Unlicense|PostgreSQL|WTFPL|BlueOak|domain)\b",
                            license_id) \
                 and not any(p in license_id for p in PERMISSIVE):
@@ -170,8 +200,8 @@ def main() -> int:
                             "permissive allow-list: verify manually (CONTRIBUTING.md §6)")
         rows.append((pkg_id, version, license_id, meta["project"] or meta["repo"]))
 
-    licence_text = (FORK_LICENCE.read_text(encoding="utf-8").strip()
-                    if FORK_LICENCE.is_file() else "(fork LICENCE file missing)")
+    licence_text = (fork_licence.read_text(encoding="utf-8").strip()
+                    if fork_licence.is_file() else "(fork LICENCE file missing)")
 
     today = datetime.date.today().isoformat()
 
@@ -198,7 +228,8 @@ def main() -> int:
                  "upstream copyright headers are preserved in every adapted file.")
     lines.append("- **osu!framework** (`ppy/osu-framework`): MIT Licence, Copyright (c) "
                  "ppy Pty Ltd <contact@ppy.sh> and contributors.")
-    lines.append("- **osu! Game Resources** (`ppy.osu.Game.Resources`, © ppy Pty Ltd): CC BY-NC 4.0 for most content, fonts under their own licences (https://github.com/ppy/osu-resources). Used non-commercially; kan!'s own art and sounds replace them as they are made (`brand/`). The osu! name and logo are ppy's trademarks.")
+    lines.append("- **osu! Game Resources** (`ppy.osu.Game.Resources`, © ppy Pty Ltd): CC BY-NC 4.0 for most content (https://github.com/ppy/osu-resources). Used non-commercially; kan!'s own art and sounds replace them as they are made (`brand/`). The osu! name and logo are ppy's trademarks.")
+    lines.append("- **Fonts** in the osu! resources, each under its own licence: Inter and Noto (SIL Open Font License); Torus, Torus-Alternate and Venera (their upstream licence files state that distribution requires a commercial licence).")
     lines.append("")
     lines.append("Full text of the base project's licence (fork `LICENCE`):")
     lines.append("")
@@ -209,7 +240,8 @@ def main() -> int:
     lines.append("## 2. BASS audio library (un4seen): special terms")
     lines.append("")
     lines.append("osu!framework's audio backend uses **BASS / BASSMIX / BASSFX** "
-                 "(© 1999-2026 Un4seen Developments). BASS is **not** open source: it is "
+                 "and, on Windows, **BASSWASAPI** (© 1999-2026 Un4seen "
+                 "Developments). BASS is **not** open source: it is "
                  "free for non-commercial use and requires a commercial licence otherwise. "
                  "kan!'s status (donation-funded) is analysed in "
                  "`game/docs/bass-licensing.md`; the outcome of that analysis must be "
@@ -237,20 +269,61 @@ def main() -> int:
 
     lines.append("## 5. Native / platform components")
     lines.append("")
-    lines.append("- **SDL3** (Simple DirectMedia Layer): Zlib licence, via osu!framework native libraries.")
-    lines.append("- **BASS / BASSMIX / BASSFX**: see section 2 (un4seen commercial terms).")
-    lines.append("- **FFmpeg** binaries (optional, user-provided): LGPL/GPL components are "
-                 "loaded only if the user supplies them; kan! does not redistribute FFmpeg.")
-    lines.append("- **DiscordRPC** (Discord Game SDK wrapper): MIT wrapper; Discord SDK "
-                 "terms apply for Discord integration features.")
+    lines.append("Shipped as native binaries next to the executable; section 3 lists "
+                 "the managed wrapper packages, and each package carries its own "
+                 "licence text.")
+    lines.append("")
+    lines.append("- **FFmpeg 4.x** (`libavcodec` 58, `libavformat` 58, `libavutil` 56, "
+                 "`libswscale` 5): redistributed in every kan! zip via "
+                 "`ppy.osu.Framework.NativeLibs` (osu!framework's native "
+                 "libraries). Licence: **LGPL 2.1 or later** (build-dependent). "
+                 "The binaries stay separate libraries that are loaded "
+                 "dynamically, and their licence terms travel with them; "
+                 "ADR-0013 of the kan-rhythm monorepo records the inherited "
+                 "LGPL set.")
+    lines.append("- **SDL2 and SDL3** (Simple DirectMedia Layer): Zlib licence, via "
+                 "`ppy.SDL2-CS` and `ppy.SDL3-CS`.")
+    lines.append("- **libveldrid-spirv** (SPIRV-Cross): MIT licence, via `ppy.Veldrid.SPIRV`.")
+    lines.append("- **libstbi** (stb image decoding): public domain / MIT, via `StbiSharp`.")
+    lines.append("- **librealm-wrappers** (Realm database core): Apache-2.0, via `Realm`.")
+    lines.append("- **e_sqlite3** (SQLite): public domain, via `SQLite` and `SQLitePCLRaw`.")
+    lines.append("- **BASS / BASSMIX / BASSFX / BASSWASAPI**: see section 2 (un4seen commercial terms).")
+    lines.append("- **DiscordRPC** (`DiscordRichPresence`, MIT): a Discord RPC "
+                 "wrapper. kan! keeps Discord presence **off** (fork F-20), so no "
+                 "Discord integration is active.")
+    lines.append("- **kan!'s native bridge** (`kan_forge_native`): miniaudio (MIT-0), "
+                 "the Basic Pitch C++ port and its ICASSP 2022 weights (Apache-2.0, "
+                 "Copyright 2022 Spotify AB), GGML (MIT) and BSRoformer.cpp (MIT). "
+                 "Record of record with versions and changes: "
+                 "`libkan/THIRD_PARTY_NOTICES.md` in the kan-rhythm monorepo.")
+    lines.append("")
+    lines.append("## 6. Separation model (downloaded at first use)")
+    lines.append("")
+    lines.append("Splitting a song into its parts downloads one BS-RoFormer 6-stem "
+                 "separation model (about 200 MB) to `models/` on first use; the "
+                 "model is not shipped in the zip.")
+    lines.append("")
+    lines.append("- **Default: the f16 grade of `studio409/BSRoformer-SW-6Stem-GGUF`** "
+                 "(Hugging Face), a GGUF conversion of "
+                 "`elicwhite/bs-roformer-sw-6stem-onnx`: **MIT licence**.")
+    lines.append("- **Opt-in: the q8 grade of `FractalSurfer/BS-RoFormer-SW-6stem`** "
+                 "(only with `KAN_ROFORMER_GRADE=q8`): its model card declares "
+                 "**no licence**, so kan! never selects it on its own.")
+    lines.append("- `KAN_MODEL_URL` downloads from an own host instead; "
+                 "`KAN_ROFORMER_GGUF` points at a local file (no download).")
     lines.append("")
     lines.append("This notices file is generated, not exhaustive by legal opinion: if any "
                  "entry looks wrong, fix the generator or the package reference and "
                  "regenerate. Tracking issue surface: `game/docs/fork-divergence.md`.")
     lines.append("")
 
-    OUTPUT.write_text("\n".join(lines), encoding="utf-8")
-    print(f"wrote {OUTPUT.relative_to(REPO_ROOT)} ({len(rows)} packages, "
+    output.parent.mkdir(parents=True, exist_ok=True)
+    output.write_text("\n".join(lines), encoding="utf-8")
+    try:
+        shown = output.resolve().relative_to(REPO_ROOT)
+    except ValueError:
+        shown = output.resolve()
+    print(f"wrote {shown} ({len(rows)} packages, "
           f"{len(hard_warnings)} hard warnings, {len(warnings)} warnings)")
     for w in hard_warnings:
         print(f"hard warning: {w}", file=sys.stderr)
