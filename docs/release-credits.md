@@ -8,11 +8,16 @@ doubt is recorded here, never guessed
 ([issue 26](issues/26-third-party-credits-audit.md), its Notes rule).
 
 - **Audit run:** 2026-11-11, `agent/credits` lane.
+- **Fix pass:** 2026-11-11, `agent/credits-fix` lane: GAP 1, 2, 3, 4, 5,
+  7 and 8 fixed as recorded in section 4; GAP 6 stays open (owner's call).
 - **Audited against:** superproject `agent/credits` worktree, fork pin
   `e000468941` (read-only), NuGet cache and `osu.Desktop/obj/project.assets.json`
-  of a restore of that pin.
+  of a restore of that pin. The fix pass regenerated the notices against
+  the pin in force (`da2f355dad`, fork F-29); its
+  `project.assets.json` matches that pin's package versions.
 - **Policy of record:** [CONTRIBUTING.md §6](../CONTRIBUTING.md),
-  [ADR-0003](adr/0003-mit-license-no-gpl-policy.md),
+  [ADR-0003](adr/0003-mit-license-no-gpl-policy.md) as amended by
+  [ADR-0013](adr/0013-accept-inherited-lgpl-set.md),
   [SPECIFICATION.md §1](SPECIFICATION.md),
   [osu-integration.md](architecture/osu-integration.md) §4.
 - **Player-facing summary:** [docs/releases/v0.1.0.md](releases/v0.1.0.md).
@@ -34,30 +39,34 @@ The separation model is **not** shipped (see row 11).
 | 1 | .NET runtime and the `kan` launcher (self-contained `osu.Desktop` publish) | MIT (Microsoft .NET library licence) | Notices §3 (package list) |
 | 2 | osu!lazer fork: `osu.Game`, osu!framework (`ppy.osu.Framework`) | MIT, Copyright ppy Pty Ltd and contributors | About screen line "Built on osu!lazer (MIT), ppy/osu contributors"; notices §1; root [README](../README.md) "Credits and licence"; release notes "Thanks" |
 | 3 | NuGet closure of `osu.Desktop`: 140 packages (kan!'s own assemblies add only `ppy.ManagedBass`, already listed here) | per package, see notices §3 | Notices §3 (in-game about screen) |
-| 4 | `ppy.osu.Game.Resources`: UI art, UI sounds, translations, bitmap fonts | **CC BY-NC 4.0**, © ppy Pty Ltd, used non-commercially; **fonts under their own licences** (see GAP 5 and GAP 6) | Notices §1 |
+| 4 | `ppy.osu.Game.Resources`: UI art, UI sounds, translations, bitmap fonts | **CC BY-NC 4.0**, © ppy Pty Ltd, used non-commercially; **fonts under their own licences** (named in notices §1 since 2026-11-11; the Torus/Venera question is open, GAP 6) | Notices §1 |
 | 5 | BASS, BASSMIX, BASSFX, BASSWASAPI (un4seen Developments) | proprietary, **free for non-commercial use** only ([game/docs/bass-licensing.md](../game/docs/bass-licensing.md)) | Notices §2 (points at the analysis and un4seen terms) |
-| 6 | FFmpeg 4.x (`libavcodec`/`libavformat`/`libavutil`/`libswscale`), via `ppy.osu.Framework.NativeLibs` | LGPL 2.1 or later (build-dependent, see GAP 3) | **nowhere accurate today** (GAP 3) |
-| 7 | SDL2 and SDL3, `libveldrid-spirv` (SPIRV-Cross), `libstbi`, `librealm-wrappers`, `e_sqlite3` | SDL2/SDL3: Zlib; SPIRV-Cross: MIT; stbi: public domain/MIT; Realm: Apache-2.0; SQLite: public domain | packages in notices §3; **native binaries not listed** (GAP 4) |
+| 6 | FFmpeg 4.x (`libavcodec`/`libavformat`/`libavutil`/`libswscale`), via `ppy.osu.Framework.NativeLibs` | LGPL 2.1 or later (build-dependent, see GAP 3); accepted as the inherited set by [ADR-0013](adr/0013-accept-inherited-lgpl-set.md) | Notices §5 (corrected 2026-11-11, GAP 3) |
+| 7 | SDL2 and SDL3, `libveldrid-spirv` (SPIRV-Cross), `libstbi`, `librealm-wrappers`, `e_sqlite3` | SDL2/SDL3: Zlib; SPIRV-Cross: MIT; stbi: public domain/MIT; Realm: Apache-2.0; SQLite: public domain | packages in notices §3; native binaries named in notices §5 (GAP 4) |
 | 8 | kan! payload: `osu.Game.Rulesets.Kan.dll`, `Kan.Forge.dll`, `Kan.Core.dll` | MIT, kan-rhythm contributors | root README; release notes |
-| 9 | `libkan_forge_native` (the native bridge): miniaudio (MIT-0), Basic Pitch port + ICASSP 2022 weights (Apache-2.0, Spotify AB), GGML (MIT), BSRoformer.cpp (MIT) | MIT-0 / Apache-2.0 / MIT / MIT, record of record [libkan/THIRD_PARTY_NOTICES.md](../libkan/THIRD_PARTY_NOTICES.md) | **not in the player-visible notices yet** (GAP 4) |
+| 9 | `libkan_forge_native` (the native bridge): miniaudio (MIT-0), Basic Pitch port + ICASSP 2022 weights (Apache-2.0, Spotify AB), GGML (MIT), BSRoformer.cpp (MIT) | MIT-0 / Apache-2.0 / MIT / MIT, record of record [libkan/THIRD_PARTY_NOTICES.md](../libkan/THIRD_PARTY_NOTICES.md) | Notices §5 (bridge components named 2026-11-11, GAP 4) |
 | 10 | `brand/`: kan!'s logo, icons, intro art, menu backgrounds | MIT, kan-rhythm contributors (provenance in [game/brand/README.md](../game/brand/README.md), fixed 2026-11-11) | kan!'s own art, no third-party credit owed |
-| 11 | Separation model (BS-RoFormer SW 6-stem GGUF, ~180 MB): **not shipped**, downloaded to `models/` at first use | f16 grade: MIT; **default q8 grade: licence unknown** (GAP 7) | release notes mention the download only; **licence nowhere** (GAP 7) |
+| 11 | Separation model (BS-RoFormer SW 6-stem GGUF, ~180 MB): **not shipped**, downloaded to `models/` at first use | **default f16 grade: MIT** (`studio409`, since 2026-11-11); q8 grade (`FractalSurfer`, licence unknown) is an explicit opt-in only | Notices §6 (model, source, licence) + release notes (GAP 7) |
 
 Credit surfaces that exist today: the in-game **about screen**
 (Settings > General > About kan!, fork entries F-5/F-6) showing the
 embedded `THIRD_PARTY_NOTICES.md`, the repository's
-[README](../README.md) "Credits and licence", the fork README, and the
-release notes "Thanks". A standalone licence or credits file in the zip
-itself is missing (GAP 8).
+[README](../README.md) "Credits and licence", the fork README, the
+release notes "Thanks", and (since the 2026-11-11 fix pass) the
+`THIRD_PARTY_NOTICES.md` and `LICENCE` files shipped in every zip
+(GAP 8).
 
 ## 2. Sign-off checklist
 
-Work top to bottom. "Fix" items are fork-side or need a decision, so they
-live in the GAP list and are not done in this audit.
+Work top to bottom. "Fix" items were fork-side or needed a decision, so
+they lived in the GAP list and were not done in the audit itself; the
+fix pass of 2026-11-11 closed them as recorded in section 4.
 
-- [ ] `THIRD_PARTY_NOTICES.md` regenerated for the current dependency set
-      and committed in the fork (GAP 1), with the generator corrections of
-      GAP 3, GAP 4 and GAP 5 folded in.
+- [x] `THIRD_PARTY_NOTICES.md` regenerated for the current dependency set
+      with the generator corrections of GAP 3, GAP 4 and GAP 5 folded in
+      (2026-11-11). The fork is read-only in the fix lane, so the file
+      waits at [game/tools/out/THIRD_PARTY_NOTICES.md](../game/tools/out/THIRD_PARTY_NOTICES.md)
+      for the fork lane to commit it into the fork (GAP 1).
 - [ ] About screen still embeds and shows the notices (F-5/F-6). Verified
       in code on 2026-11-11; a running-client look is still worth one
       minute.
@@ -70,18 +79,25 @@ live in the GAP list and are not done in this audit.
       non-commercially and credited in notices §1; osu!'s voice and theme
       music are never played (fork F-22); the osu! name and logo appear
       only as attribution and trademark reference.
-- [ ] LGPL-family components inherited from osu!lazer (FFmpeg.AutoGen,
+- [x] LGPL-family components inherited from osu!lazer (FFmpeg.AutoGen,
       TagLibSharp, OpenTabletDriver ×4, plus the FFmpeg binaries of row 6):
-      the owner has recorded a decision (GAP 2). Distribution itself is
-      compatible with LGPL while they stay separate assemblies and their
-      licence texts stay reachable.
-- [ ] Separation model (GAP 7): the owner has chosen what a first-use
-      download gets (MIT f16 default, own hosting, or disclosure), and the
-      notices name the model and its licence state.
-- [ ] Fonts (GAP 5, GAP 6): the notices name the fonts and their licences,
-      and the Torus/Venera redistribution question has an owner answer.
-- [ ] The zip carries the notices as a readable file (GAP 8), or the
-      release notes say where to read them.
+      the owner decision is recorded as [ADR-0013](adr/0013-accept-inherited-lgpl-set.md)
+      (2026-11-11, GAP 2): accepted while they stay separate assemblies
+      and libraries loaded dynamically and their licence texts stay
+      reachable, with a re-review before any paid release.
+- [x] Separation model (GAP 7): the MIT f16 grade
+      (`studio409/BSRoformer-SW-6Stem-GGUF`) is the default first-use
+      download since 2026-11-11; the unlicensed q8 grade is an explicit
+      opt-in (`KAN_ROFORMER_GRADE=q8`) only. Notices §6 names the model,
+      its source and its licence state.
+- [x] Fonts (GAP 5): the notices name Inter, Noto, Torus, Torus-Alternate
+      and Venera with their licence state (2026-11-11). Still open
+      (GAP 6): the Torus/Venera redistribution question needs an owner
+      answer.
+- [x] The zip carries the notices and the licence as readable files
+      (GAP 8): `assemble.sh` copies both into the payload of every
+      platform and `build.yml` puts them at the macOS zip root next to
+      `kan!.app` (2026-11-11).
 - [ ] `game/brand/` files have author + licence (done 2026-11-11,
       [game/brand/README.md](../game/brand/README.md)); hand-made art that
       replaces the provisional files brings its own provenance line.
@@ -89,8 +105,9 @@ live in the GAP list and are not done in this audit.
       no GPL/AGPL assets, provenance in a `CREDITS.md` per subfolder. The
       folder is still a placeholder, so nothing to record today.
 - [ ] Release notes read well as the player-facing credit
-      ([v0.1.0.md](releases/v0.1.0.md), "Thanks" now points at the in-game
-      notices).
+      ([v0.1.0.md](releases/v0.1.0.md), "Thanks" points at the in-game
+      notices and the zip files; extended 2026-11-11 with the separation
+      model's licence line).
 
 ## 3. Audit record (issue 26)
 
@@ -248,7 +265,9 @@ are build-time only and are not deployed.
 
 Each GAP is ready to be filed as its own issue; the title in bold is a
 suggestion. GAPs that touch the fork need the fork lane (this audit did
-not modify the fork).
+not modify the fork). A **Status** line at the end of each entry records
+what the fix pass of 2026-11-11 did (section 5 stays the audit's "could
+not verify" list).
 
 **GAP 1: regenerate `THIRD_PARTY_NOTICES.md` for the current build.**
 The shipped file (2026-10-12) lists MessagePack 3.1.8 and the 10.0.12
@@ -258,6 +277,13 @@ run `game/tools/gen-third-party-notices.py`, review the diff (it should be
 the date plus those version rows plus the GAP 3/4/5 additions), commit in
 the fork. *Blocks publishing?* Yes for accuracy: the notices are the
 licence record players see.
+**Status (2026-11-11): fixed.** Regenerated against the fork pin in
+force (`da2f355dad`; its `project.assets.json` matches the pin's
+package versions, so no restore was needed). The diff is the date, the
+F-18 version rows and the GAP 3/4/5/7 additions, as predicted. This
+lane cannot edit the fork, so the file waits at
+[game/tools/out/THIRD_PARTY_NOTICES.md](../game/tools/out/THIRD_PARTY_NOTICES.md)
+for the fork lane to copy and commit it in the fork.
 
 **GAP 2: the LGPL-family packages vs ADR-0003.** ADR-0003 says LGPL
 "none are currently used", but the osu!lazer closure carries
@@ -268,6 +294,14 @@ inherited set under LGPL terms (separate assemblies, dynamic loading,
 licence texts reachable), or schedule replacements. *Blocks publishing?*
 Not for a free release while the LGPL obligations are met, but the
 documentation says something untrue today.
+**Status (2026-11-11): fixed.** Owner decision recorded as
+[ADR-0013](adr/0013-accept-inherited-lgpl-set.md): the inherited set is
+accepted under LGPL terms (separate assemblies and native libraries,
+dynamic loading, licence texts reachable, re-review before any paid
+release). ADR-0003 itself is not edited: accepted ADRs are immutable
+([docs/README.md](README.md) ground rules), so the amendment lives in
+the new ADR, linked from here and from [SPECIFICATION.md](SPECIFICATION.md)
+§0.
 
 **GAP 3: notices §5 is wrong about FFmpeg.** It says FFmpeg is optional
 and user-provided and that kan! does not redistribute it; in fact
@@ -281,6 +315,12 @@ obligations), and while there fix the DiscordRPC description (it is a
 Discord RPC wrapper, MIT, and presence is off since F-20). Regenerate
 with GAP 1. *Blocks publishing?* The disclosure should be right before
 strangers download.
+**Status (2026-11-11): fixed.** Notices §5 now says FFmpeg 4.x
+(`libavcodec` 58, `libavformat` 58, `libavutil` 56, `libswscale` 5) is
+redistributed in every zip via `ppy.osu.Framework.NativeLibs` under
+LGPL 2.1 or later (build-dependent), and the DiscordRPC line names
+`DiscordRichPresence` (MIT) and that Discord presence is off since F-20.
+The build-configuration doubt stands (section 5).
 
 **GAP 4: the notices omit the shipped native components.** The kan!
 bridge (`libkan_forge_native`) compiles in miniaudio (MIT-0), the Basic
@@ -293,6 +333,12 @@ None of these are named in the player-visible notices.
 is the record of record and was completed with a miniaudio entry on
 2026-11-11), then regenerate. *Blocks publishing?* It is a completeness
 gap in the credits, not a licence violation.
+**Status (2026-11-11): fixed.** Notices §5 names SDL2 and SDL3,
+`libveldrid-spirv` (SPIRV-Cross), `libstbi`, `librealm-wrappers`,
+`e_sqlite3`, BASSWASAPI and the bridge's compiled-in miniaudio, Basic
+Pitch port and ICASSP 2022 weights, GGML and BSRoformer.cpp, with
+[libkan/THIRD_PARTY_NOTICES.md](../libkan/THIRD_PARTY_NOTICES.md)
+pointed at as the record of record.
 
 **GAP 5: fonts are not named in the notices.** "fonts under their own
 licences" hides Inter (SIL OFL), Noto (SIL OFL), Torus and Torus-Alternate
@@ -300,6 +346,10 @@ licences" hides Inter (SIL OFL), Noto (SIL OFL), Torus and Torus-Alternate
 licence). *Proposed fix:* name them in the notices' resources line (same
 generator edit as GAP 3/4). *Blocks publishing?* No, but CC BY-NC and font
 credits are exactly what players are entitled to see.
+**Status (2026-11-11): fixed.** The notices' resources line names Inter
+and Noto (SIL Open Font License) and Torus, Torus-Alternate and Venera
+(commercial distribution licence required per their upstream licence
+files).
 
 **GAP 6 (decision): Torus and Venera say distribution needs a commercial
 licence.** Their upstream licence files in ppy/osu-resources say so, and
@@ -312,6 +362,9 @@ notices §1 and this doubt recorded; replace those fonts through
 anyway); or buy the distribution licences. Suggested issue title:
 **"Fonts: Torus and Venera redistribution terms"**. *Blocks publishing?*
 Owner's risk call; recorded, not guessed.
+**Status (2026-11-11): still open.** Not this lane's decision; the
+doubt stays recorded here and the notices now state what the fonts'
+upstream licence files say (GAP 5).
 
 **GAP 7 (decision): the default separation model has no licence and no
 credit.** The default q8 grade (`FractalSurfer/BS-RoFormer-SW-6stem`) has
@@ -326,6 +379,15 @@ source and its licence state (this is also the pending
 item). Suggested issue title: **"Separation model: licence and credit for
 the first-use download"**. *Blocks publishing?* Recommend resolving before
 the first public download reaches players.
+**Status (2026-11-11): fixed.** Owner decision: the MIT f16 grade
+(`studio409/BSRoformer-SW-6Stem-GGUF`) is the default first-use
+download; the q8 grade (`FractalSurfer`, no licence declared) is an
+explicit opt-in (`KAN_ROFORMER_GRADE=q8`) and q4 falls back to the
+default. The default lives in `roformer_default_grade()`
+([libkan/include/libkan/transcribe.hpp](../libkan/include/libkan/transcribe.hpp),
+with an offline test in `libkan/tests/transcribe_cmd_test.cpp`). Notices
+§6 names the model, source and licence state; the
+[game/TODO.md](../game/TODO.md) "Separation model" item is closed.
 
 **GAP 8: no licence or credits file in the zip.** The notices exist only
 inside `osu.Game.dll` and are readable by running the game. MIT asks that
@@ -334,8 +396,17 @@ licences offline. *Proposed fix:* copy the fork's `THIRD_PARTY_NOTICES.md`
 into the payload in `game/packaging/windows/assemble.sh` (and mention it
 in the release notes), or ship the fork `LICENCE` next to it. *Blocks
 publishing?* Not strictly, cheap to do.
+**Status (2026-11-11): fixed.** `game/packaging/windows/assemble.sh`
+copies `THIRD_PARTY_NOTICES.md` and `LICENCE` into every payload and
+fails the build when either is missing; `.github/workflows/build.yml`
+puts both at the macOS zip root next to `kan!.app`;
+[releases/v0.1.0.md](releases/v0.1.0.md) tells players about them.
 
 ## 5. What this audit could not verify
+
+- The fork-side commit of the regenerated notices: lanes of the
+  superproject cannot write the fork, so the hand-off file
+  (`game/tools/out/THIRD_PARTY_NOTICES.md`) waits for the fork lane.
 
 - The about screen in a running client (verified in code only: F-5 loads
   the embedded resource, F-6 embeds it).
