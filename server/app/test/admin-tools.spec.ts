@@ -72,10 +72,59 @@ describe('parseCommandLine', () => {
     });
   });
 
+  it('parses the levels command', () => {
+    expect(parseCommandLine(['levels'])).toEqual({ ok: true, command: { kind: 'levels' } });
+    expect(parseCommandLine(['levels', 'smoketest']).ok).toBe(false);
+    expect(parseCommandLine(['levels', '--yes']).ok).toBe(false);
+  });
+
+  it('parses set-status with a level id and a status', () => {
+    expect(parseCommandLine(['set-status', '12', 'rank'])).toEqual({
+      ok: true,
+      command: { kind: 'set-status', levelId: 12, status: 'rank' },
+    });
+    for (const status of ['rank', 'pending', 'wip', 'graveyard', 'loved']) {
+      expect(parseCommandLine(['set-status', '7', status]).ok).toBe(true);
+    }
+  });
+
+  it('rejects a set-status without a level id or with an unknown status', () => {
+    expect(parseCommandLine(['set-status', '12'])).toEqual({
+      ok: false,
+      error: 'set-status needs a level id and a status',
+    });
+    expect(parseCommandLine(['set-status', 'twelve', 'rank'])).toEqual({
+      ok: false,
+      error: '"twelve" is not a level id',
+    });
+    expect(parseCommandLine(['set-status', '12', 'approved'])).toEqual({
+      ok: false,
+      error: 'status must be one of rank, pending, wip, graveyard, loved',
+    });
+  });
+
+  it('requires the --yes confirmation for delete-level', () => {
+    expect(parseCommandLine(['delete-level', '3'])).toEqual({
+      ok: false,
+      error: 'delete-level needs the --yes flag to confirm',
+    });
+    expect(parseCommandLine(['delete-level', '--yes'])).toEqual({
+      ok: false,
+      error: 'delete-level needs a level id',
+    });
+    expect(parseCommandLine(['delete-level', '3', '--yes'])).toEqual({
+      ok: true,
+      command: { kind: 'delete-level', levelId: 3 },
+    });
+  });
+
   it('describes every command in the usage text', () => {
     expect(USAGE).toContain('users');
     expect(USAGE).toContain('reset-password <username>');
     expect(USAGE).toContain('delete-user <username> --yes');
+    expect(USAGE).toContain('levels');
+    expect(USAGE).toContain('set-status <id> <status>');
+    expect(USAGE).toContain('delete-level <id> --yes');
   });
 });
 

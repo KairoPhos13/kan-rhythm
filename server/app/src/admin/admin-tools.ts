@@ -5,6 +5,17 @@
  */
 import { randomInt } from 'node:crypto';
 
+/** Statuses the admin CLI can move a level to, by name (`BeatmapOnlineStatus`). */
+export const LEVEL_STATUSES: Record<string, number> = {
+  rank: 1,
+  pending: 0,
+  wip: -1,
+  graveyard: -2,
+  loved: 4,
+};
+
+export type LevelStatusName = keyof typeof LEVEL_STATUSES;
+
 /** Usage text shown when the command line does not parse. */
 export const USAGE = [
   'usage: node dist/admin/cli.js <command>',
@@ -13,6 +24,9 @@ export const USAGE = [
   '  users                          list accounts (id, username, join date, last visit)',
   '  reset-password <username>      set a new random password and sign the player out everywhere',
   '  delete-user <username> --yes   delete an account that owns no beatmap sets',
+  '  levels                         list levels (id, title, creator, status)',
+  '  set-status <id> <status>       move a level to rank, pending, wip, graveyard or loved',
+  '  delete-level <id> --yes        delete a level with its package and cover',
   '',
   'Quote usernames that contain spaces. The exit code is 0 on success, 1 on any problem.',
 ].join('\n');
@@ -21,11 +35,20 @@ export const USAGE = [
 export type AdminCommand =
   | { kind: 'users' }
   | { kind: 'reset-password'; username: string }
-  | { kind: 'delete-user'; username: string };
+  | { kind: 'delete-user'; username: string }
+  | { kind: 'levels' }
+  | { kind: 'set-status'; levelId: number; status: LevelStatusName }
+  | { kind: 'delete-level'; levelId: number };
 
 export type ParseResult =
   | { ok: true; command: AdminCommand }
   | { ok: false; error: string };
+
+/** A level id is a plain positive integer. */
+function parseLevelId(value: string): number | null {
+  const parsed = Number.parseInt(value, 10);
+  return Number.isInteger(parsed) && parsed > 0 && String(parsed) === value.trim() ? parsed : null;
+}
 
 /**
  * Parses the arguments after the script name. The username is everything that
@@ -63,6 +86,33 @@ export function parseCommandLine(argv: string[]): ParseResult {
       if (!username) return { ok: false, error: 'delete-user needs a username' };
       if (!confirmed) return { ok: false, error: 'delete-user needs the --yes flag to confirm' };
       return { ok: true, command: { kind: 'delete-user', username } };
+    case 'levels':
+      if (positionals.length > 0 || confirmed) {
+        return { ok: false, error: 'levels takes no arguments' };
+      }
+      return { ok: true, command: { kind: 'levels' } };
+    case 'set-status': {
+      if (confirmed) return { ok: false, error: 'set-status takes no options' };
+      if (positionals.length !== 2) {
+        return { ok: false, error: 'set-status needs a level id and a status' };
+      }
+      const levelId = parseLevelId(positionals[0]);
+      if (levelId == null) return { ok: false, error: `"${positionals[0]}" is not a level id` };
+      const status = positionals[1] as LevelStatusName;
+      if (!(status in LEVEL_STATUSES)) {
+        return {
+          ok: false,
+          error: `status must be one of ${Object.keys(LEVEL_STATUSES).join(', ')}`,
+        };
+      }
+      return { ok: true, command: { kind: 'set-status', levelId, status } };
+    }
+    case 'delete-level': {
+      const levelId = positionals.length === 1 ? parseLevelId(positionals[0]) : null;
+      if (levelId == null) return { ok: false, error: 'delete-level needs a level id' };
+      if (!confirmed) return { ok: false, error: 'delete-level needs the --yes flag to confirm' };
+      return { ok: true, command: { kind: 'delete-level', levelId } };
+    }
     default:
       return { ok: false, error: `unknown command "${command}"` };
   }
