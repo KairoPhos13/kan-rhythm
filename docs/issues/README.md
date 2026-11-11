@@ -29,8 +29,8 @@ there is no release yet and no level in the catalogue.
 | 4 | [35 Nightly database backups to R2](35-nightly-backups.md) | Claude | done 2026-11-10 |
 | 5 | [15 First free levels](15-first-free-bundled-level.md) with [14 companions](14-companions-for-free-songs.md) | owner, then import | next |
 | 6 | [09 Windows](09-windows-build-and-playtest.md) and [10 macOS](10-macos-build-and-playtest.md) play-tests, with the first release `v0.1.0` | owner, testers | next |
-| 7 | [22 Leftover osu! text](22-osu-string-sweep-remaining.md) (mod descriptions such as "SS or quit") | agent | open |
-| 8 | [24 Hide osu!-only features](24-hide-osu-only-features.md) | agent | open |
+| 7 | [22 Leftover osu! text](22-osu-string-sweep-remaining.md) (mod descriptions such as "SS or quit") | agent | done 2026-11-10 |
+| 8 | [24 Hide osu!-only features](24-hide-osu-only-features.md) | agent | done 2026-11-10 |
 | 9 | [34 Level uploads for creators](34-level-uploads.md) | owner decides the design | open |
 | 10 | [27 Level creator handbook](27-level-creator-handbook.md) | agent, owner reviews | draft done, owner reviews |
 

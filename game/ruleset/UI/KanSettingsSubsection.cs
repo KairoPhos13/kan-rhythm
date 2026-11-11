@@ -47,7 +47,7 @@ namespace Kan.Ruleset.UI
                 new SettingsItemV2(new InstrumentDropdown
                 {
                     Caption = @"My instrument",
-                    HintText = @"What you play. The game listens for it (one note at a time, or several), and any level is fitted to its range. ""As the level"": the instrument the level is made for, in its own range. Also set right before playing.",
+                    HintText = @"What you play. The game listens for it (one note at a time, or several), and any level is fitted to its range. ""As the level"": the instrument the level is made for, in its own range. Also set in song select, under the level.",
                     Current = instrument,
                 }),
                 new SettingsItemV2(new NoteDropdown
@@ -97,7 +97,7 @@ namespace Kan.Ruleset.UI
             };
         }
 
-        private partial class InstrumentDropdown : FormDropdown<string>
+        internal partial class InstrumentDropdown : FormDropdown<string>
         {
             public InstrumentDropdown()
             {
@@ -107,7 +107,7 @@ namespace Kan.Ruleset.UI
             protected override LocalisableString GenerateItemText(string item) => Configuration.KanPlayer.ChoiceLabel(item);
         }
 
-        private partial class NoteDropdown : FormDropdown<int>
+        internal partial class NoteDropdown : FormDropdown<int>
         {
             public NoteDropdown()
             {

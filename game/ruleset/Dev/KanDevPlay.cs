@@ -101,6 +101,13 @@ namespace Kan.Ruleset.Dev
 
         private void start()
         {
+            // A screen that holds the level (the intro, a dialog) may still be up: try again shortly.
+            if (beatmap.Disabled)
+            {
+                Scheduler.AddDelayed(start, 1000);
+                return;
+            }
+
             string target = Environment.GetEnvironmentVariable(PLAY_ENV) ?? string.Empty;
             BeatmapSetInfo? set;
 
@@ -226,6 +233,13 @@ namespace Kan.Ruleset.Dev
                 }
 
                 // KAN_DEV_SCROLL=mods: the selected mods' settings controls, shown on screen (for screenshots).
+                // KAN_DEV_SCROLL=instrument: song select's instrument choices, open (for screenshots).
+                if (Environment.GetEnvironmentVariable(@"KAN_DEV_SCROLL") == @"instrument")
+                {
+                    Scheduler.AddDelayed(() => osu.Framework.Extensions.PopoverExtensions.ShowPopover(
+                        game.ChildrenOfType<Kan.Ruleset.UI.KanInstrumentWedge>().First()), 9000);
+                }
+
                 if (Environment.GetEnvironmentVariable(@"KAN_DEV_SCROLL") == @"mods")
                 {
                     Scheduler.AddDelayed(() =>

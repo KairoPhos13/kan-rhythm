@@ -228,6 +228,9 @@ namespace Kan.Ruleset
         /// <summary>The compose tab is kan!'s score editor (fork F-13, owner 2026-10-14).</summary>
         public override osu.Game.Screens.Edit.EditorScreen? CreateComposeEditorScreen() => new Kan.Forge.Editor.Compose.KanComposeScreen();
 
+        /// <summary>Song select's instrument wedge (fork F-29): the instrument and its range, under the level.</summary>
+        public override osu.Framework.Graphics.Drawable CreateSongSelectWedgeContent(System.Action refilter) => new KanInstrumentWedge(refilter);
+
         /// <summary>The player loader's "Notation" group (fork F-16): note names, colours, size.</summary>
         public override IEnumerable<osu.Game.Screens.Play.PlayerSettings.PlayerSettingsGroup> CreatePlayerLoaderSettings()
             => new osu.Game.Screens.Play.PlayerSettings.PlayerSettingsGroup[] { new KanNotationSettings(), new KanMicSettings() };

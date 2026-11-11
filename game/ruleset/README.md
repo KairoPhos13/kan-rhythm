@@ -33,7 +33,7 @@ DLLs go in the game's `rulesets/` storage folder instead (see
 | `KanRuleset.cs` | The ruleset: name, mods, the editor tabs it provides, processors |
 | `Objects/` | `KanHitObject`: one score note (pitch, duration, style, its pace); `DrawableKanHitObject` asks the live judge and applies its verdict (draws nothing) |
 | `Beatmaps/` | `KanBeatmapConverter`: the level's score to hit objects (each note's pace set here); `KanLevelFiles` reads the score and design from a level where no dependency injection reaches |
-| `UI/` | The play: `KanPlayState` (split by concern: listening, tries, wait mode, diagnostics), `KanPlayfield`, `KanStaff` (the living staff; its markers and note views in their own files), `KanScene` (the level's design as it plays), the player loader's microphone settings, notation, the perfect chime |
+| `UI/` | The play: `KanPlayState` (split by concern: listening, tries, wait mode, diagnostics), `KanPlayfield`, `KanStaff` (the living staff; its markers and note views in their own files), `KanScene` (the level's design as it plays), the player loader's microphone settings, notation, song select's instrument wedge, the perfect chime |
 | `Mods/` | kan!'s mods: Easy, Hard Rock, Hidden, By heart, Wait for me, Practice, … and their score multipliers |
 | `Scoring/` | `KanScoreProcessor` (accuracy and rank as in osu!), `KanHealthProcessor` |
 | `Replays/` | A replay holds what the judge heard, not inputs (`KanReplayFrame`) |

@@ -598,6 +598,32 @@ not exist (reviewed 2026-11-10). The NVIDIA profile names use the neutral `kan`
 spelling of the brand (like the `kan` assembly name of ADR-0011 §4), not
 the `kan!` wordmark.
 
+### F-29: a ruleset wedge in song select (2026-11-11, commit `da2f355dad`)
+
+- **What:** `Ruleset.CreateSongSelectWedgeContent(Action refilter)`
+  (default null) lets a ruleset add its own wedge to song select, under
+  the beatmap's title and difficulty wedge. New `RulesetWedge`
+  (`Screens/Select/RulesetWedge.cs`) hosts it with the wedges' background
+  and enter/leave motion, rebuilds it when the ruleset changes, and takes
+  no space when the ruleset adds nothing. `SongSelect` places it,
+  shows/hides it with the title wedge, and subtracts its height from the
+  details area. `FilterControl.Refilter()` filters again with the same
+  controls, for a ruleset setting the filter reads.
+- **Why:** owner 2026-11-11: the instrument and its range were chosen in
+  the player loader's side panel (F-16), found only by hovering at the
+  right of that screen; choosing them where the level is chosen "is more
+  intuitive". kan!'s wedge (`KanInstrumentWedge`) shows the instrument,
+  its range and how the selected level fits it; a click opens the choices
+  in a popover, and a change filters the list again (the "only levels my
+  instrument plays" filter). The player loader's group keeps the notation
+  only.
+- **Verified:** client and ruleset build green (0 warnings / 0 errors).
+  Isolated instance: the wedge under the title wedge, the popover open,
+  the player's range kept when it opens.
+- **Merge-conflict cost:** low; one new file, one virtual on `Ruleset`,
+  one public method on `FilterControl`, four lines in `SongSelect`.
+- **Upstream-PR:** no (kan!-specific need).
+
 ### F-25: `README.md` rewritten for the kan! game client (2026-11-09, commit `4fa5313`)
 
 - **What:** the fork root `README.md` (upstream osu!'s) is replaced with
