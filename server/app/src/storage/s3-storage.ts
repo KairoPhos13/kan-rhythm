@@ -65,6 +65,19 @@ export class S3Storage implements Storage {
     return Promise.resolve(null);
   }
 
+  async read(key: string): Promise<Buffer | null> {
+    try {
+      const result = await this.client.send(
+        new GetObjectCommand({ Bucket: this.config.bucket, Key: this.key(key) }),
+      );
+      const body = result.Body as { transformToByteArray(): Promise<Uint8Array> } | undefined;
+      if (!body) return null;
+      return Buffer.from(await body.transformToByteArray());
+    } catch {
+      return null;
+    }
+  }
+
   async exists(key: string): Promise<boolean> {
     try {
       await this.client.send(new HeadObjectCommand({ Bucket: this.config.bucket, Key: this.key(key) }));

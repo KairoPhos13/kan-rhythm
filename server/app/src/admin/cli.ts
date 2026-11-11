@@ -3,16 +3,19 @@
  *
  * kan! sends no email, so a player who forgets their password asks the owner
  * (the website's "Forgot your password?" note); this CLI is how the owner
- * handles that without raw SQL. It prints account names and dates only: never
- * email addresses, password hashes or tokens.
+ * handles that without raw SQL. It prints account names, level titles and
+ * dates only: never email addresses, password hashes or tokens.
  */
 import 'dotenv/config';
 import argon2 from 'argon2';
 import type { Pool } from 'pg';
 import { loadConfig } from '../config';
 import { createPool } from '../db/db.service';
+import { createStorage } from '../storage/create-storage';
+import { statusName } from '../beatmaps/status';
 import { passwordProblem } from '../users/password-rules';
 import { generatePassword, parseCommandLine, USAGE } from './admin-tools';
+import { deleteLevel, LevelSummary, listLevels, setLevelStatus } from './level-admin';
 
 /** Dates are shown as YYYY-MM-DD; a missing date as "-". */
 function day(value: Date | null): string {
@@ -106,7 +109,7 @@ async function deleteUser(pool: Pool, username: string): Promise<void> {
     fail(`"${username}" owns ${owned} beatmap set(s); refusing to delete`);
     console.error('The database would leave those sets without an owner, which we do not allow.');
     console.error('Move them to another account first (UPDATE beatmapsets SET user_id = ...)');
-    console.error('or delete the sets, then run delete-user again.');
+    console.error('or delete them with delete-level <id> --yes, then run delete-user again.');
     return;
   }
 
@@ -130,6 +133,25 @@ async function deleteUser(pool: Pool, username: string): Promise<void> {
   }
 }
 
+/**
+ * `levels`: id, title, creator and status of every level, in catalogue order.
+ * Titles only: the listing exists to find a level again, not to browse it.
+ */
+function printLevels(levels: LevelSummary[]): void {
+  if (levels.length === 0) {
+    console.log('no levels');
+    return;
+  }
+  console.log('id   status     creator                  title');
+  for (const level of levels) {
+    const id = String(level.id).padEnd(4);
+    const status = statusName(level.status).padEnd(10);
+    const creator = level.creator.padEnd(24);
+    console.log(`${id} ${status} ${creator} ${level.title}`);
+  }
+  console.log(`${levels.length} level(s)`);
+}
+
 async function main(): Promise<void> {
   const parsed = parseCommandLine(process.argv.slice(2));
   if (!parsed.ok) {
@@ -141,6 +163,7 @@ async function main(): Promise<void> {
 
   const config = loadConfig();
   const pool = createPool(config.databaseUrl);
+  const storage = createStorage(config);
   const command = parsed.command;
   try {
     switch (command.kind) {
@@ -153,6 +176,27 @@ async function main(): Promise<void> {
       case 'delete-user':
         await deleteUser(pool, command.username);
         break;
+      case 'levels':
+        printLevels(await listLevels(pool));
+        break;
+      case 'set-status': {
+        const level = await setLevelStatus(pool, command.levelId, command.status);
+        if (!level) {
+          fail(`no level with id ${command.levelId}`);
+          break;
+        }
+        console.log(`level ${level.id} "${level.title}" is now ${statusName(level.status)}`);
+        break;
+      }
+      case 'delete-level': {
+        const level = await deleteLevel(pool, storage, command.levelId);
+        if (!level) {
+          fail(`no level with id ${command.levelId}`);
+          break;
+        }
+        console.log(`deleted level ${level.id} "${level.title}"; its package and cover are gone`);
+        break;
+      }
     }
   } finally {
     await pool.end();

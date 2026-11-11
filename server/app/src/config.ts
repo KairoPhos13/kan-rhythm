@@ -46,6 +46,18 @@ export interface AppConfig {
     /** Expiry of the presigned download URLs the download endpoint redirects to. */
     downloadUrlExpirySeconds: number;
   };
+  submission: {
+    /** Largest accepted level package, in bytes (per upload). */
+    maxPackageBytes: number;
+    /** Package uploads allowed per creator per hour. */
+    uploadsPerHour: number;
+    /**
+     * Unranked (pending/WIP) sets a creator may hold: `unrankedSetsBase` plus
+     * one per ranked set, never more than `unrankedSetsMax` (osu!'s rule).
+     */
+    unrankedSetsBase: number;
+    unrankedSetsMax: number;
+  };
 }
 
 function int(value: string | undefined, fallback: number): number {
@@ -87,6 +99,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
         forcePathStyle: bool(env.S3_FORCE_PATH_STYLE, true),
       },
       downloadUrlExpirySeconds: int(env.DOWNLOAD_URL_EXPIRY_SECONDS, 300),
+    },
+    submission: {
+      maxPackageBytes: int(env.SUBMISSION_MAX_PACKAGE_BYTES, 100 * 1024 * 1024),
+      uploadsPerHour: int(env.SUBMISSION_UPLOADS_PER_HOUR, 10),
+      unrankedSetsBase: int(env.SUBMISSION_UNRANKED_SETS_BASE, 4),
+      unrankedSetsMax: int(env.SUBMISSION_UNRANKED_SETS_MAX, 8),
     },
   };
 }

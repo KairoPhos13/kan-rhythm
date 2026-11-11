@@ -140,6 +140,27 @@ export class BeatmapsService {
     return result.rows;
   }
 
+  /**
+   * The sets one creator owns with one of the given statuses, for the profile's
+   * beatmap sections (`GET /api/v2/users/{id}/beatmapsets/{type}`, §3.5).
+   */
+  async setsOwnedBy(
+    userId: number,
+    statuses: number[],
+    offset: number,
+    limit: number,
+  ): Promise<Record<string, unknown>[]> {
+    const result = await this.db.query<BeatmapsetRow>(
+      `SELECT ${SET_COLUMNS}
+         FROM beatmapsets
+        WHERE user_id = $1 AND status = ANY($2::int[])
+        ORDER BY ranked_date DESC NULLS LAST, last_updated DESC, id DESC
+        LIMIT $3 OFFSET $4`,
+      [userId, statuses, limit, offset],
+    );
+    return this.serialiseSets(result.rows);
+  }
+
   private async serialiseSets(sets: BeatmapsetRow[]): Promise<Record<string, unknown>[]> {
     if (sets.length === 0) return [];
     const beatmapsBySet = new Map<number, BeatmapRow[]>();

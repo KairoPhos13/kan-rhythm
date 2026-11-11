@@ -211,13 +211,13 @@ docker compose -f docker-compose.tunnel.yml exec app \
   set instead of duplicating it. Imported sets are `ranked`, so leaderboards
   show immediately.
 
-## 10. Players: password reset and accounts
+## 10. Players and levels: the admin CLI
 
 kan! sends no email, so a player who forgets their password asks the owner (the
 website's "Forgot your password?" note points at GitHub issues). The admin CLI
-in the app container handles that and the small account tasks around it. It
-prints account names and dates only: never email addresses, password hashes or
-tokens.
+in the app container handles that and the small account and catalogue tasks
+around it. It prints account names, level titles and dates only: never email
+addresses, password hashes or tokens.
 
 ```bash
 cd server/app/deploy
@@ -227,6 +227,12 @@ docker compose -f docker-compose.tunnel.yml exec app node dist/admin/cli.js user
 docker compose -f docker-compose.tunnel.yml exec app node dist/admin/cli.js reset-password <username>
 # delete an account that owns no beatmap sets (--yes is required)
 docker compose -f docker-compose.tunnel.yml exec app node dist/admin/cli.js delete-user <username> --yes
+# list levels: id, status, creator, title
+docker compose -f docker-compose.tunnel.yml exec app node dist/admin/cli.js levels
+# move a level to rank, pending, wip, graveyard or loved
+docker compose -f docker-compose.tunnel.yml exec app node dist/admin/cli.js set-status <id> <status>
+# delete a level with its package and cover (--yes is required)
+docker compose -f docker-compose.tunnel.yml exec app node dist/admin/cli.js delete-level <id> --yes
 ```
 
 Quote usernames that contain spaces, e.g. `reset-password "some player"`.
@@ -242,10 +248,20 @@ Quote usernames that contain spaces, e.g. `reset-password "some player"`.
   player owns beatmap sets: the schema could leave those sets without an owner
   (`ON DELETE SET NULL`) but ownerless sets have no place in the catalog. Move
   them to another account first (`UPDATE beatmapsets SET user_id = ...` in
-  psql) or delete the sets, then run the command again.
-- The exit code is 0 on success and 1 on any problem (unknown user, refused
-  deletion, bad arguments); usage text is printed when the arguments do not
-  parse.
+  psql) or delete them with `delete-level`, then run the command again.
+- `levels` lists every level in the catalogue (id, status, creator, title).
+- `set-status` is how levels get ranked: players submit their levels as pending
+  or WIP from the game (see `../README.md`, "Level submission from the game")
+  and the owner moves them on. `rank` and `loved` set the ranked date, and
+  `pending`, `wip` and `graveyard` clear it again. A ranked level keeps its
+  status when its creator resubmits it; pending/WIP/graveyard levels follow the
+  creator's choice.
+- `delete-level` removes the level with everything that belongs to it:
+  difficulties, scores and score tokens in the database, and the stored package
+  and cover in storage (the local directory or the R2 bucket).
+- The exit code is 0 on success and 1 on any problem (unknown user or level,
+  refused deletion, bad arguments); usage text is printed when the arguments do
+  not parse.
 
 ## 11. Backups (pg_dump to R2) and a restore drill
 

@@ -36,6 +36,14 @@ export class LocalStorage implements Storage {
     }
   }
 
+  async read(key: string): Promise<Buffer | null> {
+    try {
+      return await fs.readFile(this.pathFor(key));
+    } catch {
+      return null;
+    }
+  }
+
   async exists(key: string): Promise<boolean> {
     return existsSync(this.pathFor(key));
   }

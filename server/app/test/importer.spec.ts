@@ -12,7 +12,8 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import AdmZip from 'adm-zip';
 import { Pool } from 'pg';
-import { importOsz, resolveBeatmapId } from '../src/beatmaps/importer';
+import { importOsz, importPackage, resolveBeatmapId } from '../src/beatmaps/importer';
+import { md5Of } from '../src/beatmaps/osu-file';
 import { loadConfig } from '../src/config';
 import { createPool } from '../src/db/db.service';
 import { runMigrations } from '../src/db/migrate';
@@ -221,5 +222,63 @@ describe('level import', () => {
     expect(exitCode.stderr).toContain('import: failed:');
     expect(exitCode.stderr).toContain('no mode-0 (kan!-playable) difficulties in archive');
     expect(listFiles(storageDir)).toEqual(filesBefore);
+  });
+
+  it('keeps a package byte for byte when its ids are final (the submission path)', async () => {
+    // The submission flow hands the ids out before the package exists
+    // (PUT /beatmap-submission/beatmapsets), so the files arrive with their
+    // final ids and must be stored unchanged: the creator's local copies and
+    // the stored ones must keep the same checksums.
+    const storage = createStorage(loadConfig());
+    const set = await pool.query<{ id: number }>(
+      `INSERT INTO beatmapsets (user_id, archive_key) VALUES ((SELECT id FROM users LIMIT 1), '') RETURNING id`,
+    );
+    const setId = set.rows[0].id;
+    const allocated = await pool.query<{ id: number }>(
+      `SELECT nextval(pg_get_serial_sequence('beatmaps', 'id'))::int AS id`,
+    );
+    const beatmapId = allocated.rows[0].id;
+
+    const text = minimalOsu({ version: 'Normal' })
+      .replace('BeatmapID:0', `BeatmapID: ${beatmapId}`)
+      .replace('BeatmapSetID:0', `BeatmapSetID: ${setId}`);
+    const files = [
+      { entryName: 'Fixture Artist - Fixture Song (KairoPhos) [Normal].osu', data: Buffer.from(text, 'utf8') },
+      { entryName: 'audio.wav', data: silentWav() },
+    ];
+
+    const result = await importPackage({ db: pool, storage }, files, 'package', {
+      ownerUsername: 'Importer',
+      setId,
+      status: 0,
+      creator: 'Importer',
+      beatmapIds: 'package',
+      allowedBeatmapIds: new Set([beatmapId]),
+    });
+    expect(result.beatmaps).toEqual([
+      { id: beatmapId, version: 'Normal', checksum: md5Of(files[0].data) },
+    ]);
+
+    const stored = new AdmZip(path.join(storageDir, 'beatmapsets', `${setId}.osz`));
+    const storedOsu = stored
+      .getEntries()
+      .find((entry) => entry.entryName.endsWith('.osu'));
+    expect(storedOsu?.getData().equals(files[0].data)).toBe(true);
+
+    // a package carrying an id that is not the set's is refused, nothing written
+    const foreign = minimalOsu({ version: 'Hard', beatmapId: beatmapId + 1000, beatmapSetId: setId });
+    await expect(
+      importPackage(
+        { db: pool, storage },
+        [{ entryName: 'hard.osu', data: Buffer.from(foreign, 'utf8') }],
+        'package',
+        { ownerUsername: 'Importer', setId, beatmapIds: 'package', allowedBeatmapIds: new Set([beatmapId]) },
+      ),
+    ).rejects.toThrow('does not belong to beatmapset');
+    const rows = await pool.query<{ id: number }>(
+      `SELECT id FROM beatmaps WHERE beatmapset_id = $1`,
+      [setId],
+    );
+    expect(rows.rows.map((row) => row.id)).toEqual([beatmapId]);
   });
 });

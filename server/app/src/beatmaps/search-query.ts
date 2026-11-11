@@ -37,18 +37,27 @@ export const SEARCH_PAGE_SIZE = 20;
 
 /** `s` parameter values → SQL predicates (lazer-protocol.md §4.1). */
 const CATEGORY_SQL: Record<string, string> = {
-  any: 'TRUE',
+  // The default categories stay ranked/approved/loved: pending and WIP levels
+  // are listed under their own categories (and under "mine" for their creator),
+  // never in the listing a player opens by default.
+  any: 'status IN (1, 2, 4)',
   leaderboard: 'status IN (1, 2, 4)',
   ranked: 'status = 1',
   qualified: 'status = 3',
   loved: 'status = 4',
-  pending: 'status = 0',
+  // The client labels this category "Pending & WIP" (SearchCategory.cs), so
+  // both working statuses are listed under it and WIP under `wip` as well.
+  pending: 'status IN (0, -1)',
   wip: 'status = -1',
   graveyard: 'status = -2',
   // No favourites in the MVP; "mine" shows the requesting user's own sets.
   favourites: 'FALSE',
   mine: 'user_id = {owner}',
 };
+
+/** A set whose package has not landed yet has no difficulties and stays hidden. */
+const HAS_DIFFICULTIES = `EXISTS (SELECT 1 FROM beatmaps listed
+                                 WHERE listed.beatmapset_id = beatmapsets.id)`;
 
 const SORT_EXPRESSIONS: Record<string, string> = {
   title: 'lower(title)',
@@ -67,7 +76,7 @@ const SORT_EXPRESSIONS: Record<string, string> = {
 
 export function buildSearchQuery(filters: SearchFilters): { text: string; params: unknown[] } {
   const params: unknown[] = [];
-  const conditions: string[] = [];
+  const conditions: string[] = [HAS_DIFFICULTIES];
 
   const category = CATEGORY_SQL[filters.category] ?? CATEGORY_SQL['any'];
   if (category === 'FALSE') {
