@@ -128,6 +128,8 @@ get there with help:
 - **Musicians:** levels need songs that can be shared freely. If you write,
   play or arrange music (melodies and their accompaniments) and would release
   some of it under a free licence for kan!, you are very welcome.
+- **Level creators:** turn a song into a playable level with kan!forge:
+  [game/docs/level-creation-guide.md](game/docs/level-creation-guide.md).
 - **Artists:** kan!'s logo, menu art, intro and sounds are still provisional:
   see [game/brand/](game/brand/README.md).
 - **Players of other instruments:** kan! has been played mostly on an

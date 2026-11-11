@@ -109,6 +109,8 @@ On a machine that has to stay responsive, bound the native build:
 
 - [docs/gameplay.md](docs/gameplay.md): how a play works and is judged (at
   a glance first, then each rule with the reason behind it).
+- [docs/level-creation-guide.md](docs/level-creation-guide.md): how to make
+  a level in kan!forge, written for musicians.
 - [docs/editor-pipeline.md](docs/editor-pipeline.md): the editor (tracks,
   separation, transcription, compose, design, timing repair).
 - [docs/fork-divergence.md](docs/fork-divergence.md): every change made to
