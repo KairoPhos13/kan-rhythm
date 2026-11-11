@@ -30,6 +30,16 @@ Fetched at build time and compiled into `libkan_roformer` (pins in
 `CMakeLists.txt`): ggml (MIT, Copyright (c) 2023-2026 The ggml authors)
 and BSRoformer.cpp (MIT, Copyright (c) 2026 chenmozhijin <cmzj@cmzj.org>).
 
+## Compiled into consumers of libkan
+
+- **miniaudio** (MIT-0 / public domain dedication): single-header audio
+  device I/O and WAV decoding, fetched at build time (0.11.25, root
+  `CMakeLists.txt` and `game/forge/native`) and compiled into the
+  consumers that ship: the kan! client's native bridge
+  (`game/forge/native/kan_forge_api.cpp`) and the `tools/`/`apps/`
+  utilities. Not part of libkan itself; the upstream copyright header
+  stays in the fetched `miniaudio.h`.
+
 ## Optional backends (fetched by the root CMakeLists)
 
 - Cycfi Q (MIT): `libkan_bacf`.
