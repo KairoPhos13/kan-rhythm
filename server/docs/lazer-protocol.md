@@ -179,6 +179,29 @@ Client class `game/client/osu.Game/Online/API/Requests/GetUserScoresRequest.cs:3
   `ruleset_id` in each item must resolve to a locally installed ruleset or the row throws
   (`DrawableProfileScore.cs:55`).
 
+### 3.5 `GET /api/v2/users/{id}/beatmapsets/{type}`: profile beatmap sections
+
+Client class `game/client/osu.Game/Online/API/Requests/GetUserBeatmapsRequest.cs:28`
+(`users/{userId}/beatmapsets/{type}`, `type` snake-cased), consumed by the profile's Beatmaps
+section (`game/client/osu.Game/Overlays/Profile/Sections/BeatmapsSection.cs:19-27`) and, as
+`most_played`, by the Historical section
+(`Online/API/Requests/GetUserMostPlayedBeatmapsRequest.cs:19`). It is a
+`PaginatedAPIRequest`, so `offset` and `limit` come along; the response is a **top-level JSON
+array**.
+
+| `type` | kan! answers |
+|---|---|
+| `ranked` | the creator's ranked/approved sets |
+| `loved` | the creator's loved sets |
+| `pending` | the creator's pending and WIP sets (the section is titled "Pending & WIP") |
+| `graveyard` | the creator's graveyarded sets |
+| `favourite`, `guest`, `nominated`, `most_played` | `[]`: kan! keeps no favourites, guest difficulties, nominations or play-count history |
+
+The counts the sections show come from the user JSON (`APIUser.cs:166-185`): `ranked_beatmapset_count`
+(status 1/2), `loved_beatmapset_count` (4), `pending_beatmapset_count` (0/-1),
+`graveyard_beatmapset_count` (-2), and `favourite_`/`guest_`/`nominated_beatmapset_count` at 0.
+An unknown `type` is 404.
+
 ## 4. Beatmaps
 
 ### 4.1 `GET /api/v2/beatmapsets/search`: beatmapset search
@@ -300,6 +323,98 @@ not derived from headers). It is a normal API request, so it carries the `Author
   (`game/client/osu.Game/Overlays/BeatmapSet/Buttons/HeaderDownloadButton.cs:170`), so downloads
   may require auth in practice.
 - Note: `noVideo=1` is a preference toggle; the MVP server can ignore it (serve the same archive).
+
+### 4.8 Level submission from the editor
+
+Routes under `BeatmapSubmissionServiceUrl`, which the fork sets to `{APIUrl}/beatmap-submission`
+(`game/client/osu.Game/Online/EndpointConfiguration.cs:34`). All three are normal API requests with
+the `Authorization: Bearer` header; `Target` is not used (each request builds its own URI).
+Client classes: `PutBeatmapSetRequest.cs` (JSON), `ReplaceBeatmapPackageRequest.cs` and
+`PatchBeatmapPackageRequest.cs` (multipart uploads), driven by
+`Screens/Edit/Submission/BeatmapSubmissionScreen.cs`, with the package built by
+`SubmissionBeatmapExporter.cs` (`osu.Game/…`).
+
+The flow (`BeatmapSubmissionScreen.cs:210-381`):
+
+1. `PUT /beatmap-submission/beatmapsets` reserves the ids of the set and lists the files the
+   server already stores.
+2. The client exports its set to a legacy package. `SubmissionBeatmapExporter.MutateBeatmap`
+   writes `BeatmapSetID` and `BeatmapID` into every `.osu` from the response
+   (`LegacyBeatmapEncoder.cs:146-147`, `BeatmapID: 5` with a space): the ids are the ones the
+   server just handed out. A difficulty whose id is neither in `beatmap_ids` nor new aborts the
+   export ("has BeatmapID … that has not been assigned to it by the server").
+3. When `files` was empty the whole package goes up in one `PUT`; otherwise the client diffs its
+   export against `files` by `sha2_hash` and sends a `PATCH` with only the changed files plus the
+   names of the deleted ones (`BeatmapSubmissionScreen.cs:299-353`).
+4. The client re-imports its own export and looks every difficulty up by checksum
+   (`BeatmapUpdaterMetadataLookup`, §8.2), so the server must store the uploaded files byte for
+   byte: the `.osu` files arrive with their final ids and are not rewritten.
+
+| Request | Body | Notes |
+|---|---|---|
+| `PUT /beatmap-submission/beatmapsets` | JSON (`Content-Type: application/json`) | see below |
+| `PUT /beatmap-submission/beatmapsets/{id}` | multipart, one file part `beatmapArchive` | the full `.osz` package |
+| `PATCH /beatmap-submission/beatmapsets/{id}` | multipart, file parts `filesChanged` (filename = archive entry name) and form fields `filesDeleted` (one per removed file) | merged into the stored package |
+
+`PUT /beatmap-submission/beatmapsets` request fields (`PutBeatmapSetRequest.cs:31-45`):
+
+| JSON field | Notes |
+|---|---|
+| `beatmapset_id` | `null`/absent = create a set; otherwise the set to update (creator only) |
+| `beatmaps_to_create` | how many new difficulty ids to hand out (≤ 64 per set) |
+| `beatmaps_to_keep` | ids of the difficulties that are already online; must belong to the set |
+| `target` | `"WIP"` or `"Pending"` (`BeatmapSubmissionTarget`, StringEnumConverter) |
+| `notify_on_discussion_replies` | accepted and ignored: kan! runs no discussions |
+
+Response (`PutBeatmapSetResponse.cs`, all three fields are read):
+
+| JSON field | Notes |
+|---|---|
+| `beatmapset_id` | the new or existing set |
+| `beatmap_ids` | every id the export may write: the **new** ids first, then `beatmaps_to_keep`. The order matters: `SubmissionBeatmapExporter` hands `beatmap_ids` out in order to the difficulties that have none yet, so kept ids must not be consumed first (`SubmissionBeatmapExporter.cs:44-56`) |
+| `files` | `[{filename, sha2_hash}]` of the stored package; `sha2_hash` is SHA-256 as lowercase hex, the value the client compares against `StreamExtensions.ComputeSHA2Hash`. Empty when nothing is stored yet, which makes the client upload the full package |
+
+Semantics the server keeps:
+
+- **Ownership**: only the creator of a set may replace or patch it (403 otherwise); an unknown set
+  is 404. `beatmaps_to_keep` must name difficulties of that very set (400 otherwise).
+- **Status**: the set is created with `target`'s status (WIP = `-1`, Pending = `0`) and is
+  credited to the submitting account ("mapped by" them, `creator` = their username). Later
+  submissions apply `target` again while the level is not ranked yet (this also revives a
+  graveyarded level, as in osu!); a ranked/approved/loved level keeps its status, so a submission
+  can never rank or unrank a level: that is the server owner's admin CLI.
+- **Checks**: every package runs the importer's checks (`server/app/src/beatmaps/importer.ts`):
+  the `.osu` files must parse, mode 0 only (mode 1-3 difficulties are skipped and stripped from
+  the stored package), at least one playable difficulty, and every `BeatmapID` in the package must
+  be one of the ids handed out for this set.
+- **Limits**: `SUBMISSION_MAX_PACKAGE_BYTES` (default 100 MB) per upload and per merged package,
+  `SUBMISSION_UPLOADS_PER_HOUR` (default 10) package uploads per creator, and osu!'s cap on
+  unranked sets: `SUBMISSION_UNRANKED_SETS_BASE` (default 4) pending/WIP sets plus one per ranked
+  set, up to `SUBMISSION_UNRANKED_SETS_MAX` (default 8), enforced when a set is created.
+- **Id reservations**: the ids handed out are rows in `beatmap_id_reservations`
+  (migrations/0006), allocated from the `beatmaps` id sequence, claimed by the uploaded
+  difficulties and dropped when the package lands (or a week later, by the hourly purge).
+- Failures answer `{"error": "…"}`: 400 (bad request or refused package), 401, 403, 404, 413
+  (package too large), 422 (over the unranked-set cap), 429 (rate limit). The upload responses
+  have no body; the client only checks the status code (`APIRequest`, no response type).
+
+### 4.9 Statuses: what ranked, pending and WIP mean here
+
+`BeatmapOnlineStatus` (§7) drives the catalogue, the profile and the leaderboards:
+
+| Status | Listed under | Profile section | Leaderboard | Set by |
+|---|---|---|---|---|
+| Ranked `1` / Approved `2` | `s=ranked`, `s=leaderboard`, `s=any` | `ranked` | yes | admin CLI (`set-status rank`) |
+| Loved `4` | `s=loved`, `s=leaderboard`, `s=any` | `loved` | yes | admin CLI (`set-status loved`) |
+| Pending `0` | `s=pending` (the client labels it "Pending & WIP") | `pending` | no | the creator's submission target |
+| WIP `-1` | `s=pending`, `s=wip` | `pending` | no | the creator's submission target |
+| Graveyard `-2` | `s=graveyard` | `graveyard` | no | admin CLI (`set-status graveyard`) |
+
+The categories a player opens by default stay ranked/approved/loved: pending and WIP levels are
+listed under their own categories (and under `s=mine` for their creator), never in `s=any` or
+`s=leaderboard`. As in osu!, only statuses above pending have a public leaderboard: scores set
+while a level is unranked are stored and show up once the level is ranked. `ranked_date` follows
+the status (set for ranked/approved/loved, cleared otherwise).
 
 ---
 
@@ -558,6 +673,9 @@ Two client-side caveats worth knowing before deciding on media hosting:
 
 ## 9. MVP endpoint checklist (derived from the above)
 
+Level submission (§4.8) is a goal of its own: it is what the editor's submit button talks to and
+what the `/beatmap-submission` routes serve.
+
 | Endpoint | Goal | Priority |
 |---|---|---|
 | `POST /oauth/token` (password + refresh_token) | 1 | must |
@@ -565,6 +683,10 @@ Two client-side caveats worth knowing before deciding on media hosting:
 | `GET /api/v2/me`, `/me/`, `/me/{mode}` | 1 | must |
 | `GET /api/v2/users/{idOrName}/{mode}?key=` | 4 | must |
 | `GET /api/v2/users/{id}/scores/{best\|recent}` | 4 | must (profile sections) |
+| `GET /api/v2/users/{id}/beatmapsets/{type}` | 4 | must (profile beatmap sections, §3.5) |
+| `PUT /beatmap-submission/beatmapsets` (reserve ids) | submission | must (§4.8) |
+| `PUT /beatmap-submission/beatmapsets/{id}` (replace package) | submission | must (§4.8) |
+| `PATCH /beatmap-submission/beatmapsets/{id}` (patch package) | submission | must (§4.8) |
 | `GET /api/v2/beatmapsets/search` (+ `cursor[key]` paging) | 2 | must |
 | `GET /api/v2/beatmapsets/{id}`, `/beatmapsets/lookup?beatmap_id=` | 2 | must |
 | `GET /api/v2/beatmaps/lookup?id\|checksum\|filename` | 2, 3 | must |

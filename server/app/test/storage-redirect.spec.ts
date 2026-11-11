@@ -77,6 +77,12 @@ describe('download endpoint with the s3 driver', () => {
         },
         downloadUrlExpirySeconds: 300,
       },
+      submission: {
+        maxPackageBytes: 100 * 1024 * 1024,
+        uploadsPerHour: 10,
+        unrankedSetsBase: 4,
+        unrankedSetsMax: 8,
+      },
     };
 
     const moduleRef = await Test.createTestingModule({

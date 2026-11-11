@@ -21,11 +21,15 @@ project's 1 GB ARM64 host next to the Nebula lighthouse
 | `GET /api/v2/me`, `/api/v2/me/`, `/api/v2/me/{mode}` | current user |
 | `GET /api/v2/users/{idOrName}[/{mode}]?key=` | profile |
 | `GET /api/v2/users/{id}/scores/{best\|recent}` | profile score sections |
+| `GET /api/v2/users/{id}/beatmapsets/{type}` | profile beatmap sections (§3.5 of the protocol doc) |
 | `GET /api/v2/beatmapsets/search` | listing overlay search, `cursor[key]` paging |
 | `GET /api/v2/beatmapsets/{id}`, `/api/v2/beatmapsets/lookup?beatmap_id=` | set details |
 | `GET /api/v2/beatmaps/lookup?id\|checksum\|filename` | beatmap lookup (checksum = `.osu` MD5) |
 | `GET /api/v2/beatmaps/?ids[]=` | batch lookup |
 | `GET /api/v2/beatmapsets/{id}/download` | the `.osz` (302 to presigned URL with the s3 driver) |
+| `PUT /beatmap-submission/beatmapsets` | editor submission: reserve the ids of a set |
+| `PUT /beatmap-submission/beatmapsets/{id}` | editor submission: upload the full package |
+| `PATCH /beatmap-submission/beatmapsets/{id}` | editor submission: upload the changed files |
 | `POST /api/v2/beatmaps/{id}/solo/scores` | score token |
 | `PUT /api/v2/beatmaps/{id}/solo/scores/{token}` | score submission |
 | `GET /api/v2/beatmaps/{id}/scores` | leaderboard (`type`, `mode=kan`, `mods[]`, `limit`) |
@@ -78,6 +82,10 @@ under `server/` (`.github/workflows/server.yml`).
 | `STORAGE_LOCAL_DIR` | `./data` | root directory for the local driver |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | - | S3-compatible store (Cloudflare R2 / AWS S3) |
 | `DOWNLOAD_URL_EXPIRY_SECONDS` | `300` | expiry of the presigned download URLs |
+| `SUBMISSION_MAX_PACKAGE_BYTES` | `104857600` | largest accepted level package (100 MB) |
+| `SUBMISSION_UPLOADS_PER_HOUR` | `10` | package uploads allowed per creator per hour |
+| `SUBMISSION_UNRANKED_SETS_BASE` | `4` | pending/WIP sets a creator starts with |
+| `SUBMISSION_UNRANKED_SETS_MAX` | `8` | the cap on pending/WIP sets (base + one per ranked set, never above this) |
 | `TRUST_PROXY` | *(empty)* | `cloudflare` behind Cloudflare Tunnel: trust `CF-Connecting-IP` for rate limiting and use `https` in generated URLs. Never trust forwarded headers without it |
 
 ## Client configuration
@@ -121,6 +129,30 @@ Only mode-0 (kan!-playable) difficulties are imported: kan! claims legacy
 ruleset id 0, so taiko/catch/mania difficulties cannot be played. They are
 skipped with a log line and stripped from the stored archive; an archive with no
 mode-0 difficulty is rejected (nothing is written, exit code 1).
+
+## Level submission from the game
+
+The submit button of kan!forge (the editor) talks to `/beatmap-submission`
+([`../docs/lazer-protocol.md`](../docs/lazer-protocol.md) §4.8), once the client
+build has its `BeatmapSubmissionServiceUrl` set to `{APIUrl}/beatmap-submission`.
+A creator reserves the ids of their set, then uploads the package, or a patch of
+the changed files the second time round. The level lands in the catalogue as
+**pending** or **WIP** (their choice in the editor's settings) and is credited
+to their account ("mapped by" them). Every package runs through the same checks
+as the import CLI above.
+
+Only the server owner ranks a level:
+
+```bash
+npm run admin -- set-status <id> rank     # or pending, wip, graveyard, loved
+```
+
+Pending and WIP levels are listed under their own search categories and have no
+leaderboard until they are ranked (as in osu!). A creator may hold
+`SUBMISSION_UNRANKED_SETS_BASE` (default 4) pending/WIP levels plus one per
+ranked level, up to `SUBMISSION_UNRANKED_SETS_MAX` (default 8). Uploads are
+limited to `SUBMISSION_UPLOADS_PER_HOUR` (default 10) per creator and
+`SUBMISSION_MAX_PACKAGE_BYTES` (default 100 MB) per package.
 
 ## Production
 

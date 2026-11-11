@@ -8,7 +8,11 @@
 import { INestApplication } from '@nestjs/common';
 import { json, urlencoded } from 'express';
 import { AllExceptionsFilter } from './common/http';
-import { multipartFields } from './common/multipart';
+import {
+  multipartFields,
+  multipartUpload,
+  SUBMISSION_PATH_PREFIX,
+} from './common/multipart';
 import { websiteCors } from './common/website-cors';
 import { loadConfig } from './config';
 
@@ -19,10 +23,16 @@ export function configureApp(app: INestApplication): void {
   express.set('query parser', 'extended');
   express.disable('x-powered-by');
 
-  app.use(websiteCors(loadConfig().websiteUrl));
+  const config = loadConfig();
+  app.use(websiteCors(config.websiteUrl));
   app.use(json({ limit: '256kb' }));
   app.use(urlencoded({ extended: true, limit: '64kb' }));
-  // The game posts its forms as multipart/form-data (text fields only).
+  // The game posts its forms as multipart/form-data (text fields only), and
+  // its level packages as multipart with files (src/common/multipart.ts).
   app.use(multipartFields());
+  app.use(
+    SUBMISSION_PATH_PREFIX,
+    multipartUpload({ maxBytes: config.submission.maxPackageBytes }),
+  );
   app.useGlobalFilters(new AllExceptionsFilter());
 }

@@ -16,18 +16,24 @@ export const PURGE_INTERVAL_MS = 60 * 60 * 1000;
  *    tokens live far shorter and the client refreshes proactively);
  *  - `score_tokens`: rows that were used (a play was submitted) or that expired
  *    more than a day ago (the play was abandoned); a day of slack keeps a
- *    token around for late submissions within its own lifetime.
+ *    token around for late submissions within its own lifetime;
+ *  - `beatmap_id_reservations`: ids reserved by an editor submission whose
+ *    package never arrived (server/docs/lazer-protocol.md §4.8); a week is far
+ *    longer than any submission takes.
  */
 export const PURGE_STATEMENTS = {
   oauthTokens: `DELETE FROM oauth_tokens WHERE refresh_expires_at < now()`,
   scoreTokens: `DELETE FROM score_tokens
                 WHERE used_at IS NOT NULL
                    OR expires_at < now() - interval '1 day'`,
+  beatmapIdReservations: `DELETE FROM beatmap_id_reservations
+                          WHERE created_at < now() - interval '7 days'`,
 };
 
 export interface PurgeResult {
   oauthTokens: number;
   scoreTokens: number;
+  beatmapIdReservations: number;
 }
 
 @Injectable()
@@ -54,6 +60,10 @@ export class PurgeService implements OnModuleInit, OnModuleDestroy {
     return {
       oauthTokens: await this.run('oauth_tokens', PURGE_STATEMENTS.oauthTokens),
       scoreTokens: await this.run('score_tokens', PURGE_STATEMENTS.scoreTokens),
+      beatmapIdReservations: await this.run(
+        'beatmap_id_reservations',
+        PURGE_STATEMENTS.beatmapIdReservations,
+      ),
     };
   }
 

@@ -24,26 +24,40 @@ describe('purge SQL predicates', () => {
     expect(PURGE_STATEMENTS.scoreTokens).toContain('used_at IS NOT NULL');
     expect(PURGE_STATEMENTS.scoreTokens).toContain("expires_at < now() - interval '1 day'");
   });
+
+  it('deletes beatmap ids reserved by a submission that never arrived', () => {
+    expect(PURGE_STATEMENTS.beatmapIdReservations).toContain(
+      'DELETE FROM beatmap_id_reservations',
+    );
+    expect(PURGE_STATEMENTS.beatmapIdReservations).toContain(
+      "created_at < now() - interval '7 days'",
+    );
+  });
 });
 
 describe('PurgeService.purge', () => {
-  it('runs both deletions and reports the row counts', async () => {
-    const db = fakeDb([{ rowCount: 3 }, { rowCount: 7 }]);
+  it('runs every deletion and reports the row counts', async () => {
+    const db = fakeDb([{ rowCount: 3 }, { rowCount: 7 }, { rowCount: 2 }]);
     const service = new PurgeService(db as unknown as DbService);
 
     const result: PurgeResult = await service.purge();
 
-    expect(db.query).toHaveBeenCalledTimes(2);
+    expect(db.query).toHaveBeenCalledTimes(3);
     expect(db.query).toHaveBeenNthCalledWith(1, PURGE_STATEMENTS.oauthTokens);
     expect(db.query).toHaveBeenNthCalledWith(2, PURGE_STATEMENTS.scoreTokens);
-    expect(result).toEqual({ oauthTokens: 3, scoreTokens: 7 });
+    expect(db.query).toHaveBeenNthCalledWith(3, PURGE_STATEMENTS.beatmapIdReservations);
+    expect(result).toEqual({ oauthTokens: 3, scoreTokens: 7, beatmapIdReservations: 2 });
   });
 
   it('never throws when the database is unavailable', async () => {
     const db = { query: jest.fn().mockRejectedValue(new Error('connection lost')) };
     const service = new PurgeService(db as unknown as DbService);
 
-    await expect(service.purge()).resolves.toEqual({ oauthTokens: 0, scoreTokens: 0 });
+    await expect(service.purge()).resolves.toEqual({
+      oauthTokens: 0,
+      scoreTokens: 0,
+      beatmapIdReservations: 0,
+    });
   });
 });
 
@@ -58,7 +72,7 @@ describe('PurgeService scheduling', () => {
     const service = new PurgeService(fakeDb() as unknown as DbService);
     const purge = jest
       .spyOn(service, 'purge')
-      .mockResolvedValue({ oauthTokens: 0, scoreTokens: 0 });
+      .mockResolvedValue({ oauthTokens: 0, scoreTokens: 0, beatmapIdReservations: 0 });
 
     service.onModuleInit();
     expect(purge).toHaveBeenCalledTimes(1);
@@ -80,7 +94,9 @@ describe('PurgeService scheduling', () => {
     const clearIntervalSpy = jest.spyOn(global, 'clearInterval');
 
     const service = new PurgeService(fakeDb() as unknown as DbService);
-    jest.spyOn(service, 'purge').mockResolvedValue({ oauthTokens: 0, scoreTokens: 0 });
+    jest
+      .spyOn(service, 'purge')
+      .mockResolvedValue({ oauthTokens: 0, scoreTokens: 0, beatmapIdReservations: 0 });
 
     service.onModuleInit();
     expect(setIntervalSpy).toHaveBeenCalledTimes(1);
