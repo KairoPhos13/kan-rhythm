@@ -63,7 +63,7 @@ there is no release yet and no level in the catalogue.
 | 23 | [Localise the rebranded strings: other languages still say "osu!"](23-localise-rebranded-strings.md) | `localisation` `help wanted` `good first issue` | M |
 | 24 | [Hide osu!-only features still reachable in the client (stable import, tutorial)](24-hide-osu-only-features.md) | `game` | S |
 | 25 | [BASS replacement study: scope the clean-room "kanplay" option (D)](25-bass-replacement-study.md) | `licensing` `docs` | M |
-| 26 | [Third-party credits and licence audit before the public release](26-third-party-credits-audit.md) | `licensing` `docs` | S |
+| 26 | [Third-party credits and licence audit before the public release](26-third-party-credits-audit.md): audited 2026-11-11, result and GAP list in [release-credits.md](../release-credits.md) | `licensing` `docs` | S |
 | 27 | [Level creator handbook: how to make a kan! level](27-level-creator-handbook.md) | `docs` `editor` `help wanted` | L |
 | 28 | [Publish the `.kan` / `.kchart` format specification](28-chart-format-specification.md) | `docs` | M |
 | 29 | [Server MVP follow-up: public website pages (landing + level catalogue)](29-website-pages.md) | `server` `help wanted` | L |

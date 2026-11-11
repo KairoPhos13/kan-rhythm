@@ -38,3 +38,10 @@ here are generated from scratch by `../tools/gen-provisional-brand.py`
 at the centre, "kan!" in white with silver borders). Run it again after
 changing its constants; replace any file with hand-made art whenever it
 exists.
+
+Provenance and licence (recorded 2026-11-11, issue 26): every file
+currently in this folder is that provisional generator output. Author:
+KairoPhos (design and `../tools/gen-provisional-brand.py` as the source).
+Licence: MIT, the same as the repository ([`LICENSE`](../../LICENSE)).
+Any hand-made replacement art needs its own author and licence line here
+when it lands.
