@@ -121,19 +121,38 @@ inline bool run_with_progress(const std::string& cmd, const char* phase) {
 /// found, download it automatically. Initially from the community
 /// official-ish repos; eventually from OUR distribution (availability +
 /// compatibility control) via KAN_MODEL_URL. One model, three grades:
-/// KAN_ROFORMER_GRADE = q8 (default, best balance) | f16 (max quality) |
-/// q4 (fastest CPU).
-inline std::string roformer_model_url(const std::string& grade) {
-    const char* url = std::getenv("KAN_MODEL_URL");
-    if (url != nullptr && *url != '\0') return url; // self-hosting wins
+/// KAN_ROFORMER_GRADE = f16 (default, max quality) | q8 (opt-in) |
+/// q4 (fastest CPU, none public yet).
+///
+/// Default grade = f16 (owner decision 2026-11-11, docs/release-credits.md
+/// GAP 7): f16 is the only grade whose source declares a licence (MIT,
+/// studio409/BSRoformer-SW-6Stem-GGUF, a GGUF conversion of the MIT ONNX
+/// upstream). The q8 grade (FractalSurfer/BS-RoFormer-SW-6stem) declares
+/// no licence on its card and is an explicit opt-in only
+/// (KAN_ROFORMER_GRADE=q8).
+inline const char* roformer_default_grade() { return "f16"; }
+
+/// Pure URL mapping (unit-tested, no env and no network). An empty
+/// override means "no self-hosting"; an empty result means "this grade
+/// has no public source" (q4: verified 404).
+inline std::string roformer_model_url_for(const std::string& grade,
+                                          const std::string& override_url) {
+    if (!override_url.empty()) return override_url; // self-hosting wins
     if (grade == "f16") {
         return "https://huggingface.co/studio409/BSRoformer-SW-6Stem-GGUF"
                "/resolve/main/bs_roformer_sw_6stem-F16.gguf";
     }
-    // No public q4 exists yet (verified 404). Until WE host one
-    // (KAN_MODEL_URL), q4 falls back to the q8 grade below.
-    return "https://huggingface.co/FractalSurfer/BS-RoFormer-SW-6stem"
-           "/resolve/main/gguf/BS-RoFormer-SW-6stem-q8_0.gguf";
+    if (grade == "q8") {
+        return "https://huggingface.co/FractalSurfer/BS-RoFormer-SW-6stem"
+               "/resolve/main/gguf/BS-RoFormer-SW-6stem-q8_0.gguf";
+    }
+    return "";
+}
+
+/// Model URL for `grade` with the environment's KAN_MODEL_URL override.
+inline std::string roformer_model_url(const std::string& grade) {
+    const char* url = std::getenv("KAN_MODEL_URL");
+    return roformer_model_url_for(grade, (url != nullptr) ? url : "");
 }
 
 /// ---- shell command construction (pure; unit-tested, no network) ------
@@ -190,16 +209,20 @@ inline std::string ensure_roformer_model() {
     }
     const char* grade_env = std::getenv("KAN_ROFORMER_GRADE");
     std::string grade = (grade_env != nullptr && *grade_env != '\0')
-        ? grade_env : "q8";
-    if (grade == "q4" && std::getenv("KAN_MODEL_URL") == nullptr) {
-        std::printf("[model] no public q4 yet - using q8 (set KAN_MODEL_URL "
-                    "to host one)\n");
-        grade = "q8";
+        ? grade_env : roformer_default_grade();
+    std::string url = roformer_model_url(grade);
+    if (url.empty()) {
+        // This grade has no public source (q4: verified 404). Fall back
+        // to the default grade; only KAN_MODEL_URL can host another one.
+        std::printf("[model] no public %s grade yet - using the default %s "
+                    "(set KAN_MODEL_URL to host one)\n",
+                    grade.c_str(), roformer_default_grade());
+        grade = roformer_default_grade();
+        url = roformer_model_url(grade);
     }
     fs_create_all("models");
     const std::string path = "models/6stem_" + grade + ".gguf";
     if (std::filesystem::exists(path, ec)) return path;
-    const std::string url = roformer_model_url(grade);
     std::printf("[model] downloading %s model...\n", grade.c_str());
 #ifdef _WIN32
     // Windows 10 (1803+) ships curl.exe; cmd.exe has no `command -v` and no

@@ -46,8 +46,9 @@ Header-only core (`libkan/include/libkan/`), C++20. Key APIs:
   `libkan_roformer`; no installed separator; see game/docs/editor-pipeline.md
   s7b. Any WAV rate accepted; progress via the same contract). Produces stems named
   `bass/drums/guitar/other/piano/vocals.wav` (official order). Models
-  auto-download to `models/` (`KAN_ROFORMER_GRADE`: q8 default, f16,
-  q4; `KAN_MODEL_URL` switches to our own distribution later).
+  auto-download to `models/` (`KAN_ROFORMER_GRADE`: f16 default
+  (MIT source), q8 opt-in, q4; `KAN_MODEL_URL` switches to our own
+  distribution later).
 - `kan::set_progress(fn, user)`: **the progress contract** (a method,
   not console scraping): callback `(phase, percent)` with phases
   `download`, `separate`, `transcribe`. kan_demo demonstrates the
