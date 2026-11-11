@@ -32,7 +32,7 @@ there is no release yet and no level in the catalogue.
 | 7 | [22 Leftover osu! text](22-osu-string-sweep-remaining.md) (mod descriptions such as "SS or quit") | agent | open |
 | 8 | [24 Hide osu!-only features](24-hide-osu-only-features.md) | agent | open |
 | 9 | [34 Level uploads for creators](34-level-uploads.md) | owner decides the design | open |
-| 10 | [27 Level creator handbook](27-level-creator-handbook.md) | agent, owner reviews | open |
+| 10 | [27 Level creator handbook](27-level-creator-handbook.md) | agent, owner reviews | draft done, owner reviews |
 
 ## Index
 
