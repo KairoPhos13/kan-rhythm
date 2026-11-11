@@ -26,6 +26,8 @@ export interface Storage {
   presign(key: string, expiresInSeconds: number): Promise<string | null>;
   /** Opens a read stream for drivers that serve bytes themselves. */
   open(key: string): Promise<OpenedFile | null>;
+  /** Reads an object into memory (the submission flow reads packages back). */
+  read(key: string): Promise<Buffer | null>;
   /** Whether the object exists. */
   exists(key: string): Promise<boolean>;
 }

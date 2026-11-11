@@ -5,11 +5,23 @@
  * re-zips, and stores each rewritten `.osu`'s MD5 as the beatmap checksum:
  * that exact checksum is what the client looks up after download and later
  * sends as `beatmap_hash` (server/docs/lazer-protocol.md §8.2).
+ *
+ * Two callers share this code (that is why the checks live in
+ * {@link checkPackage}):
+ *  - the import CLI (`src/import/cli.ts`), which takes the ids from the
+ *    existing rows (`beatmapIds: 'stable'`, the default) and imports sets as
+ *    ranked;
+ *  - the editor's submission flow (`src/beatmaps/submission.service.ts`), which
+ *    must keep the package byte for byte as the client exported it (`beatmapIds:
+ *    'package'`: the ids the client was given at PUT /beatmap-submission/beatmapsets
+ *    are already written into the files, so nothing is rewritten and the
+ *    checksums stay identical to the creator's local copies).
  */
 import path from 'node:path';
 import AdmZip from 'adm-zip';
 import { Pool, PoolClient } from 'pg';
 import { Storage } from '../storage/storage';
+import { hasRankedDate } from './status';
 import { md5Of, OsuFileInfo, parseOsu, rewriteOsu } from './osu-file';
 
 export interface ImportDeps {
@@ -21,6 +33,24 @@ export interface ImportDeps {
 export interface ImportOptions {
   /** Username owning the set; defaults to the first registered user. */
   ownerUsername?: string;
+  /** Owner of the set (submission): the authenticated creator. */
+  ownerUserId?: number;
+  /** Update this set (submission); otherwise the archive's set id is reused. */
+  setId?: number;
+  /** Status the set has after the import (default 1 = ranked: CLI imports). */
+  status?: number;
+  /** Creator shown on the set (default: the `.osu` metadata). */
+  creator?: string;
+  /**
+   * How a difficulty gets its beatmap id:
+   *  - `stable` (default): an existing (beatmapset, version, mode) row keeps its
+   *    id, anything else gets a fresh one;
+   *  - `package`: the id written in the `.osu`, which must be one of
+   *    `allowedBeatmapIds` (the ids handed out at PUT /beatmap-submission/beatmapsets
+   *    or already stored on this set).
+   */
+  beatmapIds?: 'stable' | 'package';
+  allowedBeatmapIds?: ReadonlySet<number>;
 }
 
 export interface ImportedBeatmap {
@@ -36,6 +66,20 @@ export interface ImportResult {
   coverKey: string | null;
   archiveKey: string;
 }
+
+/** One file of the package to import. */
+export interface PackageFile {
+  /** Archive entry name (`artist - title (creator) [diff].osu`, `audio.wav`, …). */
+  entryName: string;
+  data: Buffer;
+}
+
+/**
+ * A package the importer refuses (no playable difficulty, an id that does not
+ * belong to the set): a user-facing message, mapped to HTTP 400 by the
+ * submission routes and to exit code 1 by the import CLI.
+ */
+export class PackageRejectedError extends Error {}
 
 interface ParsedDifficulty {
   entryName: string;
@@ -65,68 +109,133 @@ function clampMode(mode: number): number {
   return Number.isFinite(mode) && mode >= 0 && mode <= 3 ? mode : 0;
 }
 
-export async function importOsz(
-  deps: ImportDeps,
-  filePath: string,
-  options: ImportOptions = {},
-): Promise<ImportResult> {
-  const log = deps.log ?? ((): void => undefined);
-  const zip = new AdmZip(filePath);
-  const entries = zip.getEntries().filter((entry) => !entry.isDirectory);
-  const osuEntries = entries.filter((entry) => /\.osu$/i.test(entry.entryName));
-  if (osuEntries.length === 0) throw new Error(`${filePath}: no .osu files in archive`);
+function basename(entryName: string): string {
+  return entryName.split(/[\\/]/).pop() ?? entryName;
+}
 
-  // kan! plays legacy ruleset id 0 only (lazer-protocol.md §8.1): mode 1-3
-  // difficulties (taiko/catch/mania) cannot be played and must not appear in
-  // the catalogue. They are skipped here and stripped from the stored archive.
+/**
+ * The importer's checks on a package: every `.osu` must parse, and at least one
+ * difficulty must be playable in kan! (mode 0; kan! claims legacy ruleset id 0,
+ * so mode 1-3 difficulties cannot be played). They are skipped here and
+ * stripped from the stored archive. Throws when nothing is playable.
+ */
+export function checkPackage(
+  files: PackageFile[],
+  log: (message: string) => void,
+  label = 'archive',
+): ParsedDifficulty[] {
+  const osuFiles = files.filter((file) => /\.osu$/i.test(file.entryName));
+  if (osuFiles.length === 0) throw new PackageRejectedError(`${label}: no .osu files in archive`);
+
   const parsed: ParsedDifficulty[] = [];
-  for (const entry of osuEntries) {
-    const text = entry.getData().toString('utf8');
+  for (const file of osuFiles) {
+    const text = file.data.toString('utf8');
     const info = parseOsu(text);
     const mode = info.general.mode;
     if (mode !== 0) {
       log(`skipping ${info.metadata.version}: mode ${mode} is not playable in kan!`);
       continue;
     }
-    parsed.push({ entryName: entry.entryName, text, info });
+    parsed.push({ entryName: file.entryName, text, info });
   }
   // Nothing is written (no rows, no files) when there is nothing playable.
   if (parsed.length === 0) {
-    throw new Error(`${filePath}: no mode-0 (kan!-playable) difficulties in archive`);
+    throw new PackageRejectedError(`${label}: no mode-0 (kan!-playable) difficulties in archive`);
   }
+  return parsed;
+}
+
+/** Reads a zip into plain files (entry order preserved, directories dropped). */
+export function readPackage(zip: AdmZip): PackageFile[] {
+  return zip
+    .getEntries()
+    .filter((entry) => !entry.isDirectory)
+    .map((entry) => ({ entryName: entry.entryName, data: entry.getData() }));
+}
+
+/** Imports an `.osz` file from disk (the import CLI). */
+export async function importOsz(
+  deps: ImportDeps,
+  filePath: string,
+  options: ImportOptions = {},
+): Promise<ImportResult> {
+  return importPackage(deps, readPackage(new AdmZip(filePath)), filePath, options);
+}
+
+/**
+ * Imports a package: runs the checks, keeps/creates the catalogue rows and
+ * stores the rewritten archive plus the cover image.
+ */
+export async function importPackage(
+  deps: ImportDeps,
+  files: PackageFile[],
+  label = 'archive',
+  options: ImportOptions = {},
+): Promise<ImportResult> {
+  const log = deps.log ?? ((): void => undefined);
+  const parsed = checkPackage(files, log, label);
+  const packageIds = options.beatmapIds === 'package';
 
   const client = await deps.db.connect();
   try {
     await client.query('BEGIN');
 
-    const ownerId = await resolveOwnerId(client, options.ownerUsername);
-    const requestedSetId = parsed[0].info.metadata.beatmapSetId;
+    const ownerId =
+      options.ownerUserId != null
+        ? options.ownerUserId
+        : await resolveOwnerId(client, options.ownerUsername);
+    const status = Number.isFinite(options.status) ? Math.trunc(options.status as number) : 1;
 
     let setId: number;
     let created = false;
-    if (requestedSetId > 0 && (await setExists(client, requestedSetId))) {
-      setId = requestedSetId;
-      log(`updating beatmapset ${setId}`);
+    if (options.setId != null) {
+      const existing = await setExists(client, options.setId);
+      if (!existing) throw new PackageRejectedError(`beatmapset ${options.setId} does not exist`);
+      setId = options.setId;
     } else {
-      const allocated = await client.query<{ id: number }>(
-        `INSERT INTO beatmapsets (user_id, archive_key, submitted_date, ranked_date, last_updated)
-         VALUES ($1, '', now(), now(), now())
-         RETURNING id`,
-        [ownerId],
-      );
-      setId = allocated.rows[0].id;
-      created = true;
-      log(`created beatmapset ${setId}`);
+      const requestedSetId = parsed[0].info.metadata.beatmapSetId;
+      if (requestedSetId > 0 && (await setExists(client, requestedSetId))) {
+        setId = requestedSetId;
+        log(`updating beatmapset ${setId}`);
+      } else {
+        const allocated = await client.query<{ id: number }>(
+          `INSERT INTO beatmapsets (user_id, archive_key, submitted_date, ranked_date, last_updated)
+           VALUES ($1, '', now(), ${newRankedDateSql(status)}, now())
+           RETURNING id`,
+          [ownerId],
+        );
+        setId = allocated.rows[0].id;
+        created = true;
+        log(`created beatmapset ${setId}`);
+      }
     }
+
+    // Ids first: what is not in the package any more goes away with its row
+    // before the upserts run, so a difficulty that changed its name can take
+    // over the (beatmapset, version, mode) slot of a removed one.
+    const resolved: { difficulty: ParsedDifficulty; beatmapId: number }[] = [];
+    for (const difficulty of parsed) {
+      const modeInt = clampMode(difficulty.info.general.mode);
+      const beatmapId = packageIds
+        ? await packageBeatmapId(client, setId, difficulty, options.allowedBeatmapIds)
+        : await resolveBeatmapId(client, setId, difficulty.info.metadata.version, modeInt);
+      resolved.push({ difficulty, beatmapId });
+    }
+    await client.query(
+      `DELETE FROM beatmaps
+        WHERE beatmapset_id = $1
+          AND NOT (id = ANY($2::bigint[]))`,
+      [setId, resolved.map((entry) => entry.beatmapId)],
+    );
 
     const setMeta = parsed[0].info;
     await client.query(
       `UPDATE beatmapsets
           SET user_id = COALESCE($2, user_id),
               title = $3, title_unicode = $4, artist = $5, artist_unicode = $6,
-              creator = $7, source = $8, tags = $9,
-              bpm = $10, status = 1, last_updated = now(),
-              ranked_date = COALESCE(ranked_date, now()),
+              creator = COALESCE($12, $7), source = $8, tags = $9,
+              bpm = $10, status = ${status}, last_updated = now(),
+              ranked_date = ${rankedDateSql(status)},
               archive_key = $11
         WHERE id = $1`,
       [
@@ -141,18 +250,20 @@ export async function importOsz(
         setMeta.metadata.tags,
         setMeta.bpm,
         archiveKeyFor(setId),
+        options.creator ?? null,
       ],
     );
 
-    // Rewrite ids into every playable .osu and keep each rewritten checksum.
+    // Rewrite ids into every playable .osu (only where they are not already the
+    // final ones) and keep each resulting checksum.
     const imported: ImportedBeatmap[] = [];
-    const rewrittenByEntry = new Map<string, string>();
-    for (const difficulty of parsed) {
-      const modeInt = clampMode(difficulty.info.general.mode);
-      const beatmapId = await resolveBeatmapId(client, setId, difficulty.info.metadata.version, modeInt);
-      const rewritten = rewriteOsu(difficulty.text, { beatmapId, beatmapSetId: setId });
+    const storedByEntry = new Map<string, string>();
+    for (const { difficulty, beatmapId } of resolved) {
+      const rewritten = packageIds
+        ? difficulty.text
+        : rewriteOsu(difficulty.text, { beatmapId, beatmapSetId: setId });
       const checksum = md5Of(rewritten);
-      rewrittenByEntry.set(difficulty.entryName, rewritten);
+      storedByEntry.set(difficulty.entryName, rewritten);
 
       await client.query(
         `INSERT INTO beatmaps
@@ -179,7 +290,7 @@ export async function importOsz(
           difficulty.info.metadata.version,
           difficulty.entryName,
           checksum,
-          modeInt,
+          clampMode(difficulty.info.general.mode),
           difficulty.info.difficulty.circleSize,
           difficulty.info.difficulty.approachRate,
           difficulty.info.difficulty.overallDifficulty,
@@ -196,23 +307,15 @@ export async function importOsz(
       imported.push({ id: beatmapId, version: difficulty.info.metadata.version, checksum });
     }
 
-    // Difficulties that vanished from the archive go away with their rows.
-    await client.query(
-      `DELETE FROM beatmaps
-        WHERE beatmapset_id = $1
-          AND NOT (id = ANY($2::bigint[]))`,
-      [setId, imported.map((b) => b.id)],
-    );
-
-    // Rebuild the archive with the rewritten .osu files, in the original order.
+    // Rebuild the archive with the stored .osu files, in the original order.
     // Skipped (non-mode-0) difficulties are stripped from the stored archive.
     const outZip = new AdmZip();
-    for (const entry of entries) {
-      const rewritten = rewrittenByEntry.get(entry.entryName);
-      if (rewritten != null) {
-        outZip.addFile(entry.entryName, Buffer.from(rewritten, 'utf8'));
-      } else if (!/\.osu$/i.test(entry.entryName)) {
-        outZip.addFile(entry.entryName, entry.getData());
+    for (const file of files) {
+      const stored = storedByEntry.get(file.entryName);
+      if (stored != null) {
+        outZip.addFile(file.entryName, Buffer.from(stored, 'utf8'));
+      } else if (!/\.osu$/i.test(file.entryName)) {
+        outZip.addFile(file.entryName, file.data);
       }
     }
     const archiveKey = archiveKeyFor(setId);
@@ -222,15 +325,15 @@ export async function importOsz(
     let coverKey: string | null = null;
     const background = parsed.find((d) => d.info.backgroundFile)?.info.backgroundFile ?? null;
     if (background) {
-      const backgroundEntry = entries.find(
-        (entry) => basename(entry.entryName).toLowerCase() === basename(background).toLowerCase(),
+      const backgroundFile = files.find(
+        (file) => basename(file.entryName).toLowerCase() === basename(background).toLowerCase(),
       );
-      if (backgroundEntry) {
-        coverKey = coverKeyFor(setId, backgroundEntry.entryName);
-        const ext = path.extname(backgroundEntry.entryName).toLowerCase();
+      if (backgroundFile) {
+        coverKey = coverKeyFor(setId, backgroundFile.entryName);
+        const ext = path.extname(backgroundFile.entryName).toLowerCase();
         await deps.storage.put(
           coverKey,
-          backgroundEntry.getData(),
+          backgroundFile.data,
           IMAGE_CONTENT_TYPES[ext] ?? 'application/octet-stream',
         );
       }
@@ -247,8 +350,43 @@ export async function importOsz(
   }
 }
 
-function basename(entryName: string): string {
-  return entryName.split(/[\\/]/).pop() ?? entryName;
+/** `ranked_date` follows the status: set for ranked/approved/loved, cleared otherwise. */
+function rankedDateSql(status: number): string {
+  return hasRankedDate(status) ? 'COALESCE(ranked_date, now())' : 'NULL';
+}
+
+/** `ranked_date` of a freshly created set. */
+function newRankedDateSql(status: number): string {
+  return hasRankedDate(status) ? 'now()' : 'NULL';
+}
+
+/**
+ * The id the package itself carries (submission flow). It must be one the set
+ * was given at PUT /beatmap-submission/beatmapsets (or already owns): a foreign
+ * id would let a package overwrite another set's difficulty.
+ */
+async function packageBeatmapId(
+  client: PoolClient,
+  setId: number,
+  difficulty: ParsedDifficulty,
+  allowed: ReadonlySet<number> | undefined,
+): Promise<number> {
+  const beatmapId = difficulty.info.metadata.beatmapId;
+  if (!allowed || !allowed.has(beatmapId)) {
+    throw new PackageRejectedError(
+      `difficulty "${difficulty.info.metadata.version}" carries BeatmapID ${beatmapId}, ` +
+        `which does not belong to beatmapset ${setId}`,
+    );
+  }
+  // Belt and braces: the id may not be stored on another set either.
+  const taken = await client.query<{ beatmapset_id: number }>(
+    `SELECT beatmapset_id FROM beatmaps WHERE id = $1`,
+    [beatmapId],
+  );
+  if (taken.rows.length > 0 && taken.rows[0].beatmapset_id !== setId) {
+    throw new PackageRejectedError(`BeatmapID ${beatmapId} already belongs to another beatmapset`);
+  }
+  return beatmapId;
 }
 
 async function setExists(client: PoolClient, setId: number): Promise<boolean> {
