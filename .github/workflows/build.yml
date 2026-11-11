@@ -191,8 +191,9 @@ jobs:
       # --- packaging --------------------------------------------------------
       # Self-contained publish of the game (Velopack stays dormant: the zip
       # is the installer for now) plus the kan! payload: ruleset plugin,
-      # Kan.Forge/Kan.Core, the native bridge and brand/ (fork F-21),
-      # checked so a missing piece fails the job. The steps live in
+      # Kan.Forge/Kan.Core, the native bridge, brand/ (fork F-21) and the
+      # third-party notices + licence as readable files (docs/release-credits.md
+      # GAP 8), checked so a missing piece fails the job. The steps live in
       # game/packaging/windows/assemble.sh so a local build (see
       # platform-builds.md §4) produces the identical payload.
       - name: Assemble the payload (publish + kan! files)
@@ -257,12 +258,22 @@ jobs:
       - name: Zip (macOS)
         if: runner.os == 'macOS'
         shell: bash
-        run: cd dist && ditto -c -k --keepParent "kan!.app" "kan-${{ matrix.rid }}.zip"
+        run: |
+          # kan!.app plus the notices and the licence at the zip root:
+          # inside the bundle the two files would be out of sight
+          # (docs/release-credits.md GAP 8). The payload carries copies
+          # too (Contents/MacOS/).
+          mkdir -p dist/zip-root
+          mv "dist/kan!.app" dist/zip-root/
+          cp dist/game/THIRD_PARTY_NOTICES.md dist/game/LICENCE dist/zip-root/
+          cd dist && ditto -c -k zip-root "kan-${{ matrix.rid }}.zip"
 
       - name: Zip (Windows, Linux)
         if: runner.os != 'macOS'
         shell: bash
         run: |
+          # dist/game already carries the notices and the licence at the
+          # folder root (assemble.sh).
           mkdir -p "dist/kan-${{ matrix.rid }}"
           cp -a dist/game/. "dist/kan-${{ matrix.rid }}/"
           cd dist && python -m zipfile -c "kan-${{ matrix.rid }}.zip" "kan-${{ matrix.rid }}"
