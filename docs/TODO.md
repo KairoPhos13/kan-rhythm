@@ -41,6 +41,10 @@
       `adr/0012-server-leaderboards-osu-reuse.md` (accepted; verified
       licenses 2026-10-12: osu-tools MIT → kp reference, spectator MIT →
       deferred, osu-web AGPL → clean-room only)
+- [x] ADR-0013: accept the LGPL set inherited from osu!lazer,
+      `adr/0013-accept-inherited-lgpl-set.md` (accepted; amends
+      ADR-0003: separate assemblies/libraries, dynamic loading, licence
+      texts reachable, re-review before any paid release)
 
 ## Rules
 

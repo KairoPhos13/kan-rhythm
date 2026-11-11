@@ -11,7 +11,9 @@ See [ROADMAP.md](ROADMAP.md) for milestones and release gates.
   and the osu!-style community ecosystem.
 - **No GPL/AGPL dependencies** in the engine core (keeps every future option
   open and avoids copyleft conflicts). This rules out Aubio, FFTW, RubberBand,
-  Essentia, and JACK.
+  Essentia, and JACK. LGPL: only the set inherited from osu!lazer under
+  [ADR-0013](adr/0013-accept-inherited-lgpl-set.md) (which amends
+  [ADR-0003](adr/0003-mit-license-no-gpl-policy.md)).
 - **Real-time safety is non-negotiable** (see root `CONTRIBUTING.md` §3).
 
 ## 1. Open-source stack (license-audited)
