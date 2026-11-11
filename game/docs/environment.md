@@ -201,11 +201,14 @@ osu!lazer (LGPL-family, dynamic linking only: full list in
 `game/client/THIRD_PARTY_NOTICES.md` §4):
 
 - `TagLibSharp` (LGPL-2.1-only), `OpenTabletDriver*` (LGPL-3.0-or-later),
-  `FFmpeg.AutoGen` (wrapper; FFmpeg itself is LGPL/GPL and is **not**
-  redistributed by us; users supply binaries).
+  `FFmpeg.AutoGen` (P/Invoke wrapper), plus the FFmpeg 4.x binaries that
+  `ppy.osu.Framework.NativeLibs` redistributes in every zip (LGPL 2.1 or
+  later, build-dependent).
 
-These do not violate the MIT-only policy for *our own* dependency choices
-(`CONTRIBUTING.md` §6) but must be reviewed before any release. Known
+This inherited set is accepted by [ADR-0013](../../docs/adr/0013-accept-inherited-lgpl-set.md)
+(2026-11-11) under the LGPL terms: separate assemblies and native
+libraries, dynamic loading, licence texts reachable, re-review before any
+paid release (root `CONTRIBUTING.md` §6). Known
 permissive statuses verified manually (2026-10-12): `ppy.*` packages
 (SDL2-CS, osuTK.NS20, Veldrid, Vk, managed-midi, osu.Game.Resources) are MIT
 (upstream ppy forks), `SQLite` is public domain, `StbiSharp` is BSD.

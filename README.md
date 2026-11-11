@@ -147,4 +147,5 @@ The game client is built on [osu!lazer](https://github.com/ppy/osu) by ppy
 and its contributors (MIT), and kan! is grateful for it. "osu!" is a
 trademark of ppy Pty Ltd; kan! is an independent project, not affiliated
 with or endorsed by ppy. Third-party components and their licences are listed
-in the game's `THIRD_PARTY_NOTICES`.
+in the game's `THIRD_PARTY_NOTICES` and in the `THIRD_PARTY_NOTICES.md` and
+`LICENCE` files that ship in every release zip.

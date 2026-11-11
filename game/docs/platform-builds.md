@@ -64,15 +64,18 @@ platform above), then a `release` job on tags. Per job:
 7. `dotnet publish osu.Desktop` self-contained for the RID, then the kan!
    payload is collected and **checked**: `osu.Game.Rulesets.Kan.dll`,
    `Kan.Forge.dll`, `Kan.Core.dll`, the native bridge (`.dll`/`.dylib`/
-   `.so`, whatever the CMake build produced), `ppy.ManagedBass.dll` and the
-   `brand/` folder (the fork copies it, F-21). The job fails if anything is
+   `.so`, whatever the CMake build produced), `ppy.ManagedBass.dll`, the
+   `brand/` folder (the fork copies it, F-21) and the
+   `THIRD_PARTY_NOTICES.md` + `LICENCE` files (readable credits in every
+   zip, docs/release-credits.md GAP 8). The job fails if anything is
    missing. These steps live in `game/packaging/windows/assemble.sh` (not
    only in YAML) so a local build produces the identical payload.
 8. macOS only: assemble `kan!.app` (see §3), sign + notarize when the
    `APPLE_*` secrets exist.
-9. Zip (`kan-<rid>.zip`; on macOS the zip contains `kan!.app`), upload as a
-   build artifact. On `v*` tags all four zips are attached to a **draft**
-   GitHub Release (`gh release create --draft`).
+9. Zip (`kan-<rid>.zip`; on macOS the zip contains `kan!.app` plus the
+   notices and licence at the zip root), upload as a build artifact. On
+   `v*` tags all four zips are attached to a **draft** GitHub Release
+   (`gh release create --draft`).
 
 Version: tag builds stamp `-p:Version=<tag without v>`; other builds are
 `0.0.0`.
@@ -165,7 +168,8 @@ game/packaging/windows/assemble.sh win-x64 dist/game   # publish + payload (same
   `KanForgeNative.cs` are exported.
 - **Payload:** `assemble.sh` runs the CI payload steps (strict kan! build,
   self-contained `osu.Desktop` publish, ruleset/Kan.Forge/Kan.Core + native
-  bridge + `brand/` + `ppy.ManagedBass.dll`, all checked) and the zip adds
+  bridge + `brand/` + `ppy.ManagedBass.dll` + `THIRD_PARTY_NOTICES.md` and
+  `LICENCE`, all checked) and the zip adds
   `game/packaging/windows/README.txt` (SmartScreen, CPU-only separation,
   `%APPDATA%\kan` for data/logs, how to report). Result:
   `dist/kan-win-x64.zip` (176 MiB, unzip → double-click `kan.exe`).

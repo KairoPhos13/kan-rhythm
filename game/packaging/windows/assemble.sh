@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Assemble one kan! release payload (the managed part of a build):
 # self-contained osu.Desktop publish for a RID plus the kan! plugin files
-# (ruleset, Kan.Forge, Kan.Core), the native bridge and brand/, checked so a
-# missing piece fails the build instead of shipping.
+# (ruleset, Kan.Forge, Kan.Core), the native bridge, brand/ and the
+# third-party notices + licence as readable files, checked so a missing
+# piece fails the build instead of shipping.
 #
 # The steps are exactly the ones .github/workflows/build.yml runs; they live
 # here (not only in YAML) so a local build can produce the same payload,
@@ -59,6 +60,12 @@ cp game/ruleset/bin/Release/net10.0/osu.Game.Rulesets.Kan.dll "$out/"
 cp game/ruleset/bin/Release/net10.0/Kan.Forge.dll "$out/"
 cp game/ruleset/bin/Release/net10.0/Kan.Core.dll "$out/"
 
+# The notices and the licence travel with every zip as readable files
+# (docs/release-credits.md GAP 8): the notices also embed in osu.Game for
+# the about screen, but players read licences offline too.
+cp game/client/THIRD_PARTY_NOTICES.md "$out/"
+cp game/client/LICENCE "$out/"
+
 # P/Invoke resolves "kan_forge_native" to kan_forge_native.dll /
 # libkan_forge_native.dylib / libkan_forge_native.so. Pick the name for
 # this RID and search the CMake output directories for it.
@@ -83,7 +90,7 @@ if [ -z "$found" ]; then
     exit 1
 fi
 
-for f in osu.Game.Rulesets.Kan.dll Kan.Forge.dll Kan.Core.dll ppy.ManagedBass.dll brand "$native"; do
+for f in osu.Game.Rulesets.Kan.dll Kan.Forge.dll Kan.Core.dll ppy.ManagedBass.dll brand THIRD_PARTY_NOTICES.md LICENCE "$native"; do
     test -e "$out/$f" || { echo "missing from the payload: $f" >&2; exit 1; }
 done
 echo "payload complete (native: $found)"

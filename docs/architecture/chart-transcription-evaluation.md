@@ -340,12 +340,17 @@ control: the community GGUFs are unofficial conversions of an MIT ONNX
 upstream). Verified end-to-end in a clean directory (download ->
 separate -> stems).
 
-- Grades via `KAN_ROFORMER_GRADE`: **q8** (default, 179 MB, best
-  balance) | **f16** (334 MB, max quality) | **q4** (falls back to q8
-  until one exists; verified: no public q4, URL 404).
+- Grades via `KAN_ROFORMER_GRADE`: **f16** (default since 2026-11-11,
+  334 MB, max quality; the only grade whose source declares a licence:
+  MIT, `studio409/BSRoformer-SW-6Stem-GGUF`) | **q8** (179 MB, best
+  balance, opt-in only: `FractalSurfer/BS-RoFormer-SW-6stem` declares
+  no licence) | **q4** (falls back to the default until one exists;
+  verified: no public q4, URL 404).
 - `KAN_MODEL_URL` overrides the source (the self-distribution switch);
   `KAN_ROFORMER_GGUF` points at a local file (no download).
 - URL reality check (2026-10-12): q8 and f16 resolve (200), q4 does not.
+  The default grade flipped to f16 by owner decision 2026-11-11
+  (docs/release-credits.md GAP 7).
 - Download via curl (wget fallback); model never lands in git.
 
 

@@ -54,6 +54,24 @@ int main() {
     expect(kan::tool_probe_cmd("curl.exe", true),
            "where curl.exe > NUL 2>&1", "windows probe");
 
+    // --- model URL mapping (owner decision 2026-11-11): the default grade
+    // is f16 (MIT source); q8 stays an explicit opt-in. Pure strings,
+    // no network.
+    expect(kan::roformer_default_grade(), "f16", "default grade is f16");
+    expect(kan::roformer_model_url_for("f16", ""),
+           "https://huggingface.co/studio409/BSRoformer-SW-6Stem-GGUF"
+           "/resolve/main/bs_roformer_sw_6stem-F16.gguf",
+           "f16 grade: the MIT studio409 source");
+    expect(kan::roformer_model_url_for("q8", ""),
+           "https://huggingface.co/FractalSurfer/BS-RoFormer-SW-6stem"
+           "/resolve/main/gguf/BS-RoFormer-SW-6stem-q8_0.gguf",
+           "q8 grade: opt-in source (licence unknown)");
+    expect(kan::roformer_model_url_for("q4", ""), "",
+           "q4 grade: no public source");
+    expect(kan::roformer_model_url_for("q8", "https://example.invalid/m.gguf"),
+           "https://example.invalid/m.gguf",
+           "KAN_MODEL_URL self-hosting wins over the grade");
+
     printf(pass ? "TEST PASS\n" : "TEST FAIL\n");
     return pass ? 0 : 1;
 }

@@ -44,13 +44,16 @@ Blocking (legal and safety):
       types and link scheme naming), list in `docs/fork-divergence.md`
 - [ ] Bundled songs free to distribute (public domain, Creative Commons or
       original): none popular. Players share their own levels as files
-- [ ] Separation model (owner decision): not shipped, downloaded on first
-      use from Hugging Face. The default (q8,
-      `FractalSurfer/BS-RoFormer-SW-6stem`) declares no licence; the f16
-      (`studio409/BSRoformer-SW-6Stem-GGUF`) declares MIT, as a mirror of an
-      MIT ONNX release. Options: f16 as default, host our own copy
-      (`KAN_MODEL_URL`), or keep and say so. Basic Pitch (Apache-2.0) to be
-      listed in the notices
+- [x] Separation model (owner decision 2026-11-11): not shipped,
+      downloaded on first use from Hugging Face. The default is now the
+      f16 grade (`studio409/BSRoformer-SW-6Stem-GGUF`), MIT, as a mirror
+      of an MIT ONNX release; the q8 grade
+      (`FractalSurfer/BS-RoFormer-SW-6stem`), which declares no licence,
+      is an explicit opt-in only (`KAN_ROFORMER_GRADE=q8`). The model,
+      its source and its licence are named in the notices
+      (`THIRD_PARTY_NOTICES.md` §6), and Basic Pitch (Apache-2.0) with
+      the rest of the native bridge is named in §5. Own hosting
+      (`KAN_MODEL_URL`) stays available for later
 - [ ] Push the fork commits to github.com/KairoPhos13/kan (owner: this build
       machine has no credentials). The submodule must resolve for others
 - [ ] No donations until BASS is settled (`docs/bass-licensing.md`): a free,
