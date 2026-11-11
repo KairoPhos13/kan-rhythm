@@ -89,6 +89,22 @@ export class UsersService {
     return result.rows[0];
   }
 
+  /**
+   * Records a visit from a signed-in client, at most once every five
+   * minutes: the client polls `GET /api/v2/me` often and the throttle lives
+   * in SQL, so it holds across workers and restarts without extra state.
+   * The row is left untouched when the recorded visit is still recent.
+   */
+  async touchLastVisit(userId: number): Promise<void> {
+    await this.db.query(
+      `UPDATE users
+          SET last_visit = now()
+        WHERE id = $1
+          AND (last_visit IS NULL OR last_visit < now() - interval '5 minutes')`,
+      [userId],
+    );
+  }
+
   findById(id: number): Promise<UserRow | null> {
     return this.one(`WHERE id = $1`, [id]);
   }
