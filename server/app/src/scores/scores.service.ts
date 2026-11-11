@@ -8,6 +8,7 @@ import { apiError } from '../common/http';
 import { DbService } from '../db/db.service';
 import { toMultiplayerScore, UserRow } from '../api/serializers';
 import { hydrateScores } from '../api/hydrate';
+import { grantsLeaderboard } from '../beatmaps/status';
 import {
   computeLeaderboard,
   fetchBeatmapScores,
@@ -171,7 +172,13 @@ export class ScoresService {
     const rows = await fetchBeatmapScores(this.db, beatmapId, 'kan');
     const leaderboard = computeLeaderboard(rows, Number.MAX_SAFE_INTEGER, user.id);
     const competing = leaderboard.entries.find((entry) => Number(entry.score.id) === scoreId);
-    const position = competing?.position ?? leaderboard.userScore?.position ?? null;
+    // As in osu!, only statuses above pending have a leaderboard to place on
+    // (the client only fetches those either way, §5.4).
+    const status = await this.statusOf(beatmapId);
+    const position =
+      status != null && grantsLeaderboard(status)
+        ? competing?.position ?? leaderboard.userScore?.position ?? null
+        : null;
 
     const stored = rows.find((row) => Number(row.id) === scoreId);
     if (!stored) throw apiError(500, 'score could not be read back');
@@ -182,6 +189,10 @@ export class ScoresService {
   /**
    * `GET /api/v2/beatmaps/{id}/scores`: best score per user, top 50, plus the
    * requesting user's own best (`user_score`).
+   *
+   * As in osu!, only statuses above pending (ranked/approved/qualified/loved)
+   * have a public leaderboard; scores set while a level is pending or WIP stay
+   * stored and show up once the level is ranked.
    */
   async leaderboard(
     beatmapId: number,
@@ -189,6 +200,11 @@ export class ScoresService {
     limit: number,
     userId: number | null,
   ): Promise<Record<string, unknown>> {
+    const status = await this.statusOf(beatmapId);
+    if (status == null || !grantsLeaderboard(status)) {
+      return { scores: [], score_count: 0, user_score: null };
+    }
+
     const rows = await fetchBeatmapScores(this.db, beatmapId, mode);
     const board = computeLeaderboard(rows, Math.min(Math.max(limit, 1), 100), userId);
 
@@ -206,5 +222,17 @@ export class ScoresService {
       score_count: board.scoreCount,
       user_score: userScore,
     };
+  }
+
+  /** The status of the beatmapset a beatmap belongs to; null when unknown. */
+  private async statusOf(beatmapId: number): Promise<number | null> {
+    const result = await this.db.query<{ status: number }>(
+      `SELECT s.status
+         FROM beatmapsets s
+         JOIN beatmaps b ON b.beatmapset_id = s.id
+        WHERE b.id = $1`,
+      [beatmapId],
+    );
+    return result.rows[0]?.status ?? null;
   }
 }

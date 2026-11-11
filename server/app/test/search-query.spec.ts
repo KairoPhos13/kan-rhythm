@@ -49,7 +49,25 @@ describe('buildSearchQuery', () => {
   it('maps category names to status filters', () => {
     expect(buildSearchQuery({ ...base, category: 'ranked' }).text).toContain('status = 1');
     expect(buildSearchQuery({ ...base, category: 'loved' }).text).toContain('status = 4');
-    expect(buildSearchQuery({ ...base, category: 'unknown-category' }).text).toContain('TRUE');
+    // unknown categories fall back to the default one
+    expect(buildSearchQuery({ ...base, category: 'unknown-category' }).text).toContain(
+      'status IN (1, 2, 4)',
+    );
+  });
+
+  it('keeps pending and WIP levels out of the default categories', () => {
+    for (const category of ['any', 'leaderboard']) {
+      expect(buildSearchQuery({ ...base, category }).text).toContain('status IN (1, 2, 4)');
+      expect(buildSearchQuery({ ...base, category }).text).not.toContain('status IN (0, -1)');
+    }
+    // the client labels its pending category "Pending & WIP" (SearchCategory.cs)
+    expect(buildSearchQuery({ ...base, category: 'pending' }).text).toContain('status IN (0, -1)');
+    expect(buildSearchQuery({ ...base, category: 'wip' }).text).toContain('status = -1');
+    expect(buildSearchQuery({ ...base, category: 'graveyard' }).text).toContain('status = -2');
+  });
+
+  it('hides sets whose package has not landed yet', () => {
+    expect(buildSearchQuery(base).text).toContain('EXISTS (SELECT 1 FROM beatmaps listed');
   });
 
   it('puts the cursor offset into OFFSET', () => {

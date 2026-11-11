@@ -169,12 +169,25 @@ export function emptyStatistics(): UserStatisticsSummary {
   };
 }
 
+/** The profile's per-creator beatmapset counts (§3.3, `APIUser`). */
+export interface BeatmapsetCounts {
+  ranked: number;
+  loved: number;
+  pending: number;
+  graveyard: number;
+}
+
+export function noBeatmapsetCounts(): BeatmapsetCounts {
+  return { ranked: 0, loved: 0, pending: 0, graveyard: 0 };
+}
+
 /** `APIUser` / `APIMe` (lazer-protocol.md §3.3). */
 export function toApiUser(
   user: UserRow,
   statistics: UserStatisticsSummary = emptyStatistics(),
-  options: { isOnline?: boolean } = {},
+  options: { isOnline?: boolean; beatmapCounts?: BeatmapsetCounts } = {},
 ): Record<string, unknown> {
+  const counts = options.beatmapCounts ?? noBeatmapsetCounts();
   return {
     id: user.id,
     username: user.username,
@@ -202,8 +215,16 @@ export function toApiUser(
     scores_first_count: 0,
     scores_recent_count: statistics.playCount,
     scores_pinned_count: 0,
+    // The beatmapset counts of the profile's beatmap sections (§3.5). kan!
+    // tracks what it stores; favourites, guest difficulties and nominations
+    // have no data yet and count 0.
     favourite_beatmapset_count: 0,
-    ranked_beatmapset_count: 0,
+    ranked_beatmapset_count: counts.ranked,
+    loved_beatmapset_count: counts.loved,
+    pending_beatmapset_count: counts.pending,
+    graveyard_beatmapset_count: counts.graveyard,
+    guest_beatmapset_count: 0,
+    nominated_beatmapset_count: 0,
     statistics: toApiStatistics(statistics),
     statistics_rulesets: { kan: toApiStatistics(statistics) },
     global_rank: null,

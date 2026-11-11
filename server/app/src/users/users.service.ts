@@ -4,7 +4,13 @@
 import { HttpException, Injectable } from '@nestjs/common';
 import argon2 from 'argon2';
 import { DbService } from '../db/db.service';
-import { UserRow, UserStatisticsSummary, emptyStatistics } from '../api/serializers';
+import {
+  BeatmapsetCounts,
+  noBeatmapsetCounts,
+  UserRow,
+  UserStatisticsSummary,
+  emptyStatistics,
+} from '../api/serializers';
 import { passwordProblem } from './password-rules';
 
 export interface RegistrationInput {
@@ -164,5 +170,23 @@ export class UsersService {
       grades: { ssh: row.ssh, ss: row.ss, sh: row.sh, s: row.s, a: row.a },
       bestCount: row.best_count,
     };
+  }
+
+  /**
+   * The beatmapset counts of the profile's beatmap sections (§3.5): what the
+   * creator owns in each status. Favourites, guest difficulties and
+   * nominations have no data in kan! and stay 0.
+   */
+  async beatmapsetCounts(userId: number): Promise<BeatmapsetCounts> {
+    const result = await this.db.query<BeatmapsetCounts>(
+      `SELECT count(*) FILTER (WHERE status IN (1, 2))::int AS ranked,
+              count(*) FILTER (WHERE status = 4)::int AS loved,
+              count(*) FILTER (WHERE status IN (0, -1))::int AS pending,
+              count(*) FILTER (WHERE status = -2)::int AS graveyard
+         FROM beatmapsets
+        WHERE user_id = $1`,
+      [userId],
+    );
+    return result.rows[0] ?? noBeatmapsetCounts();
   }
 }
