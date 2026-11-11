@@ -96,8 +96,15 @@ namespace Kan.Ruleset.Dev
             // Mic measurements in a developer run hear KAN_LIVE_INPUT, never the microphone.
             if (Enabled) Kan.Forge.Play.MicCalibrator.DevInput = CalibrationInput;
 
+            // KAN_DEV_LOGIN=user:password signs in to the configured server (developer runs against a local server).
+            if (Enabled && Environment.GetEnvironmentVariable(@"KAN_DEV_LOGIN") is { } login && login.IndexOf(':') is var colon and > 0)
+                api.Login(login[..colon], login[(colon + 1)..]);
+
             Scheduler.AddDelayed(start, 8000);
         }
+
+        [Resolved]
+        private osu.Game.Online.API.IAPIProvider api { get; set; } = null!;
 
         private void start()
         {
@@ -189,6 +196,15 @@ namespace Kan.Ruleset.Dev
                 Logger.Log($"kan! dev play: replaying the score of {score.Date:u} ({score.Accuracy:P1})", level: LogLevel.Important);
                 game.PresentScore(score, osu.Game.Screens.ScorePresentType.Gameplay);
                 scheduleSeeks();
+                scheduleScreenshots();
+                return;
+            }
+
+            // KAN_DEV_SCREEN=submit: the editor's "Submit level...", the wizard advanced step by step (fork F-30).
+            if (Environment.GetEnvironmentVariable(SCREEN_ENV) == @"submit")
+            {
+                game.PerformFromScreen(s => s.Push(new osu.Game.Screens.Edit.EditorLoader()), new[] { typeof(MainMenu) });
+                Scheduler.AddDelayed(submitLevel, 6000);
                 scheduleScreenshots();
                 return;
             }
@@ -414,6 +430,30 @@ namespace Kan.Ruleset.Dev
         }
 
         private int designTries;
+
+        private void submitLevel()
+        {
+            if (game.ScreenStack.CurrentScreen is not osu.Game.Screens.Edit.Editor editor || !editor.IsLoaded)
+            {
+                if (++designTries < 30) Scheduler.AddDelayed(submitLevel, 1000);
+                return;
+            }
+
+            Logger.Log($"kan! dev play: submitting (api {api.State.Value})", level: LogLevel.Important);
+            typeof(osu.Game.Screens.Edit.Editor).GetMethod(@"submitBeatmap", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.Invoke(editor, null);
+
+            // The wizard: content permissions, questions, settings, then the upload.
+            for (int i = 1; i <= 3; i++)
+            {
+                int step = i;
+                Scheduler.AddDelayed(() =>
+                {
+                    var wizard = game.ChildrenOfType<osu.Game.Overlays.WizardOverlay>().FirstOrDefault(w => w.State.Value == osu.Framework.Graphics.Containers.Visibility.Visible);
+                    Logger.Log($"kan! dev play: submission step {step} ({(wizard == null ? "no wizard" : "next")})", level: LogLevel.Important);
+                    typeof(osu.Game.Overlays.WizardOverlay).GetMethod(@"ShowNextStep", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)?.Invoke(wizard, null);
+                }, 3000 * step);
+            }
+        }
 
         private void openDesignTab()
         {

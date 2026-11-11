@@ -228,6 +228,13 @@ namespace Kan.Ruleset
         /// <summary>The compose tab is kan!'s score editor (fork F-13, owner 2026-10-14).</summary>
         public override osu.Game.Screens.Edit.EditorScreen? CreateComposeEditorScreen() => new Kan.Forge.Editor.Compose.KanComposeScreen();
 
+        /// <summary>
+        /// A kan! level's notes live in its score, not in the hit objects
+        /// (fork F-30: the editor's "Submit level..." check).
+        /// </summary>
+        public override bool IsEmptyForSubmission(IBeatmap beatmap)
+            => beatmap.HitObjects.Count == 0 && Beatmaps.KanLevelFiles.LoadScore(beatmap.BeatmapInfo.BeatmapSet as BeatmapSetInfo) is not { Notes.Count: > 0 };
+
         /// <summary>Song select's instrument wedge (fork F-29): the instrument and its range, under the level.</summary>
         public override osu.Framework.Graphics.Drawable CreateSongSelectWedgeContent(System.Action refilter) => new KanInstrumentWedge(refilter);
 

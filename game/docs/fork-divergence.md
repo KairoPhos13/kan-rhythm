@@ -624,6 +624,37 @@ the `kan!` wordmark.
   one public method on `FilterControl`, four lines in `SongSelect`.
 - **Upstream-PR:** no (kan!-specific need).
 
+### F-30: level submission on kan!'s server (2026-11-11, commit `b957a67a74`)
+
+- **What:** `KanEndpointConfiguration.BeatmapSubmissionServiceUrl` is
+  `{APIUrl}/beatmap-submission` when kan! has a server (was null), so
+  lazer's own in-editor submission flow ("Submit level...") talks to
+  kan!'s server (`server/docs/lazer-protocol.md`). `Editor` offers it for
+  kan! levels as well as the legacy rulesets, and asks the ruleset
+  whether a level is empty (`Ruleset.IsEmptyForSubmission`, default: no
+  hit objects; kan!'s notes live in the level's score). The wizard's
+  English strings speak of levels and kan!'s content rule; its buttons
+  open the level creator's handbook and kan!'s issue tracker
+  (`KanEndpointConfiguration.HANDBOOK_URL`, `ISSUES_URL`) instead of
+  osu!'s wiki and forums. The options kan! cannot honour yet are hidden
+  behind `UsesOsuAssets`: discussion reply notifications, opening the
+  level's page after submission, and the editor's info and discussion
+  page items.
+- **Why:** owner 2026-11-11: levels must reach players from their
+  creators, credited to them ("the status of the level maker is as
+  important as the leaderboard"), with osu!'s own system rather than a
+  separate upload path.
+- **Verified:** client and ruleset build green (0 warnings / 0 errors).
+  Isolated instance against a local kan! server behind a test TLS proxy:
+  signed in, opened a level in the editor, "Submit level..." through
+  the wizard; the server reserved the ids, stored the package (with
+  `kan.score.json`, design, credits and audio) and the result card showed
+  "mapped by" the submitter as WIP.
+- **Merge-conflict cost:** low; one URL, one condition in `Editor`, one
+  virtual on `Ruleset`, string defaults, three link targets and three
+  hidden controls.
+- **Upstream-PR:** no (kan!-specific server).
+
 ### F-25: `README.md` rewritten for the kan! game client (2026-11-09, commit `4fa5313`)
 
 - **What:** the fork root `README.md` (upstream osu!'s) is replaced with
