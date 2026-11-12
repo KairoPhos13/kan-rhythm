@@ -3,7 +3,7 @@ osu file format v14
 [General]
 AudioFilename: audio.ogg
 AudioLeadIn: 0
-PreviewTime: 39078
+PreviewTime: 3947
 Countdown: 0
 SampleSet: Soft
 StackLeniency: 0.7

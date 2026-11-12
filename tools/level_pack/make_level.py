@@ -121,6 +121,7 @@ def render_song(song_dir: str) -> str:
     midi = smf.read(midi_path)
     if song.melody_track >= len(midi.tracks):
         raise SystemExit(f"{midi_path}: no track {song.melody_track}")
+    midi, count_in_track = level_mod.arrange(midi, song)
 
     notes = level_mod.score_notes(midi, song.melody_track, song.transpose_semitones, song.tempo_bpm)
     if not notes:
@@ -133,7 +134,9 @@ def render_song(song_dir: str) -> str:
             f" 12-hole alto C ocarina (A4..F6): adjust transpose_semitones")
 
     companion_tracks = song.companion_tracks or [i for i in range(len(midi.tracks)) if i != song.melody_track]
-    companion_tracks = [i for i in companion_tracks if i != song.melody_track]
+    companion_tracks = [i for i in companion_tracks if i != song.melody_track and i != count_in_track]
+    if count_in_track >= 0:
+        companion_tracks.append(count_in_track)
     melody_timbre = {song.melody_track: "melody"}
     companion = synth.render(midi, companion_tracks, song.tempo_bpm,
                              timbres={i: "companion" for i in companion_tracks})

@@ -3,7 +3,7 @@
   "Instrument": "ocarina",
   "Notes": [
     {
-      "StartMs": 39078.947,
+      "StartMs": 3947.368,
       "DurationMs": 750.411,
       "Midi": 72,
       "Cents": 0.0,
@@ -13,7 +13,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 39868.421,
+      "StartMs": 4736.842,
       "DurationMs": 1500.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -23,7 +23,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 41447.368,
+      "StartMs": 6315.789,
       "DurationMs": 376.234,
       "Midi": 81,
       "Cents": 0.0,
@@ -33,7 +33,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 41842.105,
+      "StartMs": 6710.526,
       "DurationMs": 125.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -43,7 +43,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 41973.684,
+      "StartMs": 6842.105,
       "DurationMs": 250.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -53,7 +53,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 42236.842,
+      "StartMs": 7105.263,
       "DurationMs": 1500.822,
       "Midi": 81,
       "Cents": 0.0,
@@ -63,7 +63,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 43815.789,
+      "StartMs": 8684.211,
       "DurationMs": 750.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -73,7 +73,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 44605.263,
+      "StartMs": 9473.684,
       "DurationMs": 1500.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -83,7 +83,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 46184.211,
+      "StartMs": 11052.632,
       "DurationMs": 750.411,
       "Midi": 74,
       "Cents": 0.0,
@@ -93,7 +93,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 46973.684,
+      "StartMs": 11842.105,
       "DurationMs": 1126.645,
       "Midi": 72,
       "Cents": 0.0,
@@ -103,7 +103,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 48552.632,
+      "StartMs": 13421.053,
       "DurationMs": 750.411,
       "Midi": 72,
       "Cents": 0.0,
@@ -113,7 +113,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 49342.105,
+      "StartMs": 14210.526,
       "DurationMs": 1500.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -123,7 +123,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 50921.053,
+      "StartMs": 15789.474,
       "DurationMs": 376.234,
       "Midi": 81,
       "Cents": 0.0,
@@ -133,7 +133,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 51315.789,
+      "StartMs": 16184.211,
       "DurationMs": 125.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -143,7 +143,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 51447.368,
+      "StartMs": 16315.789,
       "DurationMs": 250.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -153,7 +153,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 51710.526,
+      "StartMs": 16578.947,
       "DurationMs": 1500.822,
       "Midi": 81,
       "Cents": 0.0,
@@ -163,7 +163,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 53289.474,
+      "StartMs": 18157.895,
       "DurationMs": 376.234,
       "Midi": 79,
       "Cents": 0.0,
@@ -173,7 +173,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 53684.211,
+      "StartMs": 18552.632,
       "DurationMs": 376.234,
       "Midi": 84,
       "Cents": 0.0,
@@ -183,7 +183,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 54078.947,
+      "StartMs": 18947.368,
       "DurationMs": 3495.066,
       "Midi": 84,
       "Cents": 0.0,
@@ -193,7 +193,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 58026.316,
+      "StartMs": 22894.737,
       "DurationMs": 376.234,
       "Midi": 81,
       "Cents": 0.0,
@@ -203,7 +203,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 58421.053,
+      "StartMs": 23289.474,
       "DurationMs": 376.234,
       "Midi": 84,
       "Cents": 0.0,
@@ -213,7 +213,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 58815.789,
+      "StartMs": 23684.211,
       "DurationMs": 1500.822,
       "Midi": 84,
       "Cents": 0.0,
@@ -223,7 +223,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 60394.737,
+      "StartMs": 25263.158,
       "DurationMs": 376.234,
       "Midi": 81,
       "Cents": 0.0,
@@ -233,7 +233,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 60789.474,
+      "StartMs": 25657.895,
       "DurationMs": 125.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -243,7 +243,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 60921.053,
+      "StartMs": 25789.474,
       "DurationMs": 250.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -253,7 +253,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 61184.211,
+      "StartMs": 26052.632,
       "DurationMs": 1500.822,
       "Midi": 81,
       "Cents": 0.0,
@@ -263,7 +263,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 62763.158,
+      "StartMs": 27631.579,
       "DurationMs": 750.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -273,7 +273,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 63552.632,
+      "StartMs": 28421.053,
       "DurationMs": 1500.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -283,7 +283,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 65131.579,
+      "StartMs": 30000.0,
       "DurationMs": 750.411,
       "Midi": 74,
       "Cents": 0.0,
@@ -293,7 +293,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 65921.053,
+      "StartMs": 30789.474,
       "DurationMs": 1126.645,
       "Midi": 72,
       "Cents": 0.0,
@@ -303,7 +303,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 67500.0,
+      "StartMs": 32368.421,
       "DurationMs": 750.411,
       "Midi": 72,
       "Cents": 0.0,
@@ -313,7 +313,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 68289.474,
+      "StartMs": 33157.895,
       "DurationMs": 1500.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -323,7 +323,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 69868.421,
+      "StartMs": 34736.842,
       "DurationMs": 376.234,
       "Midi": 81,
       "Cents": 0.0,
@@ -333,7 +333,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 70263.158,
+      "StartMs": 35131.579,
       "DurationMs": 125.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -343,7 +343,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 70394.737,
+      "StartMs": 35263.158,
       "DurationMs": 250.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -353,7 +353,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 70657.895,
+      "StartMs": 35526.316,
       "DurationMs": 1500.822,
       "Midi": 81,
       "Cents": 0.0,
@@ -363,7 +363,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 72236.842,
+      "StartMs": 37105.263,
       "DurationMs": 750.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -373,7 +373,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 73026.316,
+      "StartMs": 37894.737,
       "DurationMs": 3869.243,
       "Midi": 77,
       "Cents": 0.0,
@@ -383,7 +383,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 77763.158,
+      "StartMs": 42631.579,
       "DurationMs": 750.411,
       "Midi": 72,
       "Cents": 0.0,
@@ -393,7 +393,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 78552.632,
+      "StartMs": 43421.053,
       "DurationMs": 1500.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -403,7 +403,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 80131.579,
+      "StartMs": 45000.0,
       "DurationMs": 376.234,
       "Midi": 81,
       "Cents": 0.0,
@@ -413,7 +413,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 80526.316,
+      "StartMs": 45394.737,
       "DurationMs": 125.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -423,7 +423,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 80657.895,
+      "StartMs": 45526.316,
       "DurationMs": 250.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -433,7 +433,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 80921.053,
+      "StartMs": 45789.474,
       "DurationMs": 1500.822,
       "Midi": 81,
       "Cents": 0.0,
@@ -443,7 +443,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 82500.0,
+      "StartMs": 47368.421,
       "DurationMs": 750.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -453,7 +453,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 83289.474,
+      "StartMs": 48157.895,
       "DurationMs": 1500.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -463,7 +463,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 84868.421,
+      "StartMs": 49736.842,
       "DurationMs": 750.411,
       "Midi": 74,
       "Cents": 0.0,
@@ -473,7 +473,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 85657.895,
+      "StartMs": 50526.316,
       "DurationMs": 1126.645,
       "Midi": 72,
       "Cents": 0.0,
@@ -483,7 +483,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 87236.842,
+      "StartMs": 52105.263,
       "DurationMs": 750.411,
       "Midi": 72,
       "Cents": 0.0,
@@ -493,7 +493,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 88026.316,
+      "StartMs": 52894.737,
       "DurationMs": 1500.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -503,7 +503,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 89605.263,
+      "StartMs": 54473.684,
       "DurationMs": 376.234,
       "Midi": 81,
       "Cents": 0.0,
@@ -513,7 +513,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 90000.0,
+      "StartMs": 54868.421,
       "DurationMs": 125.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -523,7 +523,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 90131.579,
+      "StartMs": 55000.0,
       "DurationMs": 250.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -533,7 +533,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 90394.737,
+      "StartMs": 55263.158,
       "DurationMs": 1500.822,
       "Midi": 81,
       "Cents": 0.0,
@@ -543,7 +543,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 91973.684,
+      "StartMs": 56842.105,
       "DurationMs": 376.234,
       "Midi": 79,
       "Cents": 0.0,
@@ -553,7 +553,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 92368.421,
+      "StartMs": 57236.842,
       "DurationMs": 376.234,
       "Midi": 84,
       "Cents": 0.0,
@@ -563,7 +563,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 92763.158,
+      "StartMs": 57631.579,
       "DurationMs": 3495.066,
       "Midi": 84,
       "Cents": 0.0,
@@ -573,7 +573,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 96710.526,
+      "StartMs": 61578.947,
       "DurationMs": 376.234,
       "Midi": 81,
       "Cents": 0.0,
@@ -583,7 +583,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 97105.263,
+      "StartMs": 61973.684,
       "DurationMs": 376.234,
       "Midi": 84,
       "Cents": 0.0,
@@ -593,7 +593,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 97500.0,
+      "StartMs": 62368.421,
       "DurationMs": 1500.822,
       "Midi": 84,
       "Cents": 0.0,
@@ -603,7 +603,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 99078.947,
+      "StartMs": 63947.368,
       "DurationMs": 376.234,
       "Midi": 81,
       "Cents": 0.0,
@@ -613,7 +613,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 99473.684,
+      "StartMs": 64342.105,
       "DurationMs": 125.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -623,7 +623,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 99605.263,
+      "StartMs": 64473.684,
       "DurationMs": 250.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -633,7 +633,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 99868.421,
+      "StartMs": 64736.842,
       "DurationMs": 1500.822,
       "Midi": 81,
       "Cents": 0.0,
@@ -643,7 +643,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 101447.368,
+      "StartMs": 66315.789,
       "DurationMs": 750.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -653,7 +653,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 102236.842,
+      "StartMs": 67105.263,
       "DurationMs": 1500.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -663,7 +663,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 103815.789,
+      "StartMs": 68684.211,
       "DurationMs": 750.411,
       "Midi": 74,
       "Cents": 0.0,
@@ -673,7 +673,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 104605.263,
+      "StartMs": 69473.684,
       "DurationMs": 1126.645,
       "Midi": 72,
       "Cents": 0.0,
@@ -683,7 +683,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 106184.211,
+      "StartMs": 71052.632,
       "DurationMs": 750.411,
       "Midi": 72,
       "Cents": 0.0,
@@ -693,7 +693,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 106973.684,
+      "StartMs": 71842.105,
       "DurationMs": 1500.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -703,7 +703,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 108552.632,
+      "StartMs": 73421.053,
       "DurationMs": 376.234,
       "Midi": 81,
       "Cents": 0.0,
@@ -713,7 +713,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 108947.368,
+      "StartMs": 73815.789,
       "DurationMs": 125.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -723,7 +723,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 109078.947,
+      "StartMs": 73947.368,
       "DurationMs": 250.822,
       "Midi": 77,
       "Cents": 0.0,
@@ -733,7 +733,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 109342.105,
+      "StartMs": 74210.526,
       "DurationMs": 1500.822,
       "Midi": 81,
       "Cents": 0.0,
@@ -743,7 +743,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 110921.053,
+      "StartMs": 75789.474,
       "DurationMs": 750.411,
       "Midi": 79,
       "Cents": 0.0,
@@ -753,7 +753,7 @@
       "PitchUnknown": false
     },
     {
-      "StartMs": 111710.526,
+      "StartMs": 76578.947,
       "DurationMs": 4323.602,
       "Midi": 77,
       "Cents": 0.0,
@@ -763,8 +763,8 @@
       "PitchUnknown": false
     }
   ],
-  "TranscriptionAtUtc": "2026-11-12T00:25:44Z",
-  "SavedAtUtc": "2026-11-12T00:25:44Z",
+  "TranscriptionAtUtc": "2026-11-12T01:57:19Z",
+  "SavedAtUtc": "2026-11-12T01:57:19Z",
   "Grid": [
     {
       "TimeMs": 0.0,

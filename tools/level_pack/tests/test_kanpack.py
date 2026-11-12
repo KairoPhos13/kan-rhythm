@@ -137,6 +137,27 @@ class LevelTest(unittest.TestCase):
         self.assertEqual("Outro", sections[-1]["Kind"])
         self.assertEqual(20000.0, sections[-1]["EndMs"])
 
+    def test_arrange_skips_a_prelude_and_counts_in_one_bar(self):
+        midi = smf.MidiFile(tracks=[smf.Track(name="melody", notes=[
+            smf.Note(start=0, end=2, pitch=60),     # prelude: cut
+            smf.Note(start=3, end=5, pitch=62),     # straddles the cut: clipped
+            smf.Note(start=8, end=9, pitch=64),
+        ])])
+        song = level_mod.Song(slug="t", title="t", meter=(3, 4), skip_beats=4)
+        arranged, pulse = level_mod.arrange(midi, song)
+        notes = arranged.tracks[0].notes
+        self.assertEqual([(3, 4, 62), (7, 8, 64)], [(n.start, n.end, n.pitch) for n in notes])
+        self.assertEqual(1, pulse)
+        self.assertEqual([0, 1, 2], [n.start for n in arranged.tracks[pulse].notes])
+        self.assertGreater(arranged.tracks[pulse].notes[0].velocity, arranged.tracks[pulse].notes[1].velocity)
+
+    def test_arrange_without_count_in(self):
+        midi = smf.MidiFile(tracks=[smf.Track(notes=[smf.Note(start=1, end=2, pitch=60)])])
+        arranged, pulse = level_mod.arrange(midi, level_mod.Song(slug="t", title="t", count_in_beats=0))
+        self.assertEqual(-1, pulse)
+        self.assertEqual(1, len(arranged.tracks))
+        self.assertEqual(1, arranged.tracks[0].notes[0].start)
+
     def test_background_is_a_png(self):
         data = level_mod.background_png("sakura", width=8, height=4)
         self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))

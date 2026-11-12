@@ -57,6 +57,10 @@ class Song:
     palette: str = "nature"
     difficulty: int = 2
     preview_beat: float = 0.0
+    # Beats of the source cut from its start (an instrumental prelude).
+    skip_beats: float = 0.0
+    # Beats of gentle count-in pulses before the music; None: one bar.
+    count_in_beats: float | None = None
     cover_url: str = ""
     performers: list = field(default_factory=list)
     note: str = ""
@@ -70,6 +74,38 @@ class Song:
         raw["meter"] = tuple(raw.get("meter", [4, 4]))
         known = {f for f in Song.__dataclass_fields__}
         return Song(**{k: v for k, v in raw.items() if k in known})
+
+
+COUNT_IN_PITCH = 96  # C7: a soft, high tick, far above any melody
+
+
+def arrange(midi: smf.MidiFile, song: "Song") -> tuple[smf.MidiFile, int]:
+    """The source as the level plays it: the first `skip_beats` cut, then
+    `count_in_beats` (one bar unless set) of soft pulses before the music,
+    so a player hears the tempo before the first note. Returns the new file
+    and the index of the count-in track (-1 if none). The grid stays whole:
+    skip and count-in are whole beats, so bars stay on the level's grid.
+    """
+    count_in = song.meter[0] if song.count_in_beats is None else song.count_in_beats
+    shift = count_in - song.skip_beats
+    tracks = []
+    for track in midi.tracks:
+        notes = []
+        for note in track.notes:
+            if note.end <= song.skip_beats:
+                continue
+            start = max(note.start, song.skip_beats)
+            notes.append(smf.Note(start + shift, note.end + shift, note.pitch, note.velocity))
+        tracks.append(smf.Track(track.name, track.program, track.channel, notes))
+
+    pulse = -1
+    if count_in > 0:
+        ticks = [smf.Note(b, b + 0.12, COUNT_IN_PITCH, 70 if b % song.meter[0] == 0 else 45)
+                 for b in range(int(count_in))]
+        tracks.append(smf.Track("count-in", 0, 9, ticks))
+        pulse = len(tracks) - 1
+
+    return smf.MidiFile(midi.ticks_per_beat, midi.tempo_bpm, midi.numerator, midi.denominator, tracks), pulse
 
 
 def score_notes(midi: smf.MidiFile, melody_track: int, transpose: int,

@@ -8,7 +8,7 @@
   "Sections": [
     {
       "StartMs": 0,
-      "EndMs": 39078.947,
+      "EndMs": 3947.368,
       "Kind": "Intro",
       "Climax": false,
       "BreakStyle": "Countdown",
@@ -16,8 +16,8 @@
       "Label": null
     },
     {
-      "StartMs": 39078.947,
-      "EndMs": 116934.14965986395,
+      "StartMs": 3947.368,
+      "EndMs": 81802.56235827664,
       "Kind": "Phrase",
       "Climax": false,
       "BreakStyle": "Visualizer",
@@ -26,5 +26,5 @@
     }
   ],
   "Generated": false,
-  "SavedAtUtc": "2026-11-12T00:25:44Z"
+  "SavedAtUtc": "2026-11-12T01:57:19Z"
 }

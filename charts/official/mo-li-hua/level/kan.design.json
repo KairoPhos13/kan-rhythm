@@ -8,7 +8,7 @@
   "Sections": [
     {
       "StartMs": 0.0,
-      "EndMs": 41952.65306122449,
+      "EndMs": 45110.54421768708,
       "Kind": "Phrase",
       "Climax": false,
       "BreakStyle": "Visualizer",
@@ -17,5 +17,5 @@
     }
   ],
   "Generated": false,
-  "SavedAtUtc": "2026-11-12T00:25:52Z"
+  "SavedAtUtc": "2026-11-12T01:57:29Z"
 }

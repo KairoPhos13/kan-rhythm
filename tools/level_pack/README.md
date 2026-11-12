@@ -24,6 +24,18 @@ tool is how they are built and rebuilt.
 | `CREDITS.md` | the same credits for a human, with every source and licence |
 | `background.png` | a calm gradient (original, CC0) |
 
+## Where the music starts
+
+Every level opens with one bar of soft, high count-in pulses (the first
+beat a little louder), so a player hears the tempo before the first note.
+Two `song.json` fields shape this:
+
+- `skip_beats`: beats cut from the source's start, for a prelude without the
+  melody (Amazing Grace's organ setting plays a whole verse before the tune).
+  Cut so the melody's pickup still falls where it belongs in the bar.
+- `count_in_beats`: the count-in's length in beats; one bar by default, `0`
+  for none.
+
 ## Usage
 
 ```bash
