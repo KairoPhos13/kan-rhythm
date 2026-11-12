@@ -32,5 +32,12 @@ namespace Kan.Ruleset.Configuration
 
         /// <summary>The staff zooms passage by passage (to the pace of what comes) instead of one scale for the whole level.</summary>
         StaffFollowsPassage,
+
+        /// <summary>
+        /// The version of the starter pack imported so far (0 = none): each
+        /// version's levels are imported once, the first time the game runs
+        /// (issue 15).
+        /// </summary>
+        StarterPackVersion,
     }
 }

@@ -1,0 +1,94 @@
+# Mo Li Hua (Jasmine Flower), China: the traditional melody as collected by
+# John Barrow (1804).
+#
+# Transcribed by KairoPhos (CC0) from the public-domain score "Jasmine
+# barrow" (Wikimedia Commons, File:Jasmine_barrow.svg, public domain; the
+# melody is according to John Barrow, notated by Asoer). The melody is
+# traditional and public domain. Melody only; no lyrics.
+#
+# C major as written, 4/4, 13 bars. The two opening phrases repeat; the
+# second half of the tune moves lower and settles on the tonic. The companion
+# is our own calm setting (CC0): one soft chord per bar.
+
+tempo 76
+meter 4 4
+
+melody
+  0 E4 1
+  1 E4 1
+  2 G4 0.5
+  2.5 A4 0.5
+  3 C5 0.25
+  3.25 C5 0.25
+  3.5 A4 0.25
+  3.75 G4 0.25
+  4 G4 1
+  5 G4 0.5
+  5.5 A4 0.5
+  6 G4 1
+  8 E4 1
+  9 E4 1
+  10 G4 0.5
+  10.5 A4 0.5
+  11 C5 0.25
+  11.25 C5 0.25
+  11.5 A4 0.25
+  11.75 G4 0.25
+  12 G4 1
+  13 G4 0.5
+  13.5 A4 0.5
+  14 G4 1
+  16 G4 1
+  17 G4 1
+  18 G4 1
+  19 E4 0.5
+  19.5 G4 0.5
+  20 A4 1
+  21 A4 1
+  22 G4 2
+  24 E4 1
+  25 D4 1
+  26 E4 1
+  27 G4 0.5
+  27.5 E4 0.5
+  28 D4 1
+  29 C4 0.5
+  29.5 D4 0.5
+  30 C4 2
+  32 E4 0.5
+  32.5 D4 0.5
+  33 C4 0.5
+  33.5 E4 0.5
+  34 D4 1.5
+  35.5 E4 0.5
+  36 G4 1
+  37 A4 0.5
+  37.5 C5 0.5
+  38 G4 2
+  40 D4 0.5
+  40.5 E4 0.5
+  41 C4 1
+  42 A3 2
+  44 A3 1.5
+  45.5 C4 0.5
+  46 D4 0.5
+  46.5 E4 0.5
+  47 C4 0.5
+  47.5 D4 0.5
+  48 C4 1
+  49 A3 2
+
+companion
+  0 [C3,G3,C4] 4
+  4 [C3,G3,C4] 4
+  8 [C3,G3,C4] 4
+  12 [C3,G3,C4] 4
+  16 [A2,E3,A3] 4
+  20 [G2,D3,G3] 4
+  24 [C3,G3,C4] 4
+  28 [G2,D3,G3] 4
+  32 [C3,G3,C4] 4
+  36 [A2,E3,A3] 4
+  40 [F2,C3,F3] 4
+  44 [G2,D3,G3] 4
+  48 [C3,G3,C4] 4

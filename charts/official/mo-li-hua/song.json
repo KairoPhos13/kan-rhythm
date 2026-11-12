@@ -1,0 +1,45 @@
+{
+  "slug": "mo-li-hua",
+  "title": "Mo Li Hua (Jasmine Flower)",
+  "title_unicode": "茉莉花",
+  "artist": "Traditional (China)",
+  "artist_unicode": "中国（民歌）",
+  "origin": "China, traditional; the melody as collected by John Barrow (1804)",
+  "creator": "KairoPhos",
+  "version": "Calm",
+  "source": "kan! starter pack",
+  "tags": "china traditional folk song jasmine mo li hua ocarina starter",
+  "midi": "sources/mo-li-hua.mid",
+  "melody_track": 0,
+  "companion_tracks": [1],
+  "transpose_semitones": 12,
+  "tempo_bpm": 76,
+  "meter": [4, 4],
+  "instrument": "ocarina",
+  "palette": "nature",
+  "difficulty": 2,
+  "cover_url": "https://commons.wikimedia.org/wiki/File:Jasmine_barrow.svg",
+  "performers": [
+    {
+      "Name": "KairoPhos",
+      "Role": "kan! level, transcription and companion setting (CC0)",
+      "Links": []
+    }
+  ],
+  "note": "Mo Li Hua (China, traditional): melody public domain (John Barrow's 1804 collection); transcribed from the public-domain score notated by Asoer; kan! render, transcription and companion setting, KairoPhos (CC0). Melody only; no lyrics.",
+  "licence": "Melody: traditional, public domain. Transcription and companion setting: KairoPhos, CC0. Level files and rendered audio: KairoPhos, CC0.",
+  "sources": [
+    {
+      "what": "Score (the melody as collected by John Barrow)",
+      "url": "https://commons.wikimedia.org/wiki/File:Jasmine_barrow.svg",
+      "licence": "Public domain",
+      "note": "Asoer, via Wikimedia Commons; the melody is according to John Barrow (1804), notated in C major. The melody in sources/mo-li-hua.txt was transcribed from this score."
+    },
+    {
+      "what": "Companion and reference audio",
+      "url": "",
+      "licence": "CC0",
+      "note": "Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS."
+    }
+  ]
+}

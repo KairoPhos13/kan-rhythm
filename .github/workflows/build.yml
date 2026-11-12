@@ -155,6 +155,18 @@ jobs:
           cmake --build build --config Release --parallel 6
           ctest --test-dir build --build-config Release --output-on-failure
 
+      # --- starter level pack (issue 15) ------------------------------------
+      # Built from charts/official (committed MIDI sources, song metadata and
+      # rendered audio) with stdlib-only Python, then carried in the payload
+      # as levels/. The generator's own tests run here too; the C# suite
+      # below then loads every built level the way the ruleset does.
+      - name: kan! starter level pack
+        shell: bash
+        run: |
+          PY=$(command -v python3 || command -v python)
+          "$PY" -m unittest discover -s tools/level_pack/tests
+          "$PY" tools/level_pack/make_level.py pack --all
+
       # --- kan!'s C# (make check equivalents) ------------------------------
       # Warnings are errors for kan's own code (Makefile STRICT). %3B is
       # MSBuild's escape for ';' inside a property value (MSB1006 otherwise).

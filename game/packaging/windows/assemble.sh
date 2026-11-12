@@ -93,4 +93,20 @@ fi
 for f in osu.Game.Rulesets.Kan.dll Kan.Forge.dll Kan.Core.dll ppy.ManagedBass.dll brand THIRD_PARTY_NOTICES.md LICENCE "$native"; do
     test -e "$out/$f" || { echo "missing from the payload: $f" >&2; exit 1; }
 done
+
+# The starter level pack (issue 15): built from charts/official - the MIDI
+# sources, the song metadata and the rendered audio committed there - and
+# carried in the payload as levels/. The game imports it on first run, once
+# per pack version. Building it here (stdlib-only Python, seconds) rather
+# than committing the .osz keeps the levels reviewable as data and the zip
+# identical on every platform.
+PY=$(command -v python3 || command -v python)
+"$PY" tools/level_pack/make_level.py pack --all --out charts/official/dist
+mkdir -p "$out/levels"
+cp charts/official/dist/*.osz charts/official/dist/pack.json "$out/levels/"
+test -f "$out/levels/pack.json" || { echo "missing from the payload: levels/pack.json" >&2; exit 1; }
+for level in "$out/levels"/*.osz; do
+    test -s "$level" || { echo "empty level in the payload: $level" >&2; exit 1; }
+done
+echo "starter pack: $(ls "$out/levels"/*.osz | wc -l) levels in $out/levels"
 echo "payload complete (native: $found)"

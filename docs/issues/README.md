@@ -27,12 +27,26 @@ there is no release yet and no level in the catalogue.
 | 2 | [32 Server tests in CI, shaped like the game](32-server-ci-with-postgres.md) | agent | done 2026-11-10 |
 | 3 | [33 Admin tools: password reset, accounts](33-admin-tools.md) | agent | done 2026-11-10 |
 | 4 | [35 Nightly database backups to R2](35-nightly-backups.md) | Claude | done 2026-11-10 |
-| 5 | [15 First free levels](15-first-free-bundled-level.md) with [14 companions](14-companions-for-free-songs.md) | owner, then import | next |
+| 5 | [15 First free levels](15-first-free-bundled-level.md) with [14 companions](14-companions-for-free-songs.md) | owner, then import | levels done 2026-11-11 (agent); 14 open |
 | 6 | [09 Windows](09-windows-build-and-playtest.md) and [10 macOS](10-macos-build-and-playtest.md) play-tests, with the first release `v0.1.0` | owner, testers | next |
 | 7 | [22 Leftover osu! text](22-osu-string-sweep-remaining.md) (mod descriptions such as "SS or quit") | agent | done 2026-11-10 |
 | 8 | [24 Hide osu!-only features](24-hide-osu-only-features.md) | agent | done 2026-11-10 |
 | 9 | [34 Level uploads for creators](34-level-uploads.md) | owner decides the design | open |
 | 10 | [27 Level creator handbook](27-level-creator-handbook.md) | agent, owner reviews | draft done, owner reviews |
+
+## Issue 15 progress (2026-11-11)
+
+The starter pack is built and shipped: five levels in `charts/official/`
+(2 Japanese, 1 Chinese, 1 Latin American, 1 hymn; easy to moderate on the
+12-hole alto C ocarina), made from public-domain scores and MIDI files by
+`tools/level_pack` (route (b): kan! renders its own companion). The release
+zip carries them in `levels/`, and the ruleset imports them the first time
+the game runs, once per pack version, with no account. Each level is loaded
+and checked by `game/core/tests/StarterPackTest.cs` (notes, range, timing,
+audio) and every source and licence is recorded in the level's `CREDITS.md`.
+What is left of the acceptance list: playing the levels end to end on two
+instrument families (the play-test issues 01-06), and the artist-made
+companions of issue 14.
 
 ## Index
 

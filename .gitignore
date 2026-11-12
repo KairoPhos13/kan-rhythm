@@ -28,3 +28,13 @@ stems/
 *_stems/
 .deps/
 models/
+
+# ...but the starter pack's score sources are inputs, not test artifacts:
+# the downloaded public-domain MIDI files and our own transcriptions of
+# printed scores live in charts/official/<song>/sources/ and are committed.
+!charts/official/*/sources/
+!charts/official/*/sources/**
+
+# Python bytecode
+__pycache__/
+*.pyc

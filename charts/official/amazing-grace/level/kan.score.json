@@ -1,0 +1,774 @@
+{
+  "Version": 1,
+  "Instrument": "ocarina",
+  "Notes": [
+    {
+      "StartMs": 39078.947,
+      "DurationMs": 750.411,
+      "Midi": 72,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 39868.421,
+      "DurationMs": 1500.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 41447.368,
+      "DurationMs": 376.234,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 41842.105,
+      "DurationMs": 125.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 41973.684,
+      "DurationMs": 250.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 42236.842,
+      "DurationMs": 1500.822,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 43815.789,
+      "DurationMs": 750.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 44605.263,
+      "DurationMs": 1500.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 46184.211,
+      "DurationMs": 750.411,
+      "Midi": 74,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 46973.684,
+      "DurationMs": 1126.645,
+      "Midi": 72,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 48552.632,
+      "DurationMs": 750.411,
+      "Midi": 72,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 49342.105,
+      "DurationMs": 1500.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 50921.053,
+      "DurationMs": 376.234,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 51315.789,
+      "DurationMs": 125.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 51447.368,
+      "DurationMs": 250.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 51710.526,
+      "DurationMs": 1500.822,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 53289.474,
+      "DurationMs": 376.234,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 53684.211,
+      "DurationMs": 376.234,
+      "Midi": 84,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 54078.947,
+      "DurationMs": 3495.066,
+      "Midi": 84,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 58026.316,
+      "DurationMs": 376.234,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 58421.053,
+      "DurationMs": 376.234,
+      "Midi": 84,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 58815.789,
+      "DurationMs": 1500.822,
+      "Midi": 84,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 60394.737,
+      "DurationMs": 376.234,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 60789.474,
+      "DurationMs": 125.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 60921.053,
+      "DurationMs": 250.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 61184.211,
+      "DurationMs": 1500.822,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 62763.158,
+      "DurationMs": 750.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 63552.632,
+      "DurationMs": 1500.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 65131.579,
+      "DurationMs": 750.411,
+      "Midi": 74,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 65921.053,
+      "DurationMs": 1126.645,
+      "Midi": 72,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 67500.0,
+      "DurationMs": 750.411,
+      "Midi": 72,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 68289.474,
+      "DurationMs": 1500.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 69868.421,
+      "DurationMs": 376.234,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 70263.158,
+      "DurationMs": 125.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 70394.737,
+      "DurationMs": 250.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 70657.895,
+      "DurationMs": 1500.822,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 72236.842,
+      "DurationMs": 750.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 73026.316,
+      "DurationMs": 3869.243,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 77763.158,
+      "DurationMs": 750.411,
+      "Midi": 72,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 78552.632,
+      "DurationMs": 1500.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 80131.579,
+      "DurationMs": 376.234,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 80526.316,
+      "DurationMs": 125.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 80657.895,
+      "DurationMs": 250.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 80921.053,
+      "DurationMs": 1500.822,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 82500.0,
+      "DurationMs": 750.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 83289.474,
+      "DurationMs": 1500.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 84868.421,
+      "DurationMs": 750.411,
+      "Midi": 74,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 85657.895,
+      "DurationMs": 1126.645,
+      "Midi": 72,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 87236.842,
+      "DurationMs": 750.411,
+      "Midi": 72,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 88026.316,
+      "DurationMs": 1500.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 89605.263,
+      "DurationMs": 376.234,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 90000.0,
+      "DurationMs": 125.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 90131.579,
+      "DurationMs": 250.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 90394.737,
+      "DurationMs": 1500.822,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 91973.684,
+      "DurationMs": 376.234,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 92368.421,
+      "DurationMs": 376.234,
+      "Midi": 84,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 92763.158,
+      "DurationMs": 3495.066,
+      "Midi": 84,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 96710.526,
+      "DurationMs": 376.234,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 97105.263,
+      "DurationMs": 376.234,
+      "Midi": 84,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 97500.0,
+      "DurationMs": 1500.822,
+      "Midi": 84,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 99078.947,
+      "DurationMs": 376.234,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 99473.684,
+      "DurationMs": 125.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 99605.263,
+      "DurationMs": 250.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 99868.421,
+      "DurationMs": 1500.822,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 101447.368,
+      "DurationMs": 750.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 102236.842,
+      "DurationMs": 1500.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 103815.789,
+      "DurationMs": 750.411,
+      "Midi": 74,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 104605.263,
+      "DurationMs": 1126.645,
+      "Midi": 72,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 106184.211,
+      "DurationMs": 750.411,
+      "Midi": 72,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 106973.684,
+      "DurationMs": 1500.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 108552.632,
+      "DurationMs": 376.234,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 108947.368,
+      "DurationMs": 125.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 109078.947,
+      "DurationMs": 250.822,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 109342.105,
+      "DurationMs": 1500.822,
+      "Midi": 81,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 110921.053,
+      "DurationMs": 750.411,
+      "Midi": 79,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    },
+    {
+      "StartMs": 111710.526,
+      "DurationMs": 4323.602,
+      "Midi": 77,
+      "Cents": 0.0,
+      "Intensity": 0.9,
+      "Articulation": "Normal",
+      "Vibrato": false,
+      "PitchUnknown": false
+    }
+  ],
+  "TranscriptionAtUtc": "2026-11-12T00:25:44Z",
+  "SavedAtUtc": "2026-11-12T00:25:44Z",
+  "Grid": [
+    {
+      "TimeMs": 0.0,
+      "BeatMs": 789.4736842105264
+    }
+  ]
+}

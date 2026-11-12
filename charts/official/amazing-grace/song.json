@@ -1,0 +1,56 @@
+{
+  "slug": "amazing-grace",
+  "title": "Amazing Grace",
+  "title_unicode": "Amazing Grace",
+  "artist": "Traditional (tune NEW BRITAIN)",
+  "artist_unicode": "Traditional (tune NEW BRITAIN)",
+  "origin": "Hymn; tune NEW BRITAIN, first published 1829 (Southern Harmony, 1835); this setting by Rabanus Flavus",
+  "creator": "KairoPhos",
+  "version": "Calm",
+  "source": "kan! starter pack",
+  "tags": "hymn new britain amazing grace ocarina starter",
+  "midi": "sources/amazing-grace-org.mid",
+  "melody_track": 2,
+  "companion_tracks": [1, 3],
+  "transpose_semitones": 0,
+  "tempo_bpm": 76,
+  "meter": [3, 4],
+  "instrument": "ocarina",
+  "palette": "holy",
+  "difficulty": 2,
+  "cover_url": "https://commons.wikimedia.org/wiki/File:Amazing_grace_(org).mid",
+  "performers": [
+    {
+      "Name": "Rabanus Flavus (Peter Gerloff)",
+      "Role": "organ setting of the tune (CC0)",
+      "Links": []
+    },
+    {
+      "Name": "KairoPhos",
+      "Role": "kan! level and render",
+      "Links": []
+    }
+  ],
+  "note": "Amazing Grace (hymn, tune NEW BRITAIN, 1829): tune and text public domain. Setting: Rabanus Flavus (Peter Gerloff), CC0, via Wikimedia Commons; kan! level and render, KairoPhos. Melody only; no lyrics.",
+  "licence": "Tune: NEW BRITAIN, public domain. Setting and MIDI: Rabanus Flavus (Peter Gerloff), CC0. Level files and rendered audio: KairoPhos, CC0.",
+  "sources": [
+    {
+      "what": "Score source (MIDI setting, melody and organ)",
+      "url": "https://commons.wikimedia.org/wiki/File:Amazing_grace_(org).mid",
+      "licence": "CC0",
+      "note": "Rabanus Flavus (Peter Gerloff), via Wikimedia Commons. Four organ voices; the level plays the melody (the upper voice, C5-C6) with the counterpoint and bass as its companion, retimed for calm play. The lower octave of the melody is left out of the companion so the level has one melodic line."
+    },
+    {
+      "what": "Tune reference",
+      "url": "https://hymnary.org/tune/new_britain",
+      "licence": "Public domain",
+      "note": "Hymnary records the tune's copyright as public domain."
+    },
+    {
+      "what": "Companion and reference audio",
+      "url": "",
+      "licence": "CC0",
+      "note": "Rendered by kan! from the CC0 MIDI (KairoPhos), levelled to -20 LUFS."
+    }
+  ]
+}
