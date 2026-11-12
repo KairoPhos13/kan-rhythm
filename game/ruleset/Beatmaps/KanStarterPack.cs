@@ -88,7 +88,7 @@ namespace Kan.Ruleset.Beatmaps
         /// </summary>
         private static string? FindFolder()
         {
-            foreach (string root in new[] { AppContext.BaseDirectory, Path.GetDirectoryName(typeof(KanStarterPack).Assembly.Location) })
+            foreach (string? root in new[] { AppContext.BaseDirectory, Path.GetDirectoryName(typeof(KanStarterPack).Assembly.Location) })
             {
                 if (string.IsNullOrEmpty(root))
                     continue;
