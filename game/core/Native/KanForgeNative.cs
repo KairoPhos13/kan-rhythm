@@ -164,6 +164,16 @@ namespace Kan.Core.Native
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_live_expect", CallingConvention = CallingConvention.Cdecl)]
         public static extern int LiveExpect(IntPtr live, [In] float[] midis, int count);
 
+        /// <summary>
+        /// The room's silence calibrated into the note detector
+        /// (<c>kan_forge_live_set_noise_floor</c>): <paramref name="energy"/> is
+        /// the room's mean-squared amplitude (RMS squared), from the game's
+        /// noise-floor step. Call after <see cref="LiveOpen"/>, before
+        /// <see cref="LiveProcess"/>.
+        /// </summary>
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_live_set_noise_floor", CallingConvention = CallingConvention.Cdecl)]
+        public static extern void LiveSetNoiseFloor(IntPtr live, float energy);
+
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_live_close", CallingConvention = CallingConvention.Cdecl)]
         public static extern void LiveClose(IntPtr live);
 

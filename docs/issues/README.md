@@ -79,6 +79,28 @@ recorded in [server/docs/lazer-protocol.md](../../server/docs/lazer-protocol.md)
 only, size limits, `server/app/src/beatmaps/submission-rules.ts`) and
 limits uploads per creator and hour. Shipped in v0.1.1.
 
+## Issues 16 and 17 progress (2026-11-12)
+
+The first-run flow and the 3-step calibration screen are built in the
+ruleset (issues 16, 17): one gentle path (welcome → instrument →
+microphone → calibration → the shortest starter level) shown once on a
+fresh install after osu!'s own setup, skippable step by step, never
+asking again once closed, and re-runnable from Settings → Rulesets →
+kan!. The mic step and the calibration steps listen with the game's own
+pipeline (in a developer run: `KAN_LIVE_INPUT`, never the microphone),
+the latency step reuses the editor's measurement
+(`MicCalibrator`/`MicTimingOverlay`), the noise floor calibrates the
+note detector's gate, and the detune step applies Δc to both the judging
+targets and the companion (which follows the instrument's tuning, BPM
+preserved). Offline tests cover the measuring logic
+(`DetuneMeasureTest`, `NoiseFloorMeasureTest`, `MicCalibrationTest`,
+plus a new native self-test check). Left on both acceptance lists: the
+running-client play-tests (screenshots for 16; the audible-artifact and
+score-loss halves of the detune gate and the real-room false-trigger
+rate for 17, the latter formally issue 08). The dev hooks walk every
+step in the isolated instance: `KAN_DEV_SCREEN=firstrun|calibrate` with
+`KAN_DEV_STEP=…`.
+
 ## Index
 
 | # | Title | Labels | Size |

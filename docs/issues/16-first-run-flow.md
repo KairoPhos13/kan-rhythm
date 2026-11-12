@@ -46,15 +46,49 @@ skippable and re-runnable later from settings.
 
 ## Acceptance criteria
 
-- [ ] A fresh install goes welcome → instrument → mic test → (calibrate)
+- [x] A fresh install goes welcome → instrument → mic test → (calibrate)
       → easy level without leaving the flow
-- [ ] The instrument choice persists and appears in the existing
+- [x] The instrument choice persists and appears in the existing
       settings selector
-- [ ] The mic test shows live level + note-detection feedback and has
+- [x] The mic test shows live level + note-detection feedback and has
       clear, kind failure states (no mic, permission denied, silence)
-- [ ] Every step can be skipped and re-run later
-- [ ] No step assumes a specific instrument family
+- [x] Every step can be skipped and re-run later
+- [x] No step assumes a specific instrument family
 - [ ] Screenshots of the whole flow included in the PR
+
+## Implementation (2026-11-12)
+
+The flow is built in the ruleset, added to the game the way
+`KanStarterPack` and `KanDevPlay` are (`KanRulesetIcon` in
+`game/ruleset/Beatmaps/KanLevelFiles.cs`): no change to the fork.
+
+- `game/ruleset/FirstRun/KanFirstRun.cs`: the component that shows the
+  guide once on a fresh install (after osu!'s own first-run setup, at the
+  main menu) and opens it again from Settings; closing it at any point is
+  skipping it, and nothing asks again (`KanRulesetSetting.FirstRunDone`).
+- `game/ruleset/FirstRun/KanFirstRunOverlay.cs` + `KanFirstRunScreens.cs`
+  + `KanFirstRunMicrophone.cs`: the five steps (welcome, your instrument,
+  your microphone, calibration, your first level) in kan!'s own wizard
+  shell over the fork's `WizardScreen` steps (the fork's shell lives on
+  the game's screen footer, which a ruleset cannot reach).
+- The mic step listens with the game's own pipeline
+  (`KanLiveListener` → `LiveSession` → libkan's describer): a live level
+  meter, "there it is: I heard C5" on a note, and kind failure states
+  ("I cannot hear anything yet: try X"). The microphone can be chosen
+  (`MicSource.RecordingDevices`).
+- The level step lands on the shortest starter level (Xicochi, issue 15's
+  pack) and starts it in the player; with no level it says so honestly.
+- Re-run from Settings → Rulesets → kan! ("Run the first-run guide
+  again…"); every choice it takes is one of the existing settings
+  (`KanPlayer`, the instrument wedge's choices).
+
+Verified: `make check` green (0 warnings; native self-test, Kan.Core,
+Kan.Forge suites), and the flow's code paths by reading. Not verified
+here: a running client (this build machine never launches the game), so
+the screenshot criterion stays open. The dev hooks walk the flow in the
+isolated instance: `KAN_DEV_SCREEN=firstrun` (with
+`KAN_DEV_STEP=welcome|instrument|microphone|calibration|level`) and
+`KAN_DEV_SCREENSHOTS=…` for the screenshots.
 
 ## Pointers
 

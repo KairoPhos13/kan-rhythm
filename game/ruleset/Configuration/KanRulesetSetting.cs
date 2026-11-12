@@ -49,5 +49,12 @@ namespace Kan.Ruleset.Configuration
         /// (issue 15).
         /// </summary>
         StarterPackVersion,
+
+        /// <summary>
+        /// Whether the first-run guide has been run or skipped (issue 16): it
+        /// shows itself once on a fresh install and never nags again. It can
+        /// run any time from Settings &gt; kan!.
+        /// </summary>
+        FirstRunDone,
     }
 }

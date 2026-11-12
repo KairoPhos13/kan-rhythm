@@ -45,6 +45,11 @@ namespace Kan.Ruleset.Dev
     /// KAN_DEV_PAUSE=12 pauses 12 s in and continues 2 s later;
     /// KAN_DEV_RESTART=12 restarts the level quickly 12 s in;
     /// KAN_DEV_SEEK="20:8" (with replay) seeks to 8 s, 20 s in.
+    /// KAN_DEV_SCREEN=firstrun / =calibrate opens kan!'s first-run guide or
+    /// its calibration screen with no level (issues 16, 17); KAN_DEV_STEP
+    /// picks the step (welcome / instrument / microphone / calibration / level;
+    /// latency / noise / detune) and every measurement hears KAN_LIVE_INPUT,
+    /// never the microphone.
     /// </summary>
     public partial class KanDevPlay : Component
     {
@@ -54,6 +59,9 @@ namespace Kan.Ruleset.Dev
         public const string MODS_ENV = @"KAN_DEV_MODS";
         public const string PAUSE_ENV = @"KAN_DEV_PAUSE";
         public const string NOTATION_ENV = @"KAN_DEV_NOTATION";
+
+        /// <summary>Which step of a setup screen to open (KAN_DEV_SCREEN=firstrun / =calibrate).</summary>
+        public const string STEP_ENV = @"KAN_DEV_STEP";
 
         [Resolved]
         private Bindable<System.Collections.Generic.IReadOnlyList<osu.Game.Rulesets.Mods.Mod>> mods { get; set; } = null!;
@@ -93,7 +101,15 @@ namespace Kan.Ruleset.Dev
             return new Kan.Forge.Play.FileSource(Environment.GetEnvironmentVariable(@"KAN_LIVE_INPUT") ?? string.Empty, () => since.Elapsed.TotalMilliseconds);
         }
 
-        public static bool Enabled => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(PLAY_ENV));
+        /// <summary>
+        /// Whether this is a developer run: KAN_DEV_PLAY set (a level plays by
+        /// itself), or one of kan!'s setup screens opened by hand
+        /// (KAN_DEV_SCREEN=firstrun / =calibrate, which need no level). Every
+        /// measurement in the game hears KAN_LIVE_INPUT then, never the
+        /// microphone.
+        /// </summary>
+        public static bool Enabled => !string.IsNullOrEmpty(Environment.GetEnvironmentVariable(PLAY_ENV))
+                                      || Environment.GetEnvironmentVariable(SCREEN_ENV) is @"firstrun" or @"calibrate";
 
         protected override void LoadComplete()
         {
@@ -118,6 +134,15 @@ namespace Kan.Ruleset.Dev
             if (beatmap.Disabled)
             {
                 Scheduler.AddDelayed(start, 1000);
+                return;
+            }
+
+            // KAN_DEV_SCREEN=firstrun / =calibrate: kan!'s first-run guide or
+            // its calibration screen (issues 16, 17). No level is needed, and
+            // KAN_DEV_STEP opens one step of them.
+            if (Environment.GetEnvironmentVariable(SCREEN_ENV) is @"firstrun" or @"calibrate")
+            {
+                openSetupScreen(Environment.GetEnvironmentVariable(SCREEN_ENV)!);
                 return;
             }
 
@@ -464,6 +489,30 @@ namespace Kan.Ruleset.Dev
         }
 
         private int designTries;
+
+        private int setupTries;
+
+        /// <summary>Open kan!'s first-run guide or its calibration screen at one step (KAN_DEV_STEP).</summary>
+        private void openSetupScreen(string screen)
+        {
+            var firstRun = game.ChildrenOfType<Kan.Ruleset.FirstRun.KanFirstRun>().FirstOrDefault();
+
+            if (firstRun == null)
+            {
+                if (++setupTries < 30) Scheduler.AddDelayed(() => openSetupScreen(screen), 1000);
+                return;
+            }
+
+            string? step = Environment.GetEnvironmentVariable(STEP_ENV);
+
+            if (screen == @"calibrate")
+                firstRun.ShowCalibration(step);
+            else
+                firstRun.ShowFlow(step);
+
+            Logger.Log($"kan! dev play: opening {screen} at {step ?? "the first step"}", level: LogLevel.Important);
+            scheduleScreenshots();
+        }
 
         private void submitLevel()
         {

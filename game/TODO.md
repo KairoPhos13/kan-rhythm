@@ -65,8 +65,9 @@ Important for a first impression:
       plucked one) and on other microphones (laptop, headset, Windows'
       noise suppression)
 - [ ] Windows build and installer verified; macOS if possible
-- [ ] First run: choose the instrument, test the microphone, calibrate,
-      play an easy level
+- [x] First run: choose the instrument, test the microphone, calibrate,
+      play an easy level (built 2026-11-12, issues 16 and 17; the
+      running-client play-tests and the flow's screenshots are still open)
 - [x] osu!'s own game modes are not shipped (fork F-9, 2026-10-13)
 - [ ] A short demo video (issue 20)
 - [x] The root README for players (game/README.md, 2026-10-27; the root
@@ -185,8 +186,12 @@ official builds, replays kept) is the reference.
       visual vocabulary, not osu! hit bursts (ADR-0011)
 - [ ] HUD redesign: intonation meters, sustain lanes, instrument helpers.
       Keep osu!'s score/combo/accuracy presentation grammar underneath
-- [ ] 3-step calibration screen (acoustic latency, noise floor, fixed-
+- [x] 3-step calibration screen (acoustic latency, noise floor, fixed-
       instrument detune → Δc applied to kanfx backing-track pitch shift)
+      (built 2026-11-12, issue 17: latency reuses the editor's
+      MicCalibrator, the noise floor calibrates the note detector's gate,
+      and Δc shifts the detector's targets and the companion through the
+      level track's pitch/tempo pair until kanfx is wired)
 - [ ] Instrument helper renderers (per instrument pack): fret/string bubbles,
       fingerings, intonation sustain lanes (all toggleable beginner→pro)
 - [ ] Skin support: kan! default skin + osu! skin compatibility where
@@ -197,7 +202,9 @@ official builds, replays kept) is the reference.
       recorder flute, keyboard/piano
 - [ ] Ambient-noise false-trigger test (gate: < 1% @ 45 dB SPL, 50 cm)
 - [ ] Auto-pitch backing-track gate: −35-cent detuned instrument matched
-      in < 2 s calibration, no artifacts, no score loss
+      in < 2 s calibration, no artifacts, no score loss (the matching is
+      covered offline by DetuneMeasureTest; the audible halves need a
+      play-test)
 
 ### Content pipeline
 

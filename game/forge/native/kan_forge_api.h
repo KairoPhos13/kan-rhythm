@@ -228,6 +228,14 @@ KAN_FORGE_API int32_t kan_forge_live_process(kan_forge_live* live, const float* 
  * set, 0 when a previous expectation is still waiting for its attack. */
 KAN_FORGE_API int32_t kan_forge_live_expect(kan_forge_live* live, const float* midis, int32_t count);
 
+/* Calibrate the onset detector's floor to the room's silence (the game's
+ * noise-floor calibration, issue 17): `energy` is what the room sounds like
+ * when nobody plays, as mean-squared amplitude (RMS squared), the units of
+ * libkan NoteDescriber::set_noise_floor. A sound must sit above it to start
+ * a note, so a humming room stops raising false ones. Call after open,
+ * before process; a non-positive energy keeps the default floor. */
+KAN_FORGE_API void kan_forge_live_set_noise_floor(kan_forge_live* live, float energy);
+
 KAN_FORGE_API void kan_forge_live_close(kan_forge_live* live);
 
 #ifdef __cplusplus

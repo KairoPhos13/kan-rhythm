@@ -33,6 +33,12 @@ namespace Kan.Ruleset.Beatmaps
         public const string FOLDER = @"levels";
         public const string MANIFEST = @"pack.json";
 
+        /// <summary>
+        /// The pack's mark in a level's metadata (tools/level_pack writes it
+        /// as the .osu Source): how the game knows a level came with kan!.
+        /// </summary>
+        public const string STARTER_SOURCE = @"kan! starter pack";
+
         [Resolved]
         private BeatmapManager beatmaps { get; set; } = null!;
 

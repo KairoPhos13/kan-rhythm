@@ -660,6 +660,31 @@ the `kan!` wordmark.
 - **What:** the fork root `README.md` (upstream osu!'s) is replaced with
   kan!'s own player-facing README.
 
+### F-31: kan!'s first-run wizard shell lives in the ruleset (2026-11-12, no fork change)
+
+- **What:** nothing in the fork. Recorded for context (as F-8): the
+  first-run guide and the calibration screen (issues 16, 17) reuse the
+  fork's `WizardScreen` steps, but not the fork's `WizardOverlay` shell,
+  because that shell places its footer buttons through
+  `ScreenFooter.RegisterActiveOverlayContainer` and can only be entered
+  through `IOverlayManager`, which is `internal` to `osu.Game` (a ruleset
+  reaches the game only through public surface). The shell is instead
+  kan!'s own (`KanWizardOverlay`, `game/ruleset/FirstRun/`), added to the
+  game like every kan! overlay (the `MicTimingOverlay` pattern), with its
+  own Back / Next / Close buttons inside the card. A fork change that
+  opened `IOverlayManager` (or added a ruleset hook for wizard steps, as
+  F-11/F-13/F-15 do for editor screens) would let the fork's shell host
+  kan!'s steps; that is upstream's call, not ours to make.
+- **Why:** the guide is ruleset work (issues 16, 17) and the fork stays
+  untouched until a hook is worth proposing upstream.
+- **Verified:** `make check` green; the shell is plain osu!framework
+  drawables (the `WizardScreen` transitions and scrolling come from the
+  fork unchanged). A running-client look at the wizard's buttons is part
+  of the play-test that is still open for issue 16.
+- **Merge-conflict cost:** none (no fork file touched).
+- **Upstream-PR:** maybe (a public `IOverlayManager`, or a ruleset hook
+  for first-run wizard steps, would be a general improvement).
+
 ## String sweep: remaining scope (deferred, game/TODO.md)
 
 - Translations: the strings change only in English. Other languages come

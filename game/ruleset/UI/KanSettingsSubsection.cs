@@ -5,6 +5,8 @@ using System.Linq;
 using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Localisation;
+using osu.Framework.Testing;
+using osu.Game.Graphics.Containers;
 using osu.Game.Graphics.UserInterfaceV2;
 using osu.Game.Overlays.Settings;
 using Kan.Ruleset.Configuration;
@@ -23,6 +25,12 @@ namespace Kan.Ruleset.UI
             : base(ruleset)
         {
         }
+
+        [Resolved(CanBeNull = true)]
+        private osu.Game.OsuGame? game { get; set; }
+
+        /// <summary>What calibration measured so far (issue 17), in plain words.</summary>
+        private OsuTextFlowContainer calibration = null!;
 
         [BackgroundDependencyLoader]
         private void load()
@@ -109,7 +117,78 @@ namespace Kan.Ruleset.UI
                     Current = Kan.Forge.Tracks.ForgeTiming.TUNING_CENTS,
                     KeyboardStep = 1,
                 }),
+                calibration = new OsuTextFlowContainer(t => t.Font = osu.Game.Graphics.OsuFont.GetFont(size: 13))
+                {
+                    RelativeSizeAxes = Axes.X,
+                    AutoSizeAxes = Axes.Y,
+                },
+                new SettingsButtonV2
+                {
+                    Text = @"Calibrate: microphone delay, room, tuning…",
+                    TooltipText = @"The 3-step calibration screen (issue 17): a few quiet measurements, each skippable and re-runnable.",
+                    Action = () => showSetup(false),
+                },
+                new SettingsButtonV2
+                {
+                    Text = @"Run the first-run guide again…",
+                    TooltipText = @"The gentle walkthrough of the first run (issue 16): your instrument, your microphone, calibration, and a first level.",
+                    Action = () => showSetup(true),
+                },
             };
+
+            showCalibration();
+
+            // The measured numbers follow along as they are re-measured.
+            Kan.Forge.Tracks.ForgeTiming.MIC_DELAY_MS.ValueChanged += onCalibration;
+            Kan.Forge.Tracks.ForgeTiming.TUNING_CENTS.ValueChanged += onCalibration;
+            Kan.Forge.Tracks.ForgeTiming.Calibrated += showCalibration;
+        }
+
+        private void onCalibration(osu.Framework.Bindables.ValueChangedEvent<double> _) => showCalibration();
+
+        protected override void Dispose(bool isDisposing)
+        {
+            Kan.Forge.Tracks.ForgeTiming.MIC_DELAY_MS.ValueChanged -= onCalibration;
+            Kan.Forge.Tracks.ForgeTiming.TUNING_CENTS.ValueChanged -= onCalibration;
+            Kan.Forge.Tracks.ForgeTiming.Calibrated -= showCalibration;
+            base.Dispose(isDisposing);
+        }
+
+        /// <summary>Open the guide or the calibration screen (both live with the game, one at a time).</summary>
+        private void showSetup(bool guide)
+        {
+            var firstRun = game?.ChildrenOfType<FirstRun.KanFirstRun>().FirstOrDefault();
+
+            if (firstRun == null)
+            {
+                osu.Framework.Logging.Logger.Log(@"kan!: the setup screens are not loaded yet");
+                return;
+            }
+
+            if (guide)
+                firstRun.ShowFlow();
+            else
+                firstRun.ShowCalibration();
+        }
+
+        /// <summary>What the calibration measured, in plain words (persisted; re-runnable at any time).</summary>
+        private void showCalibration()
+        {
+            if (calibration == null) return;
+
+            var parts = new System.Collections.Generic.List<string>();
+
+            if (Kan.Forge.Tracks.ForgeTiming.MicCalibratedAtUtc != default)
+                parts.Add($@"microphone delay {Kan.Forge.Tracks.ForgeTiming.MIC_DELAY_MS.Value:0} ms");
+
+            if (Kan.Forge.Tracks.ForgeTiming.NoiseFloorRms > 0)
+                parts.Add($@"room noise {Kan.Core.Play.NoiseFloorMeasure.Db(Kan.Forge.Tracks.ForgeTiming.NoiseFloorRms):0} dB");
+
+            parts.Add($@"instrument tuning {Kan.Forge.Tracks.ForgeTiming.TUNING_CENTS.Value:+0;-0;0} cents");
+
+            calibration.Text = parts.Count <= 1
+                ? @"Nothing measured yet: the buttons below run the calm 3-step setup whenever you feel like it. Everything works without it too."
+                : $@"Calibration: {string.Join(@"; ", parts)}. Each one can be measured again with the button below.";
         }
 
         internal partial class InstrumentDropdown : FormDropdown<string>
