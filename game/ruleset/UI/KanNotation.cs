@@ -1,6 +1,7 @@
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
+using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
 using osu.Framework.Allocation;
@@ -10,6 +11,7 @@ using osu.Framework.Graphics;
 using osu.Game.Overlays.Settings;
 using osu.Game.Screens.Play.PlayerSettings;
 using osuTK.Graphics;
+using Kan.Core.Design;
 using Kan.Ruleset.Configuration;
 
 namespace Kan.Ruleset.UI
@@ -34,6 +36,12 @@ namespace Kan.Ruleset.UI
     /// colour, in rainbow order (C red, D amber, E green…), so a note is
     /// known at a glance, on any instrument. Set right before playing (the
     /// player loader's Notation group) or in the ruleset settings.
+    ///
+    /// The colours come in four palettes (issue 18): the designed rainbow
+    /// and one per kind of colour vision, kept apart numerically
+    /// (<see cref="KanNoteColours"/>). The same choice also overrides the
+    /// level's palette (<see cref="KanPalette.ForMode"/>), so one control
+    /// makes the whole screen readable; the player wins over the level.
     /// </summary>
     public static class KanNotation
     {
@@ -43,6 +51,9 @@ namespace Kan.Ruleset.UI
         public static KanNoteNames Names = KanNoteNames.Letters;
 
         public static bool ColourByNote;
+
+        /// <summary>The palette the player chose: the level's own, or a colour-blind-safe one that wins over the level.</summary>
+        public static KanPaletteMode Palette = KanPaletteMode.AsTheLevel;
 
         private static int pitchClass(int midi) => ((midi % 12) + 12) % 12;
 
@@ -64,37 +75,31 @@ namespace Kan.Ruleset.UI
         /// <summary>Whether the note is a sharp (a black key): drawn with points, not round.</summary>
         public static bool IsSharp(int midi) => pitchClass(midi) is 1 or 3 or 6 or 8 or 10;
 
-        /// <summary>The note's own colour (sharps between their neighbours on the wheel).</summary>
-        public static Color4 Colour(int midi) => colours[pitchClass(midi)];
+        /// <summary>The note's own colour (sharps between their neighbours on the wheel, in the palette the player chose).</summary>
+        public static Color4 Colour(int midi) => paletteColours(Palette)[pitchClass(midi)];
 
-        // Twelve hues evenly around the wheel looked alike where the eye tells
-        // hues apart least: E and F were both green, and close on the staff
-        // (owner 2026-10-26). Chosen instead to be as far apart as they can be
-        // in a perceptual space (OKLab), in rainbow order from C, with lightness
-        // varying too, and clear of the unknown pitch's grey and the perfect's
-        // white: every two notes are now at least twice as far apart as E and F were.
-        private static readonly Color4[] colours =
+        // The tables are parsed once per palette (this runs every frame). The
+        // default table is the designed rainbow (C red, C♯ peach, D amber…),
+        // chosen to be as far apart as they can be in a perceptual space
+        // (OKLab), lightness included (owner 2026-10-26: E and F looked
+        // alike); the safe tables say how that reads to a colour-blind eye
+        // (KanNoteColours, KanColourBlindTest).
+        private static readonly Dictionary<KanPaletteMode, Color4[]> parsedColours = new Dictionary<KanPaletteMode, Color4[]>();
+
+        private static Color4[] paletteColours(KanPaletteMode mode)
         {
-            Color4Extensions.FromHex(@"ff451d"), // C   red
-            Color4Extensions.FromHex(@"ffbf78"), // C♯  peach
-            Color4Extensions.FromHex(@"c68e15"), // D   amber
-            Color4Extensions.FromHex(@"02fb0b"), // D♯  lime
-            Color4Extensions.FromHex(@"30c05e"), // E   green
-            Color4Extensions.FromHex(@"61fcc4"), // F   mint
-            Color4Extensions.FromHex(@"74cbf0"), // F♯  sky
-            Color4Extensions.FromHex(@"1897fd"), // G   blue
-            Color4Extensions.FromHex(@"a66cff"), // G♯  violet
-            Color4Extensions.FromHex(@"e2a6ff"), // A   lilac
-            Color4Extensions.FromHex(@"f300ff"), // A♯  magenta
-            Color4Extensions.FromHex(@"ff5eb0"), // B   pink
-        };
+            if (!parsedColours.TryGetValue(mode, out var table))
+                parsedColours[mode] = table = KanNoteColours.Table(mode).Select(h => Color4Extensions.FromHex(h)).ToArray();
+            return table;
+        }
     }
 
     /// <summary>
     /// The player loader's "Notation" group (fork F-16), set right before
-    /// playing: names, colours and size of the notes. The instrument and its
-    /// range moved to song select, under the level (fork F-29, owner
-    /// 2026-11-11: found only by hovering at the right of this screen).
+    /// playing: names, colours, palette and size of the notes, and the text
+    /// size (issues 18, 19). The instrument and its range moved to song
+    /// select, under the level (fork F-29, owner 2026-11-11: found only by
+    /// hovering at the right of this screen).
     /// </summary>
     public partial class KanNotationSettings : PlayerSettingsGroup
     {
@@ -120,11 +125,22 @@ namespace Kan.Ruleset.UI
                     LabelText = @"Colour by note",
                     Current = config.GetBindable<bool>(KanRulesetSetting.ColourByNote),
                 },
+                new SettingsEnumDropdown<KanPaletteMode>
+                {
+                    LabelText = @"Colour palette",
+                    Current = config.GetBindable<KanPaletteMode>(KanRulesetSetting.Palette),
+                },
                 new PlayerSliderBar<double>
                 {
                     LabelText = @"Note size",
                     DisplayAsPercentage = true,
                     Current = config.GetBindable<double>(KanRulesetSetting.NoteSize),
+                },
+                new PlayerSliderBar<double>
+                {
+                    LabelText = @"Text size",
+                    DisplayAsPercentage = true,
+                    Current = config.GetBindable<double>(KanRulesetSetting.TextSize),
                 },
                 new PlayerCheckbox
                 {

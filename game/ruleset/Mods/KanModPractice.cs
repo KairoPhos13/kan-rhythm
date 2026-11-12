@@ -21,6 +21,7 @@ using osu.Game.Screens.Play;
 using Kan.Core.Design;
 using Kan.Ruleset.Beatmaps;
 using Kan.Ruleset.Objects;
+using Kan.Ruleset.UI;
 
 namespace Kan.Ruleset.Mods
 {
@@ -363,7 +364,7 @@ namespace Kan.Ruleset.Mods
                         {
                             Anchor = Anchor.TopCentre,
                             Origin = Anchor.TopCentre,
-                            Font = OsuFont.GetFont(size: 18, weight: FontWeight.SemiBold),
+                            Font = KanTextScale.GameplayFont(18, FontWeight.SemiBold),
                             Text = $"Practice · {mod.rangeName} · loop {mod.currentLoop}",
                             Shadow = true,
                         },
@@ -372,7 +373,7 @@ namespace Kan.Ruleset.Mods
                         {
                             Anchor = Anchor.TopCentre,
                             Origin = Anchor.TopCentre,
-                            Font = OsuFont.GetFont(size: 13),
+                            Font = KanTextScale.GameplayFont(13, FontWeight.Regular),
                             Text = @"← → section · Shift+← → shorter / longer · click a section (Shift+click: up to it)",
                             Alpha = 0.7f,
                             Shadow = true,
@@ -580,7 +581,7 @@ namespace Kan.Ruleset.Mods
                         new OsuSpriteText
                         {
                             Margin = new MarginPadding { Horizontal = 8, Vertical = 3 },
-                            Font = OsuFont.GetFont(size: 13, weight: FontWeight.SemiBold),
+                            Font = KanTextScale.GameplayFont(13, FontWeight.SemiBold),
                             Text = text,
                             Colour = on ? osuTK.Graphics.Color4.Black : osuTK.Graphics.Color4.White,
                         },
@@ -620,7 +621,7 @@ namespace Kan.Ruleset.Mods
                                 Anchor = Anchor.CentreLeft,
                                 Origin = Anchor.CentreLeft,
                                 Padding = new MarginPadding { Horizontal = 5 },
-                                Font = OsuFont.GetFont(size: 12, weight: FontWeight.Bold),
+                                Font = KanTextScale.GameplayFont(12, FontWeight.Bold),
                                 Text = name,
                                 Colour = inside ? osuTK.Graphics.Color4.Black : osuTK.Graphics.Color4.White,
                             },

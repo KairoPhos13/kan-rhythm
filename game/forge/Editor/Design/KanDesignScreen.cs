@@ -546,6 +546,7 @@ namespace Kan.Forge.Editor.Design
         {
             private readonly Box background;
             private readonly Box line;
+            private readonly OsuSpriteText warning;
             private readonly Circle[] notes = new Circle[4];
 
             public PaletteCard()
@@ -559,6 +560,15 @@ namespace Kan.Forge.Editor.Design
                 {
                     background = new Box { RelativeSizeAxes = Axes.Both },
                     line = new Box { RelativePositionAxes = Axes.X, X = 0.2f, RelativeSizeAxes = Axes.Y, Width = 4, Origin = Anchor.TopCentre },
+                    warning = new OsuSpriteText
+                    {
+                        Anchor = Anchor.BottomRight,
+                        Origin = Anchor.BottomRight,
+                        Margin = new MarginPadding { Right = 6, Bottom = 4 },
+                        Font = OsuFont.GetFont(size: 11, weight: FontWeight.SemiBold),
+                        Colour = Color4Extensions.FromHex(@"ffb020"),
+                        Shadow = true,
+                    },
                 };
 
                 for (int i = 0; i < notes.Length; i++)
@@ -585,6 +595,13 @@ namespace Kan.Forge.Editor.Design
 
                 foreach (var n in notes)
                     n.Colour = ColourInfo.GradientVertical(hex(p.NoteLight), hex(p.Note));
+
+                // Issue 18, where the author is standing: a palette whose notes
+                // go quiet on their own background (3:1 is the bar for graphics).
+                double contrast = Math.Min(
+                    KanColourVision.ContrastRatio(p.Note, p.BackgroundLit),
+                    KanColourVision.ContrastRatio(p.Note, p.BackgroundDark));
+                warning.Text = contrast < 3 ? @"the notes may be hard to read on this background" : string.Empty;
             }
         }
 

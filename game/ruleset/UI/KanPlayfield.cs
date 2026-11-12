@@ -58,9 +58,17 @@ namespace Kan.Ruleset.UI
         [Resolved(CanBeNull = true)]
         private Kan.Ruleset.Configuration.KanRulesetConfigManager? config { get; set; }
 
+        // osu!'s own UI scale (Graphics → UI scaling): the playfield is left out
+        // of it (the fork's Player.createGameplayComponents opts gameplay out of
+        // UI scaling), so kan!'s text applies it here (issue 19).
+        [Resolved(CanBeNull = true)]
+        private osu.Game.Configuration.OsuConfigManager? osuConfig { get; set; }
+
         private osu.Framework.Bindables.Bindable<double>? noteSize;
         private osu.Framework.Bindables.Bindable<KanNoteNames>? notationNames;
         private osu.Framework.Bindables.Bindable<bool>? notationColours;
+        private osu.Framework.Bindables.Bindable<Kan.Core.Design.KanPaletteMode>? notationPalette;
+        private osu.Framework.Bindables.Bindable<double>? textSize;
 
         /// <summary>The companion's low end (beats), smoothed: the climax glow pulses with it.</summary>
         private float lowEnd;
@@ -130,20 +138,28 @@ namespace Kan.Ruleset.UI
                     Anchor = Anchor.TopCentre,
                     Origin = Anchor.TopCentre,
                     Margin = new MarginPadding { Top = 90 },
-                    Font = OsuFont.GetFont(size: 18, weight: FontWeight.SemiBold),
+                    Font = KanTextScale.GameplayFont(18, FontWeight.SemiBold),
                     Colour = Color4Extensions.FromHex(@"ffb3c7"),
                 },
                 bloomFilter = new AudioFilter(audio.TrackMixer),
             });
 
-            // The notation the player chose (names, colours), followed live.
+            // The notation the player chose (names, colours, palette), the text
+            // size and osu!'s UI scale, all followed live.
             if (config is { } kanConfig)
             {
                 notationNames = kanConfig.GetBindable<KanNoteNames>(Kan.Ruleset.Configuration.KanRulesetSetting.NoteNames);
                 notationColours = kanConfig.GetBindable<bool>(Kan.Ruleset.Configuration.KanRulesetSetting.ColourByNote);
+                notationPalette = kanConfig.GetBindable<Kan.Core.Design.KanPaletteMode>(Kan.Ruleset.Configuration.KanRulesetSetting.Palette);
+                textSize = kanConfig.GetBindable<double>(Kan.Ruleset.Configuration.KanRulesetSetting.TextSize);
                 notationNames.BindValueChanged(v => KanNotation.Names = v.NewValue, true);
                 notationColours.BindValueChanged(v => KanNotation.ColourByNote = v.NewValue, true);
+                notationPalette.BindValueChanged(v => KanNotation.Palette = v.NewValue, true);
+                textSize.BindValueChanged(v => KanTextScale.Factor = (float)v.NewValue, true);
             }
+
+            osuConfig?.GetBindable<float>(osu.Game.Configuration.OsuSetting.UIScale)
+                     .BindValueChanged(v => KanTextScale.OsuUiScale = v.NewValue, true);
 
             var metadata = beatmap.Value.Metadata;
             hasPicture = !string.IsNullOrEmpty(metadata.BackgroundFile)
@@ -241,14 +257,14 @@ namespace Kan.Ruleset.UI
                     Anchor = Anchor.Centre,
                     Origin = Anchor.Centre,
                     Text = @"kan!",
-                    Font = OsuFont.GetFont(size: 72, weight: FontWeight.Bold),
+                    Font = KanTextScale.GameplayFont(72, FontWeight.Bold),
                 },
                 new OsuSpriteText
                 {
                     Anchor = Anchor.Centre,
                     Origin = Anchor.Centre,
                     Text = @"This level has no score yet: write it in the editor's compose tab.",
-                    Font = OsuFont.GetFont(size: 18, weight: FontWeight.Regular),
+                    Font = KanTextScale.GameplayFont(18, FontWeight.Regular),
                 },
             },
         };

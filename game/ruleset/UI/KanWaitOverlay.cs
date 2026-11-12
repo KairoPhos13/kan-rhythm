@@ -13,6 +13,7 @@ using osu.Game.Graphics.Sprites;
 using osu.Game.Screens.Play;
 using osuTK;
 using osuTK.Graphics;
+using Kan.Core.Design;
 
 namespace Kan.Ruleset.UI
 {
@@ -30,9 +31,9 @@ namespace Kan.Ruleset.UI
         private const int comet = 48;
         private const double comet_ms = 1200;
 
-        private static readonly Color4 right_colour = Color4Extensions.FromHex(@"7cdb8a");
-        private static readonly Color4 near_colour = Color4Extensions.FromHex(@"ffd54f");
-        private static readonly Color4 far_colour = Color4Extensions.FromHex(@"ff5a6e");
+        private static readonly Color4 right_colour = Color4Extensions.FromHex(KanGradeColours.Good);
+        private static readonly Color4 near_colour = Color4Extensions.FromHex(KanGradeColours.WaitNear);
+        private static readonly Color4 far_colour = Color4Extensions.FromHex(KanGradeColours.Miss);
 
         private readonly Func<KanDrawableRuleset?> ruleset;
         private readonly CircularContainer target;
@@ -75,14 +76,14 @@ namespace Kan.Ruleset.UI
                 hint = new OsuSpriteText
                 {
                     Origin = Anchor.CentreLeft,
-                    Font = OsuFont.GetFont(size: 22, weight: FontWeight.Bold),
+                    Font = KanTextScale.GameplayFont(22, FontWeight.Bold),
                     Shadow = true,
                     Alpha = 0,
                 },
                 wrong = new OsuSpriteText
                 {
                     Origin = Anchor.BottomLeft,
-                    Font = OsuFont.GetFont(size: 18, weight: FontWeight.Bold),
+                    Font = KanTextScale.GameplayFont(18, FontWeight.Bold),
                     Colour = far_colour,
                     Shadow = true,
                     Alpha = 0,

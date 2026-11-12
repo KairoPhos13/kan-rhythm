@@ -63,6 +63,10 @@ namespace Kan.Ruleset.UI
         {
             if (configs.GetConfigFor(new KanRuleset()) is not KanRulesetConfigManager config) return;
 
+            // The text size follows the player's setting (issue 19).
+            config.GetBindable<double>(KanRulesetSetting.TextSize)
+                  .BindValueChanged(v => KanTextScale.Factor = (float)v.NewValue, true);
+
             KanPlayer.Bind(config);
 
             instrument = config.GetBindable<string>(KanRulesetSetting.PlayerInstrument);
@@ -97,19 +101,19 @@ namespace Kan.Ruleset.UI
                             {
                                 Anchor = Anchor.CentreLeft,
                                 Origin = Anchor.CentreLeft,
-                                Font = OsuFont.Style.Heading2,
+                                Font = KanTextScale.MenuFont(OsuFont.Style.Heading2),
                             },
                             new OsuSpriteText
                             {
                                 Anchor = Anchor.CentreLeft,
                                 Origin = Anchor.CentreLeft,
                                 Text = @"Change",
-                                Font = OsuFont.Style.Caption1.With(weight: FontWeight.SemiBold),
+                                Font = KanTextScale.MenuFont(OsuFont.Style.Caption1).With(weight: FontWeight.SemiBold),
                                 Colour = colours.Highlight1,
                             },
                         },
                     },
-                    fit = new OsuTextFlowContainer(t => t.Font = OsuFont.Style.Caption1)
+                    fit = new OsuTextFlowContainer(t => t.Font = KanTextScale.MenuFont(OsuFont.Style.Caption1))
                     {
                         RelativeSizeAxes = Axes.X,
                         AutoSizeAxes = Axes.Y,
