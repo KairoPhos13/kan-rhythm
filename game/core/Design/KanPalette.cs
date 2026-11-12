@@ -9,9 +9,10 @@ namespace Kan.Core.Design
 {
     /// <summary>
     /// A level's colours (owner 2026-10-15: colours and visual impact per
-    /// level). The judgement colours stay the same in every palette (great
-    /// is gold, ok green, meh blue), so a player reads them anywhere; a
-    /// palette sets the notes, the background, the trail and the hot line.
+    /// level). The judgment colours stay the same in every palette (perfect
+    /// white, good green, meh grey, miss red; <see cref="KanGradeColours"/>),
+    /// so a player reads them anywhere; a palette sets the notes, the
+    /// background, the trail and the hot line.
     /// Colours are hex strings (RRGGBB), so the editor and the game share them.
     /// </summary>
     public sealed class KanPalette
@@ -136,5 +137,75 @@ namespace Kan.Core.Design
 
         public static KanPalette Get(string? name)
             => Presets.FirstOrDefault(p => string.Equals(p.Name, name, StringComparison.OrdinalIgnoreCase)) ?? Presets[0];
+
+        // ------------------------------------------------------------------
+        // Colour-blind-safe overrides (issue 18)
+        // ------------------------------------------------------------------
+
+        // Where each meaning-carrying colour goes in a safe palette (OKLCH
+        // hue in degrees): hot gold-ish, the notes, the trail, the climax.
+        // The lightness and chroma bands are what keeps the four roles apart
+        // however the level was designed: the level's own lightness survives
+        // inside its role's band, the hue moves where the player's vision can
+        // tell it from the others. Chosen by simulation (Machado 2009): for
+        // every preset palette below, every pair of roles stays at least 0.12
+        // apart in OKLab under the vision it is made for, and each of them
+        // keeps 3:1 contrast against both ends of the background
+        // (KanColourBlindTest).
+        private static readonly (double Hot, double Note, double Trail, double Climax)[] safe_hues =
+        {
+            (0, 0, 0, 0), // as the level: untouched
+            (110.8, 168.1, 284.4, 252.4), // deuteranopia: gold-green hot, green notes, blue-violet trail
+            (127.7, 273.6, 357.1, 351.9), // protanopia: green-gold hot, violet notes, pink trail
+            (192.2, 294.2, 343.1, 337.9), // tritanopia: cyan hot, violet notes, rose trail
+        };
+
+        private static readonly (double Lo, double Hi) note_l = (0.60, 0.75), note_c = (0.13, 0.24);
+        private static readonly (double Lo, double Hi) trail_l = (0.88, 0.97), trail_c = (0.08, 0.16);
+        private static readonly (double Lo, double Hi) hot_l = (0.80, 0.90), hot_c = (0.13, 0.24);
+        private static readonly (double Lo, double Hi) climax_l = (0.52, 0.72), climax_c = (0.13, 0.26);
+
+        private static readonly Dictionary<(string, KanPaletteMode), KanPalette> remapped = new Dictionary<(string, KanPaletteMode), KanPalette>();
+
+        /// <summary>
+        /// The palette as the player's choice draws it (the player wins over
+        /// the level): the backgrounds and the design stay as they are, and
+        /// the notes, trail, hot line and climax keep their lightness but
+        /// take the safe hue for their role. As the level: itself.
+        /// </summary>
+        public KanPalette ForMode(KanPaletteMode mode)
+        {
+            if (mode == KanPaletteMode.AsTheLevel) return this;
+
+            var key = (Name, mode);
+            if (remapped.TryGetValue(key, out var cached)) return cached;
+
+            var hues = safe_hues[(int)mode];
+
+            string note = remapSlot(Note, note_l, note_c, hues.Note);
+            var (noteL, _, _) = KanColourVision.ToOkLch(note);
+            var (lightL, lightC, _) = KanColourVision.ToOkLch(NoteLight);
+
+            return remapped[key] = new KanPalette
+            {
+                Name = Name,
+                Title = Title,
+                Note = note,
+                // The lighter top of the bead: the note's hue, at least as light as the note.
+                NoteLight = KanColourVision.FromOkLch(Math.Clamp(lightL, noteL + 0.04, 0.97), Math.Clamp(lightC, 0.03, 0.12), hues.Note),
+                BackgroundDark = BackgroundDark,
+                BackgroundLit = BackgroundLit,
+                Trail = remapSlot(Trail, trail_l, trail_c, hues.Trail),
+                Hot = remapSlot(Hot, hot_l, hot_c, hues.Hot),
+                Climax = remapSlot(Climax, climax_l, climax_c, hues.Climax),
+            };
+        }
+
+        /// <summary>One slot: the level's lightness and chroma inside its role's band, the role's hue.</summary>
+        private static string remapSlot(string hex, (double Lo, double Hi) lBand, (double Lo, double Hi) cBand, double hue)
+        {
+            var (l, c, _) = KanColourVision.ToOkLch(hex);
+            return KanColourVision.FromOkLch(Math.Clamp(l, lBand.Lo, lBand.Hi), Math.Clamp(c, cBand.Lo, cBand.Hi), hue);
+        }
     }
 }
