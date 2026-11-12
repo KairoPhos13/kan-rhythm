@@ -19,7 +19,6 @@
  * the level is unranked and is left alone once the server owner ranked it.
  */
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import AdmZip from 'adm-zip';
 import { PoolClient } from 'pg';
 import { APP_CONFIG, AppConfig } from '../config';
 import { apiError } from '../common/http';
@@ -27,7 +26,16 @@ import { RateLimiter } from '../common/rate-limiter';
 import { DbService } from '../db/db.service';
 import { AuthenticatedUser } from '../auth/auth.service';
 import { STORAGE, Storage } from '../storage/storage';
-import { importPackage, PackageFile, PackageRejectedError, readPackage } from './importer';
+import {
+  importPackage,
+  PackageFile,
+  PackageRejectedError,
+  PackageTooLargeError,
+  readPackageBuffer,
+  readPackageFile,
+  ZipLimits,
+  zipLimitsFor,
+} from './importer';
 import { hasRankedDate } from './status';
 import {
   isSafeEntryName,
@@ -129,14 +137,22 @@ export class SubmissionService {
     }
   }
 
-  /** `PUT /beatmap-submission/beatmapsets/{id}`: replace the full package. */
-  async replacePackage(user: AuthenticatedUser, setId: number, archive: Buffer): Promise<void> {
+  /**
+   * `PUT /beatmap-submission/beatmapsets/{id}`: replace the full package. The
+   * archive was streamed to `archivePath` by `src/common/multipart.ts` (never
+   * buffered in memory) and is read back under the zip bounds (audit S1, S2).
+   */
+  async replacePackage(user: AuthenticatedUser, setId: number, archivePath: string): Promise<void> {
     this.checkUploadRate(user);
 
     let files: PackageFile[];
     try {
-      files = readPackage(new AdmZip(archive));
-    } catch {
+      files = readPackageFile(archivePath, this.zipLimits());
+    } catch (error) {
+      // The importer's refusals carry their own message for the creator;
+      // refusals for size are answered with 413, like any oversized upload.
+      if (error instanceof PackageTooLargeError) throw apiError(413, error.message);
+      if (error instanceof PackageRejectedError) throw apiError(400, error.message);
       throw apiError(400, 'The upload is not a valid .osz level package');
     }
     await this.applyPackage(user, setId, files);
@@ -321,16 +337,18 @@ export class SubmissionService {
     return set;
   }
 
+  /** Bounds for reading package archives (audit S2). */
+  private zipLimits(): ZipLimits {
+    return zipLimitsFor(this.config.submission.maxPackageBytes);
+  }
+
   /** The stored package, or `null` when the set has none yet. */
   private async readPackageOf(archiveKey: string): Promise<PackageFile[] | null> {
     if (!archiveKey) return null;
     const archive = await this.storage.read(archiveKey);
     if (!archive) return null;
     try {
-      return new AdmZip(archive)
-        .getEntries()
-        .filter((entry) => !entry.isDirectory)
-        .map((entry) => ({ entryName: entry.entryName, data: entry.getData() }));
+      return readPackageBuffer(archive, this.zipLimits());
     } catch {
       return null;
     }

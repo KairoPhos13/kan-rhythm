@@ -9,6 +9,9 @@ export type StorageDriverName = 'local' | 's3';
 /** Nest injection token for the resolved {@link AppConfig}. */
 export const APP_CONFIG = 'APP_CONFIG';
 
+/** Default of `SUBMISSION_MAX_PACKAGE_BYTES`: 100 MiB per level package. */
+export const DEFAULT_MAX_PACKAGE_BYTES = 100 * 1024 * 1024;
+
 export interface S3Config {
   endpoint: string;
   region: string;
@@ -101,7 +104,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       downloadUrlExpirySeconds: int(env.DOWNLOAD_URL_EXPIRY_SECONDS, 300),
     },
     submission: {
-      maxPackageBytes: int(env.SUBMISSION_MAX_PACKAGE_BYTES, 100 * 1024 * 1024),
+      maxPackageBytes: int(env.SUBMISSION_MAX_PACKAGE_BYTES, DEFAULT_MAX_PACKAGE_BYTES),
       uploadsPerHour: int(env.SUBMISSION_UPLOADS_PER_HOUR, 10),
       unrankedSetsBase: int(env.SUBMISSION_UNRANKED_SETS_BASE, 4),
       unrankedSetsMax: int(env.SUBMISSION_UNRANKED_SETS_MAX, 8),

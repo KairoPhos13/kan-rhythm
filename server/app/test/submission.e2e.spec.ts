@@ -656,6 +656,76 @@ describe('submission package size limit', () => {
   });
 });
 
+describe('submission package limits (audit S1, S2)', () => {
+  let app: INestApplication;
+  let tokens: Tokens;
+
+  beforeAll(async () => {
+    app = await createTestApp();
+    const created = await register(app, 'BombTester', 'bombs@example.org', 'a line from a song');
+    expect(created.status).toBe(201);
+    tokens = await login(app, 'BombTester', 'a line from a song');
+  });
+
+  afterAll(async () => {
+    await app?.close();
+  });
+
+  /** Reserves a fresh set and returns its id and first beatmap id. */
+  async function reserveSet(): Promise<{ setId: number; beatmapId: number }> {
+    const created = await request(app.getHttpServer())
+      .put('/beatmap-submission/beatmapsets')
+      .set('Authorization', `Bearer ${tokens.access_token}`)
+      .set('Content-Type', 'application/json')
+      .send({ beatmaps_to_create: 1, beatmaps_to_keep: [], target: 'WIP' });
+    expect(created.status).toBe(200);
+    return {
+      setId: created.body.beatmapset_id as number,
+      beatmapId: (created.body.beatmap_ids as number[])[0],
+    };
+  }
+
+  it('refuses a zip bomb and an archive with too many files', async () => {
+    const { setId, beatmapId } = await reserveSet();
+
+    // A small archive that inflates to megabytes (audit S2).
+    const bomb = new AdmZip();
+    bomb.addFile(osuName('Normal'), difficultyOsu({ version: 'Normal', beatmapId, setId }));
+    bomb.addFile('bomb.bin', Buffer.alloc(4 * 1024 * 1024));
+    const refusedBomb = await request(app.getHttpServer())
+      .put(`/beatmap-submission/beatmapsets/${setId}`)
+      .set('Authorization', `Bearer ${tokens.access_token}`)
+      .attach('beatmapArchive', bomb.toBuffer(), 'export.osz');
+    expect(refusedBomb.status).toBe(413);
+    expect(refusedBomb.body.error).toBeTruthy();
+
+    // One part per request: a second file part never reaches the service.
+    const refusedTwoParts = await request(app.getHttpServer())
+      .put(`/beatmap-submission/beatmapsets/${setId}`)
+      .set('Authorization', `Bearer ${tokens.access_token}`)
+      .attach('beatmapArchive', Buffer.alloc(16), 'export.osz')
+      .attach('beatmapArchive', Buffer.alloc(16), 'extra.osz');
+    expect(refusedTwoParts.status).toBe(400);
+    expect(refusedTwoParts.body.error).toContain('file part');
+
+    // An archive carrying more files than any level package needs.
+    const crowded = new AdmZip();
+    crowded.addFile(osuName('Normal'), difficultyOsu({ version: 'Normal', beatmapId, setId }));
+    for (let i = 0; i < 1024; i += 1) crowded.addFile(`extra-${i}.txt`, Buffer.from('x'));
+    const refusedCrowded = await request(app.getHttpServer())
+      .put(`/beatmap-submission/beatmapsets/${setId}`)
+      .set('Authorization', `Bearer ${tokens.access_token}`)
+      .attach('beatmapArchive', crowded.toBuffer(), 'export.osz');
+    expect(refusedCrowded.status).toBe(400);
+    expect(refusedCrowded.body.error).toContain('1025');
+
+    // Nothing landed: the set still has no package.
+    const set = await request(app.getHttpServer()).get(`/api/v2/beatmapsets/${setId}`);
+    expect(set.status).toBe(200);
+    expect(set.body.beatmaps).toEqual([]);
+  });
+});
+
 describe('submission upload rate limit', () => {
   let app: INestApplication;
   let tokens: Tokens;
