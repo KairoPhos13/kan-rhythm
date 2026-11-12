@@ -1,8 +1,9 @@
 /**
- * Absolute URL building. Behind Cloudflare Tunnel TLS terminates at the edge,
- * so the app answers plain HTTP on the compose network while the public URL is
- * `https://…`. Anything absolute (health output today, media URLs later per
- * server/docs/mvp-scope.md §8) must say `https` when `TRUST_PROXY=cloudflare`.
+ * Absolute URL building. Behind the tunnel or Caddy, TLS terminates at the
+ * proxy, so the app answers plain HTTP on the compose network while the public
+ * URL is `https://…`. Anything absolute (health output today, media URLs later
+ * per server/docs/mvp-scope.md §8) must say `https` whenever `TRUST_PROXY`
+ * names a proxy.
  */
 import { TrustProxyMode } from './client-ip';
 
@@ -23,8 +24,8 @@ export function publicBaseUrl(
   request: { headers: Record<string, unknown>; protocol?: string },
   trustProxy: TrustProxyMode,
 ): string {
-  // The tunnel (or a TLS-terminating proxy) is in front: always https there.
-  const secure = trustProxy === 'cloudflare' || request.protocol === 'https';
+  // A TLS-terminating proxy is in front: always https there.
+  const secure = trustProxy !== 'none' || request.protocol === 'https';
   return `${secure ? 'https' : 'http'}://${requestHost(request.headers)}`;
 }
 

@@ -25,9 +25,13 @@ export interface AppConfig {
   port: number;
   databaseUrl: string;
   /**
-   * `TRUST_PROXY=cloudflare` when a Cloudflare Tunnel (or another proxy we
-   * control) fronts the app: forwarded client IPs are then trusted for rate
-   * limiting and absolute URLs use https. Never trusted otherwise.
+   * `TRUST_PROXY` names the proxy that fronts the app, and is the only reason
+   * forwarded client headers are ever trusted (rate limiting keys on the
+   * client address, absolute URLs use https):
+   *  - `cloudflare`: Cloudflare's edge (the tunnel stack); `CF-Connecting-IP`;
+   *  - `caddy`: our own Caddy (the direct stack, deploy/DEPLOY.md §15); the
+   *    `X-Forwarded-For` hop Caddy appended.
+   * Empty (the default): no proxy is trusted, the socket address is the client.
    */
   trustProxy: TrustProxyMode;
   /**

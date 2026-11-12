@@ -1,19 +1,33 @@
 /**
  * Client IP extraction for rate limiting.
  *
- * Behind Cloudflare Tunnel every connection comes from the tunnel, so the
- * socket address is useless for rate limiting: the real client address travels
- * in Cloudflare's `CF-Connecting-IP` header (or, as a fallback, the first hop
- * of `X-Forwarded-For`). Those headers are trivially spoofable by anyone who
- * talks to the app directly, so they are only trusted when
- * `TRUST_PROXY=cloudflare` is set explicitly, never otherwise.
+ * Behind a proxy (the Cloudflare Tunnel, or the Caddy of the direct stack)
+ * every connection comes from the proxy, so the socket address is useless for
+ * rate limiting: all players would share one bucket. The real client address
+ * travels in a forwarded header, and those headers are trivially spoofable by
+ * anyone who talks to the app directly, so they are only trusted when
+ * `TRUST_PROXY` says which proxy is in front, never otherwise:
+ *
+ *  - `cloudflare`: Cloudflare's edge (the tunnel stack). `CF-Connecting-IP` is
+ *    set and overwritten by Cloudflare itself; when it is missing the request
+ *    did not come through Cloudflare and the rightmost `X-Forwarded-For` hop
+ *    (the address Cloudflare appended) is used, then the socket address.
+ *    The leftmost hop is never taken: a client can write it itself.
+ *  - `caddy`: our own Caddy (the direct stack, deploy/DEPLOY.md §15). The
+ *    rightmost `X-Forwarded-For` hop is the one Caddy appended from its own
+ *    TCP peer, so it is unspoofable through Caddy. `CF-Connecting-IP` is not
+ *    honoured in this mode: anything that can reach Caddy could set it. (If
+ *    Cloudflare is put in front of Caddy, close port 443 to everything but
+ *    Cloudflare's IP ranges and use `cloudflare` instead.)
  */
 
-export type TrustProxyMode = 'none' | 'cloudflare';
+export type TrustProxyMode = 'none' | 'cloudflare' | 'caddy';
 
-/** `TRUST_PROXY` environment flag: only the literal value `cloudflare` opts in. */
+/** `TRUST_PROXY` environment flag: only these literal values opt in. */
 export function parseTrustProxy(value: string | undefined): TrustProxyMode {
-  return value === 'cloudflare' ? 'cloudflare' : 'none';
+  if (value === 'cloudflare') return 'cloudflare';
+  if (value === 'caddy') return 'caddy';
+  return 'none';
 }
 
 type HeaderValue = string | string[] | undefined;
@@ -32,9 +46,14 @@ function normalise(address: string | undefined): string | undefined {
   return trimmed.replace(/^::ffff:/i, '');
 }
 
-/** First hop of `X-Forwarded-For`: `client, proxy1, proxy2` → `client`. */
-function firstForwardedHop(value: string | undefined): string | undefined {
-  return normalise(value?.split(',')[0]);
+/**
+ * Rightmost hop of `X-Forwarded-For`: `client, proxy1, proxy2` → `proxy2`, the
+ * entry the proxy closest to us appended. A client that forges the header only
+ * adds hops to the left, which we never read.
+ */
+function lastForwardedHop(value: string | undefined): string | undefined {
+  const hops = (value ?? '').split(',');
+  return normalise(hops[hops.length - 1]);
 }
 
 export function clientIpFrom(
@@ -43,12 +62,14 @@ export function clientIpFrom(
   trustProxy: TrustProxyMode,
 ): string {
   const socketIp = normalise(remoteAddress ?? undefined) ?? 'unknown';
-  if (trustProxy !== 'cloudflare') return socketIp;
+  if (trustProxy === 'none') return socketIp;
 
-  const connectingIp = normalise(headerValue(headers ?? {}, 'cf-connecting-ip'));
-  if (connectingIp) return connectingIp;
+  if (trustProxy === 'cloudflare') {
+    const connectingIp = normalise(headerValue(headers ?? {}, 'cf-connecting-ip'));
+    if (connectingIp) return connectingIp;
+  }
 
-  return firstForwardedHop(headerValue(headers ?? {}, 'x-forwarded-for')) ?? socketIp;
+  return lastForwardedHop(headerValue(headers ?? {}, 'x-forwarded-for')) ?? socketIp;
 }
 
 /** Client IP of a request, honouring the `TRUST_PROXY` policy. */
