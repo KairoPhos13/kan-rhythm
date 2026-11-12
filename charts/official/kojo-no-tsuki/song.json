@@ -1,0 +1,45 @@
+{
+  "slug": "kojo-no-tsuki",
+  "title": "Kojo no Tsuki",
+  "title_unicode": "荒城の月",
+  "artist": "Rentaro Taki",
+  "artist_unicode": "滝廉太郎",
+  "origin": "Japan, 1901; poem by Bansui Doi (1898)",
+  "creator": "KairoPhos",
+  "version": "Calm",
+  "source": "kan! starter pack",
+  "tags": "japan taki 1901 school song kojo no tsuki moon ocarina starter",
+  "midi": "sources/kojo-no-tsuki.mid",
+  "melody_track": 0,
+  "companion_tracks": [1],
+  "transpose_semitones": 12,
+  "tempo_bpm": 88,
+  "meter": [4, 4],
+  "instrument": "ocarina",
+  "palette": "ocean",
+  "difficulty": 3,
+  "cover_url": "https://commons.wikimedia.org/wiki/File:Kojo_no_tsuki_re_mineur.svg",
+  "performers": [
+    {
+      "Name": "KairoPhos",
+      "Role": "kan! level, transcription and companion setting (CC0)",
+      "Links": []
+    }
+  ],
+  "note": "Kojo no Tsuki (Japan, 1901): music Rentaro Taki (1879-1903), public domain; melody transcribed from the CC0 score typeset by Cdang; kan! render, transcription and companion setting, KairoPhos (CC0). Melody only; no lyrics.",
+  "licence": "Composition: Rentaro Taki, 1901, public domain. Transcription and companion setting: KairoPhos, CC0. Level files and rendered audio: KairoPhos, CC0.",
+  "sources": [
+    {
+      "what": "Score (the engraved melody line)",
+      "url": "https://commons.wikimedia.org/wiki/File:Kojo_no_tsuki_re_mineur.svg",
+      "licence": "CC0",
+      "note": "Cdang, via Wikimedia Commons. The melody in sources/kojo-no-tsuki.txt was transcribed from this score, D minor as written."
+    },
+    {
+      "what": "Companion and reference audio",
+      "url": "",
+      "licence": "CC0",
+      "note": "Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS."
+    }
+  ]
+}

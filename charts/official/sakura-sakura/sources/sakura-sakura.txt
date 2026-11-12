@@ -1,0 +1,82 @@
+# Sakura Sakura (sakura), Japan: the standard school melody.
+#
+# Transcribed by KairoPhos (CC0) from the public-domain traditional melody as
+# typeset in "Sakura" by Sakurambo (Wikimedia Commons, File:Sakura.song.png,
+# CC BY 2.5), cross-checked note for note against File:Sakura.MID (Rainer
+# Lewalter, CC BY-SA 2.0 de) used as verification only. The melody itself is
+# traditional (Sokyoku-shu, 1888) and public domain; no content is derived
+# from either setting's harmony. Melody only; no lyrics.
+#
+# The score is written in 4/4; the tune is 14 bars. The companion is our own
+# calm setting (CC0): one soft chord per bar.
+
+tempo 88
+meter 4 4
+
+melody
+  0 A4 1
+  1 A4 1
+  2 B4 2
+  4 A4 1
+  5 A4 1
+  6 B4 2
+  8 A4 1
+  9 B4 1
+  10 C5 1
+  11 B4 1
+  12 A4 1
+  13 B4 0.5
+  13.5 A4 0.5
+  14 F4 2
+  16 E4 1
+  17 C4 1
+  18 E4 1
+  19 F4 1
+  20 E4 1
+  21 E4 0.5
+  21.5 C4 0.5
+  22 B3 2
+  24 A4 1
+  25 B4 1
+  26 C5 1
+  27 B4 1
+  28 A4 1
+  29 B4 0.5
+  29.5 A4 0.5
+  30 F4 2
+  32 E4 1
+  33 C4 1
+  34 E4 1
+  35 F4 1
+  36 E4 1
+  37 E4 0.5
+  37.5 C4 0.5
+  38 B3 2
+  40 A4 1
+  41 A4 1
+  42 B4 2
+  44 A4 1
+  45 A4 1
+  46 B4 2
+  48 E4 1
+  49 F4 1
+  50 B4 0.5
+  50.5 A4 0.5
+  51 F4 1
+  52 E4 2
+
+companion
+  0 [A2,E3,A3] 4
+  4 [A2,E3,A3] 4
+  8 [A2,E3,A3] 4
+  12 [F2,C3,F3] 4
+  16 [A2,E3,A3] 4
+  20 [E2,B2,E3] 4
+  24 [A2,E3,A3] 4
+  28 [F2,C3,F3] 4
+  32 [A2,E3,A3] 4
+  36 [E2,B2,E3] 4
+  40 [A2,E3,A3] 4
+  44 [A2,E3,A3] 4
+  48 [F2,C3,F3] 4
+  52 [A2,E3,A3] 4

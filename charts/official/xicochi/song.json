@@ -1,0 +1,45 @@
+{
+  "slug": "xicochi",
+  "title": "Xicochi (our own setting)",
+  "title_unicode": "Xicochi conetzintle",
+  "artist": "Gaspar Fernandez",
+  "artist_unicode": "Gaspar Fernández",
+  "origin": "Mexico (Puebla Cathedral archive), villancico c. 1601; this melody is our own setting of it",
+  "creator": "KairoPhos",
+  "version": "Calm",
+  "source": "kan! starter pack",
+  "tags": "mexico villancico nahuatl lullaby xicochi fernandez ocarina starter",
+  "midi": "sources/xicochi.mid",
+  "melody_track": 0,
+  "companion_tracks": [1],
+  "transpose_semitones": 7,
+  "tempo_bpm": 66,
+  "meter": [3, 4],
+  "instrument": "ocarina",
+  "palette": "holy",
+  "difficulty": 1,
+  "cover_url": "https://commons.wikimedia.org/wiki/File:Xicochi_conetzintle.jpg",
+  "performers": [
+    {
+      "Name": "KairoPhos",
+      "Role": "kan! level, original setting and render (CC0)",
+      "Links": []
+    }
+  ],
+  "note": "Xicochi (Mexico, c. 1601): Gaspar Fernandez (d. c. 1629), public domain. The melody is our own setting (KairoPhos, CC0), not a transcription: the surviving cancionero facsimile is not legible enough to read. The villancico's text and identity are the composer's. Melody only; no lyrics.",
+  "licence": "Villancico: Gaspar Fernandez, c. 1601, public domain. The melody and companion setting: KairoPhos, CC0. Level files and rendered audio: KairoPhos, CC0.",
+  "sources": [
+    {
+      "what": "The villancico's source (facsimile)",
+      "url": "https://commons.wikimedia.org/wiki/File:Xicochi_conetzintle.jpg",
+      "licence": "Public domain",
+      "note": "Cancionero of Gaspar Fernandez, via Wikimedia Commons. Its notation is not legible enough to transcribe from, so the melody in sources/xicochi.txt is our own setting (CC0), as the song survey recommends for this row."
+    },
+    {
+      "what": "Companion and reference audio",
+      "url": "",
+      "licence": "CC0",
+      "note": "Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS."
+    }
+  ]
+}

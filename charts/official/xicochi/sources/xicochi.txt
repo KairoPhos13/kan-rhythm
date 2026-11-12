@@ -1,0 +1,57 @@
+# Xicochi conetzintle (Xicochi, little child), Mexico (Puebla Cathedral
+# archive), Gaspar Fernandez, c. 1601.
+#
+# THIS MELODY IS OUR OWN SETTING, NOT A TRANSCRIPTION. The surviving source
+# (the cancionero facsimile, Wikimedia Commons, File:Xicochi
+# conetzintle.jpg, public domain) is a faded seventeenth-century manuscript
+# whose notation is not legible enough to transcribe from; the survey in
+# charts/docs/free-song-candidates.md says "own setting from scratch is
+# unconditionally safe" for this song. The melody below is an original kan!
+# setting of the villancico (KairoPhos, CC0): a slow lullaby in D minor,
+# eight bars of 3/4. The text and the villancico's identity are Gaspar
+# Fernandez's, c. 1601, public domain (the composer died c. 1629).
+#
+# The companion is our own too (CC0): a soft waltz, the bass on beat one and
+# the chord on beats two and three.
+
+tempo 66
+meter 3 4
+
+melody
+  0 A4 1
+  1 A4 1
+  2 F4 1
+  3 G4 1
+  4 F4 2
+  6 F4 1
+  7 G4 1
+  8 A4 1
+  9 D5 2
+  11 A4 1
+  12 Bb4 1
+  13 A4 1
+  14 G4 1
+  15 F4 2
+  17 D4 1
+  18 E4 1
+  19 F4 1
+  20 G4 1
+  21 F4 3
+
+companion
+  0 D2 1
+  1 [A2,D3,F3] 2
+  3 D2 1
+  4 [A2,D3,F3] 2
+  6 D2 1
+  7 [A2,D3,F3] 2
+  9 D2 1
+  10 [A2,D3,F3] 2
+  12 Bb2 1
+  13 [F3,Bb3,D4] 2
+  15 D2 1
+  16 [A2,D3,F3] 2
+  18 C3 1
+  19 [G3,C4,E4] 2
+  21 D2 1
+  22 [A2,D3,F3] 2

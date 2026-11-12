@@ -1,0 +1,51 @@
+{
+  "slug": "sakura-sakura",
+  "title": "Sakura Sakura",
+  "title_unicode": "さくらさくら",
+  "artist": "Traditional (Japan)",
+  "artist_unicode": "日本（伝統唱歌）",
+  "origin": "Japan, traditional school song, standard version (Sokyoku-shu, 1888)",
+  "creator": "KairoPhos",
+  "version": "Calm",
+  "source": "kan! starter pack",
+  "tags": "japan traditional school song sakura cherry blossom ocarina starter",
+  "midi": "sources/sakura-sakura.mid",
+  "melody_track": 0,
+  "companion_tracks": [1],
+  "transpose_semitones": 12,
+  "tempo_bpm": 88,
+  "meter": [4, 4],
+  "instrument": "ocarina",
+  "palette": "sakura",
+  "difficulty": 1,
+  "cover_url": "https://commons.wikimedia.org/wiki/File:Sakura.song.png",
+  "performers": [
+    {
+      "Name": "KairoPhos",
+      "Role": "kan! level, transcription and companion setting (CC0)",
+      "Links": []
+    }
+  ],
+  "note": "Sakura Sakura (Japan, traditional): melody public domain; transcribed from the CC BY 2.5 score by Sakurambo; kan! render, transcription and companion setting, KairoPhos (CC0). Melody only; no lyrics.",
+  "licence": "Melody: traditional, public domain. Transcription and companion setting: KairoPhos, CC0. Level files and rendered audio: KairoPhos, CC0.",
+  "sources": [
+    {
+      "what": "Score (typeset of the traditional melody)",
+      "url": "https://commons.wikimedia.org/wiki/File:Sakura.song.png",
+      "licence": "CC BY 2.5",
+      "note": "Sakurambo, via Wikimedia Commons. The melody in sources/sakura-sakura.txt was transcribed from this score."
+    },
+    {
+      "what": "Verification only, no content derived",
+      "url": "https://commons.wikimedia.org/wiki/File:Sakura.MID",
+      "licence": "CC BY-SA 2.0 de",
+      "note": "Rainer Lewalter, via Wikimedia Commons. Used to check the transcription note for note. Only the melody (traditional, public domain) is used; nothing of this setting's harmony enters the level, so share-alike does not reach the pack."
+    },
+    {
+      "what": "Companion and reference audio",
+      "url": "",
+      "licence": "CC0",
+      "note": "Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS."
+    }
+  ]
+}

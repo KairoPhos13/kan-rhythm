@@ -1,0 +1,21 @@
+{
+  "Version": 2,
+  "Palette": "nature",
+  "Sparkle": 0.5,
+  "Glow": 0.7,
+  "Picture": 0.6,
+  "ShowSectionNames": true,
+  "Sections": [
+    {
+      "StartMs": 0.0,
+      "EndMs": 41952.65306122449,
+      "Kind": "Phrase",
+      "Climax": false,
+      "BreakStyle": "Visualizer",
+      "Palette": null,
+      "Label": null
+    }
+  ],
+  "Generated": false,
+  "SavedAtUtc": "2026-11-12T00:25:52Z"
+}

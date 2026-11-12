@@ -1,0 +1,30 @@
+{
+  "Version": 2,
+  "Palette": "holy",
+  "Sparkle": 0.5,
+  "Glow": 0.7,
+  "Picture": 0.6,
+  "ShowSectionNames": true,
+  "Sections": [
+    {
+      "StartMs": 0,
+      "EndMs": 39078.947,
+      "Kind": "Intro",
+      "Climax": false,
+      "BreakStyle": "Countdown",
+      "Palette": null,
+      "Label": null
+    },
+    {
+      "StartMs": 39078.947,
+      "EndMs": 116934.14965986395,
+      "Kind": "Phrase",
+      "Climax": false,
+      "BreakStyle": "Visualizer",
+      "Palette": null,
+      "Label": null
+    }
+  ],
+  "Generated": false,
+  "SavedAtUtc": "2026-11-12T00:25:44Z"
+}
