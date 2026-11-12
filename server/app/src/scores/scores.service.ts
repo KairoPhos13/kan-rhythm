@@ -1,57 +1,26 @@
 /**
  * Score tokens, score submission and per-level leaderboards
  * (server/docs/lazer-protocol.md §5).
+ *
+ * A score is the client's own claim (mvp-scope.md §6): what happens here is
+ * that only well-formed values are stored (`src/scores/score-rules.ts`) and
+ * that the leaderboard ranks in SQL (`src/scores/score-queries.ts`).
  */
 import { Inject, Injectable } from '@nestjs/common';
 import { APP_CONFIG, AppConfig } from '../config';
 import { apiError } from '../common/http';
 import { DbService } from '../db/db.service';
-import { toMultiplayerScore, UserRow } from '../api/serializers';
+import { ScoreRow, toMultiplayerScore, UserRow } from '../api/serializers';
 import { hydrateScores } from '../api/hydrate';
 import { grantsLeaderboard } from '../beatmaps/status';
+import { fetchLeaderboard, fetchUserBest, SCORE_COLUMNS } from './score-queries';
 import {
-  computeLeaderboard,
-  fetchBeatmapScores,
-} from './score-queries';
+  parseScoreSubmission,
+  ScoreRejectedError,
+  SubmitScoreInput,
+} from './score-rules';
 
-export interface SubmitScoreInput {
-  rank?: unknown;
-  total_score?: unknown;
-  total_score_without_mods?: unknown;
-  accuracy?: unknown;
-  max_combo?: unknown;
-  ruleset_id?: unknown;
-  passed?: unknown;
-  mods?: unknown;
-  statistics?: unknown;
-  maximum_statistics?: unknown;
-  pauses?: unknown;
-  started_at?: unknown;
-  ended_at?: unknown;
-  build_id?: unknown;
-}
-
-function num(value: unknown, fallback = 0): number {
-  const parsed = typeof value === 'number' ? value : Number.parseFloat(String(value ?? ''));
-  return Number.isFinite(parsed) ? parsed : fallback;
-}
-
-function int(value: unknown, fallback = 0): number {
-  return Math.trunc(num(value, fallback));
-}
-
-function bool(value: unknown, fallback = false): boolean {
-  if (typeof value === 'boolean') return value;
-  if (value === 'true') return true;
-  if (value === 'false') return false;
-  return fallback;
-}
-
-function dateOrNull(value: unknown): Date | null {
-  if (value == null || value === '') return null;
-  const date = new Date(String(value));
-  return Number.isNaN(date.getTime()) ? null : date;
-}
+export type { SubmitScoreInput } from './score-rules';
 
 @Injectable()
 export class ScoresService {
@@ -87,7 +56,9 @@ export class ScoresService {
         user.id,
         beatmapId,
         input.beatmap_hash,
-        int(input.ruleset_id, 0),
+        // The column is an integer: clamp what the client sent (audit S8's
+        // class of bug, on the token route).
+        Math.min(Math.max(Math.trunc(input.ruleset_id ?? 0), 0), 2_147_483_647),
         input.version_hash ?? '',
         String(this.config.oauth.scoreTokenTtlSeconds),
       ],
@@ -105,8 +76,17 @@ export class ScoresService {
     tokenId: number,
     input: SubmitScoreInput,
   ): Promise<Record<string, unknown>> {
+    let score;
+    try {
+      score = parseScoreSubmission(input);
+    } catch (error) {
+      // The refusals carry their own message for the client (audit S6: out of
+      // range values used to reach the database and answer 500).
+      if (error instanceof ScoreRejectedError) throw apiError(400, error.message);
+      throw error;
+    }
+
     const client = await this.db.pool.connect();
-    const rank = String(input.rank ?? 'D').toUpperCase();
     let scoreId: number;
     try {
       await client.query('BEGIN');
@@ -141,21 +121,21 @@ export class ScoresService {
         [
           user.id,
           beatmapId,
-          int(input.ruleset_id, 0),
+          score.rulesetId,
           tokenId,
-          Math.trunc(num(input.total_score)),
-          Math.trunc(num(input.total_score_without_mods)),
-          num(input.accuracy),
-          int(input.max_combo),
-          rank,
-          bool(input.passed, true),
-          JSON.stringify(input.mods ?? []),
-          JSON.stringify(input.statistics ?? {}),
-          JSON.stringify(input.maximum_statistics ?? {}),
-          JSON.stringify(input.pauses ?? []),
-          input.build_id == null ? null : int(input.build_id),
-          dateOrNull(input.started_at),
-          dateOrNull(input.ended_at) ?? new Date(),
+          score.totalScore,
+          score.totalScoreWithoutMods,
+          score.accuracy,
+          score.maxCombo,
+          score.rank,
+          score.passed,
+          JSON.stringify(score.mods),
+          JSON.stringify(score.statistics),
+          JSON.stringify(score.maximumStatistics),
+          JSON.stringify(score.pauses),
+          score.buildId,
+          score.startedAt,
+          score.endedAt,
         ],
       );
       scoreId = inserted.rows[0].id;
@@ -169,26 +149,29 @@ export class ScoresService {
       client.release();
     }
 
-    const rows = await fetchBeatmapScores(this.db, beatmapId, 'kan');
-    const leaderboard = computeLeaderboard(rows, Number.MAX_SAFE_INTEGER, user.id);
-    const competing = leaderboard.entries.find((entry) => Number(entry.score.id) === scoreId);
+    const stored = await this.db.query<ScoreRow>(
+      `SELECT ${SCORE_COLUMNS} FROM scores WHERE id = $1`,
+      [scoreId],
+    );
+    const row = stored.rows[0];
+    if (!row) throw apiError(500, 'score could not be read back');
+
     // As in osu!, only statuses above pending have a leaderboard to place on
-    // (the client only fetches those either way, §5.4).
+    // (the client only fetches those either way, §5.4). The position is the
+    // rank of the user's best score on the level, which is what competes.
     const status = await this.statusOf(beatmapId);
-    const position =
+    const best =
       status != null && grantsLeaderboard(status)
-        ? competing?.position ?? leaderboard.userScore?.position ?? null
+        ? await fetchUserBest(this.db, beatmapId, 'kan', user.id)
         : null;
 
-    const stored = rows.find((row) => Number(row.id) === scoreId);
-    if (!stored) throw apiError(500, 'score could not be read back');
     // `MultiplayerScore`: the client reads `id` and `position` (§5.2).
-    return toMultiplayerScore(stored, user, position);
+    return toMultiplayerScore(row, user, best?.position ?? null);
   }
 
   /**
-   * `GET /api/v2/beatmaps/{id}/scores`: best score per user, top 50, plus the
-   * requesting user's own best (`user_score`).
+   * `GET /api/v2/beatmaps/{id}/scores`: best score per user, top `limit`, plus
+   * the requesting user's own best (`user_score`).
    *
    * As in osu!, only statuses above pending (ranked/approved/qualified/loved)
    * have a public leaderboard; scores set while a level is pending or WIP stay
@@ -205,11 +188,14 @@ export class ScoresService {
       return { scores: [], score_count: 0, user_score: null };
     }
 
-    const rows = await fetchBeatmapScores(this.db, beatmapId, mode);
-    const board = computeLeaderboard(rows, Math.min(Math.max(limit, 1), 100), userId);
-
-    const topRows = board.entries.map((entry) => entry.score);
-    const scores = await hydrateScores(this.db, topRows);
+    const board = await fetchLeaderboard(
+      this.db,
+      beatmapId,
+      mode,
+      Math.min(Math.max(limit, 1), 100),
+      userId,
+    );
+    const scores = await hydrateScores(this.db, board.entries.map((entry) => entry.score));
 
     let userScore: Record<string, unknown> | null = null;
     if (board.userScore) {

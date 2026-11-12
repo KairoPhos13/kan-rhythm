@@ -539,6 +539,65 @@ describe('client flow (lazer protocol)', () => {
     expect(response.body.user_score.position).toBe(2);
   });
 
+  it('refuses scores whose numbers are out of range (audit S6)', async () => {
+    const registered = await register('RangeTester', 'range@example.org', 'another good password');
+    expect(registered.status).toBe(201);
+    const tokens = await login('RangeTester', 'another good password');
+    const beatmap = imported.beatmaps[0];
+
+    const token = await request(app.getHttpServer())
+      .post(`/api/v2/beatmaps/${beatmap.id}/solo/scores`)
+      .set('Authorization', `Bearer ${tokens.access_token}`)
+      .field('version_hash', 'build')
+      .field('beatmap_hash', beatmap.checksum)
+      .field('ruleset_id', '0');
+    expect(token.status).toBe(201);
+
+    // The claims a modified client could make: a negative total, a total past
+    // any real score, a grade letter that does not exist.
+    const negative = await request(app.getHttpServer())
+      .put(`/api/v2/beatmaps/${beatmap.id}/solo/scores/${token.body.id}`)
+      .set('Authorization', `Bearer ${tokens.access_token}`)
+      .send({ rank: 'S', total_score: -5, ruleset_id: 0, passed: true });
+    expect(negative.status).toBe(400);
+    expect(negative.body.error).toContain('total_score');
+
+    const huge = await request(app.getHttpServer())
+      .put(`/api/v2/beatmaps/${beatmap.id}/solo/scores/${token.body.id}`)
+      .set('Authorization', `Bearer ${tokens.access_token}`)
+      .send({ rank: 'S', total_score: 5000000000000, ruleset_id: 0, passed: true });
+    expect(huge.status).toBe(400);
+
+    const grade = await request(app.getHttpServer())
+      .put(`/api/v2/beatmaps/${beatmap.id}/solo/scores/${token.body.id}`)
+      .set('Authorization', `Bearer ${tokens.access_token}`)
+      .send({ rank: 'Z', total_score: 1, ruleset_id: 0, passed: true });
+    expect(grade.status).toBe(400);
+    expect(grade.body.error).toContain('rank');
+
+    // A refused score stores nothing and costs the play nothing: the same
+    // token still accepts a well-formed score.
+    const accepted = await request(app.getHttpServer())
+      .put(`/api/v2/beatmaps/${beatmap.id}/solo/scores/${token.body.id}`)
+      .set('Authorization', `Bearer ${tokens.access_token}`)
+      .send({
+        rank: 'A',
+        total_score: 12345,
+        total_score_without_mods: 12345,
+        accuracy: 2.5,
+        max_combo: 3,
+        ruleset_id: 0,
+        passed: true,
+      });
+    expect(accepted.status).toBe(200);
+    expect(accepted.body.position).toBe(3);
+
+    const profile = await request(app.getHttpServer()).get(
+      `/api/v2/users/${registered.body.id}/?key=id`,
+    );
+    expect(profile.body.statistics.play_count).toBe(1);
+  });
+
   it('serves profiles and the profile best-scores section', async () => {
     const profile = await request(app.getHttpServer()).get(`/api/v2/users/${userAId}/?key=id`);
     expect(profile.status).toBe(200);
