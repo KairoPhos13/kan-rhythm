@@ -36,6 +36,10 @@ namespace Kan.Ruleset.Configuration
 
             // The starter pack's levels are imported once per pack version.
             SetDefault(KanRulesetSetting.StarterPackVersion, 0);
+
+            // The first-run guide shows itself once (issue 16); closing or
+            // finishing it is the end of it until the player asks again.
+            SetDefault(KanRulesetSetting.FirstRunDone, false);
         }
     }
 }

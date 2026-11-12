@@ -74,6 +74,21 @@ namespace Kan.Ruleset.UI
 
         private readonly BindableDouble missVolume = new BindableDouble(1);
 
+        /// <summary>
+        /// The companion sits with the instrument's tuning (issue 17): the
+        /// pitch moves, the tempo puts the speed back, and their product stays
+        /// 1, so the level keeps its own timeline (BPM preserved). Only a
+        /// shifted play attaches these.
+        /// </summary>
+        private readonly BindableDouble tuningFrequency = new BindableDouble(1);
+
+        private readonly BindableDouble tuningTempo = new BindableDouble(1);
+
+        private bool tuningAttached;
+
+        /// <summary>The tuning the companion follows now (whole cents).</summary>
+        private double tuningCents;
+
         [Resolved]
         private IBindable<WorkingBeatmap> beatmap { get; set; } = null!;
 
@@ -157,6 +172,35 @@ namespace Kan.Ruleset.UI
         {
             base.LoadComplete();
             beatmap.Value.Track.AddAdjustment(AdjustableProperty.Volume, missVolume);
+            followTuning();
+        }
+
+        /// <summary>
+        /// The companion locks to the player's tuning (issue 17): a slightly
+        /// flat or sharp instrument hears the song with it, not against it,
+        /// while the notes are judged as they were written.
+        /// </summary>
+        private void followTuning()
+        {
+            double cents = Math.Round(state.BackingTuningCents);
+            if (cents == tuningCents) return;
+
+            tuningCents = cents;
+
+            if (!tuningAttached)
+            {
+                if (cents == 0) return;
+
+                // Only a shifted play: the adjustments go on when first needed,
+                // so an in-tune instrument plays the track untouched.
+                tuningAttached = true;
+                beatmap.Value.Track.AddAdjustment(AdjustableProperty.Frequency, tuningFrequency);
+                beatmap.Value.Track.AddAdjustment(AdjustableProperty.Tempo, tuningTempo);
+            }
+
+            double ratio = Math.Pow(2, cents / 1200);
+            tuningFrequency.Value = ratio;
+            tuningTempo.Value = 1 / ratio;
         }
 
         private void onJudged(int index, LiveVerdict verdict)
@@ -168,6 +212,7 @@ namespace Kan.Ruleset.UI
         protected override void Update()
         {
             base.Update();
+            followTuning();
 
             // On a bigger screen everything grows with it (owner 2026-10-15: "on a 2K screen I can barely see it").
             if (scaled != null)
@@ -223,7 +268,16 @@ namespace Kan.Ruleset.UI
         {
             state.Judged -= onJudged;
             if (beatmap.Value?.TrackLoaded == true)
+            {
                 beatmap.Value.Track.RemoveAdjustment(AdjustableProperty.Volume, missVolume);
+
+                if (tuningAttached)
+                {
+                    beatmap.Value.Track.RemoveAdjustment(AdjustableProperty.Frequency, tuningFrequency);
+                    beatmap.Value.Track.RemoveAdjustment(AdjustableProperty.Tempo, tuningTempo);
+                }
+            }
+
             base.Dispose(isDisposing);
         }
 

@@ -155,10 +155,20 @@ namespace Kan.Ruleset.Beatmaps
                 packStarted = true;
                 host.UpdateThread.Scheduler.Add(() => game.Add(new KanStarterPack()));
             }
+
+            // kan!'s first-run guide and the calibration screen (issues 16 and
+            // 17): shown once on a fresh install, and runnable any time from
+            // Settings > kan!.
+            if (!firstRunStarted && game != null && host != null)
+            {
+                firstRunStarted = true;
+                host.UpdateThread.Scheduler.Add(() => game.Add(new Kan.Ruleset.FirstRun.KanFirstRun()));
+            }
         }
 
         private static bool devPlayStarted;
         private static bool previewStarted;
         private static bool packStarted;
+        private static bool firstRunStarted;
     }
 }

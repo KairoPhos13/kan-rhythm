@@ -162,6 +162,14 @@ namespace Kan.Ruleset.UI
         /// <summary>Where on the level an attack played at <paramref name="now"/> is placed (the player's timing habit included, as the judge places it).</summary>
         public double PlacedAt(double now) => now + (micPlay ? -ForgeTiming.PLAYER_TIMING_MS.Value * (rate > 0 ? rate : 1) : 0);
 
+        /// <summary>
+        /// How far the companion is shifted to sit with the player's tuning
+        /// (issue 17): the tuning taken off everything heard, and only for a
+        /// play that listens to the player. A replay or autoplay keeps the
+        /// level as it was written.
+        /// </summary>
+        public double BackingTuningCents => ReplaySource?.Invoke() == null ? tuning.Cents : 0;
+
         /// <summary>Called by a note's judging object once the judge decided it.</summary>
         public void Report(KanHitObject note, LiveVerdict verdict)
         {
