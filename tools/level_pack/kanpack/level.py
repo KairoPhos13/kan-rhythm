@@ -247,7 +247,26 @@ def kan_credits_json(song: Song) -> str:
 # ----------------------------------------------------------------------
 
 
-def osu_text(song: Song, audio_name: str, background_name: str, preview_ms: int) -> str:
+def hit_objects_text(notes: list[dict]) -> str:
+    """The score as hit-object marks in the osu! format.
+
+    The notes cannot travel in the .osu (no pitch, no note duration there),
+    but the game and the server read a level's length and object count from
+    its hit objects: so the .osu carries a plain circle at every note's start
+    and one at the level's end (the last note's end), which is exactly the
+    span the level is played over. The ruleset replaces the marks with the
+    real notes when the level is played. This mirrors `LevelMarks.TimesOf` in
+    game/core/Score/LevelMarks.cs; the model is documented in
+    docs/architecture/level-metadata.md.
+    """
+    if not notes:
+        return ""
+    marks = sorted(n["StartMs"] for n in notes)
+    marks.append(max(n["StartMs"] + n["DurationMs"] for n in notes))
+    return "".join(f"256,192,{ms:.3f},1,0,0:0:0:0:\n" for ms in marks)
+
+
+def osu_text(song: Song, notes: list[dict], audio_name: str, background_name: str, preview_ms: int) -> str:
     beat_length = 60000.0 / song.tempo_bpm
     numerator, denominator = song.meter
     return (
@@ -296,6 +315,7 @@ def osu_text(song: Song, audio_name: str, background_name: str, preview_ms: int)
         f"0,{beat_length:.3f},{numerator},2,0,80,1,0\n"
         "\n"
         "[HitObjects]\n"
+        f"{hit_objects_text(notes)}"
     )
 
 

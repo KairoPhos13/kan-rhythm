@@ -12,12 +12,19 @@ namespace Kan.Forge.Editor
     /// <summary>A file inside the level open in the editor (kan!'s score and design travel this way).</summary>
     public static class LevelFile
     {
-        /// <summary>The file's text, or null when the level has none or it cannot be read.</summary>
-        public static string? Read(WorkingBeatmap working, string fileName)
+        /// <summary>
+        /// The file's text, or null when the level has none or it cannot be
+        /// read. Any working beatmap will do, so the game's own code (the
+        /// ruleset's difficulty calculation) can read level files the same
+        /// way the editor does.
+        /// </summary>
+        public static string? Read(IWorkingBeatmap working, string fileName)
         {
             try
             {
-                var file = working.BeatmapSetInfo.GetFile(fileName);
+                if (working.BeatmapInfo.BeatmapSet is not BeatmapSetInfo set) return null;
+
+                var file = set.GetFile(fileName);
                 if (file == null) return null;
 
                 using var stream = working.GetStream(file.File.GetStoragePath());

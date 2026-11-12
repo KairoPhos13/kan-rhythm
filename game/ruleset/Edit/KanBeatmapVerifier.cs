@@ -40,8 +40,10 @@ namespace Kan.Ruleset.Edit
         public IEnumerable<Issue> Run(BeatmapVerifierContext context) => checks.SelectMany(c => c.Run(context));
 
         /// <summary>
-        /// The general checks that count the beatmap's own hit objects (none in a
-        /// kan! level): replaced by these ones, which read the score.
+        /// The general checks that count the beatmap's own hit objects (a
+        /// kan! level's .osu carries only the score's marks, one time per
+        /// note, not the notes themselves): replaced by these ones, which
+        /// read the score (docs/architecture/level-metadata.md).
         /// </summary>
         public static bool AppliesGeneralCheck(ICheck check)
             => check is not (CheckDrainLength or CheckUnusedAudioAtEnd or CheckUnsnappedObjects or CheckZeroLengthObjects or CheckBreaks or CheckMutedObjects);

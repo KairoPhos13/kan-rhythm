@@ -12,7 +12,10 @@ Architecture deep-dives:
 [architecture/backend-data-model.md](architecture/backend-data-model.md)
 (server: database model, leaderboards, anti-cheat) ·
 [architecture/osu-integration.md](architecture/osu-integration.md)
-(client base: osu!lazer fork + ruleset, C-ABI bridge, `.kan`↔`.osz`).
+(client base: osu!lazer fork + ruleset, C-ABI bridge, `.kan`↔`.osz`) ·
+[architecture/level-metadata.md](architecture/level-metadata.md)
+(what a level's length, BPM and star rating come from: the score's marks in
+the `.osu`, and the difficulty model).
 
 ## Intended contents
 

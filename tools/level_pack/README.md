@@ -15,7 +15,7 @@ tool is how they are built and rebuilt.
 
 | File | What it is |
 |---|---|
-| `<Artist> - <Title> (KairoPhos) [Calm].osu` | the osu! side: metadata, the tempo grid, the background |
+| `<Artist> - <Title> (KairoPhos) [Calm].osu` | the osu! side: metadata, the tempo grid, the background, and the score's hit-object marks (one per note, one at the level's end, so the level's length reads right: [level-metadata](../../docs/architecture/level-metadata.md)) |
 | `audio.ogg` | the **companion**: the accompaniment that plays along during the level, levelled to -20 LUFS |
 | `reference.ogg` | the **reference**: melody and companion together, the performance the score came from |
 | `kan.score.json` | the **score**: every note's timing, pitch, duration and intensity (the file the ruleset judges) |
@@ -41,6 +41,9 @@ Two `song.json` fields shape this:
 ```bash
 # render one song's audio and kan! files into charts/official/<song>/level/
 python3 tools/level_pack/make_level.py render charts/official/sakura-sakura
+
+# rewrite only the level's .osu (its hit-object marks); the audio stays as it is
+python3 tools/level_pack/make_level.py osu charts/official/sakura-sakura
 
 # pack that level into charts/official/dist/sakura-sakura.osz
 python3 tools/level_pack/make_level.py pack charts/official/sakura-sakura

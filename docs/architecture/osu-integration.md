@@ -56,6 +56,10 @@ the community formats.
 Lossless round-trip is required for Layers 1-3 data; osu!-specific extras
 (slider paths, combo counters) stay in the `.osz` side only.
 
+How a level's length, BPM and star rating travel in this mapping (the score's
+marks in the `.osu`, and the difficulty model): see
+[level-metadata.md](level-metadata.md).
+
 ## 6. Rebranding (ADR-0011): keep the UX, change the identity
 
 **kan! is a standalone game, not an osu! mod.** MIT covers copyright, not
