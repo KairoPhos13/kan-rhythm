@@ -277,7 +277,9 @@ def credits_md(song: Song, filenames: dict[str, str]) -> str:
     if song.licence:
         lines += [f"**Level licence:** {song.licence}", ""]
     for source in song.sources:
-        lines.append(f"- **{source.get('what', 'source')}**: {source.get('url', '')}"
+        url = source.get('url', '')
+        where = f": {url}" if url else ""
+        lines.append(f"- **{source.get('what', 'source')}**{where}"
                      f" ({source.get('licence', '')}){(' ' + source['note']) if source.get('note') else ''}")
     lines += ["", "## Credits", ""]
     if song.note:

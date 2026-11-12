@@ -9,7 +9,7 @@ This level is part of the kan! starter pack (KairoPhos). Melody only; no lyrics.
 **Level licence:** Villancico: Gaspar Fernandez, c. 1601, public domain. The melody and companion setting: KairoPhos, CC0. Level files and rendered audio: KairoPhos, CC0.
 
 - **The villancico's source (facsimile)**: https://commons.wikimedia.org/wiki/File:Xicochi_conetzintle.jpg (Public domain) Cancionero of Gaspar Fernandez, via Wikimedia Commons. Its notation is not legible enough to transcribe from, so the melody in sources/xicochi.txt is our own setting (CC0), as the song survey recommends for this row.
-- **Companion and reference audio**:  (CC0) Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS.
+- **Companion and reference audio** (CC0) Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS.
 
 ## Credits
 

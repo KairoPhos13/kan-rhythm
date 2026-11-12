@@ -9,7 +9,7 @@ This level is part of the kan! starter pack (KairoPhos). Melody only; no lyrics.
 **Level licence:** Composition: Rentaro Taki, 1901, public domain. Transcription and companion setting: KairoPhos, CC0. Level files and rendered audio: KairoPhos, CC0.
 
 - **Score (the engraved melody line)**: https://commons.wikimedia.org/wiki/File:Kojo_no_tsuki_re_mineur.svg (CC0) Cdang, via Wikimedia Commons. The melody in sources/kojo-no-tsuki.txt was transcribed from this score, D minor as written.
-- **Companion and reference audio**:  (CC0) Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS.
+- **Companion and reference audio** (CC0) Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS.
 
 ## Credits
 

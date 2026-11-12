@@ -10,7 +10,7 @@ This level is part of the kan! starter pack (KairoPhos). Melody only; no lyrics.
 
 - **Score (typeset of the traditional melody)**: https://commons.wikimedia.org/wiki/File:Sakura.song.png (CC BY 2.5) Sakurambo, via Wikimedia Commons. The melody in sources/sakura-sakura.txt was transcribed from this score.
 - **Verification only, no content derived**: https://commons.wikimedia.org/wiki/File:Sakura.MID (CC BY-SA 2.0 de) Rainer Lewalter, via Wikimedia Commons. Used to check the transcription note for note. Only the melody (traditional, public domain) is used; nothing of this setting's harmony enters the level, so share-alike does not reach the pack.
-- **Companion and reference audio**:  (CC0) Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS.
+- **Companion and reference audio** (CC0) Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS.
 
 ## Credits
 

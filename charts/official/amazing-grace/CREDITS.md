@@ -10,7 +10,7 @@ This level is part of the kan! starter pack (KairoPhos). Melody only; no lyrics.
 
 - **Score source (MIDI setting, melody and organ)**: https://commons.wikimedia.org/wiki/File:Amazing_grace_(org).mid (CC0) Rabanus Flavus (Peter Gerloff), via Wikimedia Commons. Four organ voices; the level plays the melody (the upper voice, C5-C6) with the counterpoint and bass as its companion, retimed for calm play. The lower octave of the melody is left out of the companion so the level has one melodic line.
 - **Tune reference**: https://hymnary.org/tune/new_britain (Public domain) Hymnary records the tune's copyright as public domain.
-- **Companion and reference audio**:  (CC0) Rendered by kan! from the CC0 MIDI (KairoPhos), levelled to -20 LUFS.
+- **Companion and reference audio** (CC0) Rendered by kan! from the CC0 MIDI (KairoPhos), levelled to -20 LUFS.
 
 ## Credits
 

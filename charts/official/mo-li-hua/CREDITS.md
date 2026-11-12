@@ -9,7 +9,7 @@ This level is part of the kan! starter pack (KairoPhos). Melody only; no lyrics.
 **Level licence:** Melody: traditional, public domain. Transcription and companion setting: KairoPhos, CC0. Level files and rendered audio: KairoPhos, CC0.
 
 - **Score (the melody as collected by John Barrow)**: https://commons.wikimedia.org/wiki/File:Jasmine_barrow.svg (Public domain) Asoer, via Wikimedia Commons; the melody is according to John Barrow (1804), notated in C major. The melody in sources/mo-li-hua.txt was transcribed from this score.
-- **Companion and reference audio**:  (CC0) Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS.
+- **Companion and reference audio** (CC0) Rendered by kan! from our own setting (KairoPhos), levelled to -20 LUFS.
 
 ## Credits
 
