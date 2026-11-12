@@ -1,18 +1,39 @@
 # kan! server: Caddyfile template.
 # Replace kan.example.org with the real domain before starting the stack;
 # Caddy obtains and renews Let's Encrypt certificates automatically.
+#
+# This is the direct-exposure alternative of deploy/DEPLOY.md §15 (the
+# recommended production stack is the Cloudflare Tunnel, which has no Caddy).
+# The matcher form of `request_body` needs Caddy 2.8 or newer; the stack
+# pulls `caddy:2-alpine`, which is always new enough.
 
 kan.example.org {
 	encode zstd gzip
 
+	# Level uploads (the editor's PUT/PATCH of `/beatmap-submission`) carry a
+	# whole package or a set of changed files: the limit must cover
+	# SUBMISSION_MAX_PACKAGE_BYTES (default 100 MiB) plus the multipart
+	# framing, with headroom. Raise it together with that setting. Nothing
+	# else takes large bodies: the app parses JSON with a 256kb limit and
+	# every form is tiny (score submissions are a few hundred bytes).
+	@uploads {
+		method PUT PATCH
+		path /beatmap-submission/beatmapsets/*
+	}
+	request_body @uploads {
+		max_size 110MB
+	}
+
+	@bounded {
+		not path /beatmap-submission/beatmapsets/*
+	}
+	request_body @bounded {
+		max_size 256KB
+	}
+
 	# The API process. Level downloads either stream from here or answer with a
 	# 302 to a presigned object-storage URL (see app/src/storage/).
 	reverse_proxy app:3000
-
-	# Score submissions are small JSON documents; keep request bodies bounded.
-	request_body {
-		max_size 256KB
-	}
 
 	log {
 		output file /data/access.log {
