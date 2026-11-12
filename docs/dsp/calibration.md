@@ -35,7 +35,20 @@ API: `libkan/include/libkan/calibration.hpp` (dependency-free).
 - `kanfx/` backing-track pitch shifter (item: Signalsmith Stretch): must
   apply the same `correction_cents()` so instrument and song lock together.
   Not wired here; libkan stays dependency-light; the shifter lives in
-  kanfx's input/backing chain.
+  kanfx's input/backing chain. Until it is wired, the game applies Δc to
+  the companion through the level track's frequency/tempo adjustment pair
+  (their product stays 1, so the BPM is preserved;
+  `game/ruleset/UI/KanPlayfield.followTuning`) and to the detector's
+  targets by taking the tuning off everything heard
+  (`game/core/Play/TuningTracker`, seeded from the calibration).
+- `game/`'s calibration screens (issue 17): Δc is measured on a held
+  reference note by `game/core/Play/DetuneMeasure.cs`, which follows this
+  header's `DetuneCalibrator` semantics (median, 1.4826·MAD, guided or
+  nearest equal-tempered note) on the game's own live pitch readings;
+  tested in `game/core/tests/DetuneMeasureTest.cs`. The room-silence step
+  feeds `NoteDescriber::set_noise_floor` through
+  `kan_forge_live_set_noise_floor`, the hook this layer's noise gate is
+  calibrated from.
 
 ## Notes
 

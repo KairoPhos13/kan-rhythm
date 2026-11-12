@@ -46,15 +46,58 @@ and gets a player through them without a manual.
 
 ## Acceptance criteria
 
-- [ ] All three steps runnable in-game with clear prompts and results
+- [x] All three steps runnable in-game with clear prompts and results
 - [ ] Detune calibration meets the gate: a deliberately −35-cent
       instrument is matched in < 2 s, backing track follows with no
       audible artifacts and no score loss
 - [ ] Noise-floor step visibly calibrates the gate (subsequent false
       triggers drop, see `docs/issues/08` for the formal gate)
-- [ ] Latency result is applied to judging offsets (and is re-runnable)
-- [ ] Every step skippable; results persisted and shown in settings
-- [ ] Screen reachable from first run and from settings
+- [x] Latency result is applied to judging offsets (and is re-runnable)
+- [x] Every step skippable; results persisted and shown in settings
+- [x] Screen reachable from first run and from settings
+
+## Implementation (2026-11-12)
+
+The screen is one step of the first-run guide and a screen of its own
+(both `game/ruleset/FirstRun/`), from Settings → Rulesets → kan!
+("Calibrate: microphone delay, room, tuning…"). No fork change.
+
+1. **Acoustic latency**: reuses the editor's measurement unchanged
+   (`MicCalibrator` + `MicCalibration.Estimate` behind
+   `MicTimingOverlay`): four count-in clicks, eight notes, "Use it" saves
+   the delay to `kan-forge/timing.json` (`ForgeTiming.MIC_DELAY_MS`),
+   which every play takes off what it hears (`KanPlayState` →
+   `ListeningTimeline`): the judging offsets, re-runnable at any time.
+2. **Noise floor**: listens to the room for 3 s with the game's own
+   pipeline and measures its level (`Kan.Core.Play.NoiseFloorMeasure`,
+   median with the loud moments reported kindly). The result calibrates
+   the note detector (`kan_forge_live_set_noise_floor` → libkan
+   `NoteDescriber::set_noise_floor`), so the room's hum stops starting
+   notes. Persisted (`ForgeTiming.SetCalibratedNoiseFloor`).
+3. **Instrument detune**: a held reference note (the middle of the
+   instrument's range, or A4) measured by `Kan.Core.Play.DetuneMeasure`
+   (libkan's `DetuneCalibrator` semantics: median, 1.4826·MAD, guided or
+   nearest-note). Δc is applied to the detector's targets
+   (`ForgeTiming.TUNING_CENTS`, taken off everything heard before
+   judging) and to the companion, which shifts by the same Δc with the
+   tempo put back (BPM preserved) so instrument and song lock together
+   (`KanPlayfield.followTuning`).
+
+Measured offline (`game/core/tests/DetuneMeasureTest.cs`,
+`NoiseFloorMeasureTest.cs`, `game/forge/tests/MicCalibrationTest.cs`, and
+the native self-test's new noise-floor check): a −35-cent instrument is
+matched from 1.5 s of readings (inside the 2-second gate), a door slam
+does not raise the room's floor, and a floor above the sound stops
+onsets on known input. The latency measure keeps its own suite.
+
+Not verified here: the audible-artifact and score-loss halves of the
+detune gate, and the false-trigger rate in a real room (issue 08), all of
+which need a play-test. Until kanfx's consonance pitch shifter is wired,
+the companion shift goes through the level track's own pitch/tempo pair
+(the same mechanism the editor uses for track pitch). Dev hooks:
+`KAN_DEV_SCREEN=calibrate` with `KAN_DEV_STEP=latency|noise|detune`;
+in a developer run every measurement hears `KAN_LIVE_INPUT`, never the
+microphone.
 
 ## Pointers
 
