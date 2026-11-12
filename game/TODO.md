@@ -68,8 +68,9 @@ Important for a first impression:
 - [ ] First run: choose the instrument, test the microphone, calibrate,
       play an easy level
 - [x] osu!'s own game modes are not shipped (fork F-9, 2026-10-13)
-- [ ] A short demo video; the root README for players (game/README.md
-      is done, 2026-10-27)
+- [ ] A short demo video (issue 20)
+- [x] The root README for players (game/README.md, 2026-10-27; the root
+      README, 2026-11-12)
 
 Later, if it grows: kan!'s own server from osu!'s open ones (osu-web,
 osu-server-spectator), shared levels with terms of use and a takedown

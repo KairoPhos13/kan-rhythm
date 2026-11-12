@@ -15,11 +15,13 @@ special case), kan!'s vocabulary (**companion**, never "piano", for the
 accompaniment), and English only
 ([CONTRIBUTING.md](https://github.com/KairoPhos13/kan-rhythm/blob/main/CONTRIBUTING.md)).
 
-## Now: the ten that matter most (2026-11-10)
+## Now: the ten that matter most (2026-11-10, states refreshed 2026-11-12)
 
 Where kan! stands: the server is live (`kan-api.kairophos.link`), the website
-is ready (`kan.kairophos.link`), accounts work from the website and the game,
-there is no release yet and no level in the catalogue.
+is ready (`kan.kairophos.link`), accounts work from the website and the game.
+Releases v0.1.0 to v0.1.2 are published on GitHub (`docs/releases/` has the
+notes), the game ships with five starter levels (v0.1.2), and creators can
+submit levels from kan!forge (v0.1.1).
 
 | Order | Issue | Who | State |
 |---|---|---|---|
@@ -27,12 +29,12 @@ there is no release yet and no level in the catalogue.
 | 2 | [32 Server tests in CI, shaped like the game](32-server-ci-with-postgres.md) | agent | done 2026-11-10 |
 | 3 | [33 Admin tools: password reset, accounts](33-admin-tools.md) | agent | done 2026-11-10 |
 | 4 | [35 Nightly database backups to R2](35-nightly-backups.md) | Claude | done 2026-11-10 |
-| 5 | [15 First free levels](15-first-free-bundled-level.md) with [14 companions](14-companions-for-free-songs.md) | owner, then import | levels done 2026-11-11 (agent); 14 open |
-| 6 | [09 Windows](09-windows-build-and-playtest.md) and [10 macOS](10-macos-build-and-playtest.md) play-tests, with the first release `v0.1.0` | owner, testers | next |
+| 5 | [15 First free levels](15-first-free-bundled-level.md) with [14 companions](14-companions-for-free-songs.md) | owner, then import | levels done 2026-11-11 (agent), shipped in v0.1.2; play-tests 01-06 left; 14 open |
+| 6 | [09 Windows](09-windows-build-and-playtest.md) and [10 macOS](10-macos-build-and-playtest.md) play-tests, with the first release `v0.1.0` | owner, testers | releases v0.1.0 to v0.1.2 published (2026-11-10 to 2026-11-11); play-tests 09, 10 open |
 | 7 | [22 Leftover osu! text](22-osu-string-sweep-remaining.md) (mod descriptions such as "SS or quit") | agent | done 2026-11-10 |
 | 8 | [24 Hide osu!-only features](24-hide-osu-only-features.md) | agent | done 2026-11-10 |
-| 9 | [34 Level uploads for creators](34-level-uploads.md) | owner decides the design | open |
-| 10 | [27 Level creator handbook](27-level-creator-handbook.md) | agent, owner reviews | draft done, owner reviews |
+| 9 | [34 Level uploads for creators](34-level-uploads.md) | owner decides the design | done 2026-11-11 (agent), shipped in v0.1.1: [lazer-protocol.md](../../server/docs/lazer-protocol.md) §4.8, fork F-30 in [fork-divergence.md](../../game/docs/fork-divergence.md) |
+| 10 | [27 Level creator handbook](27-level-creator-handbook.md) | agent, owner reviews | draft done 2026-11-11, shipped in v0.1.1 as a first draft; owner reviews |
 
 ## Issue 15 progress (2026-11-11)
 
@@ -47,6 +49,22 @@ audio) and every source and licence is recorded in the level's `CREDITS.md`.
 What is left of the acceptance list: playing the levels end to end on two
 instrument families (the play-test issues 01-06), and the artist-made
 companions of issue 14.
+
+## Issue 34 progress (2026-11-11)
+
+Levels now reach kan!'s server from their creators, through osu!'s own
+in-editor submission pointed at kan!'s server (fork F-30 in
+[game/docs/fork-divergence.md](../../game/docs/fork-divergence.md)): a
+signed-in creator opens the level in kan!forge, chooses *File > Submit
+level...*, and the level is published under their name as *Work in
+progress* or *Pending*. Following osu!'s status semantics, ranked levels
+appear in the main listing and get a leaderboard, and the owner moves a
+level between statuses from the admin CLI
+(`server/app/src/admin/level-admin.ts`). The routes and their rules are
+recorded in [server/docs/lazer-protocol.md](../../server/docs/lazer-protocol.md)
+§4.8; the submission shares the importer's checks (kan! difficulties
+only, size limits, `server/app/src/beatmaps/submission-rules.ts`) and
+limits uploads per creator and hour. Shipped in v0.1.1.
 
 ## Index
 
