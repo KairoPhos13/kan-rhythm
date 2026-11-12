@@ -28,6 +28,56 @@ and it never uses anxiety or compulsion to keep you playing.
 
 ---
 
+## Start playing
+
+kan! runs on your own computer: free, offline, no account needed, and
+nothing the microphone hears is recorded or sent. What you bring is an
+instrument that plays notes and a plain microphone; the one in a laptop
+is enough.
+
+**Quickstart**
+
+1. **Get kan!.** Download the zip for your system (Windows 10 or 11,
+   macOS 13 or newer, or Linux, 64-bit) from the
+   [releases page](https://github.com/KairoPhos13/kan-rhythm/releases) or
+   the [website](https://kan.kairophos.link), unzip it and open kan!.
+   kan! is not signed yet, so your system warns you the first time: on
+   Windows choose *More info* and then *Run anyway*, on macOS
+   control-click kan! and choose *Open*. Building it yourself works too:
+   [game/README.md](game/README.md).
+2. **Choose your instrument.** In song select, right under the level,
+   kan! shows your instrument and the notes it plays; click it to change
+   them, and the list of levels follows. Every level is fitted to your
+   instrument's range, and kan! learns the instrument's own tuning and
+   takes it off, so a slightly flat or sharp instrument is not punished.
+3. **Play an easy level.** The first time kan! opens, five free starter
+   levels are already in song select, no account needed: *Sakura Sakura*,
+   *Kojo no Tsuki*, *Mo Li Hua*, *Xicochi* and *Amazing Grace*. They are
+   easy to moderate, made for kan! from music that belongs to everyone,
+   and each one starts with a bar of soft pulses so you hear the tempo
+   before the first note. To take it gently, the *Wait for me* mod stops
+   at every note until you play it.
+
+**Where levels come from.** The five starter levels come with the game.
+More levels come from players who make them in kan!forge and submit them
+from the editor (*File > Submit level...*); the ranked ones appear in the
+level listing. You can browse that listing in the game. A free account,
+made on the [website](https://kan.kairophos.link) or in the game, is what
+you download levels with, and what puts your scores on the leaderboards.
+A level file shared with you directly works too: drag it into the game
+and it appears in song select. To make your own, the
+[level creator's handbook](game/docs/level-creation-guide.md) walks the
+whole path, from a song on your computer to a level someone else can
+play.
+
+**Where the community lives.** In the
+[issue tracker](https://github.com/KairoPhos13/kan-rhythm/issues): what
+is being worked on, what is broken, and what players of each instrument
+find. The [website](https://kan.kairophos.link) has the downloads and
+accounts. To help or follow along, see [Join in](#join-in).
+
+---
+
 ## What you can do
 
 - **Play any instrument that plays notes.** Each level is fitted to your
@@ -48,9 +98,11 @@ More about how a play is judged: [game/docs/gameplay.md](game/docs/gameplay.md).
 ## Status
 
 Playable and in daily testing on Linux, mostly with an alto ocarina, and
-close to its first public release. Windows and macOS builds are produced by
-CI and still need testing on real machines. Players of other instruments are
-especially welcome: see [Join in](#join-in).
+publicly released (v0.1.0 to v0.1.2, on the
+[releases page](https://github.com/KairoPhos13/kan-rhythm/releases)).
+Windows and macOS builds are produced by CI and still need testing on
+real machines. Players of other instruments are especially welcome: see
+[Join in](#join-in).
 
 ---
 
