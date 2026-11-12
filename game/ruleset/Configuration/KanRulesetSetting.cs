@@ -27,6 +27,16 @@ namespace Kan.Ruleset.Configuration
         /// <summary>Each note in its own colour (C red, D orange…), whatever the palette.</summary>
         ColourByNote,
 
+        /// <summary>
+        /// The colour palette (issue 18): the level's own, or a colour-blind-safe
+        /// one that wins over the level (<see cref="Kan.Core.Design.KanPaletteMode"/>),
+        /// in the notation settings and Settings → kan!.
+        /// </summary>
+        Palette,
+
+        /// <summary>How big kan!'s own text draws (issue 19): 1 = the designed size, on top of the client's own scaling.</summary>
+        TextSize,
+
         /// <summary>Song select lists only the levels the player's instrument can play.</summary>
         OnlyPlayableLevels,
 

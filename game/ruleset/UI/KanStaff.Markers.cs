@@ -55,7 +55,7 @@ namespace Kan.Ruleset.UI
                         {
                             Anchor = Anchor.CentreLeft,
                             Origin = Anchor.CentreLeft,
-                            Font = OsuFont.GetFont(size: 18, weight: FontWeight.Black),
+                            Font = KanTextScale.GameplayFont(18, FontWeight.Black),
                             Shadow = true,
                         },
                         new SpriteIcon
@@ -177,7 +177,7 @@ namespace Kan.Ruleset.UI
                         Anchor = Anchor.Centre,
                         Origin = Anchor.Centre,
                         Y = -70,
-                        Font = OsuFont.GetFont(size: 44, weight: FontWeight.Black),
+                        Font = KanTextScale.GameplayFont(44, FontWeight.Black),
                         Shadow = true,
                     },
                 };

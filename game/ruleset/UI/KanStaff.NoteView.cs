@@ -92,7 +92,7 @@ namespace Kan.Ruleset.UI
                                 Anchor = Anchor.CentreLeft,
                                 Origin = Anchor.CentreLeft,
                                 X = head / 2 + 4,
-                                Font = OsuFont.GetFont(size: 14, weight: FontWeight.Bold),
+                                Font = KanTextScale.GameplayFont(14, FontWeight.Bold),
                                 Colour = Color4.White,
                                 Alpha = 0.8f,
                             },
@@ -128,7 +128,7 @@ namespace Kan.Ruleset.UI
                     name = new OsuSpriteText
                     {
                         Origin = Anchor.Centre,
-                        Font = OsuFont.GetFont(size: 14, weight: FontWeight.Black),
+                        Font = KanTextScale.GameplayFont(14, FontWeight.Black),
                         Colour = Color4.White,
                         Shadow = true,
                         ShadowColour = Color4.Black.Opacity(0.55f),
@@ -137,7 +137,7 @@ namespace Kan.Ruleset.UI
                     mark = new OsuSpriteText
                     {
                         Origin = Anchor.BottomCentre,
-                        Font = OsuFont.GetFont(size: 18, weight: FontWeight.Black),
+                        Font = KanTextScale.GameplayFont(18, FontWeight.Black),
                         Colour = Color4.White,
                         Shadow = true,
                     },
@@ -253,9 +253,14 @@ namespace Kan.Ruleset.UI
                 name.Scale = new Vector2(scale * (1 + pop * 0.6f));
                 name.Alpha = missed ? 0.6f : 1;
 
-                // Style mark above the head: accent ">", staccato "•".
+                // Above the head: the style mark (accent ">", staccato "•"),
+                // and once it is judged, the pitch's own mark (issue 18: the
+                // white in-tune fill is never the only thing that says it):
+                // "✓" in tune, "↑" sharp, "↓" flat, "?" when the pitch is unclear.
                 mark.Position = new Vector2(x + shake, y + drop - size / 2 - 2);
-                mark.Text = accent ? @">" : staccato ? @"•" : string.Empty;
+                mark.Text = verdict is { } judged && !missed
+                    ? pitchMark(judged, staff.state.Judge.PerfectCents)
+                    : accent ? @">" : staccato ? @"•" : string.Empty;
 
                 // Tail: how long it lasts (a staccato note has none); vibrato is wavy.
                 float width = staccato ? 0 : Math.Max(0, (float)(n.DurationMs * staff.speed));
@@ -305,6 +310,13 @@ namespace Kan.Ruleset.UI
                 else
                     ring.Alpha = 0;
             }
+
+            /// <summary>The mark that tells the pitch's judgment apart without colour (issue 18).</summary>
+            private static string pitchMark(LiveVerdict verdict, double perfectCents) => verdict.Reason switch
+            {
+                LiveReason.PitchUnclear => @"?",
+                _ => Math.Abs(verdict.Cents) <= perfectCents ? @"✓" : verdict.Cents > 0 ? @"↑" : @"↓",
+            };
         }
     }
 }

@@ -12,9 +12,10 @@ using Kan.Ruleset.Configuration;
 namespace Kan.Ruleset.UI
 {
     /// <summary>
-    /// Settings → Rulesets → kan!: the player's instrument and its range
-    /// (owner 2026-10-15: any level on any instrument), the note size, and
-    /// the instrument's tuning. Persisted locally.
+    /// Settings → kan!: the player's instrument and its range (owner
+    /// 2026-10-15: any level on any instrument), the note size, the text size
+    /// and the colour palette (issues 18, 19), and the instrument's tuning.
+    /// Persisted locally.
     /// </summary>
     public partial class KanSettingsSubsection : RulesetSettingsSubsection
     {
@@ -74,6 +75,20 @@ namespace Kan.Ruleset.UI
                     Current = config.GetBindable<double>(KanRulesetSetting.NoteSize),
                     KeyboardStep = 0.05f,
                     DisplayAsPercentage = true,
+                }),
+                new SettingsItemV2(new FormSliderBar<double>
+                {
+                    Caption = @"Text size",
+                    HintText = @"How big kan!'s own words draw: note names, judgment feedback, the wait overlay and the instrument line (issues 18, 19). It grows on top of the client's own UI scaling, never against it.",
+                    Current = config.GetBindable<double>(KanRulesetSetting.TextSize),
+                    KeyboardStep = 0.05f,
+                    DisplayAsPercentage = true,
+                }),
+                new SettingsItemV2(new FormEnumDropdown<Kan.Core.Design.KanPaletteMode>
+                {
+                    Caption = @"Colour palette",
+                    HintText = @"As the level designed it, or a colour-blind-safe palette that wins over the level: the notes, the trail, the hot line and the climax keep the level's lightness and backgrounds, but their colours are chosen so every one of them reads apart for that kind of vision.",
+                    Current = config.GetBindable<Kan.Core.Design.KanPaletteMode>(KanRulesetSetting.Palette),
                 }),
                 new SettingsItemV2(new FormCheckBox
                 {

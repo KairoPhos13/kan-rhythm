@@ -81,27 +81,28 @@ namespace Kan.Ruleset.UI
         private const int tick_pool = 96;
         private const double trail_ms = 2200;
 
-        private static readonly Color4 unknown_colour = Color4Extensions.FromHex(@"8a8a99");
+        private static readonly Color4 unknown_colour = Color4Extensions.FromHex(KanGradeColours.Unknown);
         // Three grades: perfect white, radiating faint gold
         // (it was orchid, and before that a near-white that read like the old
         // lilac meh), good green, meh grey. White is "right": a played note's
         // ring is white when its timing was perfect, its inside white when its
-        // pitch was in tune.
-        private static readonly Color4 perfect_colour = Color4Extensions.FromHex(@"fffaf0");
+        // pitch was in tune. The values live in KanGradeColours (core), so the
+        // accessibility tests check exactly what is drawn (issue 18).
+        private static readonly Color4 perfect_colour = Color4Extensions.FromHex(KanGradeColours.Perfect);
 
         /// <summary>The faint gold a perfect radiates (its halo, the inside's lower edge).</summary>
-        private static readonly Color4 perfect_glow = Color4Extensions.FromHex(@"ffd98a");
+        private static readonly Color4 perfect_glow = Color4Extensions.FromHex(KanGradeColours.PerfectGlow);
 
         /// <summary>The target's ring while the perfect window is open: deeper than the perfects' own glow.</summary>
-        private static readonly Color4 window_gold = Color4Extensions.FromHex(@"ffb300");
+        private static readonly Color4 window_gold = Color4Extensions.FromHex(KanGradeColours.WindowGold);
 
         /// <summary>The target's pulse: two quiet tones, swapped on every line of the grid.</summary>
-        private static readonly Color4 pulse_a = Color4Extensions.FromHex(@"5fc9bf");
+        private static readonly Color4 pulse_a = Color4Extensions.FromHex(KanGradeColours.PulseA);
 
-        private static readonly Color4 pulse_b = Color4Extensions.FromHex(@"9c86e6");
+        private static readonly Color4 pulse_b = Color4Extensions.FromHex(KanGradeColours.PulseB);
 
-        private static readonly Color4 good_colour = Color4Extensions.FromHex(@"7cdb8a");
-        private static readonly Color4 meh_colour = Color4Extensions.FromHex(@"9e9ea8");
+        private static readonly Color4 good_colour = Color4Extensions.FromHex(KanGradeColours.Good);
+        private static readonly Color4 meh_colour = Color4Extensions.FromHex(KanGradeColours.Meh);
 
         /// <summary>A missed note becomes a shadow: black, half seen (<see cref="missed_alpha"/>).</summary>
         private static readonly Color4 miss_colour = Color4.Black;
@@ -109,7 +110,7 @@ namespace Kan.Ruleset.UI
         private const float missed_alpha = 0.5f;
 
         /// <summary>Feedback for a miss: clearly red (the dim <see cref="miss_colour"/> marks notes already missed).</summary>
-        private static readonly Color4 miss_feedback_colour = Color4Extensions.FromHex(@"ff5a6e");
+        private static readonly Color4 miss_feedback_colour = Color4Extensions.FromHex(KanGradeColours.Miss);
 
         /// <summary>A note's name as the player chose to read it (letters or Do-Re-Mi; <see cref="KanNotation"/>).</summary>
         public static string NoteName(int midi) => KanNotation.Label(midi);
@@ -122,10 +123,12 @@ namespace Kan.Ruleset.UI
             _ => miss_feedback_colour,
         };
 
-        // Built once: GetFont spells its weight anew on every call, every frame.
-        private static readonly FontUsage name_font = OsuFont.GetFont(size: 14, weight: FontWeight.Black);
-        private static readonly FontUsage next_name_font = OsuFont.GetFont(size: 16, weight: FontWeight.Black);
-        private static readonly FontUsage feedback_font = OsuFont.GetFont(size: 17, weight: FontWeight.Bold);
+        // Through KanTextScale (issue 19): cached, so "GetFont spells its weight
+        // anew on every call, every frame" stays solved while the text size
+        // still follows the player's setting live.
+        private static FontUsage name_font => KanTextScale.GameplayFont(14, FontWeight.Black);
+        private static FontUsage next_name_font => KanTextScale.GameplayFont(16, FontWeight.Black);
+        private static FontUsage feedback_font => KanTextScale.GameplayFont(17, FontWeight.Bold);
 
         private readonly KanPlayState state;
         private readonly KanScene scene;
@@ -197,7 +200,7 @@ namespace Kan.Ruleset.UI
                 {
                     Origin = Anchor.CentreLeft,
                     X = 10,
-                    Font = OsuFont.GetFont(size: 13, weight: FontWeight.SemiBold),
+                    Font = KanTextScale.GameplayFont(13, FontWeight.SemiBold),
                     Alpha = 0,
                 });
             }
@@ -210,7 +213,7 @@ namespace Kan.Ruleset.UI
                 lines.Add(barLabels[i] = new OsuSpriteText
                 {
                     Origin = Anchor.BottomCentre,
-                    Font = OsuFont.GetFont(size: 12, weight: FontWeight.SemiBold),
+                    Font = KanTextScale.GameplayFont(12, FontWeight.SemiBold),
                     Alpha = 0,
                 });
             }
@@ -239,7 +242,7 @@ namespace Kan.Ruleset.UI
             // first verdict loading them was a stutter on the first note.
             feedbackLayer.Add(new OsuSpriteText
             {
-                Text = @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789·:♯↑↓?",
+                Text = @"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789·:♯↑↓?✓",
                 Font = feedback_font,
                 Shadow = true,
                 Alpha = 0,

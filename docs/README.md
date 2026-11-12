@@ -17,6 +17,11 @@ Architecture deep-dives:
 (what a level's length, BPM and star rating come from: the score's marks in
 the `.osu`, and the difficulty model).
 
+Audits: [accessibility-audit.md](accessibility-audit.md) (colour-blind-safe
+palettes and text size, issues 18 and 19, with
+[accessibility-palettes.svg](accessibility-palettes.svg) as before/after
+views under simulated colour vision).
+
 ## Intended contents
 
 - `architecture/`: system overview, audio pipeline diagrams, threading model

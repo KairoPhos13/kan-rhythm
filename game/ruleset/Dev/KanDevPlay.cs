@@ -32,6 +32,11 @@ namespace Kan.Ruleset.Dev
     /// opens song select on that level instead of playing it (the screen a
     /// player goes through; owner 2026-10-15: it crashed there).
     /// KAN_DEV_MODS="HT,NF" plays with those mods (acronyms);
+    /// KAN_DEV_NOTATION="solfege,colour,palette:deuteranopia,text:1.5,size:1.6"
+    /// sets the notation options: Do-Re-Mi names, colour by note, the colour
+    /// palette (level / deuteranopia / protanopia / tritanopia, issues 18 and
+    /// 19's palettes and sizes swept for screenshots), the text size and the
+    /// note size;
     /// KAN_DEV_SCREEN=replay plays back the level's newest local score;
     /// KAN_DEV_SCREEN=design / setup / compose / tracks / verify opens the editor on that tab
     /// (KAN_DEV_TRACKS=render: leaves it to render the level audio, back on its mixing desk);
@@ -48,6 +53,7 @@ namespace Kan.Ruleset.Dev
         public const string SCREEN_ENV = @"KAN_DEV_SCREEN";
         public const string MODS_ENV = @"KAN_DEV_MODS";
         public const string PAUSE_ENV = @"KAN_DEV_PAUSE";
+        public const string NOTATION_ENV = @"KAN_DEV_NOTATION";
 
         [Resolved]
         private Bindable<System.Collections.Generic.IReadOnlyList<osu.Game.Rulesets.Mods.Mod>> mods { get; set; } = null!;
@@ -151,13 +157,41 @@ namespace Kan.Ruleset.Dev
             if (acronyms.Length > 0)
                 Logger.Log($"kan! dev play: mods {string.Join(",", mods.Value.Select(m => m.Acronym))}", level: LogLevel.Important);
 
-            // KAN_DEV_NOTATION=solfege,colour: the notation settings.
-            string notation = Environment.GetEnvironmentVariable(@"KAN_DEV_NOTATION") ?? string.Empty;
+            // KAN_DEV_NOTATION=solfege,colour,palette:deuteranopia,text:1.5,size:1.6:
+            // the notation settings (issue 18's palettes and issue 19's sizes are
+            // swept with it for screenshots). Each option sets its own value;
+            // options left out keep whatever the dev data folder holds.
+            string notation = Environment.GetEnvironmentVariable(NOTATION_ENV) ?? string.Empty;
 
             if (notation.Length > 0 && configs.GetConfigFor(instance) is Kan.Ruleset.Configuration.KanRulesetConfigManager kanConfig)
             {
-                if (notation.Contains(@"solfege")) kanConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.NoteNames, Kan.Ruleset.UI.KanNoteNames.Solfege);
-                kanConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.ColourByNote, notation.Contains(@"colour"));
+                foreach (string option in notation.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                {
+                    int colon = option.IndexOf(':');
+                    string word = colon < 0 ? option : option[..colon];
+
+                    static bool factor(string option, out double value)
+                    {
+                        int colon = option.IndexOf(':');
+                        value = 0;
+                        return colon > 0 && double.TryParse(option[(colon + 1)..], NumberStyles.Float, CultureInfo.InvariantCulture, out value);
+                    }
+
+                    if (word == @"solfege")
+                        kanConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.NoteNames, Kan.Ruleset.UI.KanNoteNames.Solfege);
+                    else if (word == @"colour")
+                        kanConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.ColourByNote, true);
+                    else if (word == @"palette" && Kan.Core.Design.KanPaletteModes.Parse(option[(colon + 1)..]) is { } palette)
+                        kanConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.Palette, palette);
+                    else if (word == @"text" && factor(option, out double textSize))
+                        kanConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.TextSize, textSize);
+                    else if (word == @"size" && factor(option, out double noteSize))
+                        kanConfig.SetValue(Kan.Ruleset.Configuration.KanRulesetSetting.NoteSize, noteSize);
+                    else
+                        Logger.Log($"kan! dev play: {NOTATION_ENV} option not recognised: {option}", level: LogLevel.Important);
+                }
+
+                Logger.Log($"kan! dev play: {NOTATION_ENV} {notation}", level: LogLevel.Important);
             }
 
             // KAN_DEV_INSTRUMENT=guitar:40-64: the player's instrument and range.

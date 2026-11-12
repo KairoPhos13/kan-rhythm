@@ -76,7 +76,7 @@ namespace Kan.Ruleset.UI
                     Anchor = Anchor.Centre,
                     Origin = Anchor.TopCentre,
                     Y = 150,
-                    Font = OsuFont.GetFont(size: 20, weight: FontWeight.SemiBold),
+                    Font = KanTextScale.GameplayFont(20, FontWeight.SemiBold),
                     Shadow = true,
                 },
             };
@@ -187,7 +187,7 @@ namespace Kan.Ruleset.UI
                     Anchor = Anchor.TopCentre,
                     Origin = Anchor.TopCentre,
                     Y = 130,
-                    Font = OsuFont.GetFont(size: 34, weight: FontWeight.Black),
+                    Font = KanTextScale.GameplayFont(34, FontWeight.Black),
                     Spacing = new Vector2(6, 0),
                     Shadow = true,
                     Alpha = 0,

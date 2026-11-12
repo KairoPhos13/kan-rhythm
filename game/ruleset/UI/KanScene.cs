@@ -69,7 +69,7 @@ namespace Kan.Ruleset.UI
         protected override void LoadComplete()
         {
             base.LoadComplete();
-            snapTo(Design.PaletteAt(Clock.CurrentTime));
+            snapTo(Design.PaletteAt(Clock.CurrentTime).ForMode(KanNotation.Palette));
         }
 
         protected override void Update()
@@ -100,7 +100,9 @@ namespace Kan.Ruleset.UI
             double climaxK = Math.Min(1, Math.Abs(Time.Elapsed) / colour_ease_ms);
             ClimaxAmount += ((section?.Climax == true ? 1 : 0) - ClimaxAmount) * (float)climaxK;
 
-            easeTo(Design.PaletteAt(now), Math.Min(1, Math.Abs(Time.Elapsed) / colour_ease_ms));
+            // The palette the player chose (issue 18): the level's own, or a
+            // colour-blind-safe override that wins over the level.
+            easeTo(Design.PaletteAt(now).ForMode(KanNotation.Palette), Math.Min(1, Math.Abs(Time.Elapsed) / colour_ease_ms));
         }
 
         private bool anyNoteSounding(double now)

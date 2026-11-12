@@ -80,7 +80,7 @@ namespace Kan.Ruleset.UI
                     Current = ForgeTiming.PLAYER_TIMING_MS,
                     KeyboardStep = 1,
                 },
-                lastPlay = new OsuTextFlowContainer(t => t.Font = OsuFont.GetFont(size: 13))
+                lastPlay = new OsuTextFlowContainer(t => t.Font = KanTextScale.MenuFont(13))
                 {
                     RelativeSizeAxes = Axes.X,
                     AutoSizeAxes = Axes.Y,

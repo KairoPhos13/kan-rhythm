@@ -31,6 +31,12 @@ namespace Kan.Ruleset.Configuration
             SetDefault(KanRulesetSetting.NoteSize, 1.2, 0.8, 2.0, 0.05);
             SetDefault(KanRulesetSetting.NoteNames, Kan.Ruleset.UI.KanNoteNames.Letters);
             SetDefault(KanRulesetSetting.ColourByNote, false);
+
+            // Accessibility (issues 18, 19): the palette is the level's until
+            // the player asks for a colour-blind-safe one; text is the designed
+            // size until they ask for more (both followed live).
+            SetDefault(KanRulesetSetting.Palette, Kan.Core.Design.KanPaletteMode.AsTheLevel);
+            SetDefault(KanRulesetSetting.TextSize, 1.0, 0.75, 2.0, 0.05);
             SetDefault(KanRulesetSetting.OnlyPlayableLevels, true);
             SetDefault(KanRulesetSetting.StaffFollowsPassage, false);
 
