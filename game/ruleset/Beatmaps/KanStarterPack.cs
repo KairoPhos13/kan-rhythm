@@ -9,6 +9,8 @@ using osu.Framework.Allocation;
 using osu.Framework.Graphics;
 using osu.Framework.Logging;
 using osu.Game.Beatmaps;
+using osu.Game.Database;
+using osu.Game.Overlays.Notifications;
 using Kan.Ruleset.Configuration;
 
 namespace Kan.Ruleset.Beatmaps
@@ -65,19 +67,49 @@ namespace Kan.Ruleset.Beatmaps
                     return;
 
                 Logger.Log($"kan!: importing the starter pack v{version} ({levels.Length} levels)");
-                foreach (string level in levels)
-                    beatmaps.Import(level).ContinueWith(t =>
-                    {
-                        if (t.Exception != null)
-                            Logger.Log($"kan!: the starter pack's {Path.GetFileName(level)} did not import: {t.Exception.Message}");
-                    });
 
-                config?.GetBindable<int>(KanRulesetSetting.StarterPackVersion).Value = version;
+                // Quietly, as one batch: the levels are simply there in song
+                // select. A notification that is never posted keeps the first
+                // launch free of five "Imported ..." toasts (calm by design).
+                var quiet = new ProgressNotification();
+                beatmaps.Import(quiet, levels.Select(l => new BundledLevel(l)).ToArray(), new ImportParameters { Batch = true })
+                        .ContinueWith(t =>
+                        {
+                            if (t.Exception != null || t.Result.Count() < levels.Length)
+                            {
+                                // Not remembered: the next launch tries again.
+                                Logger.Log($"kan!: the starter pack imported {(t.Exception == null ? t.Result.Count() : 0)} of {levels.Length} levels: {t.Exception?.GetBaseException().Message}");
+                                return;
+                            }
+
+                            Schedule(() =>
+                            {
+                                if (config != null)
+                                    config.GetBindable<int>(KanRulesetSetting.StarterPackVersion).Value = version;
+                            });
+                        });
             }
             catch (Exception e)
             {
                 // Never keep the game from starting over a bundle of levels.
                 Logger.Log($"kan!: the starter pack did not import: {e.Message}");
+            }
+        }
+
+        /// <summary>
+        /// A level shipped with the release: imported like any .osz, but never
+        /// deleted afterwards (the game deletes an imported .osz; this one
+        /// belongs to the installed game, read-only on some systems).
+        /// </summary>
+        private class BundledLevel : ImportTask
+        {
+            public BundledLevel(string path)
+                : base(path)
+            {
+            }
+
+            public override void DeleteFile()
+            {
             }
         }
 
