@@ -14,6 +14,11 @@ Architecture deep-dives:
 [architecture/osu-integration.md](architecture/osu-integration.md)
 (client base: osu!lazer fork + ruleset, C-ABI bridge, `.kan`↔`.osz`).
 
+Audits: [accessibility-audit.md](accessibility-audit.md) (colour-blind-safe
+palettes and text size, issues 18 and 19, with
+[accessibility-palettes.svg](accessibility-palettes.svg) as before/after
+views under simulated colour vision).
+
 ## Intended contents
 
 - `architecture/`: system overview, audio pipeline diagrams, threading model

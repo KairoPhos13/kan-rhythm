@@ -671,12 +671,24 @@ section on now, the palette in force (eased between sections over
   E green, F mint, G blue, A lilac, B pink, sharps between), chosen to
   be as far apart as they can be to the eye, lightness included (owner
   2026-10-26: E and F looked alike), so a note is known at a glance on
-  any instrument. Chosen in the player loader's side panel
-  ("Notation", fork F-16) or Settings → kan!; followed live.
+  any instrument. Four colour palettes (issue 18, 2026-11-12): that
+  rainbow, and one per kind of colour vision (deuteranopia, protanopia,
+  tritanopia), where the naturals take one hue and the sharps another
+  and lightness keeps the twelve apart; the same choice also overrides
+  the level's palette, the player winning over the level while the
+  level's lightness and backgrounds survive. Chosen in the player
+  loader's side panel ("Notation", fork F-16) or Settings → kan!;
+  followed live. The numbers behind it:
+  [../../docs/accessibility-audit.md](../../docs/accessibility-audit.md).
 - **Size:** the staff (and the wait overlay) is designed for a 900-pixel
   high screen and scaled to the real one, times Settings → kan! → Note
   size (120 % by default; owner 2026-10-15: "on a 2K screen I can barely
-  see it"). The time shown ahead does not depend on the size.
+  see it"). The time shown ahead does not depend on the size. The words
+  have their own control (issue 19): Settings → kan! → Text size (75 % to
+  200 %), one factor for kan!'s own text (note names, judgment feedback,
+  the wait overlay, the instrument wedge), on top of the client's own
+  scaling and, in play, of osu!'s UI scale (which the fork's playfield is
+  left out of).
 - **The staff is scaled to the level's notes** (owner 2026-10-23: "the
   shorter the notes, the wider the horizontal scale … the more they are
   squeezed, the harder they are to play right"). The time shown ahead is
@@ -771,6 +783,7 @@ as the player (dev) ignore it.
 | `KAN_DEV_SCREENSHOTS=20,45` | screenshots that many seconds into the level |
 | `KAN_LIVE_INPUT_REALTIME=1` | the recording plays in real time, like a player (rate and wait modes) |
 | `KAN_DEV_MODS=HT,NF` | play with those mods; `AT` plays through a replay player |
+| `KAN_DEV_NOTATION="solfege,colour,palette:deuteranopia,text:1.5,size:1.6"` | the notation settings: Do-Re-Mi names, colour by note, the colour palette (level / deuteranopia / protanopia / tritanopia) and the text and note sizes; a palette and size sweep for screenshots (issues 18, 19) |
 | `KAN_DEV_PAUSE=12` | pause 12 s into the level and continue 2 s later (as after a window switch) |
 | `KAN_DEV_SCREEN=select` / `replay` / `design` | open song select on the level / play back its newest local score / open the editor on its design tab |
 | `KAN_DEV_SEEK="20:8"` | with `replay`: 20 s in, seek the level to 8 s (a replay rewound; 2026-10-22 it crashed: a frame's negative elapsed time sent the staff's eased pitch range to infinity; every easing now takes the step's size) |

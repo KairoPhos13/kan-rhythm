@@ -34,6 +34,19 @@ there is no release yet and no level in the catalogue.
 | 9 | [34 Level uploads for creators](34-level-uploads.md) | owner decides the design | open |
 | 10 | [27 Level creator handbook](27-level-creator-handbook.md) | agent, owner reviews | draft done, owner reviews |
 
+## Accessibility work (2026-11-12)
+
+Issues 18 and 19 are done: kan!'s own surfaces got colour-blind-safe
+palettes and one text-size control. The audit (every place colour encodes
+meaning, every text surface at four window/OS sizes, and the numbers
+behind each fix) is [accessibility-audit.md](../accessibility-audit.md),
+with the before/after palette views under simulated colour vision in
+[accessibility-palettes.svg](../accessibility-palettes.svg). The claims
+are asserted offline by `game/core/tests/KanColourBlindTest.cs`. What is
+left of the two acceptance lists: in-game screenshots (the isolated
+instance sweep, `KAN_DEV_NOTATION=palette:…` / `text:…`) and a
+colour-blind play-test.
+
 ## Issue 15 progress (2026-11-11)
 
 The starter pack is built and shipped: five levels in `charts/official/`
@@ -69,8 +82,8 @@ companions of issue 14.
 | 15 | [Ship a first free bundled level (charts/official/)](15-first-free-bundled-level.md) | `editor` `art` `help wanted` | L |
 | 16 | [First run: choose the instrument, test the microphone, play an easy level](16-first-run-flow.md) | `game` `help wanted` | L |
 | 17 | [3-step calibration screen (latency, noise floor, instrument detune)](17-calibration-screen.md) | `game` `audio` | M |
-| 18 | [Colour-blind-safe palettes for notes and judgment feedback](18-colour-blind-safe-palettes.md) | `game` `help wanted` | M |
-| 19 | [Font size and UI scaling that stay readable on any screen](19-font-size-and-ui-scaling.md) | `game` `good first issue` | S |
+| 18 | [Colour-blind-safe palettes for notes and judgment feedback](18-colour-blind-safe-palettes.md): done 2026-11-12, audit in [accessibility-audit.md](../accessibility-audit.md) | `game` `help wanted` | M |
+| 19 | [Font size and UI scaling that stay readable on any screen](19-font-size-and-ui-scaling.md): done 2026-11-12, audit in [accessibility-audit.md](../accessibility-audit.md) | `game` `good first issue` | S |
 | 20 | [A short demo video for the release](20-demo-video.md) | `docs` `help wanted` | M |
 | 21 | [Player-facing quickstart in the root README](21-player-quickstart-readme.md) | `docs` `good first issue` | S |
 | 22 | [String sweep, remaining scope: leftover "osu!" text in English strings](22-osu-string-sweep-remaining.md) | `game` `good first issue` | S |

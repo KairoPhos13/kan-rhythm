@@ -126,9 +126,12 @@ On a machine that has to stay responsive, bound the native build:
 `KAN_DEV_PLAY` is set (to a level's set id), so it never changes a normal
 play. With it: `KAN_LIVE_INPUT` (a recording plays the role of the
 microphone; `KAN_LIVE_INPUT_OFFSET_MS` aligns it), `KAN_DEV_MODS`,
-`KAN_DEV_SCREEN` (`compose`, `design`, `setup`, `tracks`, `replay`, …),
-`KAN_DEV_REPAIR` (scripted editor steps), `KAN_DEV_SCREENSHOTS`,
-`KAN_DEV_PAUSE`, `KAN_DEV_RESTART`. The class comment lists them all.
+`KAN_DEV_NOTATION` (the notation settings: names, colour by note, the
+colour palette and the text and note sizes, so every palette and size can
+be screenshotted), `KAN_DEV_SCREEN` (`compose`, `design`, `setup`,
+`tracks`, `replay`, …), `KAN_DEV_REPAIR` (scripted editor steps),
+`KAN_DEV_SCREENSHOTS`, `KAN_DEV_PAUSE`, `KAN_DEV_RESTART`. The class
+comment lists them all.
 
 `KAN_VERBOSE=1` brings back libkan's console lines (progress as text,
 the separation's device and model, ggml's backend): the game shows its own
