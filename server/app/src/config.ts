@@ -77,11 +77,27 @@ function bool(value: string | undefined, fallback: boolean): boolean {
   return value === 'true' || value === '1' || value === 'yes';
 }
 
+/**
+ * The development default of `DATABASE_URL`. It carries the compose file's
+ * well-known password `kan`, so production must always set `DATABASE_URL`
+ * itself (audit S12).
+ */
+function databaseUrl(env: NodeJS.ProcessEnv): string {
+  const configured = env.DATABASE_URL;
+  if (configured && configured.trim() !== '') return configured;
+  if (env.NODE_ENV === 'production') {
+    throw new Error(
+      'DATABASE_URL is required in production (the development default carries a known password)',
+    );
+  }
+  return 'postgres://kan:kan@localhost:55432/kan';
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const driver = env.STORAGE_DRIVER === 's3' ? 's3' : 'local';
   return {
     port: int(env.PORT, 3000),
-    databaseUrl: env.DATABASE_URL ?? 'postgres://kan:kan@localhost:55432/kan',
+    databaseUrl: databaseUrl(env),
     trustProxy: parseTrustProxy(env.TRUST_PROXY),
     websiteUrl: (env.WEBSITE_URL ?? '').trim(),
     oauth: {

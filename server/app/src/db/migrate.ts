@@ -2,15 +2,24 @@
  * Plain SQL migration runner. Files in `migrations/` are applied in
  * alphabetical order exactly once, each in its own transaction, and recorded
  * in `schema_migrations`.
+ *
+ * One migrator at a time across processes (audit S12): the run holds a
+ * session-level advisory lock, so two instances starting together (a container
+ * restart while another is still migrating) queue up instead of both applying
+ * the same file.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import path from 'node:path';
 import { Pool } from 'pg';
 
+/** Advisory lock key for migration runs ('kan' as a number). */
+export const MIGRATIONS_LOCK_KEY = 0x6b616e;
+
 export async function runMigrations(pool: Pool, migrationsDir: string): Promise<string[]> {
   const client = await pool.connect();
   const applied: string[] = [];
   try {
+    await client.query('SELECT pg_advisory_lock($1)', [MIGRATIONS_LOCK_KEY]);
     await client.query(
       `CREATE TABLE IF NOT EXISTS schema_migrations (
          name        text PRIMARY KEY,
@@ -40,6 +49,10 @@ export async function runMigrations(pool: Pool, migrationsDir: string): Promise<
     }
     return applied;
   } finally {
+    // The lock is session-scoped: release it before the connection goes back
+    // to the pool, or the next run on this connection would inherit it. A lost
+    // connection releases the lock on its own.
+    await client.query('SELECT pg_advisory_unlock($1)', [MIGRATIONS_LOCK_KEY]).catch(() => undefined);
     client.release();
   }
 }
