@@ -8,6 +8,7 @@ Run with: python3 -m unittest discover -s tools/level_pack/tests
 
 from __future__ import annotations
 
+import json
 import os
 import sys
 import unittest
@@ -162,6 +163,42 @@ class LevelTest(unittest.TestCase):
         data = level_mod.background_png("sakura", width=8, height=4)
         self.assertTrue(data.startswith(b"\x89PNG\r\n\x1a\n"))
         self.assertTrue(data.endswith(b"IEND\xaeB`\x82"), "a complete PNG ends with IEND")
+
+    def test_the_osu_carries_the_scores_marks(self):
+        notes = [{"StartMs": 1000, "DurationMs": 500},
+                 {"StartMs": 2000, "DurationMs": 2500}]
+        lines = [l for l in level_mod.hit_objects_text(notes).splitlines() if l]
+        self.assertEqual(["256,192,1000.000,1,0,0:0:0:0:",
+                          "256,192,2000.000,1,0,0:0:0:0:",
+                          "256,192,4500.000,1,0,0:0:0:0:"], lines,
+                         "one mark per note's start and one at the level's end (the last note's end)")
+
+        song = level_mod.Song(slug="t", title="t")
+        text = level_mod.osu_text(song, notes, "audio.ogg", "background.png", 0)
+        self.assertIn("[HitObjects]\n" + "".join(line + "\n" for line in lines), text)
+
+    def test_a_level_without_notes_has_no_marks(self):
+        self.assertEqual("", level_mod.hit_objects_text([]))
+        song = level_mod.Song(slug="t", title="t")
+        self.assertTrue(level_mod.osu_text(song, [], "audio.ogg", "background.png", 0).endswith("[HitObjects]\n"))
+
+    def test_the_shipped_levels_carry_their_scores_marks(self):
+        for name in sorted(os.listdir(CHARTS)):
+            level_dir = os.path.join(CHARTS, name, "level")
+            if not os.path.isdir(level_dir):
+                continue
+            with open(os.path.join(level_dir, "kan.score.json"), encoding="utf-8") as handle:
+                notes = json.load(handle)["Notes"]
+            expected = level_mod.hit_objects_text(notes).splitlines()
+
+            osu_files = [f for f in sorted(os.listdir(level_dir)) if f.endswith(".osu")]
+            self.assertEqual(1, len(osu_files), f"{name}: one .osu per level")
+            with open(os.path.join(level_dir, osu_files[0]), encoding="utf-8") as handle:
+                text = handle.read()
+            section = text.split("[HitObjects]", 1)[1]
+            written = [l for l in section.splitlines() if l.strip()]
+            self.assertEqual(expected, written,
+                             f"{name}: the .osu's marks are not its score's (run make_level.py osu)")
 
     def test_every_song_folder_is_complete(self):
         for name in sorted(os.listdir(CHARTS)):

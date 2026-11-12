@@ -8,6 +8,9 @@ Two commands, one for each half of the work:
     # render the companion and reference audio into <song>/level/ (needs numpy)
     python3 tools/level_pack/make_level.py render charts/official/sakura-sakura
 
+    # rewrite only the level's .osu (its hit-object marks); audio untouched
+    python3 tools/level_pack/make_level.py osu charts/official/sakura-sakura
+
     # pack <song>/level/ into charts/official/dist/<slug>.osz (stdlib only)
     python3 tools/level_pack/make_level.py pack charts/official/sakura-sakura
 
@@ -106,6 +109,25 @@ def write_audio(path: str, samples, sample_rate: int = SAMPLE_RATE) -> None:
         sf.write(path, samples, sample_rate, format="OGG", subtype="VORBIS")
 
 
+def derive(song_dir: str):
+    """The level's inputs: its song, the arranged score source and its notes.
+
+    Both commands build on these (render writes everything, osu only the
+    .osu), so the notes behind the score file and the .osu's marks can never
+    drift apart.
+    """
+    song = level_mod.Song.load(os.path.join(song_dir, "song.json"))
+    midi_path = os.path.join(song_dir, song.midi)
+    midi = smf.read(midi_path)
+    if song.melody_track >= len(midi.tracks):
+        raise SystemExit(f"{midi_path}: no track {song.melody_track}")
+    midi, count_in_track = level_mod.arrange(midi, song)
+    notes = level_mod.score_notes(midi, song.melody_track, song.transpose_semitones, song.tempo_bpm)
+    if not notes:
+        raise SystemExit(f"{midi_path}: the melody track has no notes")
+    return song, midi, count_in_track, notes
+
+
 def render_song(song_dir: str) -> str:
     try:
         import numpy as np  # noqa: F401
@@ -116,16 +138,7 @@ def render_song(song_dir: str) -> str:
 
     from kanpack import synth
 
-    song = level_mod.Song.load(os.path.join(song_dir, "song.json"))
-    midi_path = os.path.join(song_dir, song.midi)
-    midi = smf.read(midi_path)
-    if song.melody_track >= len(midi.tracks):
-        raise SystemExit(f"{midi_path}: no track {song.melody_track}")
-    midi, count_in_track = level_mod.arrange(midi, song)
-
-    notes = level_mod.score_notes(midi, song.melody_track, song.transpose_semitones, song.tempo_bpm)
-    if not notes:
-        raise SystemExit(f"{midi_path}: the melody track has no notes")
+    song, midi, count_in_track, notes = derive(song_dir)
 
     pitches = [n["Midi"] for n in notes]
     if min(pitches) < level_mod.OCARINA_LOW or max(pitches) > level_mod.OCARINA_HIGH:
@@ -166,7 +179,7 @@ def render_song(song_dir: str) -> str:
     preview_ms = int(min(notes[0]["StartMs"], level_ms))
     osu_name = f"{song.artist} - {song.title} ({song.creator}) [{song.version}].osu"
     with open(os.path.join(level_dir, osu_name), "w", encoding="utf-8", newline="\n") as handle:
-        handle.write(level_mod.osu_text(song, AUDIO_NAME, BACKGROUND_NAME, preview_ms))
+        handle.write(level_mod.osu_text(song, notes, AUDIO_NAME, BACKGROUND_NAME, preview_ms))
 
     filenames = {"audio": AUDIO_NAME, "reference": REFERENCE_NAME, "background": BACKGROUND_NAME}
     credits = level_mod.credits_md(song, filenames)
@@ -177,6 +190,31 @@ def render_song(song_dir: str) -> str:
     peak = loudness.sample_peak(loudness.level(companion, synth.SAMPLE_RATE))
     print(f"{song.slug}: {len(notes)} notes, {level_ms / 1000:.1f} s,"
           f" range {min(pitches)}..{max(pitches)} (A4..F6 is 69..89), peak {peak:.2f}")
+    return song.slug
+
+
+# ----------------------------------------------------------------------
+# osu: the .osu alone
+# ----------------------------------------------------------------------
+
+
+def write_osu(song_dir: str) -> str:
+    """Rewrite only the level's .osu from its score source.
+
+    The .osu carries the score's hit-object marks (the level's span; see
+    game/core/Score/LevelMarks.cs). When only those change, the rendered
+    audio is left exactly as it is: its bytes are what was reviewed, and a
+    change to the .osu must never re-render them.
+    """
+    song, _midi, _count_in_track, notes = derive(song_dir)
+    level_dir = os.path.join(song_dir, "level")
+    if not os.path.isdir(level_dir):
+        raise SystemExit(f"{song.slug}: no level/ folder: run 'render' first")
+
+    osu_name = f"{song.artist} - {song.title} ({song.creator}) [{song.version}].osu"
+    with open(os.path.join(level_dir, osu_name), "w", encoding="utf-8", newline="\n") as handle:
+        handle.write(level_mod.osu_text(song, notes, AUDIO_NAME, BACKGROUND_NAME, int(notes[0]["StartMs"])))
+    print(f"{song.slug}: {osu_name} rewritten from the score ({len(notes)} notes; audio untouched)")
     return song.slug
 
 
@@ -222,7 +260,8 @@ def pack_version() -> int:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("command", choices=["render", "pack", "build"], help="render audio, pack .osz, or both")
+    parser.add_argument("command", choices=["render", "osu", "pack", "build"],
+                        help="render audio, rewrite the .osu alone, pack .osz, or render and pack")
     parser.add_argument("song", nargs="?", help="a charts/official/<song> folder")
     parser.add_argument("--all", action="store_true", help="every song under charts/official/")
     parser.add_argument("--out", default=os.path.join(CHARTS_OFFICIAL, "dist"), help="where .osz files go")
@@ -233,6 +272,8 @@ def main() -> int:
     for song_dir in dirs:
         if args.command in ("render", "build"):
             render_song(song_dir)
+        if args.command == "osu":
+            write_osu(song_dir)
         if args.command in ("pack", "build"):
             slugs.append(pack_song(song_dir, args.out))
 
