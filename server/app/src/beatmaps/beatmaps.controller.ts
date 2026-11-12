@@ -17,13 +17,19 @@ import { Request, Response } from 'express';
 import { APP_CONFIG, AppConfig } from '../config';
 import { apiError } from '../common/http';
 import { extractCursor, queryValue, QueryParams } from '../common/query.util';
-import { AuthService } from '../auth/auth.service';
-import { AuthGuard, optionalUser } from '../auth/auth.guard';
+import { requestClientIp } from '../common/client-ip';
+import { RouteThrottle } from '../common/throttle';
+import { AuthenticatedUser, AuthService } from '../auth/auth.service';
+import { AuthGuard, CurrentUser, optionalUser } from '../auth/auth.guard';
 import { STORAGE, Storage } from '../storage/storage';
 import { BeatmapsService } from './beatmaps.service';
 
 @Controller('api/v2')
 export class BeatmapsController {
+  /** Browsing is cheap but not free; downloads are the expensive ones (S7). */
+  private readonly searchThrottle = new RouteThrottle(120, 120);
+  private readonly downloadThrottle = new RouteThrottle(20, 30);
+
   constructor(
     private readonly beatmaps: BeatmapsService,
     private readonly auth: AuthService,
@@ -38,6 +44,7 @@ export class BeatmapsController {
     @Req() request: Request,
   ): Promise<{ beatmapsets: Record<string, unknown>[]; cursor?: Record<string, unknown> | null }> {
     const user = await optionalUser(this.auth, request);
+    this.searchThrottle.check(user?.id ?? null, requestClientIp(request, this.config.trustProxy));
     const cursor = extractCursor(query);
     const offset = Number.parseInt(cursor['_id'] ?? '0', 10);
 
@@ -72,8 +79,13 @@ export class BeatmapsController {
   @UseGuards(AuthGuard)
   async download(
     @Param('id') id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Req() req: Request,
     @Res() response: Response,
   ): Promise<void> {
+    // Each download is a whole package (audit S7): a per-user and per-address
+    // limit keeps one client from draining the host.
+    this.downloadThrottle.check(user.id, requestClientIp(req, this.config.trustProxy));
     const setId = Number.parseInt(id, 10);
     const set = Number.isFinite(setId) ? await this.beatmaps.getSetRow(setId) : null;
     if (!set) throw apiError(404, 'Beatmapset not found');

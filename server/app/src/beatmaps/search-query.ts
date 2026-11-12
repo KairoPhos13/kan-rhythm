@@ -35,6 +35,12 @@ export const BEATMAP_COLUMNS = `id, beatmapset_id, version, filename, checksum, 
 
 export const SEARCH_PAGE_SIZE = 20;
 
+/**
+ * Deepest page a search may walk to (audit S9): `cursor[_id]` is client-chosen,
+ * so an unclamped offset lets one request ask the database for row 2 000 000.
+ */
+export const MAX_SEARCH_OFFSET = 10_000;
+
 /** `s` parameter values → SQL predicates (lazer-protocol.md §4.1). */
 const CATEGORY_SQL: Record<string, string> = {
   // The default categories stay ranked/approved/loved: pending and WIP levels
@@ -114,7 +120,8 @@ export function buildSearchQuery(filters: SearchFilters): { text: string; params
   const orderBy = `${sortExpression} ${dir} NULLS LAST, id DESC`;
 
   const limitParam = `$${params.push(filters.limit)}`;
-  const offsetParam = `$${params.push(filters.offset)}`;
+  const offset = Math.min(Math.max(filters.offset, 0), MAX_SEARCH_OFFSET);
+  const offsetParam = `$${params.push(offset)}`;
 
   return {
     text: `SELECT ${SET_COLUMNS}

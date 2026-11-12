@@ -115,9 +115,12 @@ export class BeatmapsService {
       `SELECT ${BEATMAP_COLUMNS} FROM beatmaps WHERE id = ANY($1::int[])`,
       [ids.slice(0, 50)],
     );
+    // One query for all sets (audit S9): the old per-row lookup cost two extra
+    // queries per beatmap id.
+    const sets = await this.loadSets(result.rows.map((row) => row.beatmapset_id));
     const out: Record<string, unknown>[] = [];
     for (const row of result.rows) {
-      const set = await this.getSetRow(row.beatmapset_id);
+      const set = sets.get(row.beatmapset_id);
       if (set) out.push(await this.serialiseBeatmap(row, set));
     }
     return out;
@@ -206,6 +209,19 @@ export class BeatmapsService {
               avatar_url, cover_url
          FROM users
         WHERE id = ANY($1::int[])`,
+      [wanted],
+    );
+    for (const row of result.rows) map.set(row.id, row);
+    return map;
+  }
+
+  /** The set rows of these ids in one query (audit S9: batched, not per row). */
+  private async loadSets(ids: number[]): Promise<Map<number, BeatmapsetRow>> {
+    const map = new Map<number, BeatmapsetRow>();
+    const wanted = [...new Set(ids)];
+    if (wanted.length === 0) return map;
+    const result = await this.db.query<BeatmapsetRow>(
+      `SELECT ${SET_COLUMNS} FROM beatmapsets WHERE id = ANY($1::int[])`,
       [wanted],
     );
     for (const row of result.rows) map.set(row.id, row);
