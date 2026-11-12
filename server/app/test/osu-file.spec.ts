@@ -35,6 +35,30 @@ describe('parseOsu', () => {
     // last hit object ends at 2000 ms
     expect(info.totalLengthSeconds).toBe(2);
     expect(info.hitLengthSeconds).toBe(2);
+    expect(info.hitSpanMs).toBe(2000);
+  });
+
+  it('measures the length from the first hit object to the last', () => {
+    // The game computes BeatmapInfo.Length from the playable span (first
+    // start to last end), not from the start of the audio, so the two agree
+    // on how long a level is.
+    const text = minimalOsu().split('[HitObjects]')[0]
+      + '[HitObjects]\n256,192,1000,1,0,0:0:0:0:\n256,192,2500,1,0,0:0:0:0:\n';
+    const info = parseOsu(text);
+    expect(info.hitSpanMs).toBe(1500);
+    expect(info.totalLengthSeconds).toBe(2);
+  });
+
+  it('reads the marks of a kan! level as plain circles', () => {
+    // A kan! level's .osu carries a mark per note and one at the level's end
+    // (docs/architecture/level-metadata.md); its notes travel in
+    // kan.score.json.
+    const marked = minimalOsu().split('[HitObjects]')[0]
+      + '[HitObjects]\n256,192,1000.000,1,0,0:0:0:0:\n256,192,3500.000,1,0,0:0:0:0:\n';
+    const info = parseOsu(marked);
+    expect(info.hitObjectCount).toBe(2);
+    expect(info.countCircles).toBe(2);
+    expect(info.hitSpanMs).toBe(2500);
   });
 
   it('reads the background filename from [Events]', () => {

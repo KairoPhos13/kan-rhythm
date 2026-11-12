@@ -43,6 +43,11 @@ export interface OsuFileInfo {
   backgroundFile: string | null;
   /** First uninherited timing point, beats per minute. */
   bpm: number;
+  /**
+   * From the first hit object's start to the last hit object's end (ms):
+   * the playable span the game computes `BeatmapInfo.Length` from.
+   */
+  hitSpanMs: number;
   /** Seconds from the first to the last hit object (rounded up). */
   totalLengthSeconds: number;
   hitLengthSeconds: number;
@@ -71,6 +76,7 @@ const EMPTY_FILE_INFO: OsuFileInfo = {
   difficulty: { circleSize: 0, overallDifficulty: 0, approachRate: 0, hpDrainRate: 0 },
   backgroundFile: null,
   bpm: 0,
+  hitSpanMs: 0,
   totalLengthSeconds: 0,
   hitLengthSeconds: 0,
   hitObjectCount: 0,
@@ -102,6 +108,7 @@ export function parseOsu(text: string): OsuFileInfo {
   const lines = splitLines(text);
 
   let section = '';
+  let firstHitObjectMs = Number.POSITIVE_INFINITY;
   let lastHitObjectMs = 0;
   let sawTimingPoint = false;
 
@@ -173,10 +180,14 @@ export function parseOsu(text: string): OsuFileInfo {
         info.maxCombo += 1;
       }
       lastHitObjectMs = Math.max(lastHitObjectMs, end);
+      firstHitObjectMs = Math.min(firstHitObjectMs, time);
     }
   }
 
-  const seconds = Math.ceil(lastHitObjectMs / 1000);
+  // The game's `BeatmapInfo.Length`: from the first hit object's start to the
+  // last hit object's end, so the two agree on how long a level is.
+  info.hitSpanMs = Number.isFinite(firstHitObjectMs) ? Math.max(0, lastHitObjectMs - firstHitObjectMs) : 0;
+  const seconds = Math.ceil(info.hitSpanMs / 1000);
   info.totalLengthSeconds = seconds;
   info.hitLengthSeconds = seconds;
   return info;

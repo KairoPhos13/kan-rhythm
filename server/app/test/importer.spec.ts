@@ -41,9 +41,15 @@ describe('level import', () => {
   let archiveCounter = 0;
 
   /** Writes a zip with exactly these .osu files plus audio and a background. */
-  function writeOsz(osuFiles: { name: string; text: string }[]): string {
+  function writeOsz(
+    osuFiles: { name: string; text: string }[],
+    extraFiles: { name: string; text: string }[] = [],
+  ): string {
     const zip = new AdmZip();
     for (const file of osuFiles) {
+      zip.addFile(file.name, Buffer.from(file.text, 'utf8'));
+    }
+    for (const file of extraFiles) {
       zip.addFile(file.name, Buffer.from(file.text, 'utf8'));
     }
     zip.addFile('audio.wav', silentWav());
@@ -166,6 +172,49 @@ describe('level import', () => {
     expect(osuEntries).toHaveLength(1);
     expect(osuEntries[0].getData().toString('utf8')).toContain('Mode: 0');
     expect(stored.getEntries().map((e) => e.entryName)).toContain('audio.wav');
+  });
+
+  it("stores kan!'s star rating from the level's score", async () => {
+    // Ten notes over ten seconds, an octave apart in pitch: one note per
+    // second and one octave, which is the formula's 2.2 stars
+    // (docs/architecture/level-metadata.md).
+    const notes = Array.from({ length: 10 }, (_, i) => ({
+      StartMs: i * 1000,
+      DurationMs: 1000,
+      Midi: i % 2 === 0 ? 60 : 72,
+      Cents: 0,
+      PitchUnknown: false,
+    }));
+    const filePath = writeOsz(
+      [{ name: 'Fixture Artist - Fixture Song (KairoPhos) [Normal].osu', text: minimalOsu({ version: 'Normal' }) }],
+      [{ name: 'kan.score.json', text: JSON.stringify({ Version: 1, Notes: notes }) }],
+    );
+
+    const storage = createStorage(loadConfig());
+    const result = await importOsz({ db: pool, storage }, filePath, { ownerUsername: 'Importer' });
+
+    const rows = await pool.query<{ difficulty_rating: number }>(
+      `SELECT difficulty_rating FROM beatmaps WHERE beatmapset_id = $1`,
+      [result.setId],
+    );
+    expect(rows.rows).toHaveLength(1);
+    expect(rows.rows[0].difficulty_rating).toBeCloseTo(2.2, 6);
+  });
+
+  it('falls back to the hit objects when a level carries no score', async () => {
+    // The fixture's objects: 4 objects from 0 to 2000 ms (no pitch there).
+    const filePath = writeOsz([
+      { name: 'Fixture Artist - Fixture Song (KairoPhos) [Normal].osu', text: minimalOsu({ version: 'Normal' }) },
+    ]);
+
+    const storage = createStorage(loadConfig());
+    const result = await importOsz({ db: pool, storage }, filePath, { ownerUsername: 'Importer' });
+
+    const rows = await pool.query<{ difficulty_rating: number }>(
+      `SELECT difficulty_rating FROM beatmaps WHERE beatmapset_id = $1`,
+      [result.setId],
+    );
+    expect(rows.rows[0].difficulty_rating).toBeCloseTo(0.2 + 1.2 * ((4 * 1000) / 2000), 6);
   });
 
   it('rejects an archive with no kan!-playable difficulty and writes nothing', async () => {

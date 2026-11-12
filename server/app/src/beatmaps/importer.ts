@@ -22,6 +22,7 @@ import AdmZip from 'adm-zip';
 import { Pool, PoolClient } from 'pg';
 import { Storage } from '../storage/storage';
 import { hasRankedDate } from './status';
+import { difficultyFromInputs, difficultyOfNotes, scoreNotesFromJson, ScoreNote } from './level-difficulty';
 import { md5Of, OsuFileInfo, parseOsu, rewriteOsu } from './osu-file';
 
 export interface ImportDeps {
@@ -111,6 +112,19 @@ function clampMode(mode: number): number {
 
 function basename(entryName: string): string {
   return entryName.split(/[\\/]/).pop() ?? entryName;
+}
+
+/** The set's score notes (`kan.score.json` travels inside the archive), or null. */
+function readScoreNotes(files: PackageFile[]): ScoreNote[] | null {
+  const scoreFile = files.find((file) => basename(file.entryName).toLowerCase() === 'kan.score.json');
+  return scoreFile ? scoreNotesFromJson(scoreFile.data.toString('utf8')) : null;
+}
+
+/** kan!'s star rating: the score's, or the hit objects' pacing (no pitch there). */
+function starRatingFor(scoreNotes: ScoreNote[] | null, info: OsuFileInfo): number {
+  return scoreNotes != null && scoreNotes.length > 0
+    ? difficultyOfNotes(scoreNotes).stars
+    : difficultyFromInputs(info.hitObjectCount, info.hitSpanMs, 0).stars;
 }
 
 /**
@@ -254,6 +268,12 @@ export async function importPackage(
       ],
     );
 
+    // The star rating is kan!'s own (notes per second and pitch span;
+    // docs/architecture/level-metadata.md), computed from the level's score
+    // when the archive carries one and from the hit objects alone otherwise,
+    // so the listing agrees with the game.
+    const scoreNotes = readScoreNotes(files);
+
     // Rewrite ids into every playable .osu (only where they are not already the
     // final ones) and keep each resulting checksum.
     const imported: ImportedBeatmap[] = [];
@@ -270,12 +290,13 @@ export async function importPackage(
            (id, beatmapset_id, version, filename, checksum, mode_int, difficulty_rating,
             cs, ar, accuracy, drain, total_length, hit_length, max_combo, bpm,
             count_circles, count_sliders, count_spinners, last_updated)
-         VALUES ($1, $2, $3, $4, $5, $6, 0, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, now())
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, now())
          ON CONFLICT (id) DO UPDATE
             SET version = EXCLUDED.version,
                 filename = EXCLUDED.filename,
                 checksum = EXCLUDED.checksum,
                 mode_int = EXCLUDED.mode_int,
+                difficulty_rating = EXCLUDED.difficulty_rating,
                 cs = EXCLUDED.cs, ar = EXCLUDED.ar, accuracy = EXCLUDED.accuracy,
                 drain = EXCLUDED.drain,
                 total_length = EXCLUDED.total_length, hit_length = EXCLUDED.hit_length,
@@ -291,6 +312,7 @@ export async function importPackage(
           difficulty.entryName,
           checksum,
           clampMode(difficulty.info.general.mode),
+          starRatingFor(scoreNotes, difficulty.info),
           difficulty.info.difficulty.circleSize,
           difficulty.info.difficulty.approachRate,
           difficulty.info.difficulty.overallDifficulty,
