@@ -62,6 +62,22 @@ namespace Kan.Forge.Tracks
 
         public static string MicCalibratedInstrument { get; private set; } = string.Empty;
 
+        /// <summary>
+        /// How loud the room is when nobody plays (RMS, issue 17's noise-floor
+        /// step): the note detector's floor is built from it, so a humming room
+        /// stops raising false notes. 0 = never measured (the detector keeps
+        /// its own default).
+        /// </summary>
+        public static double NoiseFloorRms { get; private set; }
+
+        /// <summary>When the room was last listened to, and with which instrument's microphone (empty = never).</summary>
+        public static DateTime NoiseCalibratedAtUtc { get; private set; }
+
+        public static string NoiseCalibratedInstrument { get; private set; } = string.Empty;
+
+        /// <summary>A calibration's result was kept (the settings text follows it).</summary>
+        public static event Action? Calibrated;
+
         private static string? path;
         private static bool loading;
 
@@ -80,6 +96,12 @@ namespace Kan.Forge.Tracks
             public double TuningCents { get; set; }
 
             public bool AutoTuning { get; set; } = true;
+
+            public double NoiseFloorRms { get; set; }
+
+            public DateTime NoiseCalibratedAtUtc { get; set; }
+
+            public string NoiseCalibratedInstrument { get; set; } = string.Empty;
         }
 
         static ForgeTiming()
@@ -110,6 +132,9 @@ namespace Kan.Forge.Tracks
                 AUTO_TUNING.Value = doc?.AutoTuning ?? true;
                 MicCalibratedAtUtc = doc?.MicCalibratedAtUtc ?? default;
                 MicCalibratedInstrument = doc?.MicCalibratedInstrument ?? string.Empty;
+                NoiseFloorRms = doc?.NoiseFloorRms ?? 0;
+                NoiseCalibratedAtUtc = doc?.NoiseCalibratedAtUtc ?? default;
+                NoiseCalibratedInstrument = doc?.NoiseCalibratedInstrument ?? string.Empty;
             }
             catch (Exception)
             {
@@ -128,6 +153,17 @@ namespace Kan.Forge.Tracks
             MicCalibratedInstrument = instrument;
             MIC_DELAY_MS.Value = Math.Round(ms);
             save();
+            Calibrated?.Invoke();
+        }
+
+        /// <summary>Keep the noise floor the room's listening measured (issue 17).</summary>
+        public static void SetCalibratedNoiseFloor(double rms, string instrument)
+        {
+            NoiseCalibratedAtUtc = DateTime.UtcNow;
+            NoiseCalibratedInstrument = instrument;
+            NoiseFloorRms = rms;
+            save();
+            Calibrated?.Invoke();
         }
 
         private static void save()
@@ -147,6 +183,9 @@ namespace Kan.Forge.Tracks
                     PlayerTimingMs = PLAYER_TIMING_MS.Value,
                     TuningCents = TUNING_CENTS.Value,
                     AutoTuning = AUTO_TUNING.Value,
+                    NoiseFloorRms = NoiseFloorRms,
+                    NoiseCalibratedAtUtc = NoiseCalibratedAtUtc,
+                    NoiseCalibratedInstrument = NoiseCalibratedInstrument,
                 }, new JsonSerializerOptions { WriteIndented = true }));
                 File.Move(tmp, path, true);
             }

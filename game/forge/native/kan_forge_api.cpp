@@ -581,6 +581,11 @@ int32_t kan_forge_live_expect(kan_forge_live* live, const float* midis, int32_t 
     return live->desc.set_candidates(set) ? 1 : 0;
 }
 
+void kan_forge_live_set_noise_floor(kan_forge_live* live, float energy) {
+    if (live == nullptr || !(energy > 0.0f)) return;
+    live->desc.set_noise_floor(energy);
+}
+
 void kan_forge_live_close(kan_forge_live* live) { delete live; }
 
 kan_forge_status kan_forge_measure_loudness(const char* audio_path, float* out_lufs, float* out_peak,

@@ -3,11 +3,13 @@
 
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading;
 using ManagedBass;
 using Kan.Forge.Media;
+using Kan.Forge.Tracks;
 using Kan.Core.Native;
 using Kan.Core.Play;
 
@@ -37,15 +39,42 @@ namespace Kan.Forge.Play
         public const int SAMPLE_RATE = 48000;
         private const int ring_size = 1 << 18; // 5.4 s: far more than the consumer ever lags
 
+        /// <summary>The microphone to open: -1 is the one the system calls its default.</summary>
+        private readonly int device;
+
         private readonly float[] ring = new float[ring_size];
         private readonly RecordProcedure procedure;
         private long written;
         private long read;
         private int handle;
 
-        public MicSource()
+        public MicSource(int device = -1)
         {
+            this.device = device;
             procedure = onData; // kept alive while recording (the native side holds it)
+        }
+
+        /// <summary>The microphones that can be chosen (BASS), the default first.</summary>
+        public static IReadOnlyList<(int Device, string Name)> RecordingDevices()
+        {
+            var devices = new List<(int, string)> { (-1, @"Default microphone") };
+
+            try
+            {
+                MediaAudioExtractor.EnsureBass();
+
+                for (int i = 0; i < Bass.RecordingDeviceCount; i++)
+                {
+                    if (Bass.RecordGetDeviceInfo(i, out var info) && info.IsEnabled)
+                        devices.Add((i, string.IsNullOrEmpty(info.Name) ? $"Microphone {i + 1}" : info.Name));
+                }
+            }
+            catch (Exception e)
+            {
+                osu.Framework.Logging.Logger.Log($"kan!: the microphones could not be listed: {e.Message}");
+            }
+
+            return devices;
         }
 
         public int SampleRate => SAMPLE_RATE;
@@ -55,11 +84,15 @@ namespace Kan.Forge.Play
             error = string.Empty;
             MediaAudioExtractor.EnsureBass();
 
-            if (!Bass.RecordInit() && Bass.LastError != Errors.Already)
+            if (!Bass.RecordInit(device) && Bass.LastError != Errors.Already)
             {
                 error = $"no microphone could be opened ({Bass.LastError})";
                 return false;
             }
+
+            // A microphone chosen by hand: the one recording starts on.
+            if (device >= 0)
+                Bass.CurrentRecordingDevice = device;
 
             handle = Bass.RecordStart(SAMPLE_RATE, 1, BassFlags.Float, 10, procedure, IntPtr.Zero);
 
@@ -243,6 +276,12 @@ namespace Kan.Forge.Play
                 source.Dispose();
                 return false;
             }
+
+            // The room's silence, as the game's noise-floor step measured it
+            // (issue 17): a sound must sit above it to start a note, so a
+            // humming room stops raising false ones.
+            if (ForgeTiming.NoiseFloorRms > 0)
+                KanForgeNative.LiveSetNoiseFloor(live, (float)(ForgeTiming.NoiseFloorRms * ForgeTiming.NoiseFloorRms));
 
             return true;
         }

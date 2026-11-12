@@ -409,6 +409,38 @@ int main() {
         std::printf("selftest: expected mode similarity (right C5 %.2f, wrong D5 %.2f)\n", right, wrong);
     }
 
+    // N+2. Noise floor calibration (issue 17): a floor above the sound's own
+    //      level stops it starting notes - the room's hum calibrated away -
+    //      while the same melody with the default floor is heard as before.
+    {
+        std::vector<float> sig;
+        read_wav(wav, sig);
+        auto count_hits = [&](float floor_energy) {
+            kan_forge_live* live = kan_forge_live_open("keyboard", sr);
+            if (live == nullptr) return -1;
+            if (floor_energy > 0.0f) kan_forge_live_set_noise_floor(live, floor_energy);
+            std::vector<kan_forge_live_event> ev(512);
+            int hits = 0;
+            for (size_t at = 0; at < sig.size(); at += 480) {
+                const int32_t n = int32_t(std::min<size_t>(480, sig.size() - at));
+                const int32_t got = kan_forge_live_process(live, sig.data() + at, n, ev.data(), int32_t(ev.size()));
+                for (int32_t k = 0; k < got; ++k)
+                    if (ev[size_t(k)].kind == KAN_FORGE_LIVE_HIT) ++hits;
+            }
+            kan_forge_live_close(live);
+            return hits;
+        };
+
+        const int heard = count_hits(0.0f);
+        const int silenced = count_hits(100.0f); // a floor nothing can reach
+        if (heard <= 0 || silenced != 0) {
+            std::fprintf(stderr, "SELFTEST FAIL: noise floor: %d onsets with the default floor, %d with one above the sound\n",
+                         heard, silenced);
+            ++failures;
+        }
+        std::printf("selftest: noise floor calibrates the gate (%d onsets -> %d)\n", heard, silenced);
+    }
+
     if (failures == 0) std::printf("kan_forge_selftest OK\n");
     return failures == 0 ? 0 : 1;
 }
