@@ -10,11 +10,17 @@ already runs a Nebula lighthouse (~10-50 MB RSS).
 
 ## 1. Budget and shape
 
-One NestJS process (Node 22, TypeScript) + PostgreSQL 16 + Caddy (TLS). No Redis, no worker
+One NestJS process (Node 22, TypeScript) + PostgreSQL 16 behind a proxy. No Redis, no worker
 processes, no Elasticsearch (search is SQL `ILIKE` at a few hundred levels). Everything must run on
 **arm64** (`argon2` and `pg` are fine; no x86-only native modules).
 
-Memory budget for the whole stack: **≤ 700 MB** (`docker-compose.prod.yml` `mem_limit`s:
+The deployed stack is the **Cloudflare Tunnel** one (`app/deploy/docker-compose.tunnel.yml`:
+app + postgres + cloudflared, level files in Cloudflare R2, no published ports); the direct
+alternative with Caddy for TLS is `app/deploy/docker-compose.prod.yml` + `Caddyfile`. Both and
+the reasons are documented in `app/deploy/DEPLOY.md`.
+
+Memory budget for the whole stack: **≤ 700 MB** (`mem_limit`s: tunnel
+app 300 MB + postgres 320 MB + cloudflared 64 MB = 684 MB; Caddy alternative
 app 300 MB + postgres 320 MB + caddy 60 MB = 680 MB), PostgreSQL tuned small
 (`shared_buffers=64MB`, `max_connections=20`, `work_mem=4MB`). 1-2 GB swap file on the host is
 expected (see `app/deploy/DEPLOY.md`). Fits next to the Nebula lighthouse per
@@ -90,7 +96,8 @@ never contain passwords or tokens.
 
 `server/app/`: NestJS sources (`src/`), plain SQL (`migrations/`), tests (`test/`), dev compose
 (`docker-compose.yml`, postgres:16-alpine on host port **55432**), `.env.example`, `README.md`,
-`deploy/` (`docker-compose.prod.yml`, `Caddyfile`, `Dockerfile`, `DEPLOY.md`). Local loop:
+`deploy/` (`docker-compose.tunnel.yml`, `docker-compose.prod.yml`, `Caddyfile`, `Dockerfile`,
+`DEPLOY.md`). Local loop:
 `docker compose up -d` → `npm run migrate` → `npm run import -- <file.osz>` → `npm run start:dev`;
 tests: `npm test` (unit + e2e against the dev postgres), `npm run lint`, `npm run build`.
 
@@ -109,7 +116,10 @@ tests: `npm test` (unit + e2e against the dev postgres), `npm run lint`, `npm ru
   walk the client's exact JSON shapes.
 - **1 GB RAM is tight** (`hosting-study.md` reviewer note): `mem_limit`s + swap; re-measure after
   first deploy. The import CLI runs as a one-shot container/command, not as a service.
-- **No anti-cheat** in MVP: scores are trusted as submitted (matches "simple beats clever" scale).
+- **No anti-cheat** in MVP: a score is the client's own claim. Only well-formed values are
+  stored (ranges validated and clamped in `src/scores/score-rules.ts`, backed by CHECK
+  constraints) and ties break on the server's own clock, but nothing checks that a score was
+  really played (matches "simple beats clever" scale).
 - **`ruleset_id 0` collision** with osu!standard semantics: stored as data
   (`ruleset_short_name='kan'`, `ruleset_id=0`) so nothing assumes "0 = osu!standard".
 - **No pp / difficulty calculation**: star ratings are 0 and leaderboards rank by total score;

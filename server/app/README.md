@@ -64,15 +64,18 @@ npm run typecheck
 The unit tests run anywhere. The client-flow e2e suite needs PostgreSQL: it
 creates a throwaway `kan_test` database in `TEST_DATABASE_URL` (default
 `postgres://kan:kan@localhost:55432/kan_test`, the docker compose above) and
-walks the game's protocol against it. CI runs both halves on every change
-under `server/` (`.github/workflows/server.yml`).
+walks the game's protocol against it. The suite also covers the upload and
+package limits (streamed multipart with a running byte counter, zip bomb
+defence), the per-account and per-address login limits, the score validation
+and the migration lock. CI runs both halves on every change under `server/`
+(`.github/workflows/server.yml`).
 
 ## Environment variables
 
 | Variable | Default | Meaning |
 |---|---|---|
 | `PORT` | `3000` | HTTP port |
-| `DATABASE_URL` | `postgres://kan:kan@localhost:55432/kan` | PostgreSQL connection string |
+| `DATABASE_URL` | `postgres://kan:kan@localhost:55432/kan` | PostgreSQL connection string. **Required in production** (`NODE_ENV=production` refuses to start without it: the development default carries a known password) |
 | `OAUTH_CLIENT_ID` | `kan-client` | client id the game sends |
 | `OAUTH_CLIENT_SECRET` | `kan-public-client` | client "secret" the game sends, **public by design**, see below |
 | `ACCESS_TOKEN_TTL_SECONDS` | `86400` | access token lifetime (keep ≫ 30 s) |
@@ -82,11 +85,11 @@ under `server/` (`.github/workflows/server.yml`).
 | `STORAGE_LOCAL_DIR` | `./data` | root directory for the local driver |
 | `S3_ENDPOINT`, `S3_REGION`, `S3_BUCKET`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_FORCE_PATH_STYLE` | - | S3-compatible store (Cloudflare R2 / AWS S3) |
 | `DOWNLOAD_URL_EXPIRY_SECONDS` | `300` | expiry of the presigned download URLs |
-| `SUBMISSION_MAX_PACKAGE_BYTES` | `104857600` | largest accepted level package (100 MB) |
+| `SUBMISSION_MAX_PACKAGE_BYTES` | `104857600` | largest accepted level package (100 MiB): the upload, the inflated files and the entry sizes are all bounded by it (zip bomb defence). Behind Cloudflare, keep it below the edge's 100 MB request limit or raise the zone's **Maximum Upload Size** |
 | `SUBMISSION_UPLOADS_PER_HOUR` | `10` | package uploads allowed per creator per hour |
 | `SUBMISSION_UNRANKED_SETS_BASE` | `4` | pending/WIP sets a creator starts with |
 | `SUBMISSION_UNRANKED_SETS_MAX` | `8` | the cap on pending/WIP sets (base + one per ranked set, never above this) |
-| `TRUST_PROXY` | *(empty)* | `cloudflare` behind Cloudflare Tunnel: trust `CF-Connecting-IP` for rate limiting and use `https` in generated URLs. Never trust forwarded headers without it |
+| `TRUST_PROXY` | *(empty)* | which proxy fronts the app, and the only reason forwarded client headers are ever trusted (for rate limiting and `https` URLs): `cloudflare` behind Cloudflare Tunnel (`CF-Connecting-IP`), `caddy` behind the Caddy of `deploy/docker-compose.prod.yml` (the `X-Forwarded-For` hop Caddy appends). Empty: no proxy is trusted and every client shares the socket address's rate-limit bucket |
 
 ## Client configuration
 
@@ -152,7 +155,10 @@ leaderboard until they are ranked (as in osu!). A creator may hold
 `SUBMISSION_UNRANKED_SETS_BASE` (default 4) pending/WIP levels plus one per
 ranked level, up to `SUBMISSION_UNRANKED_SETS_MAX` (default 8). Uploads are
 limited to `SUBMISSION_UPLOADS_PER_HOUR` (default 10) per creator and
-`SUBMISSION_MAX_PACKAGE_BYTES` (default 100 MB) per package.
+`SUBMISSION_MAX_PACKAGE_BYTES` (default 100 MiB) per package: the upload is
+streamed to a temporary file with one running byte counter (never buffered in
+memory), and the archive is checked before it is inflated (entry count,
+declared sizes, ratio to the archive's own size, one hard cap per entry).
 
 ## Production
 
@@ -162,6 +168,14 @@ cloudflared, no published ports; the host's public IP stays hidden) with level
 files in Cloudflare R2; `mem_limit`s sum to 684 MB and `deploy/DEPLOY.md` covers
 the domain, R2, tunnel, backups and a restore drill. The direct-exposure
 alternative (Caddy, `deploy/docker-compose.prod.yml`) is documented there too.
+
+Request body limits: the app parses JSON with a 256 kB limit and takes level
+packages up to `SUBMISSION_MAX_PACKAGE_BYTES` on `/beatmap-submission` only. The
+Caddy alternative keeps the same split in `deploy/Caddyfile` (256KB on every
+route but the upload routes, 110MB on those; the matcher form of `request_body`
+needs Caddy 2.8 or newer). Through Cloudflare, the edge's own 100 MB request
+limit applies first, so keep `SUBMISSION_MAX_PACKAGE_BYTES` below it or raise
+the zone's **Maximum Upload Size**.
 
 ## Layout
 
