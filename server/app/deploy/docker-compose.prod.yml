@@ -17,9 +17,13 @@ services:
       ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-86400}
       REFRESH_TOKEN_TTL_SECONDS: ${REFRESH_TOKEN_TTL_SECONDS:-2592000}
       SCORE_TOKEN_TTL_SECONDS: ${SCORE_TOKEN_TTL_SECONDS:-1800}
-      # Only set to "cloudflare" when a proxy we control (e.g. Cloudflare
-      # Tunnel) fronts the app; forwarded client IPs are never trusted without it.
-      TRUST_PROXY: ${TRUST_PROXY:-}
+      # This stack runs behind its own Caddy (the only way in), so rate limits
+      # key on the client address Caddy forwards (X-Forwarded-For). Set to
+      # "cloudflare" only when Cloudflare fronts Caddy too (then close 443 to
+      # everything but Cloudflare's IP ranges), or empty to trust nothing: all
+      # clients then share one rate-limit bucket (another reason to prefer the
+      # tunnel stack).
+      TRUST_PROXY: ${TRUST_PROXY:-caddy}
       WEBSITE_URL: ${WEBSITE_URL:-}
       STORAGE_DRIVER: ${STORAGE_DRIVER:-local}
       STORAGE_LOCAL_DIR: /data

@@ -17,9 +17,11 @@
  *    are already written into the files, so nothing is rewritten and the
  *    checksums stay identical to the creator's local copies).
  */
+import { statSync } from 'node:fs';
 import path from 'node:path';
 import AdmZip from 'adm-zip';
 import { Pool, PoolClient } from 'pg';
+import { DEFAULT_MAX_PACKAGE_BYTES } from '../config';
 import { Storage } from '../storage/storage';
 import { hasRankedDate } from './status';
 import { md5Of, OsuFileInfo, parseOsu, rewriteOsu } from './osu-file';
@@ -51,6 +53,8 @@ export interface ImportOptions {
    */
   beatmapIds?: 'stable' | 'package';
   allowedBeatmapIds?: ReadonlySet<number>;
+  /** Bounds for reading the archive (audit S2); defaults to the package limit. */
+  zipLimits?: ZipLimits;
 }
 
 export interface ImportedBeatmap {
@@ -80,6 +84,9 @@ export interface PackageFile {
  * submission routes and to exit code 1 by the import CLI.
  */
 export class PackageRejectedError extends Error {}
+
+/** A package refused for size: mapped to HTTP 413 by the submission routes. */
+export class PackageTooLargeError extends PackageRejectedError {}
 
 interface ParsedDifficulty {
   entryName: string;
@@ -145,12 +152,108 @@ export function checkPackage(
   return parsed;
 }
 
-/** Reads a zip into plain files (entry order preserved, directories dropped). */
-export function readPackage(zip: AdmZip): PackageFile[] {
-  return zip
-    .getEntries()
-    .filter((entry) => !entry.isDirectory)
-    .map((entry) => ({ entryName: entry.entryName, data: entry.getData() }));
+/**
+ * Bounds on reading a package archive, all derived from the configured package
+ * limit (audit S2: zip bomb defence).
+ */
+export interface ZipLimits {
+  /** Most entries (files) one package may carry. */
+  maxEntries: number;
+  /** Largest size one entry may declare; the inflater is capped at it too. */
+  maxEntryBytes: number;
+  /** Largest total of declared uncompressed sizes. */
+  maxTotalBytes: number;
+  /** Largest ratio of declared uncompressed bytes to the archive's bytes. */
+  maxCompressionRatio: number;
+}
+
+/**
+ * Package bounds for a package limit in bytes. A level package is mostly
+ * already-compressed media (audio, video, images) plus `.osu` text, which
+ * compresses up to about 20x; the bounds are generous for that and useless for
+ * a bomb (a small archive of zeros declares far more than 50x its size).
+ */
+export function zipLimitsFor(maxPackageBytes: number): ZipLimits {
+  return {
+    maxEntries: 1024,
+    maxEntryBytes: maxPackageBytes,
+    maxTotalBytes: 2 * maxPackageBytes,
+    maxCompressionRatio: 50,
+  };
+}
+
+/** Reads an `.osz` file from disk under the zip bounds (the import CLI). */
+export function readPackageFile(filePath: string, limits: ZipLimits): PackageFile[] {
+  return readPackageEntries(new AdmZip(filePath), statSync(filePath).size, limits);
+}
+
+/** Reads an `.osz` buffer under the zip bounds (uploads, stored packages). */
+export function readPackageBuffer(archive: Buffer, limits: ZipLimits): PackageFile[] {
+  return readPackageEntries(new AdmZip(archive), archive.length, limits);
+}
+
+/**
+ * Reads a zip into plain files (entry order preserved, directories dropped).
+ *
+ * The central directory is checked *before* anything is inflated: entry count,
+ * each declared uncompressed size and their total against the archive's own
+ * size (audit S2). Inflation is hard-capped per entry: adm-zip's inflater
+ * refuses to produce more than the entry's declared size, so a header that
+ * lies about its size fails instead of exhausting memory, and the result is
+ * checked against `maxEntryBytes` once more.
+ */
+function readPackageEntries(zip: AdmZip, archiveBytes: number, limits: ZipLimits): PackageFile[] {
+  const entries = zip.getEntries().filter((entry) => !entry.isDirectory);
+  if (entries.length > limits.maxEntries) {
+    throw new PackageRejectedError(
+      `archive has ${entries.length} files (the limit is ${limits.maxEntries})`,
+    );
+  }
+
+  let declaredTotal = 0;
+  for (const entry of entries) {
+    const declared = entry.header.size;
+    if (declared > limits.maxEntryBytes) {
+      throw new PackageTooLargeError(
+        `archive entry "${entry.entryName}" declares ${declared} bytes (the limit is ${limits.maxEntryBytes})`,
+      );
+    }
+    declaredTotal += declared;
+  }
+  if (declaredTotal > limits.maxTotalBytes) {
+    throw new PackageTooLargeError(
+      `archive inflates to ${declaredTotal} bytes (the limit is ${limits.maxTotalBytes})`,
+    );
+  }
+  if (archiveBytes > 0 && declaredTotal > limits.maxCompressionRatio * archiveBytes) {
+    throw new PackageTooLargeError(
+      `archive inflates ${Math.round(declaredTotal / archiveBytes)}x its own size ` +
+        `(the limit is ${limits.maxCompressionRatio}x)`,
+    );
+  }
+
+  return entries.map((entry) => ({
+    entryName: entry.entryName,
+    data: entryData(entry, limits.maxEntryBytes),
+  }));
+}
+
+/** One entry's data, hard-capped at `maxEntryBytes` whatever its header says. */
+function entryData(entry: AdmZip.IZipEntry, maxEntryBytes: number): Buffer {
+  let data: Buffer;
+  try {
+    data = entry.getData();
+  } catch {
+    throw new PackageRejectedError(
+      `archive entry "${entry.entryName}" is corrupt or lies about its size`,
+    );
+  }
+  if (data.length > maxEntryBytes) {
+    throw new PackageTooLargeError(
+      `archive entry "${entry.entryName}" inflates past the ${maxEntryBytes} byte limit`,
+    );
+  }
+  return data;
 }
 
 /** Imports an `.osz` file from disk (the import CLI). */
@@ -159,7 +262,8 @@ export async function importOsz(
   filePath: string,
   options: ImportOptions = {},
 ): Promise<ImportResult> {
-  return importPackage(deps, readPackage(new AdmZip(filePath)), filePath, options);
+  const limits = options.zipLimits ?? zipLimitsFor(DEFAULT_MAX_PACKAGE_BYTES);
+  return importPackage(deps, readPackageFile(filePath, limits), filePath, options);
 }
 
 /**
@@ -344,10 +448,22 @@ export async function importPackage(
     return { setId, created, beatmaps: imported, coverKey, archiveKey };
   } catch (error) {
     await client.query('ROLLBACK');
+    // Belt and braces for crafted values (audit S8): a PostgreSQL data
+    // exception (out of range, truncated) refuses the package instead of
+    // surfacing as a 500 after a full upload.
+    if (isDataException(error)) {
+      throw new PackageRejectedError('the package carries values out of range');
+    }
     throw error;
   } finally {
     client.release();
   }
+}
+
+/** PostgreSQL data exceptions (SQLSTATE 22xxx): values that do not fit. */
+function isDataException(error: unknown): boolean {
+  const code = (error as { code?: string }).code;
+  return typeof code === 'string' && code.startsWith('22');
 }
 
 /** `ranked_date` follows the status: set for ranked/approved/loved, cleared otherwise. */

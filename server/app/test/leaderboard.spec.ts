@@ -1,108 +1,116 @@
-/** Unit tests for the leaderboard logic (Phase 3). */
-import { ScoreRow } from '../src/api/serializers';
-import {
-  buildBeatmapScoresQuery,
-  buildUserScoresQuery,
-  compareScores,
-  computeLeaderboard,
-} from '../src/scores/score-queries';
+/**
+ * Leaderboard ranking against real SQL (audit S5, S6): the best score per user
+ * competes, `total_score` decides, ties break on the server's own clock (never
+ * on the client's `ended_at`), one page comes back with the total count, and
+ * the requesting user's rank comes back whatever page was requested.
+ */
+import path from 'node:path';
+import { Pool } from 'pg';
+import { createPool } from '../src/db/db.service';
+import { runMigrations } from '../src/db/migrate';
+import { fetchLeaderboard, fetchUserBest } from '../src/scores/score-queries';
 
-function score(overrides: Partial<ScoreRow>): ScoreRow {
-  return {
-    id: 1,
-    user_id: 1,
-    beatmap_id: 1,
-    ruleset_id: 0,
-    ruleset_short_name: 'kan',
-    total_score: 1000,
-    total_score_without_mods: 1000,
-    accuracy: 1,
-    max_combo: 10,
-    rank: 'S',
-    passed: true,
-    mods: [],
-    statistics: {},
-    maximum_statistics: {},
-    pauses: [],
-    build_id: null,
-    started_at: null,
-    ended_at: new Date('2026-01-01T10:00:00Z'),
-    ...overrides,
-  };
-}
+const TEST_DATABASE_URL =
+  process.env.TEST_DATABASE_URL ?? 'postgres://kan:kan@localhost:55432/kan_test';
+/** Its own database, on the server TEST_DATABASE_URL points at. */
+const LEADERBOARD_DATABASE_URL = (() => {
+  const url = new URL(TEST_DATABASE_URL);
+  url.pathname = '/kan_leaderboard_test';
+  return url.toString();
+})();
 
-describe('computeLeaderboard', () => {
-  it('returns an empty board for no scores', () => {
-    const board = computeLeaderboard([], 50, 1);
-    expect(board.entries).toEqual([]);
-    expect(board.scoreCount).toBe(0);
+jest.setTimeout(120_000);
+
+describe('leaderboard ranking', () => {
+  let pool: Pool;
+  let beatmapId: number;
+
+  /** Inserts one score and returns its id; `created` is the server clock. */
+  async function addScore(
+    userId: number,
+    totalScore: number,
+    created: string,
+    ended = '2026-11-12T10:00:00Z',
+  ): Promise<number> {
+    const inserted = await pool.query<{ id: number }>(
+      `INSERT INTO scores (user_id, beatmap_id, total_score, total_score_without_mods,
+                           accuracy, max_combo, rank, passed, ended_at, created_at)
+       VALUES ($1, $2, $3, $3, 1, 10, 'S', true, $4, $5)
+       RETURNING id::int AS id`,
+      [userId, beatmapId, totalScore, ended, created],
+    );
+    return inserted.rows[0].id;
+  }
+
+  beforeAll(async () => {
+    const adminUrl = new URL(LEADERBOARD_DATABASE_URL);
+    const dbName = adminUrl.pathname.replace(/^\//, '');
+    adminUrl.pathname = '/postgres';
+    const admin = createPool(adminUrl.toString());
+    await admin.query(`DROP DATABASE IF EXISTS ${dbName} WITH (FORCE)`);
+    await admin.query(`CREATE DATABASE ${dbName}`);
+    await admin.end();
+
+    pool = createPool(LEADERBOARD_DATABASE_URL);
+    await runMigrations(pool, path.join(__dirname, '..', 'migrations'));
+
+    // Real accounts start at id 2 (migration 0005).
+    for (let id = 2; id <= 5; id += 1) {
+      await pool.query(
+        `INSERT INTO users (id, username, email, password_hash) VALUES ($1, $2, $3, 'x')`,
+        [id, `Board${id}`, `board${id}@example.org`],
+      );
+    }
+    const set = await pool.query<{ id: number }>(
+      `INSERT INTO beatmapsets (user_id, archive_key) VALUES (2, '') RETURNING id`,
+    );
+    const beatmap = await pool.query<{ id: number }>(
+      `INSERT INTO beatmaps (beatmapset_id, checksum) VALUES ($1, 'sum') RETURNING id`,
+      [set.rows[0].id],
+    );
+    beatmapId = beatmap.rows[0].id;
+  });
+
+  afterAll(async () => {
+    await pool?.end();
+  });
+
+  it('keeps only the best score per user', async () => {
+    await addScore(2, 500, '2026-11-12T08:00:00Z');
+    await addScore(2, 900, '2026-11-12T08:10:00Z');
+    await addScore(3, 700, '2026-11-12T08:20:00Z');
+
+    const board = await fetchLeaderboard(pool, beatmapId, 'kan', 50, null);
+    expect(board.entries.map((entry) => Number(entry.score.total_score))).toEqual([900, 700]);
+    expect(board.entries.map((entry) => entry.position)).toEqual([1, 2]);
+    expect(board.scoreCount).toBe(2);
     expect(board.userScore).toBeNull();
   });
 
-  it('keeps only the best score per user', () => {
-    const rows = [
-      score({ id: 1, user_id: 1, total_score: 500 }),
-      score({ id: 2, user_id: 1, total_score: 900 }),
-      score({ id: 3, user_id: 2, total_score: 700 }),
-    ];
-    const board = computeLeaderboard(rows, 50, null);
-    expect(board.entries.map((e) => Number(e.score.id))).toEqual([2, 3]);
-    expect(board.scoreCount).toBe(2);
+  it('breaks total score ties on the server clock, not the claimed ended_at', async () => {
+    await addScore(4, 900, '2026-11-12T09:00:00Z', '2026-11-12T23:00:00Z');
+    await addScore(5, 900, '2026-11-12T09:30:00Z', '2026-11-12T01:00:00Z');
+
+    // Four competing scores: 900 (user 2, submitted 08:10), 900 (user 4,
+    // 09:00), 900 (user 5, 09:30), 700 (user 3). The claimed `ended_at`
+    // values (23:00 and 01:00) decide nothing (audit S6).
+    const board = await fetchLeaderboard(pool, beatmapId, 'kan', 50, null);
+    expect(board.entries.map((entry) => entry.score.user_id)).toEqual([2, 4, 5, 3]);
   });
 
-  it('orders by total score desc, then by date asc, and positions from 1', () => {
-    const rows = [
-      score({ id: 1, user_id: 1, total_score: 700, ended_at: new Date('2026-01-02T10:00:00Z') }),
-      score({ id: 2, user_id: 2, total_score: 700, ended_at: new Date('2026-01-01T10:00:00Z') }),
-      score({ id: 3, user_id: 3, total_score: 800, ended_at: new Date('2026-01-03T10:00:00Z') }),
-    ];
-    const board = computeLeaderboard(rows, 50, null);
-    expect(board.entries.map((e) => Number(e.score.id))).toEqual([3, 2, 1]);
-    expect(board.entries.map((e) => e.position)).toEqual([1, 2, 3]);
-  });
-
-  it('reports the requesting user position even beyond the page limit', () => {
-    const rows = [
-      score({ id: 1, user_id: 1, total_score: 300 }),
-      score({ id: 2, user_id: 2, total_score: 200 }),
-      score({ id: 3, user_id: 3, total_score: 100 }),
-    ];
-    const board = computeLeaderboard(rows, 2, 3);
+  it('reports the requesting user position even beyond the page limit', async () => {
+    const board = await fetchLeaderboard(pool, beatmapId, 'kan', 2, 3);
     expect(board.entries).toHaveLength(2);
-    expect(board.scoreCount).toBe(3);
-    expect(board.userScore?.position).toBe(3);
-    expect(Number(board.userScore?.score.id)).toBe(3);
+    expect(board.scoreCount).toBe(4);
+    expect(board.userScore?.position).toBe(4);
+    expect(Number(board.userScore?.score.total_score)).toBe(700);
+
+    expect((await fetchUserBest(pool, beatmapId, 'kan', 2))?.position).toBe(1);
   });
 
-  it('has no user score for guests or users without scores', () => {
-    const rows = [score({ id: 1, user_id: 1 })];
-    expect(computeLeaderboard(rows, 50, null).userScore).toBeNull();
-    expect(computeLeaderboard(rows, 50, 99).userScore).toBeNull();
-  });
-});
-
-describe('compareScores', () => {
-  it('breaks total score ties by earliest date then id', () => {
-    const earlier = score({ id: 2, ended_at: new Date('2026-01-01T00:00:00Z') });
-    const later = score({ id: 1, ended_at: new Date('2026-01-02T00:00:00Z') });
-    expect(compareScores(earlier, later)).toBeLessThan(0);
-    const sameDateA = score({ id: 7, ended_at: new Date('2026-01-01T00:00:00Z') });
-    const sameDateB = score({ id: 8, ended_at: new Date('2026-01-01T00:00:00Z') });
-    expect(compareScores(sameDateA, sameDateB)).toBeLessThan(0);
-  });
-});
-
-describe('score queries', () => {
-  it('orders best scores by total score and recent scores by date', () => {
-    expect(buildUserScoresQuery('best')?.orderBy).toBe('total_score DESC, ended_at ASC');
-    expect(buildUserScoresQuery('recent')?.orderBy).toBe('ended_at DESC');
-    expect(buildUserScoresQuery('firsts')).toBeNull();
-    expect(buildUserScoresQuery('pinned')).toBeNull();
-  });
-
-  it('fetches a beatmap scores by beatmap id and ruleset short name', () => {
-    const text = buildBeatmapScoresQuery();
-    expect(text).toContain('WHERE beatmap_id = $1 AND ruleset_short_name = $2');
-    expect(text).toContain('ORDER BY ended_at ASC, id ASC');
+  it('has no user score for users without scores on the level', async () => {
+    expect(await fetchUserBest(pool, beatmapId, 'kan', 42)).toBeNull();
+    const board = await fetchLeaderboard(pool, beatmapId, 'kan', 50, 42);
+    expect(board.userScore).toBeNull();
   });
 });

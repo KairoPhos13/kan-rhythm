@@ -103,8 +103,8 @@ Response handling:
   (`APIAccess.cs:532-542`). Anything unparseable rethrows and the UI shows a generic error.
 
 Server must: validate username/email/password and return the `form_error` shape on failure
-(never a stack trace), rate-limit per IP (client has no retry logic: a 429 simply shows as an
-error).
+(never a stack trace), rate-limit per client address and per account (client has no retry
+logic: a 429 simply shows as an error).
 
 ## 3. Users and profile
 

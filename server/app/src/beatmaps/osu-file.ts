@@ -94,6 +94,38 @@ function numberOr(value: string | undefined, fallback: number): number {
 }
 
 /**
+ * A number from a `.osu` file, clamped into the range the format allows (audit
+ * S8: crafted values used to overflow the catalogue's columns and answer 500
+ * after a full upload). `fallback` stands where the key is missing or broken.
+ */
+function clampedNumberOr(value: string | undefined, fallback: number, min: number, max: number): number {
+  return clamp(numberOr(value, fallback), min, max);
+}
+
+/** Like {@link clampedNumberOr}, for the integer fields of the format. */
+function clampedIntOr(value: string | undefined, fallback: number, min: number, max: number): number {
+  return clamp(Math.trunc(numberOr(value, fallback)), min, max);
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(Math.max(value, min), max);
+}
+
+/** osu!'s difficulty settings run 0..10 (CS, AR, OD, HP). */
+const DIFFICULTY_MIN = 0;
+const DIFFICULTY_MAX = 10;
+/** Longest level the catalogue holds (seconds); nothing real comes near it. */
+const MAX_LENGTH_SECONDS = 24 * 60 * 60;
+/** Longest level (milliseconds) for `PreviewTime`; osu! stores -1 for "none". */
+const MAX_PREVIEW_MS = 24 * 60 * 60 * 1000;
+/** Fastest tempo the catalogue holds (BPM). */
+const MAX_BPM = 1000;
+/** Upper bound on a difficulty's combo counter (audit S8). */
+const MAX_COMBO_OBJECTS = 10_000_000;
+/** Slider traversals (`slides`): the field is a count, not a free number. */
+const MAX_SLIDES = 1000;
+
+/**
  * Parses the sections of a `.osu` file that matter for the catalogue and the
  * API responses.
  */
@@ -142,7 +174,7 @@ export function parseOsu(text: string): OsuFileInfo {
       const beatLength = numberOr(parts[1], 0);
       const uninherited = numberOr(parts[6], 1);
       if (!sawTimingPoint && uninherited === 1 && beatLength > 0) {
-        info.bpm = Math.round((60000 / beatLength) * 100) / 100;
+        info.bpm = clamp(Math.round((60000 / beatLength) * 100) / 100, 0, MAX_BPM);
         sawTimingPoint = true;
       }
       continue;
@@ -162,7 +194,7 @@ export function parseOsu(text: string): OsuFileInfo {
       } else if (type & 2) {
         // Slider: `slides` (traversals) in field 7; combo ≈ slides + 1.
         info.countSliders += 1;
-        const slides = Math.max(1, numberOr(parts[6], 1));
+        const slides = clampedNumberOr(parts[6], 1, 1, MAX_SLIDES);
         info.maxCombo += slides + 1;
       } else if (type & 128) {
         // Hold note (mania): end time in field 6.
@@ -176,9 +208,10 @@ export function parseOsu(text: string): OsuFileInfo {
     }
   }
 
-  const seconds = Math.ceil(lastHitObjectMs / 1000);
+  const seconds = clamp(Math.ceil(lastHitObjectMs / 1000), 0, MAX_LENGTH_SECONDS);
   info.totalLengthSeconds = seconds;
   info.hitLengthSeconds = seconds;
+  info.maxCombo = clamp(info.maxCombo, 0, MAX_COMBO_OBJECTS);
   return info;
 }
 
@@ -189,10 +222,10 @@ function applyKey(info: OsuFileInfo, section: string, key: string, value: string
         info.general.audioFilename = value;
         break;
       case 'previewtime':
-        info.general.previewTime = numberOr(value, -1);
+        info.general.previewTime = clampedIntOr(value, -1, -1, MAX_PREVIEW_MS);
         break;
       case 'mode':
-        info.general.mode = numberOr(value, 0);
+        info.general.mode = clampedIntOr(value, 0, 0, 3);
         break;
     }
     return;
@@ -224,10 +257,10 @@ function applyKey(info: OsuFileInfo, section: string, key: string, value: string
         info.metadata.tags = value;
         break;
       case 'beatmapid':
-        info.metadata.beatmapId = numberOr(value, 0);
+        info.metadata.beatmapId = clampedIntOr(value, 0, 0, 2_147_483_647);
         break;
       case 'beatmapsetid':
-        info.metadata.beatmapSetId = numberOr(value, 0);
+        info.metadata.beatmapSetId = clampedIntOr(value, 0, 0, 2_147_483_647);
         break;
     }
     return;
@@ -235,16 +268,21 @@ function applyKey(info: OsuFileInfo, section: string, key: string, value: string
   if (section === 'Difficulty') {
     switch (key) {
       case 'circlesize':
-        info.difficulty.circleSize = numberOr(value, 0);
+        info.difficulty.circleSize = clampedNumberOr(value, 0, DIFFICULTY_MIN, DIFFICULTY_MAX);
         break;
       case 'overalldifficulty':
-        info.difficulty.overallDifficulty = numberOr(value, 0);
+        info.difficulty.overallDifficulty = clampedNumberOr(value, 0, DIFFICULTY_MIN, DIFFICULTY_MAX);
         break;
       case 'approachrate':
-        info.difficulty.approachRate = numberOr(value, info.difficulty.overallDifficulty);
+        info.difficulty.approachRate = clampedNumberOr(
+          value,
+          info.difficulty.overallDifficulty,
+          DIFFICULTY_MIN,
+          DIFFICULTY_MAX,
+        );
         break;
       case 'hpdrainrate':
-        info.difficulty.hpDrainRate = numberOr(value, 0);
+        info.difficulty.hpDrainRate = clampedNumberOr(value, 0, DIFFICULTY_MIN, DIFFICULTY_MAX);
         break;
     }
   }

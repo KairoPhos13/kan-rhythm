@@ -23,8 +23,10 @@ services:
       ACCESS_TOKEN_TTL_SECONDS: ${ACCESS_TOKEN_TTL_SECONDS:-86400}
       REFRESH_TOKEN_TTL_SECONDS: ${REFRESH_TOKEN_TTL_SECONDS:-2592000}
       SCORE_TOKEN_TTL_SECONDS: ${SCORE_TOKEN_TTL_SECONDS:-1800}
-      # Behind the tunnel: trust CF-Connecting-IP for rate limiting and use
-      # https in generated URLs. Never set this without a trusted proxy.
+      # Behind the tunnel: trust Cloudflare's CF-Connecting-IP for rate
+      # limiting and use https in generated URLs. Only Cloudflare's edge (via
+      # the tunnel) can reach the app here, so the header cannot be spoofed;
+      # never set this when anything else can talk to the app directly.
       TRUST_PROXY: ${TRUST_PROXY:-cloudflare}
       # Browsers that open the API root go to the website (empty: JSON only).
       WEBSITE_URL: ${WEBSITE_URL:-}

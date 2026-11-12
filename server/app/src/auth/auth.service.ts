@@ -29,6 +29,28 @@ export interface AuthenticatedUser extends UserRow {
   password_hash: string;
 }
 
+/**
+ * Placeholder hash for sign-ins with a username that does not exist (audit
+ * S10): argon2 runs exactly as it does for a wrong password, so the answer
+ * takes the same time either way and the login endpoint cannot be used to
+ * find out which accounts are real.
+ */
+let dummyHash: Promise<string> | null = null;
+
+function placeholderHash(): Promise<string> {
+  dummyHash ??= argon2.hash('kan! unknown-user placeholder', { type: argon2.argon2id });
+  return dummyHash;
+}
+
+/** Argon2 verification against the user's hash, or the placeholder hash. */
+async function verifyPassword(hash: string | null, password: string): Promise<boolean> {
+  try {
+    return await argon2.verify(hash ?? (await placeholderHash()), password);
+  } catch {
+    return false;
+  }
+}
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -57,15 +79,11 @@ export class AuthService {
       [username],
     );
     const user = result.rows[0];
-    // Same message for "unknown user" and "wrong password" (no user enumeration).
-    if (!user) throw oauthError(400, 'invalid_grant', 'Incorrect username or password');
-    let ok: boolean;
-    try {
-      ok = await argon2.verify(user.password_hash, password);
-    } catch {
-      ok = false;
-    }
-    if (!ok) throw oauthError(400, 'invalid_grant', 'Incorrect username or password');
+    // Same message for "unknown user" and "wrong password" (no user
+    // enumeration), and the same argon2 work either way: an unknown user is
+    // verified against a placeholder hash (audit S10).
+    const ok = await verifyPassword(user ? user.password_hash : null, password);
+    if (!user || !ok) throw oauthError(400, 'invalid_grant', 'Incorrect username or password');
     // A sign-in is a definite visit: record it unconditionally. The
     // five-minute throttle in `UsersService.touchLastVisit` is for /me polls.
     await this.db.query(`UPDATE users SET last_visit = now() WHERE id = $1`, [user.id]);

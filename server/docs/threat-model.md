@@ -7,6 +7,15 @@ and [server/api/openapi.yaml](../api/openapi.yaml). Client-side threats
 (game binary tampering) are covered only where they touch the server trust
 boundary. Mitigations are mapped to concrete endpoints and schema columns.
 
+> **This document describes the designed backend, not the shipped one.** None of
+> the mitigations below exist in `server/app` (the MVP that speaks the lazer
+> protocol today): there is no `POST /scores`, no Redis, no validation worker
+> and no replay storage. What the shipped server does instead is in
+> [mvp-scope.md](mvp-scope.md) §9: score values are validated and clamped, ties
+> break on the server's own clock, logins are rate-limited per address and per
+> account, and score *content* is otherwise the client's own claim. Read the
+> tables below as target design, in the future tense.
+
 The four primary threats, per the TODO: **score spoofing**, **replay
 tampering**, **Sybil ranking farming**, **webhook forgery**. A short
 "secondary threats" section closes the doc.

@@ -42,6 +42,64 @@ describe('parseOsu', () => {
   });
 });
 
+describe('crafted values are clamped (audit S8)', () => {
+  const hostile = [
+    'osu file format v14',
+    '',
+    '[General]',
+    'AudioFilename: audio.wav',
+    'Mode: 1e300',
+    '',
+    '[Metadata]',
+    'Title:Hostile',
+    'Artist:Hostile',
+    'Creator:nobody',
+    'Version:Hostile',
+    'BeatmapID:1e300',
+    'BeatmapSetID:99999999999999',
+    '',
+    '[Difficulty]',
+    'HPDrainRate:1e40',
+    'CircleSize:-5',
+    'OverallDifficulty:12',
+    'ApproachRate:1e400',
+    '',
+    '[TimingPoints]',
+    '0,1e-300,4,2,0,60,1,0',
+    '',
+    '[HitObjects]',
+    '256,192,1e15,2,0,L|440:100,1e300',
+    '256,192,0,8,0,1e15,0:0:0:0:',
+    '',
+  ].join('\n');
+
+  const info = parseOsu(hostile);
+
+  it('keeps difficulty settings inside 0..10 and mode inside 0..3', () => {
+    expect(info.difficulty.hpDrainRate).toBe(10);
+    expect(info.difficulty.circleSize).toBe(0);
+    expect(info.difficulty.overallDifficulty).toBe(10);
+    expect(info.difficulty.approachRate).toBe(10);
+    // A crafted mode lands inside 0..3 (the importer then skips any mode
+    // that is not kan!'s mode 0).
+    expect(info.general.mode).toBe(3);
+  });
+
+  it('keeps ids integral and inside the integer columns', () => {
+    expect(Number.isInteger(info.metadata.beatmapId)).toBe(true);
+    expect(info.metadata.beatmapId).toBeLessThanOrEqual(2_147_483_647);
+    expect(info.metadata.beatmapSetId).toBe(2_147_483_647);
+  });
+
+  it('keeps BPM, lengths and combo finite and bounded', () => {
+    expect(info.bpm).toBe(1000);
+    expect(info.totalLengthSeconds).toBeLessThanOrEqual(24 * 60 * 60);
+    expect(info.hitLengthSeconds).toBeLessThanOrEqual(24 * 60 * 60);
+    expect(Number.isFinite(info.maxCombo)).toBe(true);
+    expect(info.maxCombo).toBeLessThanOrEqual(10_000_000);
+  });
+});
+
 describe('rewriteOsu', () => {
   it('replaces existing BeatmapID / BeatmapSetID values', () => {
     const rewritten = rewriteOsu(minimalOsu(), { beatmapId: 42, beatmapSetId: 7 });

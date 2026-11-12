@@ -8,8 +8,13 @@
  * `PatchBeatmapPackageRequest.cs`). All three carry the signed-in creator's
  * bearer token like any API request.
  */
-import { Body, Controller, Param, Patch, Put, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Inject, Param, Patch, Put, Req, UseGuards } from '@nestjs/common';
+import { Request } from 'express';
+import { readFileSync } from 'node:fs';
+import { APP_CONFIG, AppConfig } from '../config';
 import { apiError } from '../common/http';
+import { requestClientIp } from '../common/client-ip';
+import { RouteThrottle } from '../common/throttle';
 import { UploadRequest, UploadedFile } from '../common/multipart';
 import { AuthenticatedUser } from '../auth/auth.service';
 import { AuthGuard, CurrentUser } from '../auth/auth.guard';
@@ -18,7 +23,16 @@ import { parsePutBeatmapSetBody } from './submission-rules';
 
 @Controller('beatmap-submission')
 export class SubmissionController {
-  constructor(private readonly submission: SubmissionService) {}
+  /**
+   * Reserving ids also reads and hashes the stored package of an existing set
+   * (up to the package limit per call), hence the limit (audit S7).
+   */
+  private readonly reserveThrottle = new RouteThrottle(30, 60);
+
+  constructor(
+    private readonly submission: SubmissionService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
+  ) {}
 
   /** `PUT /beatmap-submission/beatmapsets`: reserve the ids of a submission. */
   @Put('beatmapsets')
@@ -26,13 +40,19 @@ export class SubmissionController {
   async reserve(
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: unknown,
+    @Req() req: Request,
   ): Promise<PutBeatmapSetResult> {
+    this.reserveThrottle.check(user.id, requestClientIp(req, this.config.trustProxy));
     const parsed = parsePutBeatmapSetBody(body);
     if (!parsed.ok) throw apiError(400, parsed.error);
     return this.submission.reserve(user, parsed.value);
   }
 
-  /** `PUT /beatmap-submission/beatmapsets/{id}`: upload the full package. */
+  /**
+   * `PUT /beatmap-submission/beatmapsets/{id}`: upload the full package. The
+   * multipart middleware streams it to a temporary file and refuses a second
+   * file part; the file is read from there, never from memory (audit S1).
+   */
   @Put('beatmapsets/:id')
   @UseGuards(AuthGuard)
   async replace(
@@ -40,9 +60,12 @@ export class SubmissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: UploadRequest,
   ): Promise<void> {
-    const [archive] = filesOf(request, 'beatmapArchive');
-    if (!archive) throw apiError(400, 'No beatmapArchive file in the upload');
-    await this.submission.replacePackage(user, beatmapsetId(id), archive.buffer);
+    const files = request.files ?? [];
+    const archive = files.find((file) => file.fieldname === 'beatmapArchive');
+    if (!archive || files.length !== 1) {
+      throw apiError(400, 'A level upload carries exactly one beatmapArchive file');
+    }
+    await this.submission.replacePackage(user, beatmapsetId(id), archive.path);
   }
 
   /** `PATCH /beatmap-submission/beatmapsets/{id}`: changed files and deletions. */
@@ -53,9 +76,11 @@ export class SubmissionController {
     @CurrentUser() user: AuthenticatedUser,
     @Req() request: UploadRequest,
   ): Promise<void> {
+    // The client sends one part per changed file (PatchBeatmapPackageRequest);
+    // each was streamed to a temporary file and is read back one at a time.
     const changed = filesOf(request, 'filesChanged').map((file) => ({
       entryName: file.originalname,
-      data: file.buffer,
+      data: readFileSync(file.path),
     }));
     const deleted = textFields(request, 'filesDeleted');
     await this.submission.patchPackage(user, beatmapsetId(id), changed, deleted);

@@ -9,6 +9,9 @@ export type StorageDriverName = 'local' | 's3';
 /** Nest injection token for the resolved {@link AppConfig}. */
 export const APP_CONFIG = 'APP_CONFIG';
 
+/** Default of `SUBMISSION_MAX_PACKAGE_BYTES`: 100 MiB per level package. */
+export const DEFAULT_MAX_PACKAGE_BYTES = 100 * 1024 * 1024;
+
 export interface S3Config {
   endpoint: string;
   region: string;
@@ -22,9 +25,13 @@ export interface AppConfig {
   port: number;
   databaseUrl: string;
   /**
-   * `TRUST_PROXY=cloudflare` when a Cloudflare Tunnel (or another proxy we
-   * control) fronts the app: forwarded client IPs are then trusted for rate
-   * limiting and absolute URLs use https. Never trusted otherwise.
+   * `TRUST_PROXY` names the proxy that fronts the app, and is the only reason
+   * forwarded client headers are ever trusted (rate limiting keys on the
+   * client address, absolute URLs use https):
+   *  - `cloudflare`: Cloudflare's edge (the tunnel stack); `CF-Connecting-IP`;
+   *  - `caddy`: our own Caddy (the direct stack, deploy/DEPLOY.md §15); the
+   *    `X-Forwarded-For` hop Caddy appended.
+   * Empty (the default): no proxy is trusted, the socket address is the client.
    */
   trustProxy: TrustProxyMode;
   /**
@@ -70,11 +77,27 @@ function bool(value: string | undefined, fallback: boolean): boolean {
   return value === 'true' || value === '1' || value === 'yes';
 }
 
+/**
+ * The development default of `DATABASE_URL`. It carries the compose file's
+ * well-known password `kan`, so production must always set `DATABASE_URL`
+ * itself (audit S12).
+ */
+function databaseUrl(env: NodeJS.ProcessEnv): string {
+  const configured = env.DATABASE_URL;
+  if (configured && configured.trim() !== '') return configured;
+  if (env.NODE_ENV === 'production') {
+    throw new Error(
+      'DATABASE_URL is required in production (the development default carries a known password)',
+    );
+  }
+  return 'postgres://kan:kan@localhost:55432/kan';
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
   const driver = env.STORAGE_DRIVER === 's3' ? 's3' : 'local';
   return {
     port: int(env.PORT, 3000),
-    databaseUrl: env.DATABASE_URL ?? 'postgres://kan:kan@localhost:55432/kan',
+    databaseUrl: databaseUrl(env),
     trustProxy: parseTrustProxy(env.TRUST_PROXY),
     websiteUrl: (env.WEBSITE_URL ?? '').trim(),
     oauth: {
@@ -101,7 +124,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): AppConfig {
       downloadUrlExpirySeconds: int(env.DOWNLOAD_URL_EXPIRY_SECONDS, 300),
     },
     submission: {
-      maxPackageBytes: int(env.SUBMISSION_MAX_PACKAGE_BYTES, 100 * 1024 * 1024),
+      maxPackageBytes: int(env.SUBMISSION_MAX_PACKAGE_BYTES, DEFAULT_MAX_PACKAGE_BYTES),
       uploadsPerHour: int(env.SUBMISSION_UPLOADS_PER_HOUR, 10),
       unrankedSetsBase: int(env.SUBMISSION_UNRANKED_SETS_BASE, 4),
       unrankedSetsMax: int(env.SUBMISSION_UNRANKED_SETS_MAX, 8),

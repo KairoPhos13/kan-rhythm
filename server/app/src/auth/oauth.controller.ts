@@ -13,8 +13,14 @@ import { AuthService, IssuedTokens } from './auth.service';
 
 @Controller()
 export class OAuthController {
-  /** Simple in-memory limit on login attempts (per client IP). */
+  /** Simple in-memory limit on token requests (per client IP). */
   private readonly loginLimiter = new RateLimiter(60_000, 10);
+  /**
+   * The same limit per account (audit S4): without it, one account's password
+   * could be guessed from many addresses at once, and the per-IP limit alone
+   * does not stop that.
+   */
+  private readonly accountLimiter = new RateLimiter(60_000, 10);
 
   constructor(
     private readonly auth: AuthService,
@@ -39,6 +45,13 @@ export class OAuthController {
         const password = bodyField(body, 'password');
         if (!username || !password) {
           throw oauthError(400, 'invalid_request', 'Username and password are required');
+        }
+        if (!this.accountLimiter.check(username.toLowerCase())) {
+          throw oauthError(
+            429,
+            'too_many_requests',
+            'Too many sign-in attempts for this account, please try again shortly',
+          );
         }
         return this.auth.passwordGrant(username, password);
       }

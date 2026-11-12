@@ -1,5 +1,5 @@
 /** Unit tests for the beatmapset search query builder (§4.1 paging/filters). */
-import { buildSearchQuery, splitSort } from '../src/beatmaps/search-query';
+import { buildSearchQuery, MAX_SEARCH_OFFSET, splitSort } from '../src/beatmaps/search-query';
 
 const base = {
   category: 'any',
@@ -74,5 +74,11 @@ describe('buildSearchQuery', () => {
     const built = buildSearchQuery({ ...base, offset: 40 });
     expect(built.text).toContain('LIMIT $1 OFFSET $2');
     expect(built.params).toEqual([20, 40]);
+  });
+
+  it('clamps a client-chosen offset (audit S9)', () => {
+    const built = buildSearchQuery({ ...base, offset: 2_000_000 });
+    expect(built.params).toEqual([20, MAX_SEARCH_OFFSET]);
+    expect(buildSearchQuery({ ...base, offset: -5 }).params).toEqual([20, 0]);
   });
 });

@@ -2,19 +2,28 @@
  * Score routes (server/docs/lazer-protocol.md §5): token creation, submission
  * and the per-beatmap leaderboard.
  */
-import { Body, Controller, Get, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Inject, Param, Post, Put, Query, Req, UseGuards } from '@nestjs/common';
 import { Request } from 'express';
+import { APP_CONFIG, AppConfig } from '../config';
 import { apiError } from '../common/http';
 import { queryInt, QueryParams } from '../common/query.util';
+import { requestClientIp } from '../common/client-ip';
+import { RouteThrottle } from '../common/throttle';
 import { AuthenticatedUser, AuthService } from '../auth/auth.service';
 import { AuthGuard, CurrentUser, optionalUser } from '../auth/auth.guard';
 import { ScoresService, SubmitScoreInput } from './scores.service';
 
 @Controller('api/v2')
 export class ScoresController {
+  /** One play is one token and one submission (audit S7). */
+  private readonly tokenThrottle = new RouteThrottle(30, 60);
+  private readonly submitThrottle = new RouteThrottle(30, 60);
+  private readonly leaderboardThrottle = new RouteThrottle(120, 120);
+
   constructor(
     private readonly scores: ScoresService,
     private readonly auth: AuthService,
+    @Inject(APP_CONFIG) private readonly config: AppConfig,
   ) {}
 
   /** `POST /api/v2/beatmaps/{id}/solo/scores`: create a score token. */
@@ -24,7 +33,9 @@ export class ScoresController {
     @Param('id') id: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: Record<string, unknown>,
+    @Req() req: Request,
   ): Promise<{ id: number }> {
+    this.tokenThrottle.check(user.id, requestClientIp(req, this.config.trustProxy));
     const beatmapId = this.beatmapId(id);
     return this.scores.createToken(user, beatmapId, {
       beatmap_hash: typeof body['beatmap_hash'] === 'string' ? body['beatmap_hash'] : undefined,
@@ -41,7 +52,9 @@ export class ScoresController {
     @Param('token') token: string,
     @CurrentUser() user: AuthenticatedUser,
     @Body() body: SubmitScoreInput,
+    @Req() req: Request,
   ): Promise<Record<string, unknown>> {
+    this.submitThrottle.check(user.id, requestClientIp(req, this.config.trustProxy));
     const beatmapId = this.beatmapId(id);
     const tokenId = Number.parseInt(token, 10);
     if (!Number.isFinite(tokenId)) throw apiError(400, 'invalid token');
@@ -55,8 +68,9 @@ export class ScoresController {
     @Query() query: QueryParams,
     @Req() request: Request,
   ): Promise<Record<string, unknown>> {
-    const beatmapId = this.beatmapId(id);
     const user = await optionalUser(this.auth, request);
+    this.leaderboardThrottle.check(user?.id ?? null, requestClientIp(request, this.config.trustProxy));
+    const beatmapId = this.beatmapId(id);
     // `type=country|friend|team` falls back to global for the MVP (§5.4).
     return this.scores.leaderboard(
       beatmapId,

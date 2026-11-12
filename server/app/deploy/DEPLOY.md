@@ -117,6 +117,8 @@ S3_ACCESS_KEY_ID=<R2 API token access key id>
 S3_SECRET_ACCESS_KEY=<R2 API token secret>
 OAUTH_CLIENT_ID=kan-client
 OAUTH_CLIENT_SECRET=kan-public-client
+# below Cloudflare's 100 MB edge limit (see the note under this block)
+SUBMISSION_MAX_PACKAGE_BYTES=94371840
 ```
 
 Two notes:
@@ -124,9 +126,21 @@ Two notes:
 - **`OAUTH_CLIENT_SECRET` is not a secret**: the game ships `kan-client` /
   `kan-public-client` as constants (like osu!lazer's public client). Real
   protection is user passwords (argon2id) and hashed bearer/refresh tokens.
-- **`TRUST_PROXY=cloudflare`** makes the app trust `CF-Connecting-IP` for rate
-  limiting and use `https` in generated URLs. Only ever set it when a proxy we
-  control (the tunnel) fronts the app; leave it empty otherwise.
+- **`TRUST_PROXY=cloudflare`** makes the app trust Cloudflare's `CF-Connecting-IP`
+  for rate limiting and use `https` in generated URLs. Only ever set it when a
+  proxy we control (the tunnel) fronts the app; leave it empty otherwise. (The
+  value `caddy` exists for the direct Caddy stack of §15, where the forwarded
+  address is the one Caddy appends itself.)
+
+One more setting matters through Cloudflare: the edge rejects request bodies
+over **100 MB** (Free/Pro plans; adjustable in the zone's **Network** page)
+before they reach the app. The default `SUBMISSION_MAX_PACKAGE_BYTES` is 100
+MiB, which is over that line once the multipart framing is counted, so set it
+below the edge limit for level uploads to work, e.g. `SUBMISSION_MAX_PACKAGE_BYTES=94371840`
+(90 MiB), or raise the zone's Maximum Upload Size. The app enforces its own
+limit too: the upload streams to a temporary file with a running byte counter,
+and the archive is checked (entry count, declared sizes, ratio) before it is
+inflated.
 
 ## 6. Start the stack
 
@@ -136,7 +150,9 @@ docker compose -f docker-compose.tunnel.yml up -d --build
 docker compose -f docker-compose.tunnel.yml ps      # app, postgres, cloudflared running
 ```
 
-Migrations run automatically when the app container starts; to run them by
+Migrations run automatically when the app container starts (they take a
+PostgreSQL advisory lock, so several instances starting together queue up
+instead of applying one migration twice); to run them by
 hand: `docker compose -f docker-compose.tunnel.yml exec app node dist/db/migrate-cli.js`.
 Logs (no passwords or tokens are logged):
 `docker compose -f docker-compose.tunnel.yml logs -f app`.
@@ -249,6 +265,13 @@ Quote usernames that contain spaces, e.g. `reset-password "some player"`.
   (`ON DELETE SET NULL`) but ownerless sets have no place in the catalog. Move
   them to another account first (`UPDATE beatmapsets SET user_id = ...` in
   psql) or delete them with `delete-level`, then run the command again.
+- **Deleting an account completely** is therefore two steps, in this order:
+  `delete-level <id> --yes` for every level the player owns (that also removes
+  the stored package and cover from storage), then `delete-user <username>
+  --yes`. `delete-user` alone leaves uploaded levels and their stored files
+  where they are, so deleting the levels first is what keeps storage in step
+  with the database. Both steps delete data for good; take a backup first if
+  anything might be wanted later.
 - `levels` lists every level in the catalogue (id, status, creator, title).
 - `set-status` is how levels get ranked: players submit their levels as pending
   or WIP from the game (see `../README.md`, "Level submission from the game")
@@ -363,9 +386,17 @@ the tunnel is not an option; it **publishes the host's public IP**, which is
 the Nebula lighthouse, and needs inbound 80/443 in the security group. Two
 caveats if you do:
 
-- Set `TRUST_PROXY` **empty** there (we only trust Cloudflare's headers): the
-  rate limiter then keys all clients to the Caddy container address, which
+- Leave `TRUST_PROXY=caddy` (the compose default there): the app then keys its
+  rate limits on the client address Caddy forwards, so the per-player limits
+  work. `cloudflare` is only right when Cloudflare fronts Caddy as well, and
+  then port 443 must be closed to everything but Cloudflare's IP ranges (anyone
+  who reaches Caddy directly could otherwise write `CF-Connecting-IP`).
+  Leaving it empty keys every client to the Caddy container address, which
   makes the limits global instead of per player, another reason to prefer the
   tunnel.
+- The `Caddyfile` allows `SUBMISSION_MAX_PACKAGE_BYTES` (default 100 MiB) plus
+  headroom on the level upload routes and 256KB on everything else. Raise the
+  `request_body` limit together with `SUBMISSION_MAX_PACKAGE_BYTES` (it needs
+  Caddy 2.8 or newer for the matcher form).
 - Point the domain's DNS A/AAAA record at the host and replace `kan.example.org`
   in `Caddyfile` before starting.
