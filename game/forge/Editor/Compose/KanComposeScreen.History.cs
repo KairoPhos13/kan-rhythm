@@ -119,10 +119,10 @@ namespace Kan.Forge.Editor.Compose
         {
             if (ScoreSession.SavedInLevel && !notify) return;
 
-            string? error = ScoreSession.SaveToLevel(working.Value, beatmaps);
+            string? error = ScoreSession.SaveToLevel(working.Value, beatmaps, EditorBeatmap);
 
             if (error != null)
-                ForgeNotify.Error(notifications, $"Could not save the score into the level: {error}");
+                ForgeNotify.Error(notifications, error);
             else if (notify)
                 ForgeNotify.Info(notifications, $"Saved the score into the level ({ForgeFormat.Plural(ScoreSession.Score.Notes.Count, "note", "notes")}).", FontAwesome.Solid.Save);
         }

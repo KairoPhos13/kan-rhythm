@@ -9,6 +9,11 @@
 
   <ItemGroup Label="Project References">
     <ProjectReference Include="..\Kan.Forge.csproj" />
+    <!--
+      The kan! ruleset: the difficulty calculation under test, and the ruleset
+      that "Mode: 0" in a level's .osu resolves to when the test decodes one.
+    -->
+    <ProjectReference Include="..\..\ruleset\Kan.Ruleset.csproj" />
   </ItemGroup>
 
   <ItemGroup Label="Package References">

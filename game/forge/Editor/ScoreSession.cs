@@ -7,6 +7,7 @@ using System.IO;
 using System.Text;
 using osu.Game.Beatmaps;
 using osu.Game.Extensions;
+using osu.Game.Screens.Edit;
 using Kan.Core.Score;
 using Kan.Core;
 
@@ -113,17 +114,29 @@ namespace Kan.Forge.Editor
             }
         }
 
-        /// <summary>Write the score into the level's files. Returns an error message, or null.</summary>
-        public static string? SaveToLevel(WorkingBeatmap working, BeatmapManager beatmaps)
+        /// <summary>
+        /// Write the score into the level's files. Returns an error message,
+        /// or null. The level's osu! file gets the score's marks at the same
+        /// time (<see cref="LevelOsuMarks"/>), so its length follows the
+        /// notes without any further step.
+        /// </summary>
+        /// <param name="editor">The editor's beatmap when the level is open in the editor, kept in step with the marks.</param>
+        public static string? SaveToLevel(WorkingBeatmap working, BeatmapManager beatmaps, EditorBeatmap? editor = null)
         {
             if (LevelKey == null) return null;
 
             string? error = LevelFile.Write(working, beatmaps, KanScore.FILE_NAME, Score.ToJsonStamped());
-            if (error != null) return error;
+            if (error != null) return $"Could not save the score into the level: {error}";
 
             savedToLevel = Score.ContentKey();
             AutoSave();
-            return null;
+
+            // The marks travel with the score: a score without notes keeps
+            // the level's own objects, so a level being built from an
+            // imported song loses nothing here.
+            return LevelOsuMarks.Sync(working, beatmaps, Score, editor) is string marks
+                ? $"The score is saved, but the level's osu! file could not keep its marks: {marks}"
+                : null;
         }
     }
 }

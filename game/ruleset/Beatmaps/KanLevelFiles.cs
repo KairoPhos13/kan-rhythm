@@ -13,6 +13,7 @@ using osu.Game.Beatmaps;
 using osu.Game.Extensions;
 using Kan.Core.Design;
 using Kan.Core.Score;
+using Kan.Forge.Editor;
 
 namespace Kan.Ruleset.Beatmaps
 {
@@ -53,6 +54,23 @@ namespace Kan.Ruleset.Beatmaps
 
             var inLevel = readLevelFile(set, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json) : null;
             var autosaved = loadAutosave(set, @"score.json", KanScore.Load);
+
+            return Kan.Core.LevelDocument.Newer(inLevel, autosaved);
+        }
+
+        /// <summary>
+        /// The same score, read through a working beatmap rather than the
+        /// game's storage: wherever the game holds a working beatmap (the
+        /// ruleset's difficulty calculation), the level's files can be read
+        /// without waiting for <see cref="Init"/>. The level's copy wins over
+        /// the editor's autosave, exactly as above.
+        /// </summary>
+        public static KanScore? LoadScore(IWorkingBeatmap? working)
+        {
+            if (working == null) return null;
+
+            var inLevel = LevelFile.Read(working, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json) : null;
+            var autosaved = working.BeatmapInfo.BeatmapSet is BeatmapSetInfo set ? loadAutosave(set, @"score.json", KanScore.Load) : null;
 
             return Kan.Core.LevelDocument.Newer(inLevel, autosaved);
         }
@@ -155,10 +173,19 @@ namespace Kan.Ruleset.Beatmaps
                 packStarted = true;
                 host.UpdateThread.Scheduler.Add(() => game.Add(new KanStarterPack()));
             }
+
+            // Levels made before the osu! file carried the score's marks read
+            // as 00:00 long: this gives them back their length, once, quietly.
+            if (!marksStarted && game != null && host != null)
+            {
+                marksStarted = true;
+                host.UpdateThread.Scheduler.Add(() => game.Add(new KanMarksMigration()));
+            }
         }
 
         private static bool devPlayStarted;
         private static bool previewStarted;
         private static bool packStarted;
+        private static bool marksStarted;
     }
 }

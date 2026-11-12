@@ -7,6 +7,7 @@ using osu.Framework.Graphics;
 using osu.Framework.Localisation;
 using osu.Framework.Platform;
 using osu.Game.Beatmaps;
+using osu.Game.Screens.Edit;
 using osu.Game.Screens.Edit.Setup;
 
 namespace Kan.Forge.Editor
@@ -30,6 +31,9 @@ namespace Kan.Forge.Editor
 
         [Resolved]
         private BeatmapManager beatmaps { get; set; } = null!;
+
+        [Resolved]
+        private EditorBeatmap editorBeatmap { get; set; } = null!;
 
         [Resolved]
         private Storage storage { get; set; } = null!;
@@ -64,7 +68,7 @@ namespace Kan.Forge.Editor
             {
                 saveAt = null;
                 saved = ScoreSession.Score.Instrument;
-                ScoreSession.SaveToLevel(working.Value, beatmaps);
+                ScoreSession.SaveToLevel(working.Value, beatmaps, editorBeatmap);
             }
         }
     }
