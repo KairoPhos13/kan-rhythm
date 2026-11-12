@@ -147,9 +147,18 @@ namespace Kan.Ruleset.Beatmaps
                 previewStarted = true;
                 host.UpdateThread.Scheduler.Add(() => game.Add(new Kan.Forge.Play.LevelPreview(KanLevelFiles.LoadScore, () => KanLevelFiles.ForgeRoot)));
             }
+
+            // The starter pack's levels, imported once per pack version (issue
+            // 15): a new player finds levels to play without an account.
+            if (!packStarted && game != null && host != null)
+            {
+                packStarted = true;
+                host.UpdateThread.Scheduler.Add(() => game.Add(new KanStarterPack()));
+            }
         }
 
         private static bool devPlayStarted;
         private static bool previewStarted;
+        private static bool packStarted;
     }
 }

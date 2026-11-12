@@ -33,6 +33,9 @@ namespace Kan.Ruleset.Configuration
             SetDefault(KanRulesetSetting.ColourByNote, false);
             SetDefault(KanRulesetSetting.OnlyPlayableLevels, true);
             SetDefault(KanRulesetSetting.StaffFollowsPassage, false);
+
+            // The starter pack's levels are imported once per pack version.
+            SetDefault(KanRulesetSetting.StarterPackVersion, 0);
         }
     }
 }
