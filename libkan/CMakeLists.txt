@@ -81,6 +81,18 @@ if(KAN_BUILD_TESTS)
     target_link_libraries(libkan_transcribe_cmd_test PRIVATE libkan)
     add_test(NAME libkan_transcribe_cmd_test COMMAND libkan_transcribe_cmd_test)
 
+    # The SHA-256 primitive behind the model pin (FIPS 180-4 vectors).
+    add_executable(libkan_sha256_test tests/sha256_test.cpp)
+    target_link_libraries(libkan_sha256_test PRIVATE libkan)
+    add_test(NAME libkan_sha256_test COMMAND libkan_sha256_test)
+
+    # Model pin behaviour (audit C4): a wrong hash deletes the file and
+    # refuses it. No network: this test's "downloads" are file:// or dead
+    # URLs, so it is safe on every CI runner.
+    add_executable(libkan_model_pin_test tests/model_pin_test.cpp)
+    target_link_libraries(libkan_model_pin_test PRIVATE libkan)
+    add_test(NAME libkan_model_pin_test COMMAND libkan_model_pin_test)
+
     add_executable(libkan_range_test tests/range_test.cpp)
     target_link_libraries(libkan_range_test PRIVATE libkan)
     if(TARGET libkan_bacf)
@@ -285,3 +297,27 @@ if(KAN_ENABLE_ROFORMER)
         add_test(NAME roformer_runtime COMMAND libkan_runtime_test)
     endif()
 endif()
+
+# First-party warning policy (CONTRIBUTING section 4; audit C6) for
+# everything kan!-owned compiled here: the test executables, the Basic
+# Pitch port (basic_pitch.cpp) and the RoFormer runtime glue
+# (roformer_runtime.cpp) compiled without warning flags before. Third-party
+# sources (ggml, BSRoformer.cpp, Cycfi Q, KissFFT) are never touched by
+# this. KAN_WERROR=1 (what CI passes) makes these warnings fatal.
+if(NOT COMMAND kan_first_party_target)
+    include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/kan_build_policy.cmake)
+endif()
+foreach(_kan_first_party
+        libkan_basic_pitch libkan_roformer
+        libkan_dsp_test libkan_loudness_test libkan_precondition_test
+        libkan_blanking_test libkan_chord_test libkan_note_stream_test
+        libkan_calibration_test libkan_technique_test libkan_tap_test
+        libkan_transcribe_cmd_test libkan_range_test libkan_stretch_test
+        libkan_fixture_gen libkan_loopback_test libkan_chroma_test
+        libkan_harmonic_probe libkan_bacf_test libkan_bacf_bench
+        libkan_basic_pitch_test libkan_score_error_test libkan_runtime_test
+        libkan_sha256_test libkan_model_pin_test)
+    if(TARGET ${_kan_first_party})
+        kan_first_party_target(${_kan_first_party})
+    endif()
+endforeach()

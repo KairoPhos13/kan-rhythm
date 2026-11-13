@@ -55,22 +55,36 @@ int main() {
            "where curl.exe > NUL 2>&1", "windows probe");
 
     // --- model URL mapping (owner decision 2026-11-11): the default grade
-    // is f16 (MIT source); q8 stays an explicit opt-in. Pure strings,
-    // no network.
+    // is f16 (MIT source); q8 stays an explicit opt-in. Both URLs are
+    // pinned to immutable revisions (audit C4). Pure strings, no network.
     expect(kan::roformer_default_grade(), "f16", "default grade is f16");
     expect(kan::roformer_model_url_for("f16", ""),
            "https://huggingface.co/studio409/BSRoformer-SW-6Stem-GGUF"
-           "/resolve/main/bs_roformer_sw_6stem-F16.gguf",
-           "f16 grade: the MIT studio409 source");
+           "/resolve/fcb2eb0f60cb1135a4cdffe6c40de43c53ee07a9"
+           "/bs_roformer_sw_6stem-F16.gguf",
+           "f16 grade: the MIT studio409 source, pinned revision");
     expect(kan::roformer_model_url_for("q8", ""),
            "https://huggingface.co/FractalSurfer/BS-RoFormer-SW-6stem"
-           "/resolve/main/gguf/BS-RoFormer-SW-6stem-q8_0.gguf",
-           "q8 grade: opt-in source (licence unknown)");
+           "/resolve/2b98254b19bdab07ce225d884ec4aa9dd8aafce1"
+           "/gguf/BS-RoFormer-SW-6stem-q8_0.gguf",
+           "q8 grade: opt-in source (licence unknown), pinned revision");
     expect(kan::roformer_model_url_for("q4", ""), "",
            "q4 grade: no public source");
     expect(kan::roformer_model_url_for("q8", "https://example.invalid/m.gguf"),
            "https://example.invalid/m.gguf",
            "KAN_MODEL_URL self-hosting wins over the grade");
+
+    // --- pinned SHA-256 per grade (audit C4): verified before use ------
+    expect(kan::roformer_model_sha256_for("f16", ""),
+           "f4bb0d024db4cbb1d38c043652f7277d830e25babafcf013403ee7344641a82a",
+           "f16 grade: pinned digest");
+    expect(kan::roformer_model_sha256_for("q8", ""),
+           "e4c53c3389c4426bf8b6cdbcc4e3d7d813323ef8a3e4f1f157084b71960bdf63",
+           "q8 grade: pinned digest");
+    expect(kan::roformer_model_sha256_for("q4", ""), "",
+           "q4 grade: no pin known (used unverified, said out loud)");
+    expect(kan::roformer_model_sha256_for("f16", "ab"),
+           "ab", "KAN_MODEL_SHA256 pins the operator's own mirror");
 
     printf(pass ? "TEST PASS\n" : "TEST FAIL\n");
     return pass ? 0 : 1;
