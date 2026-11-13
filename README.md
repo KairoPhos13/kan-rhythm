@@ -98,7 +98,7 @@ More about how a play is judged: [game/docs/gameplay.md](game/docs/gameplay.md).
 ## Status
 
 Playable and in daily testing on Linux, mostly with an alto ocarina, and
-publicly released (v0.1.0 to v0.1.2, on the
+publicly released (v0.1.0 and v0.1.1, on the
 [releases page](https://github.com/KairoPhos13/kan-rhythm/releases)).
 Windows and macOS builds are produced by CI and still need testing on
 real machines. Players of other instruments are especially welcome: see

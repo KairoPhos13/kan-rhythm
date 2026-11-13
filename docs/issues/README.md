@@ -19,8 +19,8 @@ accompaniment), and English only
 
 Where kan! stands: the server is live (`kan-api.kairophos.link`), the website
 is ready (`kan.kairophos.link`), accounts work from the website and the game.
-Releases v0.1.0 to v0.1.2 are published on GitHub (`docs/releases/` has the
-notes), the game ships with five starter levels (v0.1.2), and creators can
+Releases v0.1.0 and v0.1.1 are published on GitHub (`docs/releases/` has the
+notes), the game ships with five starter levels (v0.1.1), and creators can
 submit levels from kan!forge (v0.1.1).
 
 | Order | Issue | Who | State |
@@ -29,8 +29,8 @@ submit levels from kan!forge (v0.1.1).
 | 2 | [32 Server tests in CI, shaped like the game](32-server-ci-with-postgres.md) | agent | done 2026-11-10 |
 | 3 | [33 Admin tools: password reset, accounts](33-admin-tools.md) | agent | done 2026-11-10 |
 | 4 | [35 Nightly database backups to R2](35-nightly-backups.md) | Claude | done 2026-11-10 |
-| 5 | [15 First free levels](15-first-free-bundled-level.md) with [14 companions](14-companions-for-free-songs.md) | owner, then import | levels done 2026-11-11 (agent), shipped in v0.1.2; play-tests 01-06 left; 14 open |
-| 6 | [09 Windows](09-windows-build-and-playtest.md) and [10 macOS](10-macos-build-and-playtest.md) play-tests, with the first release `v0.1.0` | owner, testers | releases v0.1.0 to v0.1.2 published (2026-11-10 to 2026-11-11); play-tests 09, 10 open |
+| 5 | [15 First free levels](15-first-free-bundled-level.md) with [14 companions](14-companions-for-free-songs.md) | owner, then import | levels done 2026-11-11 (agent), shipped in v0.1.1; play-tests 01-06 left; 14 open |
+| 6 | [09 Windows](09-windows-build-and-playtest.md) and [10 macOS](10-macos-build-and-playtest.md) play-tests, with the first release `v0.1.0` | owner, testers | releases v0.1.0 and v0.1.1 published; play-tests 09, 10 open |
 | 7 | [22 Leftover osu! text](22-osu-string-sweep-remaining.md) (mod descriptions such as "SS or quit") | agent | done 2026-11-10 |
 | 8 | [24 Hide osu!-only features](24-hide-osu-only-features.md) | agent | done 2026-11-10 |
 | 9 | [34 Level uploads for creators](34-level-uploads.md) | owner decides the design | done 2026-11-11 (agent), shipped in v0.1.1: [lazer-protocol.md](../../server/docs/lazer-protocol.md) §4.8, fork F-30 in [fork-divergence.md](../../game/docs/fork-divergence.md) |
