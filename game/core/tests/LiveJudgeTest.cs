@@ -536,5 +536,45 @@ namespace Kan.Core.Tests
             // Nor a legato note whose pitch never came.
             Assert.That(judge.Judge(1000, 86, false, 1510, legato: true)!.Value.Result, Is.EqualTo(LiveResult.Miss));
         }
+
+        [Test]
+        public void AWrongAttackAnswersOneNoteOnly()
+        {
+            // 2026-11-12 audit B3: one wrong attack 120 ms before a chord was
+            // reported as the wrong note of all three chord notes, and stayed
+            // free to be claimed as a hit by a later note.
+            var judge = new LiveJudge();
+            judge.Heard(1, 880);
+            judge.Pitch(1, 70, 0, final: true); // a whole tone off: another note
+
+            var first = judge.Judge(1000, 72, false, 1520)!.Value;
+            Assert.That(first.Reason, Is.EqualTo(LiveReason.WrongNote));
+            Assert.That(first.PlayedId, Is.EqualTo(1));
+
+            Assert.That(judge.Judge(1000, 74, false, 1520)!.Value.Reason, Is.EqualTo(LiveReason.NotHeard),
+                        "the chord's other notes are not charged with the same attack");
+            Assert.That(judge.Judge(1000, 76, false, 1520)!.Value.Reason, Is.EqualTo(LiveReason.NotHeard));
+
+            // Nor is it on offer as a hit to a later note of its own pitch
+            // (this one has no attack of its own).
+            Assert.That(judge.Judge(1250, 70, false, 1760)!.Value.Reason, Is.EqualTo(LiveReason.NotHeard),
+                        "a charged attack answers one note, never two");
+        }
+
+        [Test]
+        public void AnUnknownPitchNoteIsJudgedOnTimeAlone()
+        {
+            // 2026-11-12 audit B5: a chart note without a pitch counts any
+            // note on time ("dead on time, 45 cents from the nearest
+            // semitone" is a perfect, not a good), so the played note's
+            // rounding residual must not narrow the grade.
+            var judge = new LiveJudge();
+            judge.Heard(1, 1000);
+            judge.Pitch(1, 60, 45, final: true);
+
+            var verdict = judge.Judge(1000, 72, anyPitch: true, nowMs: 1510)!.Value;
+            Assert.That(verdict.Result, Is.EqualTo(LiveResult.Perfect));
+            Assert.That(verdict.Cents, Is.EqualTo(0), "the residual is not this score note's business");
+        }
     }
 }

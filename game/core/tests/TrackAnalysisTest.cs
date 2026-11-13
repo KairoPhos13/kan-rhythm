@@ -76,17 +76,22 @@ namespace Kan.Core.Tests
             var loud = new ForgeTrack("loud", writeSignal("loud", 0.5f));
             var silent = new ForgeTrack("silent", writeSignal("silent", 0.0f));
 
-            TrackAnalysis.Analyze(loud);
-            TrackAnalysis.Analyze(silent);
+            var loudResult = TrackAnalysis.Analyze(loud);
+            var silentResult = TrackAnalysis.Analyze(silent);
 
-            Assert.That(loud.Peaks, Is.Not.Null);
-            Assert.That(loud.Peaks!.Length, Is.EqualTo(TrackAnalysis.BUCKETS));
-            Assert.That(loud.Peaks.Max(), Is.GreaterThan(0.4f), "the waveform shows the activity");
+            Assert.That(loudResult.Peaks, Is.Not.Null);
+            Assert.That(loudResult.Peaks!.Length, Is.EqualTo(TrackAnalysis.BUCKETS));
+            Assert.That(loudResult.Peaks.Max(), Is.GreaterThan(0.4f), "the waveform shows the activity");
+            Assert.That(loudResult.LikelyEmpty, Is.False);
+
+            Assert.That(silentResult.Peaks, Is.Not.Null);
+            Assert.That(silentResult.Peaks!.Max(), Is.EqualTo(0.0f));
+            Assert.That(silentResult.LikelyEmpty, Is.True, "a silent stem is labelled, not hidden");
+
+            // The track takes the measurements on the update thread.
+            loudResult.ApplyTo(loud);
+            Assert.That(loud.Peaks, Is.SameAs(loudResult.Peaks));
             Assert.That(loud.LikelyEmpty, Is.False);
-
-            Assert.That(silent.Peaks, Is.Not.Null);
-            Assert.That(silent.Peaks!.Max(), Is.EqualTo(0.0f));
-            Assert.That(silent.LikelyEmpty, Is.True, "a silent stem is labelled, not hidden");
         }
 
         [Test]
@@ -97,7 +102,8 @@ namespace Kan.Core.Tests
             File.WriteAllText(path, "this is not audio");
 
             var track = new ForgeTrack("broken", path);
-            TrackAnalysis.Analyze(track);
+            var result = TrackAnalysis.Analyze(track);
+            result.ApplyTo(track);
 
             Assert.That(track.AnalysisFailed, Is.True, "a failed analysis is visible, not an endless wait");
             Assert.That(track.Peaks, Is.Null);

@@ -116,6 +116,7 @@ namespace Kan.Core.Design
             if (!design.Generated) return design;
 
             var fresh = Generate(notes, levelLengthMs, design.Palette);
+            fresh.LevelId = design.LevelId;
             fresh.Sparkle = design.Sparkle;
             fresh.Glow = design.Glow;
             fresh.Picture = design.Picture;

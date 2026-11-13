@@ -360,6 +360,17 @@ namespace Kan.Core.Play
         }
 
         /// <summary>
+        /// Give a heard note back: the game took its verdict back (a replay
+        /// rewound before the note was decided, 2026-11-12 audit B10), so it
+        /// may answer a score note again. Called with the played id of each
+        /// reverted verdict.
+        /// </summary>
+        public void Unclaim(uint playedId)
+        {
+            if (find(playedId) is { } p) p.Claimed = false;
+        }
+
+        /// <summary>
         /// Whether a played note that would answer this score note has been heard
         /// (unclaimed, within the window, with its pitch). For the wait mode:
         /// a note already played on time needs no waiting.
@@ -506,8 +517,15 @@ namespace Kan.Core.Play
             if (wrongProvisional != null && IsWrongTry(wrongProvisional.Midi!.Value, midi, expected))
                 wrong ??= wrongProvisional;
 
+            // Charged here, claimed here (2026-11-12 audit B3): one wrong
+            // attack answers one note. Without the claim it was reported as
+            // the wrong note of every chord note at the same moment, and a
+            // later note could still take it as a hit.
             if (wrong != null)
+            {
+                wrong.Claimed = true;
                 return new LiveVerdict(LiveResult.Miss, LiveReason.WrongNote, wrong.TimeMs - startMs, wrong.Midi, wrong.Cents, wrong.Id);
+            }
 
             return new LiveVerdict(LiveResult.Miss, LiveReason.NotHeard, 0, null, 0);
         }
@@ -716,8 +734,12 @@ namespace Kan.Core.Play
             p.Claimed = true;
 
             // A note whose pitch the score does not know, or one not understood: its timing alone.
+            // The played note's rounding residual says nothing about such a
+            // score note and must not narrow the grade (2026-11-12 audit B5:
+            // dead on time but 45 cents from a semitone was a good, not a
+            // perfect: "any note on time counts").
             if (anyPitch || reason == LiveReason.PitchUnclear)
-                return grade(p.TimeMs - startMs, reason, p.Midi, p.Cents) with { PlayedId = p.Id };
+                return grade(p.TimeMs - startMs, reason, p.Midi, 0) with { PlayedId = p.Id };
 
             // Taken for the score's note: told as that note, sharp or flat by so much.
             return grade(p.TimeMs - startMs, reason, midi, cents) with { PlayedId = p.Id };

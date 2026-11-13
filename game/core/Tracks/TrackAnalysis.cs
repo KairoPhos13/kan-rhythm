@@ -32,8 +32,30 @@ namespace Kan.Core.Tracks
         public static bool HasMeaningfulAudio(float peak, float rms)
             => peak >= LIKELY_EMPTY_PEAK && rms >= LIKELY_EMPTY_RMS;
 
-        /// <summary>Analyse a track in place (worker thread: it decodes the file).</summary>
-        public static void Analyze(ForgeTrack track)
+        /// <summary>
+        /// What one analysis pass measured. It is handed to the track on the
+        /// update thread (<see cref="ApplyTo"/>): the set is read by the UI
+        /// every frame and only written on the update thread
+        /// (<see cref="ForgeTrackSet.Tracks"/>' rule; 2026-11-12 audit B8).
+        /// </summary>
+        public sealed record Result(float[]? Peaks, float PeakLevel, float RmsLevel, bool LikelyEmpty, bool Failed)
+        {
+            /// <summary>Take the measurements onto a track (update thread).</summary>
+            public void ApplyTo(ForgeTrack track)
+            {
+                track.Peaks = Peaks;
+                track.AnalysisFailed = Failed;
+                track.PeakLevel = PeakLevel;
+                track.RmsLevel = RmsLevel;
+                track.LikelyEmpty = LikelyEmpty;
+            }
+        }
+
+        /// <summary>
+        /// Analyse a track's file (worker thread: it decodes the file) and
+        /// return the measurements; the track itself is never touched here.
+        /// </summary>
+        public static Result Analyze(ForgeTrack track)
         {
             var peaks = new float[BUCKETS];
             var err = new byte[512];
@@ -45,16 +67,10 @@ namespace Kan.Core.Tracks
             {
                 // Unanalysed tracks stay unjudged (I2): no "empty" flag, no
                 // preview, but the failure is visible, not an endless wait.
-                track.AnalysisFailed = true;
-                return;
+                return new Result(null, 0, 0, false, true);
             }
 
-            track.AnalysisFailed = false;
-
-            track.Peaks = peaks;
-            track.PeakLevel = peak;
-            track.RmsLevel = rms;
-            track.LikelyEmpty = !HasMeaningfulAudio(peak, rms);
+            return new Result(peaks, peak, rms, !HasMeaningfulAudio(peak, rms), false);
         }
     }
 }

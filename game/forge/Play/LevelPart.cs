@@ -8,6 +8,7 @@ using System.Linq;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Track;
 using osu.Game.Beatmaps;
+using Kan.Core;
 using Kan.Forge.Editor;
 using Kan.Forge.Media;
 using Kan.Core.Score;
@@ -66,16 +67,19 @@ namespace Kan.Forge.Play
         /// <summary>The reference on this computer, else the notes rendered as a WAV in memory. Slow: call it off the update thread.</summary>
         public static Material Find(BeatmapSetInfo set, string? forgeRoot, Func<BeatmapSetInfo, KanScore?> loadScore)
         {
+            var score = loadScore(set);
+
             if (forgeRoot != null)
             {
-                var doc = ForgeSetFile.Load(Path.Combine(forgeRoot, set.ID.ToString("N"), ForgeSetFile.FILE_NAME));
+                // The work folder goes by the level's stable id (audit B6).
+                string key = LevelDocument.KeyOf(score?.LevelId, null, set.ID.ToString("N"));
+                var doc = ForgeSetFile.Load(Path.Combine(forgeRoot, key, ForgeSetFile.FILE_NAME));
                 var reference = doc == null ? null : ForgeSetFile.ToTracks(doc).Select(t => t.Track).FirstOrDefault(t => t.IsReference);
 
                 if (reference != null && File.Exists(reference.Path))
                     return new Material(reference, reference.OffsetMs - doc!.AudioStartMs, null);
             }
 
-            var score = loadScore(set);
             if (score == null || score.Notes.Count == 0) return new Material(null, 0, null);
 
             float[] samples = ScoreSynth.Render(score.Notes);

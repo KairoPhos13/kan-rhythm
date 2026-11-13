@@ -299,8 +299,11 @@ namespace Kan.Forge.Play
 
             Interlocked.Exchange(ref lastArrival, Stopwatch.GetTimestamp());
             running = true;
-            var opened = live;
-            live = IntPtr.Zero;
+
+            // The describer handle passes to the worker exactly once: a
+            // Dispose racing this line must not close it as well (audit B14:
+            // a double close frees the describer twice).
+            var opened = Interlocked.Exchange(ref live, IntPtr.Zero);
             worker = new Thread(() => run(opened)) { IsBackground = true, Name = @"kan live describer" };
             worker.Start();
         }
@@ -389,11 +392,11 @@ namespace Kan.Forge.Play
             worker = null;
 
             // Opened, never begun: the describer is still ours to close.
-            if (live != IntPtr.Zero)
-            {
-                KanForgeNative.LiveClose(live);
-                live = IntPtr.Zero;
-            }
+            // Taken atomically (audit B14): racing Begin, or a second Dispose,
+            // closes it at most once.
+            var opened = Interlocked.Exchange(ref live, IntPtr.Zero);
+            if (opened != IntPtr.Zero)
+                KanForgeNative.LiveClose(opened);
 
             source.Dispose();
         }

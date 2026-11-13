@@ -137,6 +137,13 @@ namespace Kan.Core.Design
 
         public int Version { get; set; } = VERSION;
 
+        /// <summary>
+        /// The stable id this level's work folder goes by
+        /// (<see cref="LevelDocument.KeyOf"/>): stamped on first save into the
+        /// level, like <see cref="KanScore.LevelId"/> (2026-11-12 audit B6).
+        /// </summary>
+        public string LevelId { get; set; } = string.Empty;
+
         /// <summary>The level's palette (<see cref="KanPalette.Presets"/>).</summary>
         public string Palette { get; set; } = KanPalette.DEFAULT;
 
@@ -180,6 +187,7 @@ namespace Kan.Core.Design
         public KanDesign Clone() => new KanDesign
         {
             Version = Version,
+            LevelId = LevelId,
             Palette = Palette,
             Sparkle = Sparkle,
             Glow = Glow,

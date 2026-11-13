@@ -440,10 +440,18 @@ namespace Kan.Forge.Editor
             syncRows();
         }
 
-        /// <summary>Analyse a track off-thread (waveform + meaningful-audio marking).</summary>
+        /// <summary>
+        /// Analyse a track off-thread (waveform + meaningful-audio marking),
+        /// taking the result on the update thread (the set is written only
+        /// there; audit B8).
+        /// </summary>
         private void analyzeLater(ForgeTrack track)
             => Task.Run(() => TrackAnalysis.Analyze(track))
-                   .ContinueWith(_ => Scheduler.Add(syncRows));
+                   .ContinueWith(t => Scheduler.Add(() =>
+                   {
+                       if (t.IsCompletedSuccessfully) t.Result.ApplyTo(track);
+                       syncRows();
+                   }));
 
         // ------------------------------------------------------------------
         // Track editor (non-destructive: edits create NEW named tracks)

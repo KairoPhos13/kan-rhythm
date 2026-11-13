@@ -144,6 +144,13 @@ namespace Kan.Ruleset.UI
         {
             if (Verdicts[note.Index] == null) return;
 
+            // The heard note this verdict took is free again: the rewind
+            // re-judges the note and must be able to take it (audit B10:
+            // without this, a small rewind left every reverted note "not
+            // heard", its played note still claimed).
+            if (Verdicts[note.Index] is { PlayedId: uint playedId })
+                Judge.Unclaim(playedId);
+
             Verdicts[note.Index] = null;
             wrongTry.Remove(note.Index);
             judgedCount--;

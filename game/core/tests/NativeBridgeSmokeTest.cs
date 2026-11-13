@@ -4,6 +4,7 @@
 using System;
 using System.IO;
 using NUnit.Framework;
+using Kan.Core.Media;
 using Kan.Core.Native;
 
 namespace Kan.Core.Tests
@@ -86,6 +87,55 @@ namespace Kan.Core.Tests
             KanForgeNative.SetProgress((_, _, _) => { }, IntPtr.Zero);
             KanForgeNative.SetProgress(null, IntPtr.Zero);
             Assert.Pass();
+        }
+
+        [Test]
+        public void TestAnUnboundedTrackOffsetIsRefusedNotFatal()
+        {
+            // 2026-11-12 audit B9: a track offset sizes the whole mix buffer
+            // at once. A set.json with "OffsetMs": 1e15 made the bridge
+            // allocate the whole timeline in one call; the resulting
+            // bad_alloc crossed the C ABI and took the process down. The
+            // call must answer with an error instead. (Before the fix this
+            // test aborts the run, which is the bug.)
+            string input = writeSine(@"mix-input");
+            string outWav = Path.Combine(Path.GetTempPath(), "kan-forge-tests", @"mix-" + Guid.NewGuid().ToString("N")[..8] + ".wav");
+            var err = new byte[512];
+
+            KanForgeStatus st = KanForgeNative.MixTracksAt(new[] { input }, new[] { 1f }, new[] { 1e15 }, 1, outWav, err, err.Length);
+
+            Assert.That(st, Is.EqualTo(KanForgeStatus.ErrArgs));
+            Assert.That(KanForgeNative.ErrMessage(err), Does.Contain("offset"));
+            Assert.That(File.Exists(outWav), Is.False);
+        }
+
+        [Test]
+        public void TestMixingAtAnOffsetStillWorks()
+        {
+            string input = writeSine(@"mix-input");
+            string outWav = Path.Combine(Path.GetTempPath(), "kan-forge-tests", @"mix-" + Guid.NewGuid().ToString("N")[..8] + ".wav");
+            var err = new byte[512];
+
+            KanForgeStatus st = KanForgeNative.MixTracksAt(new[] { input, input }, new[] { 0.5f, 0.4f }, new[] { 0.0, 10.0 }, 2, outWav, err, err.Length);
+
+            Assert.That(st, Is.EqualTo(KanForgeStatus.Ok), KanForgeNative.ErrMessage(err));
+            Assert.That(File.Exists(outWav), Is.True);
+        }
+
+        /// <summary>A short sine as a WAV file (what the mixer decodes).</summary>
+        private static string writeSine(string name)
+        {
+            string path = Path.Combine(Path.GetTempPath(), "kan-forge-tests",
+                                       name + "-" + Guid.NewGuid().ToString("N")[..8] + ".wav");
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+            int n = 48000 / 5;
+            var samples = new float[n];
+            for (int i = 0; i < n; i++)
+                samples[i] = 0.5f * MathF.Sin(2 * MathF.PI * 440 * i / 48000);
+
+            WavFile.Write(path, samples, n, 1, 48000);
+            return path;
         }
     }
 }

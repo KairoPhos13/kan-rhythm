@@ -4,6 +4,9 @@
 using System.Collections.Generic;
 using osu.Framework.Platform;
 using osu.Game.Beatmaps;
+using Kan.Core;
+using Kan.Core.Design;
+using Kan.Core.Score;
 using Kan.Forge.Editor.Design;
 using Kan.Forge.Tracks;
 using Kan.Core.Tracks;
@@ -19,8 +22,20 @@ namespace Kan.Forge.Editor
     /// </summary>
     public static class LevelSession
     {
-        /// <summary>The key a level's sessions and work folder go by.</summary>
-        public static string KeyOf(WorkingBeatmap working) => working.BeatmapSetInfo.ID.ToString("N");
+        /// <summary>
+        /// The key a level's sessions and work folder go by: the stable id
+        /// its kan! files carry (the score's, else the design's), else the
+        /// set's id (audit B6: a re-import gives the level a new set id, and
+        /// the work folder must still be found; <see cref="LevelDocument.KeyOf"/>).
+        /// </summary>
+        public static string KeyOf(WorkingBeatmap working)
+        {
+            var score = LevelFile.Read(working, KanScore.FILE_NAME) is string scoreJson ? KanScore.FromJson(scoreJson) : null;
+            if (!string.IsNullOrEmpty(score?.LevelId)) return score!.LevelId;
+
+            var design = LevelFile.Read(working, KanDesign.FILE_NAME) is string designJson ? KanDesign.FromJson(designJson) : null;
+            return LevelDocument.KeyOf(null, design?.LevelId, working.BeatmapSetInfo.ID.ToString("N"));
+        }
 
         /// <summary>The level audio's length (0 while it is not loaded).</summary>
         public static double LengthOf(WorkingBeatmap working) => working.TrackLoaded && working.Track.Length > 0 ? working.Track.Length : 0;

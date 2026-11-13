@@ -120,8 +120,10 @@ namespace Kan.Forge.Editor
                             OffsetMs = track.OffsetMs, // stems share their source's timing
                         };
 
-                        // Label stems that seem to carry no meaningful audio.
-                        TrackAnalysis.Analyze(stem);
+                        // Label stems that seem to carry no meaningful audio
+                        // (the stem is still local here: the shared set is
+                        // only touched on the update thread).
+                        TrackAnalysis.Analyze(stem).ApplyTo(stem);
                         stems.Add(stem);
                     }
                 }
