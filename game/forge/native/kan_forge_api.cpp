@@ -229,8 +229,16 @@ kan_forge_status kan_forge_transcribe_file_with(const char* audio_path, const ch
     return KAN_FORGE_OK;
 }
 
+// Version stamp for bug reports (audit C8): the build defines
+// KAN_FORGE_VERSION from KAN_VERSION (game/forge/native/CMakeLists.txt;
+// packaging scripts and the workflow pass the release version). The
+// fallback keeps ad-hoc compiles honest at 0.0.0.
+#ifndef KAN_FORGE_VERSION
+#define KAN_FORGE_VERSION "0.0.0"
+#endif
+
 const char* kan_forge_version(void) {
-    return "kan_forge_api 0.1.0 (Phase: level-creation pipeline)";
+    return "kan_forge_api " KAN_FORGE_VERSION " (Phase: level-creation pipeline)";
 }
 
 int32_t kan_forge_has_separator(void) {
