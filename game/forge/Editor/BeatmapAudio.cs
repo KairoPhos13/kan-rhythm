@@ -2,6 +2,7 @@
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using osu.Framework.Threading;
@@ -46,8 +47,7 @@ namespace Kan.Forge.Editor
                     if (!ForgeTrack.LooksLikeMixdown(sourcePath))
                         name = Path.GetFileName(sourcePath);
 
-                    for (int i = 1; set.Files.Any(f => f.Filename == name); i++)
-                        name = Path.GetFileNameWithoutExtension(name) + $"-{i}" + Path.GetExtension(name);
+                    name = FreeFileName(name, set.Files.Select(f => f.Filename));
                 }
 
                 using (var stream = File.OpenRead(sourcePath))
@@ -56,12 +56,17 @@ namespace Kan.Forge.Editor
                 string previous = working.BeatmapInfo.Metadata.AudioFile;
                 working.BeatmapInfo.Metadata.AudioFile = name;
 
-                // A new render replaces the previous one (renders are ours to
-                // remove; imported audio files are never deleted).
-                if (replaceRendered && isRender(previous) && previous != name && set.GetFile(previous) is { } old)
+                // Save first, and only then remove the render this one
+                // replaces (2026-11-12 audit B7): the save goes through a
+                // guarded reflection call that swallows failure, and a level
+                // that still has its old file plays on, while one that lost
+                // it with the metadata change unkept is silent. Imported
+                // audio files are never deleted; renders are ours to remove.
+                bool saved = SaveEditor(editor);
+
+                if (saved && replaceRendered && isRender(previous) && !SameFile(previous, name) && set.GetFile(previous) is { } old)
                     beatmaps.DeleteFile(set, old);
 
-                SaveEditor(editor);
                 music.ReloadCurrentTrack();
                 return name;
             }
@@ -83,6 +88,24 @@ namespace Kan.Forge.Editor
 
         private const string LEVEL_AUDIO_SUFFIX = @" - level audio.wav";
 
+        /// <summary>Whether two file names name the same file: the level's file store ignores case (audit B7).</summary>
+        public static bool SameFile(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// A file name that is free in the set: <paramref name="name"/>, or
+        /// one with a counter before the extension while the name is taken
+        /// (compared ignoring case, like the file store).
+        /// </summary>
+        public static string FreeFileName(string name, IEnumerable<string> existing)
+        {
+            string free = name;
+
+            for (int i = 1; existing.Any(f => SameFile(f, free)); i++)
+                free = Path.GetFileNameWithoutExtension(name) + $"-{i}" + Path.GetExtension(name);
+
+            return free;
+        }
+
         private static bool isRender(string? fileName)
             => !string.IsNullOrEmpty(fileName)
                && (fileName.EndsWith(LEVEL_AUDIO_SUFFIX.TrimStart(' ', '-'), StringComparison.OrdinalIgnoreCase)
@@ -96,20 +119,27 @@ namespace Kan.Forge.Editor
         /// reflection call (same pattern as hiding the stock Audio Track
         /// row): if an upstream rename breaks it, the save is skipped (the
         /// track still switches), and the user's normal save persists it.
+        /// Returns whether the save ran (audit B7: the caller may only remove
+        /// a replaced render once the change is safely stored).
         /// </summary>
-        public static void SaveEditor(osu.Game.Screens.Edit.Editor? editor)
+        public static bool SaveEditor(osu.Game.Screens.Edit.Editor? editor)
         {
-            if (editor == null) return;
+            if (editor == null) return false;
 
             try
             {
-                typeof(osu.Game.Screens.Edit.Editor)
-                    .GetMethod("Save", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, Type.EmptyTypes)
-                    ?.Invoke(editor, null);
+                var save = typeof(osu.Game.Screens.Edit.Editor)
+                    .GetMethod("Save", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance, Type.EmptyTypes);
+
+                if (save == null) return false; // an upstream rename: nothing was saved
+
+                save.Invoke(editor, null);
+                return true;
             }
             catch
             {
                 // Never break the connection over persistence.
+                return false;
             }
         }
 
@@ -120,12 +150,15 @@ namespace Kan.Forge.Editor
         /// <summary>Everything the level audio is made of, as one comparable string.</summary>
         public static string Signature(ForgeTrackSet set)
         {
+            // Invariant numbers (audit B13): a signature that changes with
+            // the machine's locale would re-render the level audio on every
+            // save after a locale change.
             var parts = set.Companions.Select(t =>
-                $"{t.Path}|{t.Gain:0.000}|{t.OffsetMs:0}|{t.ClipStartMs:0}-{t.ClipEndMs:0}|{t.Edits.LowCutHz:0}/{t.Edits.HighCutHz:0}^{t.Edits.PitchSemitones}|"
-                + string.Join(';', t.Edits.Ranges.Select(r => $"{(int)r.Mode}:{r.FromMs:0}-{r.ToMs:0}")));
+                FormattableString.Invariant($"{t.Path}|{t.Gain:0.000}|{t.OffsetMs:0}|{t.ClipStartMs:0}-{t.ClipEndMs:0}|{t.Edits.LowCutHz:0}/{t.Edits.HighCutHz:0}^{t.Edits.PitchSemitones}|")
+                + string.Join(';', t.Edits.Ranges.Select(r => FormattableString.Invariant($"{(int)r.Mode}:{r.FromMs:0}-{r.ToMs:0}"))));
 
             // The levelling too: a level rendered before it, or at another offset, is rendered again.
-            return $"{set.AudioStartMs:0}-{set.AudioEndMs:0}#L{LevelLoudness.VERSION}:{set.LoudnessOffsetDb:0.0}#" + string.Join('#', parts);
+            return FormattableString.Invariant($"{set.AudioStartMs:0}-{set.AudioEndMs:0}#L{LevelLoudness.VERSION}:{set.LoudnessOffsetDb:0.0}#") + string.Join('#', parts);
         }
 
         /// <summary>The level audio matches the companion mix as it is now.</summary>
