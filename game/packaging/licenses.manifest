@@ -1,0 +1,19 @@
+# licenses/ payload list (audit C3, November 2026; docs/release-credits.md
+# GAP 9). This file is THE list of the licence texts that ship in every
+# release archive's licenses/ folder. One entry per line:
+#
+#     <source path in the repository>  <destination name in licenses/>
+#
+# game/packaging/windows/assemble.sh copies every entry into the payload
+# and game/packaging/check-licenses.sh fails the build when an entry is
+# missing from a payload or from the repository. Every file in
+# libkan/licenses/ must be listed here (the checker enforces that too).
+# Blank lines and lines starting with '#' are comments.
+
+LICENSE                                  LICENSE-kan.txt
+libkan/licenses/basic-pitch-LICENSE      basic-pitch-LICENSE
+libkan/licenses/basic-pitch-NOTICE       basic-pitch-NOTICE
+game/packaging/licenses/LGPL-2.1.txt     LGPL-2.1.txt
+game/packaging/licenses/LGPL-3.0.txt     LGPL-3.0.txt
+game/packaging/licenses/GPL-3.0.txt      GPL-3.0.txt
+game/packaging/licenses/README.md        README.md

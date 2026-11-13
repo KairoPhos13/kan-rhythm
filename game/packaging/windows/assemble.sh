@@ -1,9 +1,10 @@
 #!/usr/bin/env bash
 # Assemble one kan! release payload (the managed part of a build):
 # self-contained osu.Desktop publish for a RID plus the kan! plugin files
-# (ruleset, Kan.Forge, Kan.Core), the native bridge, brand/ and the
-# third-party notices + licence as readable files, checked so a missing
-# piece fails the build instead of shipping.
+# (ruleset, Kan.Forge, Kan.Core), the native bridge, brand/, the
+# third-party notices + licence as readable files and the licenses/ folder
+# (game/packaging/licenses.manifest, checked so a missing piece fails the
+# build instead of shipping).
 #
 # The steps are exactly the ones .github/workflows/build.yml runs; they live
 # here (not only in YAML) so a local build can produce the same payload,
@@ -16,7 +17,9 @@
 # Usage: game/packaging/windows/assemble.sh [rid] [out-dir]
 #   rid          target runtime id       (default: win-x64)
 #   out-dir      payload directory       (default: dist/game)
-#   KAN_VERSION  version stamp           (default: 0.0.0, tag builds set it)
+#   KAN_VERSION  version stamp           (default: 0.0.0, tag builds set
+#                it; stamped into the kan assemblies here and into the
+#                native bridge by its CMake build)
 #   KAN_NATIVE_LIB  explicit native bridge path (skips the directory search)
 #
 # Native bridge search (first hit wins), per RID:
@@ -40,18 +43,39 @@ echo "== kan! payload: $rid -> $out (version $version)"
 
 # kan's own C# must build without a warning (the make check gate). A local
 # build gets the same gate here; CI runs it earlier as its own step too.
-# %3B is MSBuild's escape for ';' inside a property value: a raw ';' would
-# split the -p: list into bogus properties (MSB1006).
+# Warnings are errors; only NuGet's low/moderate advisories (NU1901,
+# NU1902) stay non-fatal - a new advisory there is fixed in the fork or by
+# updating it from upstream, not in kan's code. NU1903/NU1904 (high and
+# critical advisories) FAIL the build (audit C6). %3B is MSBuild's escape
+# for ';' inside a property value: a raw ';' would split the -p: list into
+# bogus properties (MSB1006).
 for p in game/core/Kan.Core.csproj game/forge/Kan.Forge.csproj game/ruleset/Kan.Ruleset.csproj; do
     "$DOTNET" build "$p" -c Release -maxcpucount:4 -warnaserror \
-        -p:WarningsNotAsErrors="NU1901%3BNU1902%3BNU1903%3BNU1904"
+        -p:Version="$version" \
+        -p:WarningsNotAsErrors="NU1901%3BNU1902"
 done
 
 # Self-contained publish of the game (Velopack stays dormant: the zip is
-# the installer for now).
-"$DOTNET" publish game/client/osu.Desktop/osu.Desktop.csproj \
+# the installer for now). Run from inside the fork's osu.Desktop folder so
+# dotnet sees the fork's physical path, and with this leg's own MSBuild
+# output bookkeeping (-p:CleanFile): both matter in an agent worktree where
+# game/client is a symlink (see game/Makefile's `client` target for the
+# full story). In a normal checkout nothing changes.
+mkdir -p "$out"
+out_abs=$(cd "$out" && pwd)
+( cd game/client/osu.Desktop && "$DOTNET" publish osu.Desktop.csproj \
     -c Release -r "$rid" --self-contained true \
-    -p:Version="$version" -maxcpucount:4 -o "$out"
+    -p:Version="$version" -p:CleanFile=FileListAbsolute.fork.txt \
+    -maxcpucount:4 -o "$out_abs" )
+
+# No symbols in the player zip (audit C9): the publish output carries the
+# portable PDBs of every assembly and they hold local build paths. The
+# symbols stay in the local build output (game/client/osu.Desktop/bin/...)
+# for developers; a bug report's version stamp (KAN_VERSION) is what tells
+# us which build ran.
+stripped=$(find "$out" -name '*.pdb' | wc -l)
+find "$out" -name '*.pdb' -delete
+echo "symbols kept out of the payload: $stripped .pdb files left in the build output"
 
 # The ruleset plugin, Kan.Forge/Kan.Core ride along (the plugin is loaded
 # from next to the executable); brand/ is copied by the fork's csproj
@@ -65,6 +89,18 @@ cp game/ruleset/bin/Release/net10.0/Kan.Core.dll "$out/"
 # the about screen, but players read licences offline too.
 cp game/client/THIRD_PARTY_NOTICES.md "$out/"
 cp game/client/LICENCE "$out/"
+
+# licenses/: the licence texts that must travel with a copy (kan!'s own MIT
+# LICENSE, Basic Pitch's Apache-2.0 text and notice, the LGPL texts of the
+# set inherited from osu!lazer per docs/adr/0013). Driven by the ONE list
+# game/packaging/licenses.manifest; check-licenses.sh then fails the build
+# if any listed file is missing from the payload (audit C3).
+mkdir -p "$out/licenses"
+while read -r src dst _rest; do
+    case "$src" in ''|'#'*) continue ;; esac
+    cp "$src" "$out/licenses/$dst"
+done < game/packaging/licenses.manifest
+game/packaging/check-licenses.sh "$out"
 
 # P/Invoke resolves "kan_forge_native" to kan_forge_native.dll /
 # libkan_forge_native.dylib / libkan_forge_native.so. Pick the name for
