@@ -86,3 +86,19 @@ hand-placed sections should stay where the music is. Generated sections
 already re-derive from the notes at each open
 (`AutoDesign.Refresh`). Moving sections with notes is a product decision
 (owner call), and one rule cannot serve both kinds of section.
+
+## C2 (part 2): separation speed on the portable baseline
+
+The shipped native library now builds for x86-64-v2 (audit C2), which
+keeps it from crashing on older CPUs but also turns off ggml's AVX2, FMA
+and F16C kernels. Stem separation on the CPU is therefore slower than a
+locally tuned build; the GPU (Vulkan) path and live recognition are not
+affected. The fix that keeps both is ggml's runtime dispatch
+(`GGML_BACKEND_DL` with `GGML_CPU_ALL_VARIANTS`): one CPU backend per
+instruction set, the best one chosen when the game starts. It changes how
+the bridge loads ggml (separate backend libraries next to the bridge), so
+it needs its own lane and a test on an older CPU.
+
+Decision taken (2026-11-12): keep the B11 rule as it is. Design sections
+mark the music in the audio, and a score-wide shift of the notes does not
+move that music.
