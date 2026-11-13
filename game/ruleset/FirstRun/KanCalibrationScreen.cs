@@ -492,7 +492,7 @@ namespace Kan.Ruleset.FirstRun
             if (!result.Valid)
             {
                 Status.Text = ForgeTiming.TUNING_CENTS.Value == 0
-                    ? $"Not measured yet. When you are ready: hold {KanNotation.Label(referenceNote)} ({referenceNote}) for about two seconds."
+                    ? $"Not measured yet. When you are ready: hold {KanNotation.Label(referenceNote)} for about two seconds."
                     : $@"Your instrument's tuning: {TuningCents:+0;-0;0} cents ({KanNotation.Label(referenceNote)} is the note to hold for a measurement).";
                 Use.Alpha = 0;
                 return;

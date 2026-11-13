@@ -224,16 +224,15 @@ namespace Kan.Ruleset.FirstRun
         {
             try
             {
-                var sets = realm.Run(r => r.All<BeatmapSetInfo>().AsEnumerable()
-                                           .Where(s => !s.DeletePending && s.Beatmaps.Count > 0)
-                                           .Select(s => s.Detach())
-                                           .ToList());
-
                 // A level with kan! notes: that is what the game plays (one
-                // without them would open on an empty staff).
-                var playable = sets.SelectMany(s => s.Beatmaps.Select(b => (Set: s, Info: b)))
-                                   .Where(x => KanLevelFiles.LoadScore(x.Set) is { Notes.Count: > 0 })
-                                   .ToList();
+                // without them would open on an empty staff). Its notes are
+                // read from the live set: a detached copy carries no files.
+                var playable = realm.Run(r => r.All<BeatmapSetInfo>().AsEnumerable()
+                                               .Where(s => !s.DeletePending && s.Beatmaps.Count > 0)
+                                               .Where(s => KanLevelFiles.LoadScore(s) is { Notes.Count: > 0 })
+                                               .Select(s => s.Detach())
+                                               .SelectMany(s => s.Beatmaps.Select(b => (Set: s, Info: b)))
+                                               .ToList());
 
                 return playable.OrderBy(x => x.Info.Metadata.Title.Contains(@"xicochi", StringComparison.OrdinalIgnoreCase) ? 0
                                            : x.Info.Metadata.Source == KanStarterPack.STARTER_SOURCE ? 1 : 2)
@@ -255,7 +254,7 @@ namespace Kan.Ruleset.FirstRun
 
             ruleset.Value = rulesets.GetRuleset(@"kan") ?? ruleset.Value;
             beatmap.Value = beatmaps.GetWorkingBeatmap(found.Info);
-            osu.Framework.Logging.Logger.Log($"kan! first run: the first level is {found.Info.Metadata.Title}", level: osu.Framework.Logging.LogLevel.Important);
+            osu.Framework.Logging.Logger.Log($"kan! first run: the first level is {found.Info.Metadata.Title}", level: osu.Framework.Logging.LogLevel.Verbose);
 
             // The guide steps aside; the level's own player loader comes up
             // (with its Microphone group, where everything set here can be

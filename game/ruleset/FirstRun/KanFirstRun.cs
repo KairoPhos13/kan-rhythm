@@ -19,9 +19,9 @@ namespace Kan.Ruleset.FirstRun
     /// a component added by the ruleset icon (<see cref="Beatmaps.KanLevelFiles"/>),
     /// with no change to the fork.
     ///
-    /// Calm by design: the guide shows itself once, on a fresh install, after
-    /// osu!'s own first-run setup has had its turn and the player is back at
-    /// the menu; closing it at any point ends it for good (it never nags) and
+    /// Calm by design: the guide shows itself once, on a fresh install, in
+    /// place of osu!'s own first-run setup (one guide, not two; osu!'s stays
+    /// reachable from Settings), when the player is at the menu; closing it at any point ends it for good (it never nags) and
     /// it runs again whenever the player asks (Settings &gt; Rulesets &gt; kan!).
     /// In a developer run it never shows by itself: KAN_DEV_SCREEN=firstrun or
     /// =calibrate opens exactly what is asked for (KAN_DEV_STEP picks a step).
@@ -41,8 +41,18 @@ namespace Kan.Ruleset.FirstRun
         private KanFirstRunOverlay? flow;
         private KanCalibrationOverlay? calibration;
 
+        [Resolved]
+        private osu.Game.Configuration.OsuConfigManager osuConfig { get; set; } = null!;
+
         /// <summary>A show asked for while osu!'s own overlay was up.</summary>
         private Action? pending;
+
+        /// <summary>
+        /// osu!'s own first-run setup was about to show by itself (a fresh
+        /// install): kan!'s guide takes its place, so a new player meets one
+        /// guide, not two. Opened by hand from Settings, osu!'s stays.
+        /// </summary>
+        private bool replaceOsuSetup;
 
         protected override void LoadComplete()
         {
@@ -50,6 +60,10 @@ namespace Kan.Ruleset.FirstRun
 
             // Hidden until shown, inert while hidden: added to the game like
             // every kan! overlay (the MicTimingOverlay pattern).
+            var showOsuSetup = osuConfig.GetBindable<bool>(osu.Game.Configuration.OsuSetting.ShowFirstRunSetup);
+            replaceOsuSetup = showOsuSetup.Value;
+            showOsuSetup.Value = false;
+
             game.Add(flow = new KanFirstRunOverlay());
             game.Add(calibration = new KanCalibrationOverlay());
 
@@ -78,7 +92,16 @@ namespace Kan.Ruleset.FirstRun
         {
             Scheduler.AddDelayed(poll, 1000);
 
-            // osu!'s own first-run setup comes first (it is showing now).
+            // osu!'s own first-run setup, shown by itself on a fresh install:
+            // kan!'s guide replaces it (once; opened by hand, it stays).
+            if (replaceOsuSetup && footer?.ActiveOverlay is osu.Game.Overlays.FirstRunSetupOverlay osuSetup)
+            {
+                replaceOsuSetup = false;
+                osuSetup.Hide();
+                return;
+            }
+
+            // Any other overlay on the footer has its turn first.
             if (footer?.ActiveOverlay != null) return;
 
             if (pending is { } open)
@@ -91,7 +114,8 @@ namespace Kan.Ruleset.FirstRun
             if (KanDevPlay.Enabled || isDone) return;
             if (game.ScreenStack.CurrentScreen is not MainMenu) return;
 
-            Logger.Log(@"kan! first run: showing the guide", level: LogLevel.Important);
+            replaceOsuSetup = false;
+            Logger.Log(@"kan! first run: showing the guide", level: LogLevel.Verbose);
             flow?.Show();
         }
 
@@ -104,7 +128,7 @@ namespace Kan.Ruleset.FirstRun
         {
             pending = () =>
             {
-                Logger.Log(@"kan! first run: opening the guide", level: LogLevel.Important);
+                Logger.Log(@"kan! first run: opening the guide", level: LogLevel.Verbose);
                 flow?.ShowAt(step);
             };
         }
@@ -114,7 +138,7 @@ namespace Kan.Ruleset.FirstRun
         {
             pending = () =>
             {
-                Logger.Log(@"kan! calibration: opening the screen", level: LogLevel.Important);
+                Logger.Log(@"kan! calibration: opening the screen", level: LogLevel.Verbose);
                 calibration?.Show();
 
                 if (!string.IsNullOrEmpty(step))
