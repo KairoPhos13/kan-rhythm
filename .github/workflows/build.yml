@@ -18,6 +18,14 @@
 # Kan.Forge/Kan.Core, the native library and brand/, then a zip artifact.
 # On v* tags the zips are attached to a draft GitHub Release.
 #
+# CPU baseline (audit C2): both CMake builds pass -DGGML_NATIVE=OFF and
+# get the portable baseline of libkan/cmake/kan_build_policy.cmake
+# (x86-64-v2 on x86_64; arm64 on Apple silicon), never the runner CPU's
+# tuning. KAN_WERROR=ON makes first-party warnings fatal (audit C6).
+#
+# Actions are pinned by commit SHA with the release in a comment (audit
+# C5): a floating tag can move; a SHA cannot.
+#
 # macOS bundles are unsigned unless the APPLE_* secrets are configured
 # (signing + notarization run then); see platform-builds.md for what an
 # unsigned build means for players.
@@ -42,15 +50,11 @@ env:
   DOTNET_NOLOGO: 1
   DOTNET_CLI_TELEMETRY_OPTOUT: 1
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: 1
-  # Apple code-signing secrets (macOS only; empty and skipped when the
-  # repository has no paid Apple account configured). Job-level so the
-  # signing step can test APPLE_CERTIFICATE in its `if`.
-  APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-  APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-  APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-  APPLE_ID: ${{ secrets.APPLE_ID }}
-  APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-  APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+  # Apple signing gate (macOS only): "true" when the repository carries the
+  # APPLE_* secrets of a paid Apple Developer account. Only this boolean
+  # lives at job level (audit C5); the secret values are passed to the one
+  # step that signs, not to every step of the job.
+  APPLE_SIGNING: ${{ secrets.APPLE_CERTIFICATE != '' && secrets.APPLE_SIGNING_IDENTITY != '' }}
 
 jobs:
   build:
@@ -75,7 +79,7 @@ jobs:
             ggml: VULKAN
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # game/client is a submodule of github.com/KairoPhos13/kan with an SSH
       # URL in .gitmodules (read access is public, no key on CI): rewrite
@@ -87,12 +91,12 @@ jobs:
           git submodule update --init game/client
 
       - name: .NET 10 SDK
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@67a3573c9a986a3f9c594539f4ab511d57bb3ce9 # v4.3.1
         with:
           dotnet-version: 10.0.x
 
       - name: Cache NuGet packages
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.nuget/packages
           key: nuget-${{ runner.os }}-${{ hashFiles('game/**/*.csproj', 'game/client/**/*.csproj', 'game/client/**/*.props') }}
@@ -100,7 +104,7 @@ jobs:
             nuget-${{ runner.os }}-
 
       - name: Cache CMake FetchContent downloads
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: |
             game/forge/native/build/_deps
@@ -115,7 +119,7 @@ jobs:
       # configure falls back to the CPU backend and says so.
       - name: Vulkan SDK
         if: matrix.ggml == 'VULKAN'
-        uses: jakoch/install-vulkan-sdk-action@v1
+        uses: jakoch/install-vulkan-sdk-action@7fe84289ddbf750f7eff9f8e4588e600e1dd06c8 # v1.8.1
         with:
           vulkan_version: 1.4.328.1
           install_runtime: true
@@ -132,11 +136,18 @@ jobs:
           fi
 
       # --- native bridge (libkan_forge_native) + offline self-test ----------
+      # GGML_NATIVE=OFF + the x86-64-v2 / arm64 baseline (audit C2): the
+      # shipped library must not carry the runner CPU's tuning. The bridge's
+      # CMake enforces this itself (libkan/cmake/kan_build_policy.cmake);
+      # the explicit flags document it here. KAN_WERROR=ON makes first-party
+      # warnings fatal (audit C6). KAN_VERSION stamps kan_forge_version()
+      # (audit C8).
       - name: Build native bridge
         shell: bash
         run: |
           cmake -S game/forge/native -B game/forge/native/build \
-            -DCMAKE_BUILD_TYPE=Release -DKAN_GGML_BACKEND=${{ matrix.ggml }}
+            -DCMAKE_BUILD_TYPE=Release -DKAN_GGML_BACKEND=${{ matrix.ggml }} \
+            -DGGML_NATIVE=OFF -DKAN_WERROR=ON -DKAN_VERSION="$KAN_VERSION"
           cmake --build game/forge/native/build --config Release --parallel 6
 
       - name: Native self-test
@@ -146,11 +157,13 @@ jobs:
       # --- libkan's ctest suite (offline DSP tests; no audio device) --------
       # apps/ and tools/ are developer tools and stay out of the release
       # build (KAN_BUILD_APPS/KAN_BUILD_TOOLS, see platform-builds.md).
+      # Same baseline and warning policy as the bridge (audit C2, C6).
       - name: Build and test libkan
         shell: bash
         run: |
           cmake -S . -B build -DCMAKE_BUILD_TYPE=Release \
             -DKAN_GGML_BACKEND=${{ matrix.ggml }} \
+            -DGGML_NATIVE=OFF -DKAN_WERROR=ON \
             -DKAN_BUILD_APPS=OFF -DKAN_BUILD_TOOLS=OFF
           cmake --build build --config Release --parallel 6
           ctest --test-dir build --build-config Release --output-on-failure
@@ -168,14 +181,18 @@ jobs:
           "$PY" tools/level_pack/make_level.py pack --all
 
       # --- kan!'s C# (make check equivalents) ------------------------------
-      # Warnings are errors for kan's own code (Makefile STRICT). %3B is
-      # MSBuild's escape for ';' inside a property value (MSB1006 otherwise).
+      # Warnings are errors for kan's own code (Makefile STRICT). NuGet's
+      # low/moderate advisories (NU1901, NU1902) stay non-fatal; NU1903 and
+      # NU1904 (high, critical) fail the build (audit C6). KAN_VERSION
+      # stamps the three kan assemblies (audit C8). %3B is MSBuild's escape
+      # for ';' inside a property value (MSB1006 otherwise).
       - name: kan! C# warnings as errors
         shell: bash
         run: |
           for p in game/core/Kan.Core.csproj game/forge/Kan.Forge.csproj game/ruleset/Kan.Ruleset.csproj; do
             dotnet build "$p" -c Release -maxcpucount:4 -warnaserror \
-              -p:WarningsNotAsErrors="NU1901%3BNU1902%3BNU1903%3BNU1904"
+              -p:Version="$KAN_VERSION" \
+              -p:WarningsNotAsErrors="NU1901%3BNU1902"
           done
 
       # Unit tests that need no audio device. KAN_ROFORMER_GGUF points at a
@@ -203,14 +220,24 @@ jobs:
       # --- packaging --------------------------------------------------------
       # Self-contained publish of the game (Velopack stays dormant: the zip
       # is the installer for now) plus the kan! payload: ruleset plugin,
-      # Kan.Forge/Kan.Core, the native bridge, brand/ (fork F-21) and the
+      # Kan.Forge/Kan.Core, the native bridge, brand/ (fork F-21), the
       # third-party notices + licence as readable files (docs/release-credits.md
-      # GAP 8), checked so a missing piece fails the job. The steps live in
+      # GAP 8) and the licenses/ folder (game/packaging/licenses.manifest,
+      # GAP 9), checked so a missing piece fails the job. The steps live in
       # game/packaging/windows/assemble.sh so a local build (see
       # platform-builds.md §4) produces the identical payload.
       - name: Assemble the payload (publish + kan! files)
         shell: bash
         run: game/packaging/windows/assemble.sh "${{ matrix.rid }}" dist/game
+
+      # The visible licence gate (audit C3): every file of the one list
+      # game/packaging/licenses.manifest must be in the payload's
+      # licenses/ folder. assemble.sh already checks this while it
+      # assembles; this step names the gate in the CI log and re-checks the
+      # final payload.
+      - name: Licence payload check
+        shell: bash
+        run: game/packaging/check-licenses.sh dist/game
 
       # --- macOS: kan!.app, icon, (optional) signing + notarization ---------
       - name: macOS app bundle
@@ -235,12 +262,21 @@ jobs:
       # Signing and notarization need a paid Apple Developer account; they
       # run only when the secrets are configured and are skipped otherwise
       # (the zip is then unsigned: platform-builds.md explains what that
-      # means for players). Secrets: APPLE_CERTIFICATE (base64 .p12),
+      # means for players). The secret values reach only this step (audit
+      # C5); the job-level APPLE_SIGNING flag only says whether they exist.
+      # Secrets: APPLE_CERTIFICATE (base64 .p12),
       # APPLE_CERTIFICATE_PASSWORD, APPLE_SIGNING_IDENTITY, APPLE_ID,
       # APPLE_PASSWORD (app-specific), APPLE_TEAM_ID.
       - name: Sign and notarize (macOS, when APPLE_* secrets exist)
-        if: runner.os == 'macOS' && env.APPLE_CERTIFICATE != ''
+        if: runner.os == 'macOS' && env.APPLE_SIGNING == 'true'
         shell: bash
+        env:
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           base64 -d <<< "$APPLE_CERTIFICATE" > "$RUNNER_TEMP/cert.p12"
           security create-keychain -p kan-ci "$RUNNER_TEMP/ci.keychain-db"
@@ -271,13 +307,14 @@ jobs:
         if: runner.os == 'macOS'
         shell: bash
         run: |
-          # kan!.app plus the notices and the licence at the zip root:
-          # inside the bundle the two files would be out of sight
-          # (docs/release-credits.md GAP 8). The payload carries copies
-          # too (Contents/MacOS/).
+          # kan!.app plus the notices, the licence and the licenses/ folder
+          # at the zip root: inside the bundle they would be out of sight
+          # (docs/release-credits.md GAP 8 and GAP 9). The payload carries
+          # copies too (Contents/MacOS/).
           mkdir -p dist/zip-root
           mv "dist/kan!.app" dist/zip-root/
           cp dist/game/THIRD_PARTY_NOTICES.md dist/game/LICENCE dist/zip-root/
+          cp -a dist/game/licenses dist/zip-root/
           cd dist && ditto -c -k zip-root "kan-${{ matrix.rid }}.zip"
 
       - name: Zip (Windows, Linux)
@@ -291,7 +328,7 @@ jobs:
           cd dist && python -m zipfile -c "kan-${{ matrix.rid }}.zip" "kan-${{ matrix.rid }}"
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: kan-${{ matrix.rid }}
           path: dist/kan-${{ matrix.rid }}.zip
@@ -307,12 +344,12 @@ jobs:
       contents: write
     steps:
       # The release notes, when written (docs/releases/<tag>.md).
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           sparse-checkout: docs/releases
 
       - name: Download artifacts
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           path: dist
           merge-multiple: true
