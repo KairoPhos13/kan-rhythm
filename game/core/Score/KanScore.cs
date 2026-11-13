@@ -95,6 +95,15 @@ namespace Kan.Core.Score
         /// <summary>The instrument profile the score is written for (transcription profile name).</summary>
         public string Instrument { get; set; } = @"keyboard";
 
+        /// <summary>
+        /// The stable id this level's work folder goes by
+        /// (<see cref="LevelDocument.KeyOf"/>). Stamped on first save into the
+        /// level, so it travels inside it: a re-import (a server update, a new
+        /// copy of the same .osz) gives the level a new set id, and the work
+        /// folder must still be found (2026-11-12 audit B6).
+        /// </summary>
+        public string LevelId { get; set; } = string.Empty;
+
         public List<ScoreNote> Notes { get; set; } = new List<ScoreNote>();
 
         /// <summary>When the transcription this score started from was made (default: none).</summary>
@@ -114,10 +123,11 @@ namespace Kan.Core.Score
         {
             Version = Version,
             Instrument = Instrument,
+            LevelId = LevelId,
             SavedAtUtc = SavedAtUtc,
             TranscriptionAtUtc = TranscriptionAtUtc,
-            Notes = Notes.Select(n => n.Clone()).ToList(),
-            Grid = Grid?.Select(p => new GridPoint { TimeMs = p.TimeMs, BeatMs = p.BeatMs }).ToList(),
+            Notes = Notes.Where(n => !ReferenceEquals(n, null)).Select(n => n.Clone()).ToList(),
+            Grid = Grid?.Where(p => !ReferenceEquals(p, null)).Select(p => new GridPoint { TimeMs = p.TimeMs, BeatMs = p.BeatMs }).ToList(),
         };
 
         /// <summary>
@@ -463,7 +473,7 @@ namespace Kan.Core.Score
             Converters = { new JsonStringEnumConverter() },
         };
 
-        public string ToJson() => JsonSerializer.Serialize(this, options);
+        public string ToJson() => JsonSerializer.Serialize(Sanitized(), options);
 
         /// <summary>The score's content, without its save time (to compare two copies).</summary>
         public string ContentKey()
@@ -488,15 +498,74 @@ namespace Kan.Core.Score
             File.Move(tmp, path, true);
         }
 
-        /// <summary>Read a score; null when it is missing, unreadable or from a newer version.</summary>
-        public static KanScore? FromJson(string json)
+        /// <summary>A copy that is safe to write (<see cref="Sanitize"/> on a clone).</summary>
+        public KanScore Sanitized()
         {
+            var copy = Clone();
+            copy.Sanitize();
+            return copy;
+        }
+
+        /// <summary>
+        /// Clamp or drop what the score cannot use (2026-11-12 audit B4: a
+        /// machine-made or hand-edited file loaded any number, and one
+        /// non-finite value made every later save throw). Times and durations
+        /// become finite and non-negative, MIDI 0 to 127, the intensity 0 to
+        /// 1; a note with no placeable time and a grid point with no usable
+        /// beat are dropped. Returns how many values were repaired.
+        /// </summary>
+        public int Sanitize()
+        {
+            int repaired = 0;
+
+            if (Instrument == null)
+            {
+                Instrument = @"keyboard";
+                repaired++;
+            }
+
+            repaired += Notes.RemoveAll(n => ReferenceEquals(n, null) || !double.IsFinite(n.StartMs) || !double.IsFinite(n.DurationMs));
+
+            foreach (var n in Notes)
+            {
+                if (n.StartMs < 0) { n.StartMs = 0; repaired++; }
+
+                if (n.DurationMs < MIN_DURATION_MS) { n.DurationMs = MIN_DURATION_MS; repaired++; }
+
+                if (n.Midi < 0) { n.Midi = 0; repaired++; }
+                else if (n.Midi > 127) { n.Midi = 127; repaired++; }
+
+                if (!float.IsFinite(n.Cents)) { n.Cents = 0; repaired++; }
+
+                if (!float.IsFinite(n.Intensity)) { n.Intensity = 0.6f; repaired++; }
+                else if (n.Intensity < 0 || n.Intensity > 1) { n.Intensity = Math.Clamp(n.Intensity, 0, 1); repaired++; }
+            }
+
+            if (Grid != null)
+                repaired += Grid.RemoveAll(p => ReferenceEquals(p, null) || !double.IsFinite(p.TimeMs) || !double.IsFinite(p.BeatMs) || p.BeatMs <= 0);
+
+            return repaired;
+        }
+
+        /// <summary>Read a score; null when it is missing, unreadable or from a newer version.</summary>
+        public static KanScore? FromJson(string json) => FromJson(json, out _);
+
+        /// <summary>
+        /// Read a score; null when it is missing, unreadable or from a newer
+        /// version. <paramref name="repaired"/>: how many values had to be
+        /// clamped or dropped on the way in (<see cref="Sanitize"/>).
+        /// </summary>
+        public static KanScore? FromJson(string json, out int repaired)
+        {
+            repaired = 0;
+
             try
             {
                 var score = JsonSerializer.Deserialize<KanScore>(json, options);
                 if (score == null || score.Version > VERSION) return null;
 
                 score.Notes ??= new List<ScoreNote>();
+                repaired = score.Sanitize();
                 score.Sort();
                 return score;
             }
@@ -506,7 +575,13 @@ namespace Kan.Core.Score
             }
         }
 
-        public static KanScore? Load(string path) => File.Exists(path) ? FromJson(File.ReadAllText(path)) : null;
+        public static KanScore? Load(string path) => Load(path, out _);
+
+        public static KanScore? Load(string path, out int repaired)
+        {
+            repaired = 0;
+            return File.Exists(path) ? FromJson(File.ReadAllText(path), out repaired) : null;
+        }
     }
 
     /// <summary>Undo/redo for the score (snapshots; changes with the same key within a second merge).</summary>

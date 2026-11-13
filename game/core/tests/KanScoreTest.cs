@@ -307,5 +307,56 @@ namespace Kan.Core.Tests
             Assert.That(ticks.Last().Bar, Is.EqualTo(2));
             Assert.That(ticks[3].TimeMs, Is.EqualTo(1750));
         }
+
+        [Test]
+        public void AFileWithImpossibleNumbersLoadsAndSavesAgain()
+        {
+            // 2026-11-12 audit B4: any number loaded. 1e400 became infinity,
+            // the score opened, and from then on every save threw on it (the
+            // exit-path save of the compose tab included).
+            const string json = @"{ ""Version"": 1, ""Notes"": [
+                { ""StartMs"": 1e400, ""DurationMs"": 250, ""Midi"": 60 },
+                { ""StartMs"": 100, ""DurationMs"": 250, ""Midi"": 60 } ] }";
+
+            var score = KanScore.FromJson(json)!;
+            Assert.That(score, Is.Not.Null, "the file opens");
+            Assert.That(score.Notes, Has.Count.EqualTo(1), "a note with no placeable time is dropped, never loaded as infinity");
+            Assert.That(score.Notes[0].StartMs, Is.EqualTo(100));
+
+            Assert.DoesNotThrow(() => score.ToJson(), "and the score can be saved again");
+            Assert.DoesNotThrow(() => score.ToJsonStamped());
+        }
+
+        [Test]
+        public void NegativeTimesDurationsAndMidiAreClamped()
+        {
+            const string json = @"{ ""Version"": 1, ""Notes"": [
+                { ""StartMs"": -500, ""DurationMs"": -5, ""Midi"": 200 },
+                { ""StartMs"": 50, ""DurationMs"": 100, ""Midi"": -3 } ] }";
+
+            var score = KanScore.FromJson(json)!;
+            Assert.That(score.Notes, Has.Count.EqualTo(2), "a wrong value is repaired, the note kept");
+
+            var first = score.Notes.Single(n => n.StartMs == 0);
+            Assert.That(first.DurationMs, Is.EqualTo(KanScore.MIN_DURATION_MS));
+            Assert.That(first.Midi, Is.EqualTo(127), "MIDI 0 to 127");
+
+            var second = score.Notes.Single(n => n.StartMs == 50);
+            Assert.That(second.Midi, Is.EqualTo(0));
+        }
+
+        [Test]
+        public void AGuardedSaveHoldsTheLineForTheWholeScore()
+        {
+            // Even a score built in memory (a transcription gone wrong) must
+            // not be lost to a throw on save (audit B4).
+            var score = new KanScore();
+            score.Notes.Add(new ScoreNote { StartMs = double.NaN, DurationMs = 250, Midi = 60 });
+            score.Notes.Add(new ScoreNote { StartMs = 100, DurationMs = 250, Midi = 60 });
+
+            string written = null!;
+            Assert.DoesNotThrow(() => written = score.ToJsonStamped());
+            Assert.That(KanScore.FromJson(written)!.Notes, Has.Count.EqualTo(1));
+        }
     }
 }
