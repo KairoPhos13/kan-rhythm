@@ -22,7 +22,12 @@
 #                          paths, but portable baseline codegen: no
 #                          -march=native of the BUILD host (an AVX-512 host
 #                          would otherwise produce a DLL that dies with
-#                          "illegal instruction" on older CPUs)
+#                          "illegal instruction" on older CPUs). Since the
+#                          November 2026 audit (C2) the bridge's CMake
+#                          enforces this itself (ggml's x86 kernels capped
+#                          at SSE4.2, -march=x86-64-v2 for everything); the
+#                          explicit flags here stay as documentation and
+#                          belt-and-braces.
 #   GGML_OPENMP=OFF        no libgomp-1.dll dependency (the MinGW driver
 #                          will not link libgomp statically next to
 #                          -shared; the macOS builds ship without OpenMP
@@ -49,6 +54,7 @@ docker run --rm --cpus 6 \
     --user "$(id -u):$(id -g)" -e HOME=/tmp \
     -v "$repo:/work" -w /work \
     -e OUT="$out" \
+    -e KAN_VERSION="${KAN_VERSION:-0.0.0}" \
     "$image" bash -eu -c '
         echo "== toolchain"
         x86_64-w64-mingw32-g++-posix --version | head -1
@@ -60,6 +66,7 @@ docker run --rm --cpus 6 \
             -DCMAKE_CXX_COMPILER=x86_64-w64-mingw32-g++-posix \
             -DCMAKE_BUILD_TYPE=Release \
             -DKAN_GGML_BACKEND=CPU \
+            -DKAN_VERSION="$KAN_VERSION" \
             -DGGML_NATIVE=OFF \
             -DGGML_OPENMP=OFF \
             -DCMAKE_SHARED_LINKER_FLAGS="-static -static-libgcc -static-libstdc++"

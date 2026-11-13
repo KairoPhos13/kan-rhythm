@@ -2,6 +2,7 @@
 # millisecond-aligned ground truth (MAESTRO first; manifest keeps it open for
 # other datasets/instruments). Extractable as its own repo later.
 add_executable(kan_dataset_bench main.cpp)
+kan_first_party_target(kan_dataset_bench)
 target_include_directories(kan_dataset_bench PRIVATE
     ${miniaudio_SOURCE_DIR}
     ${CMAKE_CURRENT_SOURCE_DIR}
