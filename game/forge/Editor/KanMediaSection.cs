@@ -410,8 +410,17 @@ namespace Kan.Forge.Editor
             syncExplorer();
         }
 
+        /// <summary>
+        /// Measure a track off the update thread (it decodes the file) and
+        /// take the measurements on it: the set is read by the UI every frame
+        /// and only written on the update thread (audit B8).
+        /// </summary>
         private void analyzeLater(ForgeTrack track)
-            => Task.Run(() => TrackAnalysis.Analyze(track));
+            => Task.Run(() => TrackAnalysis.Analyze(track))
+                   .ContinueWith(t => Schedule(() =>
+                   {
+                       if (t.IsCompletedSuccessfully) t.Result.ApplyTo(track);
+                   }));
 
         /// <summary>
         /// The whole set as a compact explorer: every

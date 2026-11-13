@@ -74,7 +74,7 @@ namespace Kan.Forge.Editor
                     throw new ForgeException($"could not repair \"{track.Name}\": {error}");
 
                 var analysed = new ForgeTrack(track.Name, outPath);
-                TrackAnalysis.Analyze(analysed);
+                TrackAnalysis.Analyze(analysed).ApplyTo(analysed);
                 result.Add(new Rendered(track, change, outPath, analysed));
             }
 
