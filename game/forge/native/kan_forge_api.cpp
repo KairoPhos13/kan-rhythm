@@ -16,6 +16,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#include <exception>
 #include <string>
 #include <vector>
 
@@ -32,6 +33,23 @@ void progress_trampoline(void* user, const char* phase, int percent) {
 void set_err(char* err, int32_t cap, const char* msg) {
     if (err == nullptr || cap <= 0) return;
     std::snprintf(err, size_t(cap), "%s", msg);
+}
+
+// Run one export's body with every C++ exception turned into a first-class
+// error (audit B9): a C ABI must never unwind across the boundary, or the
+// host process dies. The bodies live in *_impl functions so their code is
+// untouched by the guard.
+template <class F>
+kan_forge_status guarded(char* err, int32_t err_cap, const char* what, F&& body) {
+    try {
+        return body();
+    } catch (const std::exception& e) {
+        set_err(err, err_cap, (std::string(what) + ": " + e.what()).c_str());
+        return KAN_FORGE_ERR_INTERNAL;
+    } catch (...) {
+        set_err(err, err_cap, (std::string(what) + ": unexpected internal failure").c_str());
+        return KAN_FORGE_ERR_INTERNAL;
+    }
 }
 
 bool load_audio(const char* path, std::vector<float>& sig) {
@@ -73,13 +91,17 @@ kan::InstrumentProfile profile_for(const char* name) {
 extern "C" {
 
 void kan_forge_set_progress(kan_forge_progress_fn fn, void* user) {
-    g_fn = fn;
-    g_user = user;
-    kan::set_progress(fn != nullptr ? progress_trampoline : nullptr, nullptr);
+    try {
+        g_fn = fn;
+        g_user = user;
+        kan::set_progress(fn != nullptr ? progress_trampoline : nullptr, nullptr);
+    } catch (...) {
+        // A progress hook is never worth an exception crossing the ABI.
+    }
 }
 
-kan_forge_status kan_forge_fetch_audio(const char* url, const char* out_wav,
-                                       char* err, int32_t err_cap) {
+kan_forge_status fetch_audio_impl(const char* url, const char* out_wav,
+                                  char* err, int32_t err_cap) {
     if (url == nullptr || out_wav == nullptr) {
         set_err(err, err_cap, "fetch: missing url or output path");
         return KAN_FORGE_ERR_ARGS;
@@ -116,8 +138,15 @@ kan_forge_status kan_forge_fetch_audio(const char* url, const char* out_wav,
     return KAN_FORGE_OK;
 }
 
-kan_forge_status kan_forge_separate_stems(const char* audio_path, const char* out_dir,
-                                          char* err, int32_t err_cap) {
+kan_forge_status kan_forge_fetch_audio(const char* url, const char* out_wav,
+                                       char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "fetch", [&] {
+        return fetch_audio_impl(url, out_wav, err, err_cap);
+    });
+}
+
+kan_forge_status separate_stems_impl(const char* audio_path, const char* out_dir,
+                                     char* err, int32_t err_cap) {
     if (audio_path == nullptr || out_dir == nullptr) {
         set_err(err, err_cap, "separate: missing audio path or output directory");
         return KAN_FORGE_ERR_ARGS;
@@ -173,18 +202,18 @@ kan_forge_status kan_forge_separate_stems(const char* audio_path, const char* ou
     return KAN_FORGE_OK;
 }
 
-kan_forge_status kan_forge_transcribe_file(const char* audio_path, const char* profile,
+kan_forge_status kan_forge_separate_stems(const char* audio_path, const char* out_dir,
+                                          char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "separate", [&] {
+        return separate_stems_impl(audio_path, out_dir, err, err_cap);
+    });
+}
+
+kan_forge_status transcribe_file_with_impl(const char* audio_path, const char* profile,
+                                           const char* engine,
                                            kan_forge_note* out, int32_t cap,
                                            int32_t* out_count,
                                            char* err, int32_t err_cap) {
-    return kan_forge_transcribe_file_with(audio_path, profile, "describer", out, cap, out_count, err, err_cap);
-}
-
-kan_forge_status kan_forge_transcribe_file_with(const char* audio_path, const char* profile,
-                                                const char* engine,
-                                                kan_forge_note* out, int32_t cap,
-                                                int32_t* out_count,
-                                                char* err, int32_t err_cap) {
     if (audio_path == nullptr || out_count == nullptr) {
         set_err(err, err_cap, "transcribe: missing audio path or out_count");
         return KAN_FORGE_ERR_ARGS;
@@ -229,18 +258,46 @@ kan_forge_status kan_forge_transcribe_file_with(const char* audio_path, const ch
     return KAN_FORGE_OK;
 }
 
+kan_forge_status kan_forge_transcribe_file_with(const char* audio_path, const char* profile,
+                                                const char* engine,
+                                                kan_forge_note* out, int32_t cap,
+                                                int32_t* out_count,
+                                                char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "transcribe", [&] {
+        return transcribe_file_with_impl(audio_path, profile, engine, out, cap, out_count, err, err_cap);
+    });
+}
+
+kan_forge_status kan_forge_transcribe_file(const char* audio_path, const char* profile,
+                                           kan_forge_note* out, int32_t cap,
+                                           int32_t* out_count,
+                                           char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "transcribe", [&] {
+        return transcribe_file_with_impl(audio_path, profile, "describer", out, cap, out_count, err, err_cap);
+    });
+}
+
 const char* kan_forge_version(void) {
+    // A literal: nothing here can throw.
     return "kan_forge_api 0.1.0 (Phase: level-creation pipeline)";
 }
 
 int32_t kan_forge_has_separator(void) {
-    // libkan's probe is honest since its self-contained separation
-    // (2026-10-13): it checks the compiled runtime and the model.
-    return kan::find_separator().empty() ? 0 : 1;
+    try {
+        // libkan's probe is honest since its self-contained separation
+        // (2026-10-13): it checks the compiled runtime and the model.
+        return kan::find_separator().empty() ? 0 : 1;
+    } catch (...) {
+        return 0;
+    }
 }
 
 int32_t kan_forge_has_downloader(void) {
-    return kan::find_audio_downloader().empty() ? 0 : 1;
+    try {
+        return kan::find_audio_downloader().empty() ? 0 : 1;
+    } catch (...) {
+        return 0;
+    }
 }
 
 namespace {
@@ -278,9 +335,9 @@ bool write_wav_pcm16(const std::string& path, const std::vector<float>& sig, int
 
 } // namespace
 
-kan_forge_status kan_forge_edit_track(const char* audio_path, float start_ms, float end_ms,
-                                      int32_t mode, const char* out_wav,
-                                      char* err, int32_t err_cap) {
+kan_forge_status edit_track_impl(const char* audio_path, float start_ms, float end_ms,
+                                 int32_t mode, const char* out_wav,
+                                 char* err, int32_t err_cap) {
     if (audio_path == nullptr || out_wav == nullptr) {
         set_err(err, err_cap, "edit: missing audio path or output path");
         return KAN_FORGE_ERR_ARGS;
@@ -333,9 +390,17 @@ kan_forge_status kan_forge_edit_track(const char* audio_path, float start_ms, fl
     return KAN_FORGE_OK;
 }
 
-kan_forge_status kan_forge_analyze_track(const char* audio_path, float* peaks, int32_t bucket_count,
-                                         float* out_peak, float* out_rms,
-                                         char* err, int32_t err_cap) {
+kan_forge_status kan_forge_edit_track(const char* audio_path, float start_ms, float end_ms,
+                                      int32_t mode, const char* out_wav,
+                                      char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "edit", [&] {
+        return edit_track_impl(audio_path, start_ms, end_ms, mode, out_wav, err, err_cap);
+    });
+}
+
+kan_forge_status analyze_track_impl(const char* audio_path, float* peaks, int32_t bucket_count,
+                                    float* out_peak, float* out_rms,
+                                    char* err, int32_t err_cap) {
     if (audio_path == nullptr || out_peak == nullptr || out_rms == nullptr) {
         set_err(err, err_cap, "analyze: missing audio path or outputs");
         return KAN_FORGE_ERR_ARGS;
@@ -371,15 +436,26 @@ kan_forge_status kan_forge_analyze_track(const char* audio_path, float* peaks, i
     return KAN_FORGE_OK;
 }
 
+kan_forge_status kan_forge_analyze_track(const char* audio_path, float* peaks, int32_t bucket_count,
+                                         float* out_peak, float* out_rms,
+                                         char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "analyze", [&] {
+        return analyze_track_impl(audio_path, peaks, bucket_count, out_peak, out_rms, err, err_cap);
+    });
+}
+
 kan_forge_status kan_forge_mix_tracks(const char* const* paths, const float* gains,
                                       int32_t count, const char* out_wav,
                                       char* err, int32_t err_cap) {
-    return kan_forge_mix_tracks_at(paths, gains, nullptr, count, out_wav, err, err_cap);
+    return guarded(err, err_cap, "mix", [&] {
+        // The guarded export below: one guard is enough for the work it does.
+        return kan_forge_mix_tracks_at(paths, gains, nullptr, count, out_wav, err, err_cap);
+    });
 }
 
-kan_forge_status kan_forge_mix_tracks_at(const char* const* paths, const float* gains,
-                                         const double* offsets_ms, int32_t count,
-                                         const char* out_wav, char* err, int32_t err_cap) {
+kan_forge_status mix_tracks_at_impl(const char* const* paths, const float* gains,
+                                    const double* offsets_ms, int32_t count,
+                                    const char* out_wav, char* err, int32_t err_cap) {
     if (paths == nullptr || gains == nullptr || out_wav == nullptr || count <= 0) {
         set_err(err, err_cap, "mix: missing inputs (need at least one track)");
         return KAN_FORGE_ERR_ARGS;
@@ -394,8 +470,12 @@ kan_forge_status kan_forge_mix_tracks_at(const char* const* paths, const float* 
             return KAN_FORGE_ERR_ARGS;
         }
         const double off_ms = offsets_ms != nullptr ? offsets_ms[i] : 0.0;
-        if (!(off_ms >= 0.0)) {  // also rejects NaN
-            set_err(err, err_cap, "mix: track offsets must be >= 0 ms");
+
+        // The offset sizes the whole mix buffer at once: bound it (audit B9,
+        // KAN_FORGE_MAX_TRACK_OFFSET_MS), or a corrupt set.json allocates
+        // the whole timeline in one go and takes the process down.
+        if (!(off_ms >= 0.0) || off_ms > KAN_FORGE_MAX_TRACK_OFFSET_MS) {  // also rejects NaN
+            set_err(err, err_cap, "mix: track offsets must be between 0 ms and 3 hours");
             return KAN_FORGE_ERR_ARGS;
         }
         std::vector<float> sig;
@@ -423,6 +503,14 @@ kan_forge_status kan_forge_mix_tracks_at(const char* const* paths, const float* 
         return KAN_FORGE_ERR_TRANSCRIBE;
     }
     return KAN_FORGE_OK;
+}
+
+kan_forge_status kan_forge_mix_tracks_at(const char* const* paths, const float* gains,
+                                         const double* offsets_ms, int32_t count,
+                                         const char* out_wav, char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "mix", [&] {
+        return mix_tracks_at_impl(paths, gains, offsets_ms, count, out_wav, err, err_cap);
+    });
 }
 
 } // extern "C"
@@ -541,8 +629,8 @@ kan_forge_live* kan_forge_live_open(const char* profile, float sample_rate) {
     }
 }
 
-int32_t kan_forge_live_process(kan_forge_live* live, const float* samples, int32_t n,
-                               kan_forge_live_event* out, int32_t cap) {
+int32_t live_process_impl(kan_forge_live* live, const float* samples, int32_t n,
+                          kan_forge_live_event* out, int32_t cap) {
     if (live == nullptr || samples == nullptr || n <= 0) return 0;
     int32_t count = 0;
     const size_t wn = kan_forge_live::kWindow;
@@ -569,27 +657,51 @@ int32_t kan_forge_live_process(kan_forge_live* live, const float* samples, int32
     return count;
 }
 
+int32_t kan_forge_live_process(kan_forge_live* live, const float* samples, int32_t n,
+                               kan_forge_live_event* out, int32_t cap) {
+    try {
+        return live_process_impl(live, samples, n, out, cap);
+    } catch (...) {
+        // A describer failure is not the game's crash (audit B9).
+        return 0;
+    }
+}
+
 int32_t kan_forge_live_expect(kan_forge_live* live, const float* midis, int32_t count) {
     if (live == nullptr || midis == nullptr || count <= 0) return 0;
-    kan::NoteDescriber::CandidateSet set{};
-    set.note_id = 0; // the next attack
-    set.count = uint8_t(std::min<int32_t>(count, int32_t(kan::NoteDescriber::kMaxCandidates)));
-    for (uint8_t k = 0; k < set.count; ++k) {
-        set.entries[k].midi = midis[k];
-        set.entries[k].struck = 1;
+    try {
+        kan::NoteDescriber::CandidateSet set{};
+        set.note_id = 0; // the next attack
+        set.count = uint8_t(std::min<int32_t>(count, int32_t(kan::NoteDescriber::kMaxCandidates)));
+        for (uint8_t k = 0; k < set.count; ++k) {
+            set.entries[k].midi = midis[k];
+            set.entries[k].struck = 1;
+        }
+        return live->desc.set_candidates(set) ? 1 : 0;
+    } catch (...) {
+        return 0;
     }
-    return live->desc.set_candidates(set) ? 1 : 0;
 }
 
 void kan_forge_live_set_noise_floor(kan_forge_live* live, float energy) {
     if (live == nullptr || !(energy > 0.0f)) return;
-    live->desc.set_noise_floor(energy);
+    try {
+        live->desc.set_noise_floor(energy);
+    } catch (...) {
+        // A floor that cannot be set leaves the default (audit B9).
+    }
 }
 
-void kan_forge_live_close(kan_forge_live* live) { delete live; }
+void kan_forge_live_close(kan_forge_live* live) {
+    try {
+        delete live;
+    } catch (...) {
+        // A destructor is the last place for an exception (audit B9).
+    }
+}
 
-kan_forge_status kan_forge_measure_loudness(const char* audio_path, float* out_lufs, float* out_peak,
-                                            char* err, int32_t err_cap) {
+kan_forge_status measure_loudness_impl(const char* audio_path, float* out_lufs, float* out_peak,
+                                       char* err, int32_t err_cap) {
     if (audio_path == nullptr || out_lufs == nullptr || out_peak == nullptr) {
         set_err(err, err_cap, "loudness: missing audio path or outputs");
         return KAN_FORGE_ERR_ARGS;
@@ -604,10 +716,17 @@ kan_forge_status kan_forge_measure_loudness(const char* audio_path, float* out_l
     return KAN_FORGE_OK;
 }
 
-kan_forge_status kan_forge_normalize_loudness(const char* audio_path, const char* out_wav,
-                                              float target_lufs, float ceiling_dbfs,
-                                              float* out_before, float* out_after,
-                                              char* err, int32_t err_cap) {
+kan_forge_status kan_forge_measure_loudness(const char* audio_path, float* out_lufs, float* out_peak,
+                                            char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "loudness", [&] {
+        return measure_loudness_impl(audio_path, out_lufs, out_peak, err, err_cap);
+    });
+}
+
+kan_forge_status normalize_loudness_impl(const char* audio_path, const char* out_wav,
+                                         float target_lufs, float ceiling_dbfs,
+                                         float* out_before, float* out_after,
+                                         char* err, int32_t err_cap) {
     if (audio_path == nullptr || out_wav == nullptr) {
         set_err(err, err_cap, "loudness: missing input or output path");
         return KAN_FORGE_ERR_ARGS;
@@ -628,6 +747,16 @@ kan_forge_status kan_forge_normalize_loudness(const char* audio_path, const char
         return KAN_FORGE_ERR_TRANSCRIBE;
     }
     return KAN_FORGE_OK;
+}
+
+kan_forge_status kan_forge_normalize_loudness(const char* audio_path, const char* out_wav,
+                                              float target_lufs, float ceiling_dbfs,
+                                              float* out_before, float* out_after,
+                                              char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "loudness", [&] {
+        return normalize_loudness_impl(audio_path, out_wav, target_lufs, ceiling_dbfs,
+                                       out_before, out_after, err, err_cap);
+    });
 }
 
 } // extern "C"

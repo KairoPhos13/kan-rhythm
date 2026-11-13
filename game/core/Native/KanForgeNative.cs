@@ -16,6 +16,9 @@ namespace Kan.Core.Native
         ErrDecode = 4,
         ErrTranscribe = 5,
         ErrCapacity = 6,
+
+        /// <summary>An unexpected internal failure (out of memory, ...): never a crash across the C ABI.</summary>
+        ErrInternal = 7,
     }
 
     /// <summary>

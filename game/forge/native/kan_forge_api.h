@@ -25,7 +25,9 @@ extern "C" {
 #endif
 
 /* Status codes: error states are first-class (human-readable message is
- * written to the optional err buffer in every failure case). */
+ * written to the optional err buffer in every failure case). No C++
+ * exception ever crosses this ABI: every export turns a failure into a
+ * status. */
 typedef enum kan_forge_status {
     KAN_FORGE_OK = 0,
     KAN_FORGE_ERR_ARGS = 1,       /* bad arguments */
@@ -33,8 +35,14 @@ typedef enum kan_forge_status {
     KAN_FORGE_ERR_SEPARATOR = 3,  /* bs_roformer-cli or GGUF model missing */
     KAN_FORGE_ERR_DECODE = 4,     /* missing file / unsupported audio codec */
     KAN_FORGE_ERR_TRANSCRIBE = 5, /* transcription failed */
-    KAN_FORGE_ERR_CAPACITY = 6    /* output buffer too small (see *out_count) */
+    KAN_FORGE_ERR_CAPACITY = 6,   /* output buffer too small (see *out_count) */
+    KAN_FORGE_ERR_INTERNAL = 7    /* unexpected internal failure (out of memory, ...) */
 } kan_forge_status;
+
+/* The longest track offset kan_forge_mix_tracks_at accepts: the offset
+ * sizes the whole mix buffer at once, so an unbounded one (a corrupt
+ * set.json) would take the process down. */
+#define KAN_FORGE_MAX_TRACK_OFFSET_MS (3.0 * 60.0 * 60.0 * 1000.0)
 
 /* One transcribed note: measurements only, no verdicts. Booleans are
  * int32_t for ABI stability. Mirrors kan::TranscribedNote. */
@@ -115,9 +123,9 @@ KAN_FORGE_API kan_forge_status kan_forge_mix_tracks(const char* const* paths,
                                                     char* err, int32_t err_cap);
 
 /* Same as kan_forge_mix_tracks, with each input placed on a shared timeline
- * (owner 2026-10-14: tracks can be moved in time). offsets_ms[i] >= 0 is
- * where input i starts; NULL offsets = every input at 0. The output covers
- * max(offset + length). */
+ * (owner 2026-10-14: tracks can be moved in time). offsets_ms[i] >= 0 and at
+ * most KAN_FORGE_MAX_TRACK_OFFSET_MS is where input i starts; NULL offsets =
+ * every input at 0. The output covers max(offset + length). */
 KAN_FORGE_API kan_forge_status kan_forge_mix_tracks_at(const char* const* paths,
                                                        const float* gains,
                                                        const double* offsets_ms,
