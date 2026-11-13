@@ -8,7 +8,7 @@ connects libkan to `game/` and for anyone polishing the DSP further.
 
 Status: Milestone 1 complete. All numbers quoted below are **measured
 offline** by the ctest suite on this machine (reproduce: `cmake -B build &&
-cmake --build build -j && ctest --test-dir build`; 18 tests). Per-topic
+cmake --build build -j && ctest --test-dir build`). Per-topic
 deep dives live alongside this file:
 [bacf-vs-yin.md](bacf-vs-yin.md) · [latency-measurements.md](latency-measurements.md) ·
 [chord-validation.md](chord-validation.md) · [calibration.md](calibration.md) ·
@@ -398,7 +398,8 @@ Three layers, all present and runnable today:
 ### 6.1 Ground-truth oracles (the ctest suite)
 
 Every detector change must ship a test with **known input → expected
-output**. The suite (20 tests) and its oracles:
+output**. The suite and its oracles (what each asserts is what the test
+checks; looser docs must not claim more):
 
 | test | oracle (known truth) | asserts |
 |---|---|---|
@@ -412,7 +413,7 @@ output**. The suite (20 tests) and its oracles:
 | `libkan_calibration_test` | +12 c reference, matrix, ±10 c player | Δc error < 3 c, target-shift residual, EMA behavior |
 | `libkan_technique_test` | FM vibrato, bend curves, envelope shapes, spectral mixes | measured vs truth per technique |
 | `libkan_tap_test` | published blocks | non-consuming readers, drop accounting, const-input contract |
-| `libkan_range_test` | **all 88 piano keys** | onset 88/88, semitone identity 88/88, YIN < 10 c |
+| `libkan_range_test` | **all 88 piano keys** | onset 88/88, semitone identity 88/88, YIN within 25 c on at least 93% of keys (the top octave is reported, not asserted) |
 | `libkan_stretch_test` | known shifts/stretch | 452.9 Hz target, pitch preserved under stretch |
 | `libkan_loopback_test` | WAV fixtures with **known onset sample positions** (fixture_layout.hpp) | zero ghost onsets on noise, no pitch on percussion, notes within 6 ms/6 Hz, chord template pass, **onset latency ≤ 1 block** |
 | `kan_demo_selftest` / `kan_analyze_selftest` | synthesized ocarina note | full app pipelines |

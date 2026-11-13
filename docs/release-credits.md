@@ -10,6 +10,12 @@ doubt is recorded here, never guessed
 - **Audit run:** 2026-11-11, `agent/credits` lane.
 - **Fix pass:** 2026-11-11, `agent/credits-fix` lane: GAP 1, 2, 3, 4, 5,
   7 and 8 fixed as recorded in section 4; GAP 6 stays open (owner's call).
+- **Fix pass:** 2026-11-12, `agent/release-hardening` lane (November 2026
+  audit section 7): GAP 9, 10 and 11 fixed as recorded in section 4
+  (licence texts in every zip, pinned + hashed separation model, portable
+  CPU baseline), plus the build/CI hardening of that audit (pinned
+  workflow actions, warnings as errors in CI, version stamps, no symbols
+  in the player zips).
 - **Audited against:** superproject `agent/credits` worktree, fork pin
   `e000468941` (read-only), NuGet cache and `osu.Desktop/obj/project.assets.json`
   of a restore of that pin. The fix pass regenerated the notices against
@@ -46,7 +52,7 @@ The separation model is **not** shipped (see row 11).
 | 8 | kan! payload: `osu.Game.Rulesets.Kan.dll`, `Kan.Forge.dll`, `Kan.Core.dll` | MIT, kan-rhythm contributors | root README; release notes |
 | 9 | `libkan_forge_native` (the native bridge): miniaudio (MIT-0), Basic Pitch port + ICASSP 2022 weights (Apache-2.0, Spotify AB), GGML (MIT), BSRoformer.cpp (MIT) | MIT-0 / Apache-2.0 / MIT / MIT, record of record [libkan/THIRD_PARTY_NOTICES.md](../libkan/THIRD_PARTY_NOTICES.md) | Notices §5 (bridge components named 2026-11-11, GAP 4) |
 | 10 | `brand/`: kan!'s logo, icons, intro art, menu backgrounds | MIT, kan-rhythm contributors (provenance in [game/brand/README.md](../game/brand/README.md), fixed 2026-11-11) | kan!'s own art, no third-party credit owed |
-| 11 | Separation model (BS-RoFormer SW 6-stem GGUF, ~180 MB): **not shipped**, downloaded to `models/` at first use | **default f16 grade: MIT** (`studio409`, since 2026-11-11); q8 grade (`FractalSurfer`, licence unknown) is an explicit opt-in only | Notices §6 (model, source, licence) + release notes (GAP 7) |
+| 11 | Separation model (BS-RoFormer SW 6-stem GGUF, ~180 MB): **not shipped**, downloaded to `models/` at first use from a **pinned, hash-verified** source (revision + SHA-256, GAP 10, since 2026-11-12) | **default f16 grade: MIT** (`studio409`, since 2026-11-11); q8 grade (`FractalSurfer`, licence unknown) is an explicit opt-in only | Notices §6 (model, source, licence) + release notes (GAP 7) |
 
 Credit surfaces that exist today: the in-game **about screen**
 (Settings > General > About kan!, fork entries F-5/F-6) showing the
@@ -54,7 +60,8 @@ embedded `THIRD_PARTY_NOTICES.md`, the repository's
 [README](../README.md) "Credits and licence", the fork README, the
 release notes "Thanks", and (since the 2026-11-11 fix pass) the
 `THIRD_PARTY_NOTICES.md` and `LICENCE` files shipped in every zip
-(GAP 8).
+(GAP 8), with the full licence texts in the `licenses/` folder beside
+them (since 2026-11-12, GAP 9).
 
 ## 2. Sign-off checklist
 
@@ -98,6 +105,16 @@ fix pass of 2026-11-11 closed them as recorded in section 4.
       (GAP 8): `assemble.sh` copies both into the payload of every
       platform and `build.yml` puts them at the macOS zip root next to
       `kan!.app` (2026-11-11).
+- [x] The zip carries the licence **texts** in `licenses/` (GAP 9): one
+      list (`game/packaging/licenses.manifest`) drives the copies,
+      `game/packaging/check-licenses.sh` fails the build when a listed
+      file is missing from the payload or the repository, and CI runs it
+      as its own step (2026-11-12). Which text covers which component:
+      `licenses/README.md`.
+- [x] The separation model downloads from a pinned, immutable revision and
+      passes a SHA-256 check before the GGUF loader sees it (GAP 10,
+      2026-11-12): a wrong hash deletes the file and says so calmly;
+      `KAN_ROFORMER_GGUF` stays the trusted escape hatch for a local copy.
 - [ ] `game/brand/` files have author + licence (done 2026-11-11,
       [game/brand/README.md](../game/brand/README.md)); hand-made art that
       replaces the provisional files brings its own provenance line.
@@ -222,6 +239,11 @@ client's `THIRD_PARTY_NOTICES` (GAP 4).
 The model is credited nowhere players see (the release notes only say the
 first separation downloads a model once). See GAP 7. This matches
 [game/TODO.md](../game/TODO.md) "Separation model (owner decision)".
+
+**Update (2026-11-12):** the table above is the record of the 2026-11-11
+audit; since GAP 7 the default is the MIT f16 grade, and since GAP 10
+both grades are pinned to immutable repository revisions and verified
+against a pinned SHA-256 before use.
 
 ### 3.7 `server/app` npm production dependencies (issue item 2)
 
@@ -401,6 +423,67 @@ copies `THIRD_PARTY_NOTICES.md` and `LICENCE` into every payload and
 fails the build when either is missing; `.github/workflows/build.yml`
 puts both at the macOS zip root next to `kan!.app`;
 [releases/v0.1.0.md](releases/v0.1.0.md) tells players about them.
+
+**GAP 9: the zip carries no licence TEXTS (November 2026 audit C3).**
+GAP 8 shipped the notices and the fork's MIT `LICENCE`, but the
+redistribution conditions of the other licences are not met by a
+reference alone: Apache-2.0 (Basic Pitch, compiled into the bridge)
+requires the licence text and notice to travel with a copy, and the LGPL
+set accepted by [ADR-0013](adr/0013-accept-inherited-lgpl-set.md) requires
+its licence texts to be reachable. kan!'s own MIT `LICENSE` was not in the
+zip either. *Proposed fix:* a `licenses/` folder in every archive driven
+by one list, checked in CI. *Blocks publishing?* Yes for the Apache-2.0
+and LGPL obligations; a missing MIT text is at least sloppy.
+**Status (2026-11-12): fixed.** Every archive carries `licenses/` beside
+`LICENCE` and `THIRD_PARTY_NOTICES.md`:
+`LICENSE-kan.txt` (kan!'s MIT),
+`basic-pitch-LICENSE` + `basic-pitch-NOTICE` (Apache-2.0),
+`LGPL-2.1.txt` (TagLibSharp, the FFmpeg 4.x native libraries),
+`LGPL-3.0.txt` + `GPL-3.0.txt` (FFmpeg.AutoGen, OpenTabletDriver; LGPL-3.0
+incorporates GPL-3.0's terms, so both texts travel) and a `README.md`
+mapping each text to its components. The ONE list is
+`game/packaging/licenses.manifest`; `game/packaging/check-licenses.sh`
+fails the build when a listed file is missing from the payload or the
+repository, and when a file in `libkan/licenses/` is not listed. CI runs
+the check as its own step after `assemble.sh` (which runs for every
+platform), and the macOS zip also carries `licenses/` at its root.
+
+**GAP 10: the separation model downloaded from a floating branch with no
+hash check (November 2026 audit C4).** The default URL pointed at
+`/resolve/main/...` on a third-party Hugging Face repository: the branch
+moves, and the ~200 MB file went straight from `curl` into the GGUF
+loader. A changed, swapped or truncated model would either break
+separation or be parsed blindly. *Proposed fix:* pin the URL to an
+immutable revision and verify a SHA-256 before use. *Blocks publishing?*
+Recommend fixing before the first public download reaches players.
+**Status (2026-11-12): fixed.**
+[libkan/include/libkan/transcribe.hpp](../libkan/include/libkan/transcribe.hpp)
+pins both grades to repository revisions (f16: `fcb2eb0f`, q8: `2b98254b`)
+and verifies the file against a pinned SHA-256 before the loader sees it
+(`roformer_model_sha256_for` / `roformer_model_ok`; offline tests
+`libkan_transcribe_cmd_test` and `libkan_model_pin_test`). A wrong hash
+deletes the file and says so calmly, and a failed download leaves no
+partial file. `KAN_MODEL_URL` may mirror the same pinned file (the digest
+still applies; `KAN_MODEL_SHA256` pins an operator's own mirror) and
+`KAN_ROFORMER_GGUF` stays the trusted escape hatch for any local copy.
+
+**GAP 11: the shipped native library was tuned to the build host
+(November 2026 audit C2).** ggml's CMake optimizes for the build
+machine's CPU unless `GGML_NATIVE` is OFF (and with it OFF it still
+enables AVX2-era x86 kernels by default), so `kan_forge_native` could die
+with "illegal instruction" on older player CPUs; the root CMake also set
+`-march=native` globally. *Proposed fix:* an explicit, documented
+baseline in the shipped library's own build. *Blocks publishing?* Yes:
+every player on older hardware is a crash report.
+**Status (2026-11-12): fixed.**
+[libkan/cmake/kan_build_policy.cmake](../libkan/cmake/kan_build_policy.cmake)
+defines the baseline (x86-64-v2 on x86_64 with ggml's x86 kernels capped
+at SSE4.2; arm64 on Apple silicon; MSVC at the x64 floor, which is even
+more portable) and `game/forge/native/CMakeLists.txt` enforces it for
+every build path of the bridge. `-march=native` is opt-in at the root now
+(`KAN_MARCH_NATIVE=ON`, local developer builds only) and no packaging
+script or workflow uses it; CI and `cross-build-native.sh` pass
+`-DGGML_NATIVE=OFF` explicitly on top.
 
 ## 5. What this audit could not verify
 
