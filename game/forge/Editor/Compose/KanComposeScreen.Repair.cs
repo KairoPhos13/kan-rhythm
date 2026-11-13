@@ -154,7 +154,7 @@ namespace Kan.Forge.Editor.Compose
                     return;
                 }
 
-                int removed = TimelineRepair.Apply(edit, t.Result, grid ??= new EditorGrid(this));
+                int removed = TimelineRepair.Apply(edit, t.Result, grid ??= new EditorGrid(EditorBeatmap));
 
                 // The section now spans what it became (a cut leaves none).
                 if (edit.Kind == TimelineEditKind.Cut)
@@ -306,61 +306,6 @@ namespace Kan.Forge.Editor.Compose
         }
 
         private EditorGrid? grid;
-
-        /// <summary>The editor's timing points, for repairs (<see cref="TimelineRepair.IGrid"/>).</summary>
-        private sealed class EditorGrid : TimelineRepair.IGrid
-        {
-            private readonly KanComposeScreen screen;
-
-            public EditorGrid(KanComposeScreen screen)
-            {
-                this.screen = screen;
-            }
-
-            /// <summary>The editor it belongs to is gone (the history outlives it): leave the grid alone.</summary>
-            public bool Gone;
-
-            private osu.Game.Screens.Edit.EditorBeatmap beatmap => screen.EditorBeatmap;
-
-            private sealed record Point(double Time, double BeatLength, osu.Game.Beatmaps.Timing.TimeSignature Signature);
-
-            public object Capture() => beatmap.ControlPointInfo.TimingPoints.Select(p => new Point(p.Time, p.BeatLength, p.TimeSignature)).ToList();
-
-            public void Restore(object state)
-            {
-                if (!Gone) set((System.Collections.Generic.List<Point>)state);
-            }
-
-            public void Apply(TimelineEdit levelEdit)
-            {
-                if (Gone) return;
-
-                set(((System.Collections.Generic.List<Point>)Capture()).Where(p => !levelEdit.Removes(p.Time))
-                                                                          .Select(p => p with { Time = Math.Round(levelEdit.Map(p.Time), 1) })
-                                                                          .ToList());
-            }
-
-            public System.Collections.Generic.IReadOnlyList<Kan.Core.Score.GridPoint> Points
-                => beatmap.ControlPointInfo.TimingPoints.Select(p => new Kan.Core.Score.GridPoint { TimeMs = p.Time, BeatMs = p.BeatLength }).ToList();
-
-            private void set(System.Collections.Generic.List<Point> points)
-            {
-                var cpi = beatmap.ControlPointInfo;
-                beatmap.BeginChange();
-
-                foreach (var tp in cpi.TimingPoints.ToList())
-                {
-                    var group = cpi.GroupAt(tp.Time);
-                    group?.Remove(tp);
-                    if (group != null && group.ControlPoints.Count == 0) cpi.RemoveGroup(group);
-                }
-
-                foreach (var p in points)
-                    cpi.Add(p.Time, new osu.Game.Beatmaps.ControlPoints.TimingControlPoint { BeatLength = p.BeatLength, TimeSignature = p.Signature });
-
-                beatmap.EndChange();
-            }
-        }
 
         /// <summary>A repair was undone or redone (here or in the track tab).</summary>
         private void repairRestored()
