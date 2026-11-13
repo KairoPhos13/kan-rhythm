@@ -15,10 +15,20 @@ import unittest
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import numpy as np  # noqa: E402
+try:
+    import numpy as np  # noqa: E402
+except ImportError:  # the CI's Python has only the standard library
+    np = None
 
 from kanpack import level as level_mod  # noqa: E402
-from kanpack import loudness, smf, synth  # noqa: E402
+from kanpack import loudness, smf  # noqa: E402
+
+if np is not None:
+    from kanpack import synth  # noqa: E402
+
+# Packing needs only the standard library; rendering and the loudness
+# measurement's tests need numpy, and are skipped without it.
+needs_numpy = unittest.skipIf(np is None, "numpy is not installed (render-only tests)")
 
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 PACK_DIR = os.path.dirname(TEST_DIR)
@@ -55,6 +65,7 @@ class SmfTest(unittest.TestCase):
         self.assertAlmostEqual(1.0, first.duration, places=3)
 
 
+@needs_numpy
 class LoudnessTest(unittest.TestCase):
     """Known input and expected output for the BS.1770 measurement."""
 
@@ -90,6 +101,7 @@ class LoudnessTest(unittest.TestCase):
         self.assertEqual(1.0, loudness.loudness_gain(-float("inf"), 0.0))
 
 
+@needs_numpy
 class SynthTest(unittest.TestCase):
     def test_renders_the_note_it_is_given(self):
         midi = smf.MidiFile(tempo_bpm=60)  # one beat = one second

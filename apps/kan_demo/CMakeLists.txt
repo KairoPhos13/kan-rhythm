@@ -1,7 +1,7 @@
 # kan_demo - live real-instrument demo for the libkan detection pipeline
 add_executable(kan_demo main.cpp)
 kan_first_party_target(kan_demo)
-target_include_directories(kan_demo PRIVATE ${miniaudio_SOURCE_DIR})
+target_include_directories(kan_demo SYSTEM PRIVATE ${miniaudio_SOURCE_DIR})
 
 # Prefer the BACF-enabled libkan when Cycfi Q is available (KAN_ENABLE_BACF).
 if(TARGET libkan_bacf)

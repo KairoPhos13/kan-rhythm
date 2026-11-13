@@ -1,7 +1,7 @@
 # kan_analyze - song performance descriptor (offline analysis tool)
 add_executable(kan_analyze main.cpp)
 kan_first_party_target(kan_analyze)
-target_include_directories(kan_analyze PRIVATE ${miniaudio_SOURCE_DIR})
+target_include_directories(kan_analyze SYSTEM PRIVATE ${miniaudio_SOURCE_DIR})
 
 if(TARGET libkan_bacf)
     target_link_libraries(kan_analyze PRIVATE libkan_bacf)
