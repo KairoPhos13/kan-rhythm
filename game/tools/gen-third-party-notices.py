@@ -311,6 +311,9 @@ def main(argv: list[str] | None = None) -> int:
                  "**no licence**, so kan! never selects it on its own.")
     lines.append("- `KAN_MODEL_URL` downloads from an own host instead; "
                  "`KAN_ROFORMER_GGUF` points at a local file (no download).")
+    lines.append("- The download is pinned to an immutable source revision and "
+                 "verified against a pinned SHA-256 before use; a wrong or "
+                 "truncated file is deleted and never loaded.")
     lines.append("")
     lines.append("This notices file is generated, not exhaustive by legal opinion: if any "
                  "entry looks wrong, fix the generator or the package reference and "

@@ -1,6 +1,7 @@
 # kan_stem_split - Layer 0: source separation (Demucs wrapper) + stem
 # remixing for game modes (autoplay=all, instrument mode=all minus stem).
 add_executable(kan_stem_split main.cpp)
+kan_first_party_target(kan_stem_split)
 target_include_directories(kan_stem_split PRIVATE
     ${miniaudio_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/libkan/include)

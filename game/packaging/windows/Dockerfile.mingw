@@ -7,7 +7,14 @@
 # std::thread, which the win32-threads variant of libstdc++ does not
 # provide. binutils brings x86_64-w64-mingw32-objdump for the post-build
 # verification (imported DLLs + exported kan_forge_* symbols).
-FROM debian:bookworm
+#
+# Base image pinned by digest (audit C9): a floating tag can change under
+# a build and makes the toolchain irreproducible. This is the
+# debian:bookworm manifest of 2026-11-05 (multi-arch: amd64 + arm64).
+# Known remainder: apt-get installs whatever the bookworm index offers at
+# build time; pinning those versions too would break as Debian rotates its
+# archive, so the digest pin plus this comment is the deliberate level.
+FROM debian:bookworm@sha256:268fb24c39bca92d326dd83ea3abebe4a3f7751c804ffef23bb6d857dd343ff8
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
         cmake make git ca-certificates \

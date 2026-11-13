@@ -49,13 +49,23 @@ platform above), then a `release` job on tags. Per job:
    (`jakoch/install-vulkan-sdk-action`, cached). macOS needs no SDK for
    Metal. If the SDK were missing, the CMake configure would fall back to
    the CPU backend and print which backend it picked.
-4. Native bridge: `cmake -S game/forge/native ... -DKAN_GGML_BACKEND=...`,
-   build (`--parallel 6`), then its offline self-test (`ctest`).
+4. Native bridge: `cmake -S game/forge/native ... -DKAN_GGML_BACKEND=...
+   -DGGML_NATIVE=OFF -DKAN_WERROR=ON -DKAN_VERSION=...`, build
+   (`--parallel 6`), then its offline self-test (`ctest`). The bridge's
+   own CMake enforces the portable CPU baseline (x86-64-v2 on x86_64,
+   arm64 on Apple silicon; `libkan/cmake/kan_build_policy.cmake`,
+   November 2026 audit C2) and never tunes to the runner's CPU;
+   `KAN_WERROR=ON` makes first-party warnings fatal (audit C6) and
+   `KAN_VERSION` stamps `kan_forge_version()` (audit C8).
 5. libkan's DSP tests: root CMake with `-DKAN_BUILD_APPS=OFF
    -DKAN_BUILD_TOOLS=OFF` (the `apps/` and `tools/` executables are
-   developer tools, out of the release build), then `ctest`.
+   developer tools, out of the release build), same baseline and warning
+   policy as the bridge, then `ctest`.
 6. kan!'s C# with warnings as errors (the `make check` gate), then the
-   `core` and `forge` test suites. No audio device is touched (the live
+   `core` and `forge` test suites. NuGet's low/moderate advisories
+   (NU1901, NU1902) stay non-fatal; NU1903 and NU1904 (high, critical)
+   fail the build (audit C6). The version stamp reaches the three kan
+   assemblies (audit C8). No audio device is touched (the live
    tests use a `FakeMic`). `KAN_ROFORMER_GGUF` points at a stub file so the
    ~200 MB RoFormer model is never downloaded during tests; probes fail fast
    and every caller answers with a controlled error. `SeparationTest` (real
@@ -65,20 +75,33 @@ platform above), then a `release` job on tags. Per job:
    payload is collected and **checked**: `osu.Game.Rulesets.Kan.dll`,
    `Kan.Forge.dll`, `Kan.Core.dll`, the native bridge (`.dll`/`.dylib`/
    `.so`, whatever the CMake build produced), `ppy.ManagedBass.dll`, the
-   `brand/` folder (the fork copies it, F-21) and the
+   `brand/` folder (the fork copies it, F-21), the
    `THIRD_PARTY_NOTICES.md` + `LICENCE` files (readable credits in every
-   zip, docs/release-credits.md GAP 8). The job fails if anything is
-   missing. These steps live in `game/packaging/windows/assemble.sh` (not
-   only in YAML) so a local build produces the identical payload.
-8. macOS only: assemble `kan!.app` (see §3), sign + notarize when the
-   `APPLE_*` secrets exist.
-9. Zip (`kan-<rid>.zip`; on macOS the zip contains `kan!.app` plus the
-   notices and licence at the zip root), upload as a build artifact. On
-   `v*` tags all four zips are attached to a **draft** GitHub Release
-   (`gh release create --draft`).
+   zip, docs/release-credits.md GAP 8) and the `licenses/` folder of
+   licence texts (GAP 9). Symbols are kept OUT of the payload: the
+   portable PDBs (with local build paths) stay in the build output for
+   developers (audit C9). The job fails if anything is missing. These
+   steps live in `game/packaging/windows/assemble.sh` (not only in YAML)
+   so a local build produces the identical payload.
+8. The visible licence gate (audit C3): `game/packaging/check-licenses.sh`
+   re-checks the final payload against the one list
+   `game/packaging/licenses.manifest`, so a release cannot ship with an
+   incomplete `licenses/` folder.
+9. macOS only: assemble `kan!.app` (see §3), sign + notarize when the
+   `APPLE_*` secrets exist (the secret values reach only the signing
+   step; a job-level boolean says whether they exist, audit C5).
+10. Zip (`kan-<rid>.zip`; on macOS the zip contains `kan!.app` plus the
+   notices, licence and `licenses/` at the zip root), upload as a build
+   artifact. On `v*` tags all four zips are attached to a **draft**
+   GitHub Release (`gh release create --draft`).
 
-Version: tag builds stamp `-p:Version=<tag without v>`; other builds are
+Version: tag builds stamp `-p:Version=<tag without v>` on the kan
+assemblies and `-DKAN_VERSION` on the native bridge; other builds are
 `0.0.0`.
+
+Workflow actions are pinned by commit SHA with the release in a comment
+(audit C5); runner images still float (documented here as the known
+remainder).
 
 ### What CI cannot check
 
@@ -168,8 +191,9 @@ game/packaging/windows/assemble.sh win-x64 dist/game   # publish + payload (same
   `KanForgeNative.cs` are exported.
 - **Payload:** `assemble.sh` runs the CI payload steps (strict kan! build,
   self-contained `osu.Desktop` publish, ruleset/Kan.Forge/Kan.Core + native
-  bridge + `brand/` + `ppy.ManagedBass.dll` + `THIRD_PARTY_NOTICES.md` and
-  `LICENCE`, all checked) and the zip adds
+  bridge + `brand/` + `ppy.ManagedBass.dll` + `THIRD_PARTY_NOTICES.md`,
+  `LICENCE` and the `licenses/` folder of licence texts, all checked;
+  portable PDBs are stripped from the payload) and the zip adds
   `game/packaging/windows/README.txt` (SmartScreen, CPU-only separation,
   `%APPDATA%\kan` for data/logs, how to report). Result:
   `dist/kan-win-x64.zip` (176 MiB, unzip → double-click `kan.exe`).
@@ -256,12 +280,25 @@ fixed here:
 | `game/core/tests/NativeBridgeSmokeTest.cs:41-52` | `/tmp/...` path through the native bridge; assertion expected `bs_roformer` in an error message that now says "separator runtime" | tests fail on Windows; stale assertion fails wherever no separator is found |
 | `game/forge/tests/SeparationTest.cs:49-54` | `/tmp/...` paths through the native bridge | same (now `Path.GetTempPath()`) |
 
+### Fixed in the release-hardening pass (2026-11-12)
+
+From the November 2026 audit (section 7, `agent/release-hardening` lane):
+
+| Where | What | Risk it removed |
+|---|---|---|
+| `libkan/cmake/kan_build_policy.cmake` (new), `game/forge/native/CMakeLists.txt`, root `CMakeLists.txt` | ggml tuned to the build host's CPU (GGML_NATIVE default ON; with it OFF, AVX2-era kernels still on) and root `-march=native` | shipped `kan_forge_native` dying with "illegal instruction" on older player CPUs; now a fixed baseline (x86-64-v2 / arm64; `KAN_MARCH_NATIVE=ON` is the local opt-in) |
+| `game/packaging/licenses.manifest` (new), `game/packaging/check-licenses.sh` (new), `assemble.sh`, `build.yml` | release archives carried no licence texts | Apache-2.0 and LGPL redistribution obligations unmet; now `licenses/` in every archive from ONE list, CI-checked |
+| `libkan/include/libkan/transcribe.hpp`, `libkan/include/libkan/sha256.hpp` (new) | separation model from `/resolve/main/`, no hash check | a changed or truncated ~200 MB model parsed blindly; now pinned revision + SHA-256, wrong hash deletes the file calmly |
+| `.github/workflows/*.yml` | actions on floating tags; signing secrets at job level | tag movement / third-party action drift; secrets reach only the signing step |
+| `game/forge/native/CMakeLists.txt`, `game/core/tests/StarterPackTest.cs` | MSVC runtime needed on player machines; starter-pack test passed silently at zero levels | static CRT in the DLL; zero levels now fails |
+| `game/Makefile`, `game/packaging/windows/assemble.sh` | `make check` failed in a worktree where `game/client` is a symlink (the agent worktree model): the fork built through its physical path while the kan projects reached it through the link, and MSBuild's incremental clean compares paths as strings, so `osu.Game`'s reference assembly was deleted right after it was written (`CS0006` in every consumer); entering the fork by path spelling instead lost NuGet's package flow (`osu.Framework` unreferenced) | the fork legs build `cd`-entered (physical path) with their own MSBuild output bookkeeping (`-p:CleanFile=FileListAbsolute.fork.txt`), the kan legs keep the default list; in a normal checkout all spellings are the same directory and nothing changes |
+| `assemble.sh`, `Info.plist`, `Dockerfile.mingw`, docs | PDBs with build paths in the zips; `LSMinimumSystemVersion` 13.0 contradicting its own comment; floating Docker base; docs claiming more than tests assert | symbols out of the payload; 14.0 (the .NET 10 supported floor, Microsoft's macOS support table); digest-pinned base image; doc claims aligned with the tests and `TEST_LOG.md` |
+
 ### Proposed (not changed here)
 
 | Where | What | Risk | Fix |
 |---|---|---|---|
 | `game/Makefile:57-62` | `deploy` target checks `libkan_forge_native.so` only | `make deploy` fails on a macOS/Windows toolchain even when the build is fine | accept any of the three names (`test -f` over a list) |
-| `CMakeLists.txt:22` | `-march=native` for non-MSVC | release binaries built on one machine can raise "illegal instruction" on older CPUs (game native bridge is unaffected; it sets no `-march`) | add a `KAN_PORTABLE_BUILD` option (`-march=x86-64-v2`) for release builds |
 | `game/forge/native/kan_forge_api.cpp:112` | `std::system` shell-out for yt-dlp (quoting fixed above) | paths containing `%` would still be expanded by `cmd.exe` | quote/escape `%` on `_WIN32`, or spawn the process without a shell |
 | `apps/kan_demo/main.cpp:856`, `tools/chart_scribe/main.cpp:134` | `std::system` shell-outs with POSIX quoting (ffmpeg/yt-dlp pipelines) | dev tools: broken on Windows as shipped | out of the game's release scope; fix with the tools lane |
 | `apps/kan_cli/main.cpp`, `apps/kan_demo/main.cpp` | miniaudio capture/playback device code (`ma_device`) | never built or run on Windows/macOS (CI sets `KAN_BUILD_APPS=OFF`) | enable `KAN_BUILD_APPS` in a CI job once someone wants the tools there |
@@ -294,6 +331,10 @@ fixed here:
    commits pinned by the submodule (see `fork-divergence.md` push blocker)
    and this `agent/ci` work must be pushed by hand before CI can run at all
    (CI clones both repositories). Both repos go public at the same time.
+   The workflow's submodule step doubles as the pre-push check the
+   November 2026 audit (C1) suggests: CI fails at "Fetch submodules over
+   HTTPS" whenever the pinned `game/client` commit is not reachable on the
+   fork's remote, so a parent push with a dangling pin cannot go green.
 2. **Apple Developer account** (paid) + the six `APPLE_*` secrets for signed
    and notarized macOS builds. Until then ship unsigned (§3).
 3. **Where releases live.** This workflow attaches zips to `kan-rhythm`
@@ -301,9 +342,12 @@ fixed here:
    whether to mirror releases there or repoint the updater.
 4. **Velopack installers** (Windows `install.exe`, macOS zip-updates): out of
    scope for now (§4), needs `vpk` in CI and a signing certificate.
-5. **`LSMinimumSystemVersion`** is 13.0 in `Info.plist` (the .NET 10
-   runtime's macOS floor; Microsoft supports macOS 15/26/27). Adjust if the
-   product wants to promise more.
+5. **`LSMinimumSystemVersion`** (resolved 2026-11-12): 14.0 in
+   `Info.plist`, the floor of the .NET 10 supported macOS set
+   (Microsoft's "Install .NET on macOS" support table lists macOS 14, 15
+   and 26; checked 2026-11-12). It was 13.0 before, below that floor and
+   contradicting its own comment (audit C9). Promise less only if the
+   product deliberately supports macOS versions Microsoft does not.
 
 ## 8. Local verification performed (2026-11-09, Linux x86_64)
 

@@ -40,6 +40,25 @@ namespace Kan.Core.Tests
         }
 
         /// <summary>
+        /// The case source above yields NO cases when no levels are found,
+        /// so a release could ship without its starter pack and the suite
+        /// would still be green (audit C7). Finding zero levels is a
+        /// failure, said once and loudly.
+        /// </summary>
+        [Test]
+        public void StarterPackLevelsArePresent()
+        {
+            string? official = FindOfficial();
+            Assert.That(official, Is.Not.Null,
+                "charts/official was not found above the test binary; the per-level cases would silently be zero");
+
+            int levels = Directory.GetDirectories(official!)
+                .Count(song => Directory.Exists(Path.Combine(song, "level")));
+            Assert.That(levels, Is.GreaterThan(0),
+                "charts/official has no song folder with a level/; the per-level cases would silently be zero");
+        }
+
+        /// <summary>
         /// Every level under charts/official/&lt;song&gt;/level/, packed into a
         /// temporary .osz the way tools/level_pack packs it. The generator's
         /// own output in charts/official/dist is preferred when it is there.

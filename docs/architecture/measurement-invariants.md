@@ -359,7 +359,7 @@ compute scheduling, player calibration, and the "must never" list) live in
 1. State the new evidence in a commit message with numbers (before/after on
    the same inputs: real-attack recall, `--verify-score` stats on
    `hallelujah-score-1.score`, `--bench` wall time).
-2. Run the full suite: `ctest --test-dir build` (19 tests), including
+2. Run the full suite: `ctest --test-dir build`, including
    `libkan_score_error_test`. The counterexample signatures are the
    fairness floor.
 3. Update the affected invariant in this file (what/why/what-breaks) and

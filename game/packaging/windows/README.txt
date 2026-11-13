@@ -23,8 +23,10 @@ Source separation model (first use)
 -----------------------------------
 Separating a song into stems needs a ~200 MB model file. kan! downloads it
 automatically the first time you use "Separate", into a models\ folder
-next to kan.exe. Separation is slow the first time; progress is shown in
-the game.
+next to kan.exe. The download comes from a pinned, unchangeable source and
+is verified against a pinned SHA-256 before it is used; a wrong or
+truncated file is deleted and never loaded. Separation is slow the first
+time; progress is shown in the game.
 
 CPU-only separation
 -------------------

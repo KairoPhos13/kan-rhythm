@@ -14,15 +14,31 @@ if(KAN_BUILD_TESTS)
     enable_testing()
 endif()
 
-# Maximum optimization for real-time DSP
+# CPU tuning is OPT-IN (November 2026 audit C2: -march=native in a binary
+# that may leave the build machine raises "illegal instruction" on older
+# CPUs). The default build is the portable baseline of
+# libkan/cmake/kan_build_policy.cmake; -DKAN_MARCH_NATIVE=ON tunes local
+# developer builds to this machine and must never be used for shipped
+# artifacts (game/packaging/ and CI always build the baseline).
+option(KAN_MARCH_NATIVE
+    "Tune code generation for the build machine's CPU (-march=native / /arch:AVX2); never for shipped artifacts" OFF)
+include(${CMAKE_CURRENT_SOURCE_DIR}/libkan/cmake/kan_build_policy.cmake)
+if(KAN_MARCH_NATIVE)
+    kan_cpu_baseline(NATIVE)
+else()
+    kan_cpu_baseline(BASELINE)
+endif()
+
+# Optimization plus the first-party warning level (MSVC had none before;
+# /W4 now reaches every kan!-owned target through kan_first_party_target).
 if(MSVC)
-    add_compile_options(/O2 /arch:AVX2)
+    add_compile_options(/O2)
     add_compile_definitions(_USE_MATH_DEFINES) # libkan headers use M_PI
     # getenv/fopen are standard C and used portably here; MSVC's C4996
     # "unsafe, use getenv_s/fopen_s" advice has no POSIX equivalent.
     add_compile_definitions(_CRT_SECURE_NO_WARNINGS)
 else()
-    add_compile_options(-O3 -march=native -Wall -Wextra)
+    add_compile_options(-O3 -Wall -Wextra)
 endif()
 
 # Static everywhere (repo style). Forced before any FetchContent: ggml's

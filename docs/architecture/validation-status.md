@@ -13,11 +13,11 @@ Frieren). Invariants: `measurement-invariants.md`. Game-side contract:
 |---|---|---|
 | Presence (played / not) | 96.7-98.8% vs ms ground truth | 1.68 M notes, MAESTRO 2004+2006 |
 | Pitch (amplitude-weighted center) | p50 ~4.5 c / p95 ~37 c (low register p95 ~78 c) | same; bands per register, saturation flagged (1.2%) |
-| Duration | bias +208 ms (release), p99 249 ms, stable across years | same; release-based end rule |
+| Duration | bias +208 ms, p99 249 ms, stable across years | same; the cause is corrected (TEST_LOG ISS-6): the bias is mostly the measurement window's own padding (key-hold + 250 ms), not piano release decay; the numbers stand, the release-based reading is retracted |
 | Mistake detection | wrong pitch / missing / extra / late / over-held / mash all leave measurable signatures; mash needs the refined G6 rule | counterexample suite (11 cases, in ctest) |
 | Purity fact (mod) | calibrated on 36 k real strikes; viable as trigger + corroboration + player-relative | batches 03f/04 |
 | Determinism & RT safety | live ≡ offline; callback pushes POD only; ≤2 analysis threads | fixtures I9/I12 |
-| Performance | 3.6-7.1× real time offline (12 jobs); heavy-cavalry adaptive | batch timings |
+| Performance | 1.4-15.2x real time offline, by batch and feature set | TEST_LOG.md: 15.2x on 5 jobs (batch 01, year 2004), 4.2-7.3x with the heavy-cavalry features on (batches 03/03a), 1.39x for the fit-step-30 + battery run (batch 05) |
 | Extensibility | instruments are pack data (`InstrumentProfile`), zero instrument code | I10 |
 | Execution-shape facts (EXPRESSION) | vibrato: 0.19% false claims on real piano (negative control) + injected vibrato detected 4.94/30.2 vs 5 Hz/30 c (positive); envelope/dynamics plausible; faded-out ends flagged, not guessed | tech01 + selftest controls (TEST_LOG PASS-18..21, ISS-4) |
 

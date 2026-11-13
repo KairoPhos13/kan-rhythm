@@ -229,5 +229,6 @@ Splitting a song into its parts downloads one BS-RoFormer 6-stem separation mode
 - **Default: the f16 grade of `studio409/BSRoformer-SW-6Stem-GGUF`** (Hugging Face), a GGUF conversion of `elicwhite/bs-roformer-sw-6stem-onnx`: **MIT licence**.
 - **Opt-in: the q8 grade of `FractalSurfer/BS-RoFormer-SW-6stem`** (only with `KAN_ROFORMER_GRADE=q8`): its model card declares **no licence**, so kan! never selects it on its own.
 - `KAN_MODEL_URL` downloads from an own host instead; `KAN_ROFORMER_GGUF` points at a local file (no download).
+- The download is pinned to an immutable source revision and verified against a pinned SHA-256 before use; a wrong or truncated file is deleted and never loaded.
 
 This notices file is generated, not exhaustive by legal opinion: if any entry looks wrong, fix the generator or the package reference and regenerate. Tracking issue surface: `game/docs/fork-divergence.md`.

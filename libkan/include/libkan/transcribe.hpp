@@ -15,6 +15,7 @@
 #ifdef KAN_HAVE_BASIC_PITCH
 #include "libkan/basic_pitch.hpp"
 #endif
+#include "libkan/sha256.hpp"
 
 #include <algorithm>
 #include <array>
@@ -130,21 +131,34 @@ inline bool run_with_progress(const std::string& cmd, const char* phase) {
 /// upstream). The q8 grade (FractalSurfer/BS-RoFormer-SW-6stem) declares
 /// no licence on its card and is an explicit opt-in only
 /// (KAN_ROFORMER_GRADE=q8).
+///
+/// Immutable sources (November 2026 audit C4): the default URLs are pinned
+/// to a repository revision, not to a floating branch, and every model
+/// file is verified against a pinned SHA-256 BEFORE the GGUF loader sees
+/// it. A wrong or truncated file is deleted and said out calmly; it never
+/// gets parsed. KAN_MODEL_URL may mirror the same pinned file (the digest
+/// still applies); KAN_MODEL_SHA256 pins an operator's own mirror; and
+/// KAN_ROFORMER_GGUF remains the escape hatch that trusts a local file
+/// as-is.
 inline const char* roformer_default_grade() { return "f16"; }
 
 /// Pure URL mapping (unit-tested, no env and no network). An empty
 /// override means "no self-hosting"; an empty result means "this grade
-/// has no public source" (q4: verified 404).
+/// has no public source" (q4: verified 404). The default URLs are pinned
+/// to immutable revisions (audit C4): /resolve/<revision>/ cannot move,
+/// unlike /resolve/main/.
 inline std::string roformer_model_url_for(const std::string& grade,
                                           const std::string& override_url) {
     if (!override_url.empty()) return override_url; // self-hosting wins
     if (grade == "f16") {
         return "https://huggingface.co/studio409/BSRoformer-SW-6Stem-GGUF"
-               "/resolve/main/bs_roformer_sw_6stem-F16.gguf";
+               "/resolve/fcb2eb0f60cb1135a4cdffe6c40de43c53ee07a9"
+               "/bs_roformer_sw_6stem-F16.gguf";
     }
     if (grade == "q8") {
         return "https://huggingface.co/FractalSurfer/BS-RoFormer-SW-6stem"
-               "/resolve/main/gguf/BS-RoFormer-SW-6stem-q8_0.gguf";
+               "/resolve/2b98254b19bdab07ce225d884ec4aa9dd8aafce1"
+               "/gguf/BS-RoFormer-SW-6stem-q8_0.gguf";
     }
     return "";
 }
@@ -153,6 +167,81 @@ inline std::string roformer_model_url_for(const std::string& grade,
 inline std::string roformer_model_url(const std::string& grade) {
     const char* url = std::getenv("KAN_MODEL_URL");
     return roformer_model_url_for(grade, (url != nullptr) ? url : "");
+}
+
+/// Pinned SHA-256 per grade (audit C4), checked before the GGUF loader
+/// sees the file. Same shape as roformer_model_url_for: a non-empty
+/// override (KAN_MODEL_SHA256) wins and pins an operator's own mirror; an
+/// empty result means "no pin known for this source" (for example a q4
+/// conversion self-hosted through KAN_MODEL_URL) and the file is then used
+/// unverified, said out loud.
+/// The digests are the Git LFS object ids of the pinned revisions (the
+/// SHA-256 of the file bytes by construction); q8 was additionally
+/// cross-checked against the source's own SHA256SUMS file and a local
+/// copy (2026-11-12).
+inline std::string roformer_model_sha256_for(const std::string& grade,
+                                             const std::string& override_hex) {
+    if (!override_hex.empty()) return override_hex; // operator's mirror pin
+    if (grade == "f16")
+        return "f4bb0d024db4cbb1d38c043652f7277d830e25babafcf013403ee7344641a82a";
+    if (grade == "q8")
+        return "e4c53c3389c4426bf8b6cdbcc4e3d7d813323ef8a3e4f1f157084b71960bdf63";
+    return "";
+}
+
+/// Pinned SHA-256 for `grade` with the environment's KAN_MODEL_SHA256
+/// override (the KAN_MODEL_URL mirror's own digest).
+inline std::string roformer_model_sha256(const std::string& grade) {
+    const char* hex = std::getenv("KAN_MODEL_SHA256");
+    return roformer_model_sha256_for(grade, (hex != nullptr) ? hex : "");
+}
+
+/// Verify one model file against the pinned SHA-256 (audit C4). A mismatch
+/// DELETES the file and says so calmly: models/ is kan!'s own auto-managed
+/// folder and a wrong or truncated file must never reach the GGUF parser.
+/// With no pin at all the file is used unverified, said out loud. The
+/// check is memoized per (path, size, mtime): a 200+ MB file hashes in
+/// about a second and the UI probes the separator often.
+inline bool roformer_model_ok(const std::string& path,
+                              const std::string& expected_hex) {
+    std::error_code ec;
+    const uint64_t size = uint64_t(std::filesystem::file_size(path, ec));
+    int64_t mtime = 0;
+    if (!ec) {
+        const auto t = std::filesystem::last_write_time(path, ec);
+        if (!ec) mtime = int64_t(t.time_since_epoch().count());
+    }
+    static std::string checked_path;
+    static uint64_t checked_size = 0;
+    static int64_t checked_mtime = 0;
+    static bool checked_ok = false;
+    if (checked_path == path && checked_size == size &&
+        checked_mtime == mtime && checked_size != 0) {
+        return checked_ok;
+    }
+    checked_path = path;
+    checked_size = size;
+    checked_mtime = mtime;
+
+    if (expected_hex.empty()) {
+        std::printf("[model] no SHA-256 pin for this source - %s is used "
+                    "without verification\n", path.c_str());
+        checked_ok = true;
+        return true;
+    }
+    const std::string got = sha256::file_hex(path);
+    if (got == expected_hex) {
+        std::printf("[model] verified %s (sha256 matches the pin)\n", path.c_str());
+        checked_ok = true;
+        return true;
+    }
+    std::filesystem::remove(path, ec);
+    std::printf("[model] %s did not match the pinned SHA-256 and was deleted.\n"
+                "[model] A wrong or truncated file is never loaded; the pinned\n"
+                "[model] source may have changed. Try again later, or point\n"
+                "[model] KAN_ROFORMER_GGUF at a copy you have vetted.\n", path.c_str());
+    checked_ok = false;
+    return false;
 }
 
 /// ---- shell command construction (pure; unit-tested, no network) ------
@@ -201,11 +290,15 @@ inline std::string wget_download_cmd(const std::string& path, const std::string&
 }
 
 /// Find the GGUF model, downloading it to models/ if missing. "" on fail.
+/// models/ is kan!'s auto-managed folder, so every file in it is verified
+/// against the pinned SHA-256 before it is used (audit C4); a file named
+/// by the player through KAN_ROFORMER_GGUF is their explicit choice and
+/// trusted as-is.
 inline std::string ensure_roformer_model() {
     std::error_code ec;
     const char* gguf = std::getenv("KAN_ROFORMER_GGUF");
     if (gguf != nullptr && *gguf != '\0' && std::filesystem::exists(gguf, ec)) {
-        return gguf;
+        return gguf; // the player's own file: explicit, trusted, unverified
     }
     const char* grade_env = std::getenv("KAN_ROFORMER_GRADE");
     std::string grade = (grade_env != nullptr && *grade_env != '\0')
@@ -220,9 +313,15 @@ inline std::string ensure_roformer_model() {
         grade = roformer_default_grade();
         url = roformer_model_url(grade);
     }
+    const std::string expected = roformer_model_sha256(grade);
     fs_create_all("models");
     const std::string path = "models/6stem_" + grade + ".gguf";
-    if (std::filesystem::exists(path, ec)) return path;
+    // A file already there passes only through the same verification as a
+    // fresh download (a mismatch deletes it and falls through to a
+    // re-download: an interrupted copy is the common cause).
+    if (std::filesystem::exists(path, ec) && roformer_model_ok(path, expected)) {
+        return path;
+    }
     std::printf("[model] downloading %s model...\n", grade.c_str());
 #ifdef _WIN32
     // Windows 10 (1803+) ships curl.exe; cmd.exe has no `command -v` and no
@@ -244,10 +343,16 @@ inline std::string ensure_roformer_model() {
     }
 #endif
     if (!run_with_progress(cmd, "download") || !std::filesystem::exists(path, ec)) {
+        // No partial file is left behind: a truncated model would fail the
+        // hash check next time and confuse the message.
+        std::filesystem::remove(path, ec);
         std::fprintf(stderr, "[model] download failed (set KAN_MODEL_URL "
                              "or KAN_ROFORMER_GGUF)\n");
         return "";
     }
+    // The download passes only with the pinned digest; a wrong file is
+    // deleted by the check and never reaches the GGUF loader (audit C4).
+    if (!roformer_model_ok(path, expected)) return "";
     std::printf("[model] ready: %s\n", path.c_str());
     return path;
 }

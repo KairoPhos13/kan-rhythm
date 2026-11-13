@@ -1,6 +1,7 @@
 # kan_chart_scribe - offline transcription helper (audio -> chart draft,
 # MIDI sketch, readable log). Extractable as its own repo later.
 add_executable(kan_chart_scribe main.cpp)
+kan_first_party_target(kan_chart_scribe)
 target_include_directories(kan_chart_scribe PRIVATE
     ${miniaudio_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/libkan/include)

@@ -10,8 +10,10 @@
   owner's wording (2026-11-09); keep it truthful if the audio handling ever
   changes.
 
-  LSMinimumSystemVersion follows the .NET 10 runtime's macOS floor (Microsoft
-  lists macOS 15/26/27 as supported; 14 reached end of support 2026-09-14).
+  LSMinimumSystemVersion is 14.0: the floor of the .NET 10 supported
+  macOS set (Microsoft's "Install .NET on macOS" support table lists
+  macOS 14, 15 and 26; checked 2026-11-12). It was 13.0 before, below the
+  supported floor and contradicting this comment (November 2026 audit C9).
 -->
 <plist version="1.0">
 <dict>
@@ -36,7 +38,7 @@
     <key>CFBundleVersion</key>
     <string>%%VERSION%%</string>
     <key>LSMinimumSystemVersion</key>
-    <string>13.0</string>
+    <string>14.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSMicrophoneUsageDescription</key>

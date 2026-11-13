@@ -348,6 +348,11 @@ separate -> stems).
   verified: no public q4, URL 404).
 - `KAN_MODEL_URL` overrides the source (the self-distribution switch);
   `KAN_ROFORMER_GGUF` points at a local file (no download).
+- Pinned and verified since 2026-11-12 (November 2026 audit C4): the URLs
+  are pinned to immutable repository revisions, and every model file must
+  match its pinned SHA-256 before the GGUF loader sees it (a wrong hash
+  deletes the file and says so calmly). `KAN_MODEL_SHA256` pins an
+  operator's own mirror; `KAN_ROFORMER_GGUF` stays trusted as-is.
 - URL reality check (2026-10-12): q8 and f16 resolve (200), q4 does not.
   The default grade flipped to f16 by owner decision 2026-11-11
   (docs/release-credits.md GAP 7).
