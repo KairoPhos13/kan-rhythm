@@ -57,6 +57,11 @@ namespace Kan.Forge.Editor.Design
             }
 
             Design = AutoDesign.Refresh(Design, notes, levelLengthMs);
+
+            // The stable id this level's work folder goes by (audit B6),
+            // stamped from first open so it travels inside the level.
+            if (string.IsNullOrEmpty(Design.LevelId))
+                Design.LevelId = levelKey;
         }
 
         /// <summary>Whether the level's design file matches the design being edited.</summary>
@@ -122,12 +127,23 @@ namespace Kan.Forge.Editor.Design
         {
             if (LevelKey == null) return null;
 
-            string? error = LevelFile.Write(working, beatmaps, KanDesign.FILE_NAME, Design.ToJsonStamped());
-            if (error != null) return error;
+            // A guarded save, like the score's (audit B4).
+            try
+            {
+                if (string.IsNullOrEmpty(Design.LevelId))
+                    Design.LevelId = LevelKey;
 
-            savedToLevel = Design.ContentKey();
-            AutoSave();
-            return null;
+                string? error = LevelFile.Write(working, beatmaps, KanDesign.FILE_NAME, Design.ToJsonStamped());
+                if (error != null) return error;
+
+                savedToLevel = Design.ContentKey();
+                AutoSave();
+                return null;
+            }
+            catch (Exception e)
+            {
+                return e.Message;
+            }
         }
     }
 }

@@ -53,7 +53,7 @@ namespace Kan.Ruleset.Beatmaps
             if (storage == null || set == null) return null;
 
             var inLevel = readLevelFile(set, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json) : null;
-            var autosaved = loadAutosave(set, @"score.json", KanScore.Load);
+            var autosaved = loadAutosave(keyOf(set, inLevel?.LevelId, null), @"score.json", KanScore.Load);
 
             return Kan.Core.LevelDocument.Newer(inLevel, autosaved);
         }
@@ -70,7 +70,9 @@ namespace Kan.Ruleset.Beatmaps
             if (working == null) return null;
 
             var inLevel = LevelFile.Read(working, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json) : null;
-            var autosaved = working.BeatmapInfo.BeatmapSet is BeatmapSetInfo set ? loadAutosave(set, @"score.json", KanScore.Load) : null;
+            var autosaved = working.BeatmapInfo.BeatmapSet is BeatmapSetInfo set
+                ? loadAutosave(keyOf(set, inLevel?.LevelId, null), @"score.json", KanScore.Load)
+                : null;
 
             return Kan.Core.LevelDocument.Newer(inLevel, autosaved);
         }
@@ -85,9 +87,26 @@ namespace Kan.Ruleset.Beatmaps
             if (storage == null || set == null) return null;
 
             var inLevel = readLevelFile(set, KanDesign.FILE_NAME) is string json ? KanDesign.FromJson(json) : null;
-            var autosaved = loadAutosave(set, @"design.json", KanDesign.Load);
+            var autosaved = loadAutosave(keyOf(set, null, inLevel?.LevelId), @"design.json", KanDesign.Load);
 
             return Kan.Core.LevelDocument.Newer(inLevel, autosaved);
+        }
+
+        /// <summary>
+        /// The key the level's work folder and autosaves go by (audit B6,
+        /// <see cref="Kan.Core.LevelDocument.KeyOf"/>): the stable id the
+        /// level's kan! files carry (already parsed ones are passed in), else
+        /// the set's id.
+        /// </summary>
+        private static string keyOf(BeatmapSetInfo set, string? scoreLevelId, string? designLevelId)
+        {
+            if (string.IsNullOrEmpty(scoreLevelId))
+                scoreLevelId = readLevelFile(set, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json)?.LevelId : null;
+
+            if (string.IsNullOrEmpty(scoreLevelId) && string.IsNullOrEmpty(designLevelId))
+                designLevelId = readLevelFile(set, KanDesign.FILE_NAME) is string json ? KanDesign.FromJson(json)?.LevelId : null;
+
+            return Kan.Core.LevelDocument.KeyOf(scoreLevelId, designLevelId, set.ID.ToString("N"));
         }
 
         /// <summary>The design to play: the level's, else one generated from its notes.</summary>
@@ -114,11 +133,11 @@ namespace Kan.Ruleset.Beatmaps
             }
         }
 
-        private static T? loadAutosave<T>(BeatmapSetInfo set, string fileName, Func<string, T?> load) where T : class
+        private static T? loadAutosave<T>(string key, string fileName, Func<string, T?> load) where T : class
         {
             try
             {
-                return load(Path.Combine(storage!.GetFullPath(@"kan-forge"), set.ID.ToString("N"), fileName));
+                return load(Path.Combine(storage!.GetFullPath(@"kan-forge"), key, fileName));
             }
             catch
             {

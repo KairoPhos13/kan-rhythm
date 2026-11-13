@@ -29,6 +29,13 @@ namespace Kan.Forge.Editor
         /// <summary>The level whose score is open.</summary>
         public static string? LevelKey { get; private set; }
 
+        /// <summary>
+        /// Values the last open had to clamp or drop (a hand-edited or
+        /// machine-made file, audit B4; 0 = none): shown by compose, like
+        /// <see cref="RemovedBrokenNotes"/>.
+        /// </summary>
+        public static int RepairedOnLoad { get; set; }
+
         private static string? savedToLevel;
 
         private static string autosavePath => ForgeTrackSession.WorkPath(@"score.json");
@@ -42,10 +49,20 @@ namespace Kan.Forge.Editor
             History.Clear();
             sameNotes.Clear();
 
-            var inLevel = LevelFile.Read(working, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json) : null;
-            var autosaved = KanScore.Load(autosavePath);
+            int repaired = 0;
+
+            var inLevel = LevelFile.Read(working, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json, out repaired) : null;
+            var autosaved = KanScore.Load(autosavePath, out int fromAutosave);
+            repaired += fromAutosave;
 
             Score = LevelDocument.Newer(inLevel, autosaved) ?? new KanScore();
+            RepairedOnLoad = repaired;
+
+            // The stable id this level's work folder goes by (audit B6),
+            // stamped on the document from first open so it travels inside
+            // the level and survives a re-import.
+            if (string.IsNullOrEmpty(Score.LevelId))
+                Score.LevelId = levelKey;
 
             savedToLevel = inLevel?.ContentKey();
 
@@ -125,18 +142,31 @@ namespace Kan.Forge.Editor
         {
             if (LevelKey == null) return null;
 
-            string? error = LevelFile.Write(working, beatmaps, KanScore.FILE_NAME, Score.ToJsonStamped());
-            if (error != null) return $"Could not save the score into the level: {error}";
+            // A guarded save (audit B4): this runs on the exit path of the
+            // compose tab, and no failure may escape it. The score's own
+            // write clamps what the file cannot hold (<see cref="KanScore.Sanitize"/>).
+            try
+            {
+                if (string.IsNullOrEmpty(Score.LevelId))
+                    Score.LevelId = LevelKey;
 
-            savedToLevel = Score.ContentKey();
-            AutoSave();
+                string? error = LevelFile.Write(working, beatmaps, KanScore.FILE_NAME, Score.ToJsonStamped());
+                if (error != null) return $"Could not save the score into the level: {error}";
 
-            // The marks travel with the score: a score without notes keeps
-            // the level's own objects, so a level being built from an
-            // imported song loses nothing here.
-            return LevelOsuMarks.Sync(working, beatmaps, Score, editor) is string marks
-                ? $"The score is saved, but the level's osu! file could not keep its marks: {marks}"
-                : null;
+                savedToLevel = Score.ContentKey();
+                AutoSave();
+
+                // The marks travel with the score: a score without notes keeps
+                // the level's own objects, so a level being built from an
+                // imported song loses nothing here.
+                return LevelOsuMarks.Sync(working, beatmaps, Score, editor) is string marks
+                    ? $"The score is saved, but the level's osu! file could not keep its marks: {marks}"
+                    : null;
+            }
+            catch (Exception e)
+            {
+                return $"Could not save the score into the level: {e.Message}";
+            }
         }
     }
 }

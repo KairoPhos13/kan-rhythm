@@ -26,5 +26,21 @@ namespace Kan.Core
         public static T? Newer<T>(T? inLevel, T? autosaved)
             where T : class, ILevelDocument
             => autosaved != null && (inLevel == null || autosaved.SavedAtUtc > inLevel.SavedAtUtc) ? autosaved : inLevel;
+
+        /// <summary>
+        /// The key a level's work folder and autosaves go by: the stable id
+        /// its kan! files carry (the score's, else the design's; stamped on
+        /// first save into the level), else the set's id (the key levels had
+        /// before there was a stable id, so old work folders keep working).
+        /// The stable id travels inside the level: a re-import gives the level
+        /// a new set id, and the work folder must still be found
+        /// (2026-11-12 audit B6).
+        /// </summary>
+        public static string KeyOf(string? scoreLevelId, string? designLevelId, string setKey)
+        {
+            if (!string.IsNullOrEmpty(scoreLevelId)) return scoreLevelId!;
+            if (!string.IsNullOrEmpty(designLevelId)) return designLevelId!;
+            return setKey;
+        }
     }
 }

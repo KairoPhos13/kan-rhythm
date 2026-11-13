@@ -215,7 +215,6 @@ namespace Kan.Forge.Editor.Compose
             // Leaving the editor: the measurement goes with it.
             micTiming?.Expire();
             TimelineRepair.Restored -= repairRestored;
-            if (grid != null) grid.Gone = true;
             base.Dispose(isDisposing);
         }
 
@@ -303,6 +302,15 @@ namespace Kan.Forge.Editor.Compose
                     $"Removed {ForgeFormat.Plural(ScoreSession.RemovedBrokenNotes, "broken note", "broken notes")} left by a transcription bug (now fixed). Run Transcribe again in the track tab to get the real notes.",
                     FontAwesome.Solid.Microphone);
                 ScoreSession.RemovedBrokenNotes = 0;
+            }
+
+            // A score file a machine or a hand had broken on the way in (audit B4).
+            if (ScoreSession.RepairedOnLoad > 0)
+            {
+                ForgeNotify.Info(notifications,
+                    $"Repaired {ForgeFormat.Plural(ScoreSession.RepairedOnLoad, "value", "values")} the score file could not use (clamped or dropped). Have a look over the notes.",
+                    FontAwesome.Solid.ExclamationTriangle);
+                ScoreSession.RepairedOnLoad = 0;
             }
 
             // A transcription made in the track tab starts an empty score by itself.
