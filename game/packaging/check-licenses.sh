@@ -48,7 +48,7 @@ while read -r src dst _rest; do
         echo "missing from the payload: licenses/$dst (from $src)" >&2
         missing=1
     fi
-done < "$manifest"
+done < <(tr -d '\r' < "$manifest")
 
 # Drift tripwire: everything in libkan/licenses/ belongs in the list.
 for f in "$repo"/libkan/licenses/*; do

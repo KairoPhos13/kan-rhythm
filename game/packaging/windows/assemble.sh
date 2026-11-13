@@ -99,7 +99,7 @@ mkdir -p "$out/licenses"
 while read -r src dst _rest; do
     case "$src" in ''|'#'*) continue ;; esac
     cp "$src" "$out/licenses/$dst"
-done < game/packaging/licenses.manifest
+done < <(tr -d '\r' < game/packaging/licenses.manifest)
 game/packaging/check-licenses.sh "$out"
 
 # P/Invoke resolves "kan_forge_native" to kan_forge_native.dll /
