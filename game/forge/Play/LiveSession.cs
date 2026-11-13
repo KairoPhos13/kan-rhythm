@@ -303,10 +303,26 @@ namespace Kan.Forge.Play
             // The describer handle passes to the worker exactly once: a
             // Dispose racing this line must not close it as well (audit B14:
             // a double close frees the describer twice).
-            var opened = Interlocked.Exchange(ref live, IntPtr.Zero);
-            worker = new Thread(() => run(opened)) { IsBackground = true, Name = @"kan live describer" };
-            worker.Start();
+            // The thread is published only once started, under the same gate
+            // as Dispose: a racing Dispose either finds no thread (and closes
+            // the handle itself) or joins a started one, never an unstarted one.
+            lock (gate)
+            {
+                var opened = Interlocked.Exchange(ref live, IntPtr.Zero);
+                if (opened == IntPtr.Zero)
+                {
+                    running = false;
+                    return;
+                }
+
+                var thread = new Thread(() => run(opened)) { IsBackground = true, Name = @"kan live describer" };
+                thread.Start();
+                worker = thread;
+            }
         }
+
+        /// <summary>Orders Begin against Dispose (neither is on the audio path).</summary>
+        private readonly object gate = new object();
 
         private long lastArrival;
 
@@ -387,9 +403,16 @@ namespace Kan.Forge.Play
         /// <summary>Stop and close (may take a while with a busy audio system: it may run off the game's thread).</summary>
         public void Dispose()
         {
-            running = false;
-            worker?.Join(500);
-            worker = null;
+            Thread? thread;
+
+            lock (gate)
+            {
+                running = false;
+                thread = worker;
+                worker = null;
+            }
+
+            thread?.Join(500);
 
             // Opened, never begun: the describer is still ours to close.
             // Taken atomically (audit B14): racing Begin, or a second Dispose,
