@@ -36,6 +36,21 @@ submit levels from kan!forge (v0.1.1).
 | 9 | [34 Level uploads for creators](34-level-uploads.md) | owner decides the design | done 2026-11-11 (agent), shipped in v0.1.1: [lazer-protocol.md](../../server/docs/lazer-protocol.md) §4.8, fork F-30 in [fork-divergence.md](../../game/docs/fork-divergence.md) |
 | 10 | [27 Level creator handbook](27-level-creator-handbook.md) | agent, owner reviews | draft done 2026-11-11, shipped in v0.1.1 as a first draft; owner reviews |
 
+## Owner QA of v0.1.1 (2026-11-14)
+
+The owner's play-test of v0.1.1 is tracked in
+[docs/qa/v0.1.1-qa-checklist.md](../qa/v0.1.1-qa-checklist.md). Three
+findings were fixed right away (no levels in a local build, "unhandled
+error" toasts in play, osu!'s intro music at the main menu); the others
+became issues:
+
+| Issue | From the QA |
+|---|---|
+| [36 Notes large enough to read on small screens](36-note-size-on-small-screens.md) | notes too small on the Steam Deck even at the largest size |
+| [37 The starter levels on the server](37-starter-levels-on-the-server.md) | the online search finds no levels |
+| [38 Note times from the attack](38-onset-time-from-the-attack.md) | calibration shows on-time attacks late when recognition lags |
+| [30 Profile pages](30-profile-pages.md) (updated) | many profile fields come back empty |
+
 ## Accessibility work (2026-11-12)
 
 Issues 18 and 19 are done: kan!'s own surfaces got colour-blind-safe

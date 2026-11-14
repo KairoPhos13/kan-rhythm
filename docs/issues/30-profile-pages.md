@@ -78,3 +78,15 @@ accounts work is a pending maintainer decision; this issue is the
   do not build anti-cheat UI promises the backend does not keep.
 - If the profile schema needs fields the data model lacks, propose them
   in the data model doc first (contract-first rule).
+
+## Owner QA of v0.1.1 (2026-11-14)
+
+Many fields of a player's profile come back empty from the server (the
+game's profile overlay shows blanks where osu! shows data). The owner's
+direction: implement the fields osu! uses, adapted to kan!'s levels and
+level metadata, rather than leaving them empty. Start with an inventory:
+every field the lazer client reads from `/api/v2/users/{id}` and
+`/api/v2/me`, what osu! fills it with, what kan! fills it with (or why it
+stays empty), and the kan! meaning of each (instruments instead of game
+modes, levels made and played, creator status next to the leaderboard).
+The creator's status matters as much as the leaderboard's.
