@@ -69,8 +69,16 @@ namespace Kan.Ruleset.Beatmaps
         {
             if (working == null) return null;
 
-            var inLevel = LevelFile.Read(working, KanScore.FILE_NAME) is string json ? KanScore.FromJson(json) : null;
-            var autosaved = working.BeatmapInfo.BeatmapSet is BeatmapSetInfo set
+            var set = working.BeatmapInfo.BeatmapSet as BeatmapSetInfo;
+
+            // A working beatmap that holds no files (osu!'s in-game PP
+            // counter makes one) reads nothing: the level's own copy, from
+            // the game's storage, stands in for it.
+            string? json = LevelFile.Read(working, KanScore.FILE_NAME)
+                           ?? (set != null && storage != null ? readLevelFile(set, KanScore.FILE_NAME) : null);
+
+            var inLevel = json != null ? KanScore.FromJson(json) : null;
+            var autosaved = set != null
                 ? loadAutosave(keyOf(set, inLevel?.LevelId, null), @"score.json", KanScore.Load)
                 : null;
 

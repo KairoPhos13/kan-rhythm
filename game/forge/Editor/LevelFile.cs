@@ -33,7 +33,10 @@ namespace Kan.Forge.Editor
                 using var reader = new StreamReader(stream);
                 return reader.ReadToEnd();
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            // NotImplementedException: some working beatmaps hold no files at
+            // all (osu!'s in-game PP counter wraps the level in one), so the
+            // caller reads the level's own copy instead (QA 2026-11-14).
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException or NotImplementedException)
             {
                 return null;
             }

@@ -38,7 +38,7 @@ NATIVE_BUILD := $(NATIVE_DIR)/build
 RULESET_DIR := ruleset
 CLIENT_OUT := client/osu.Desktop/bin/$(BUILD_TYPE)/net10.0
 
-.PHONY: all native forge client ruleset deploy test test-native test-csharp check run clean
+.PHONY: levels all native forge client ruleset deploy test test-native test-csharp check run clean
 
 all: native forge client ruleset deploy
 
@@ -77,7 +77,16 @@ ruleset: forge client
 
 # The ruleset build copies Kan.Forge.dll / osu.Game.Rulesets.Kan.dll /
 # libkan_forge_native.so next to the client executable (post-build target).
-deploy: ruleset
+# The starter pack next to the local build, exactly where the release zip
+# carries it (levels/): a local build then imports the five levels on its
+# first run like a player's does (QA 2026-11-14). Stdlib-only Python.
+PYTHON ?= $(shell command -v python3 2>/dev/null || echo python)
+levels:
+	cd .. && $(PYTHON) tools/level_pack/make_level.py pack --all --out charts/official/dist
+	mkdir -p $(CLIENT_OUT)/levels
+	cp ../charts/official/dist/*.osz ../charts/official/dist/pack.json $(CLIENT_OUT)/levels/
+
+deploy: ruleset levels
 	@test -f $(CLIENT_OUT)/osu.Game.Rulesets.Kan.dll && \
 		test -f $(CLIENT_OUT)/libkan_forge_native.so && \
 		echo "deployed to $(CLIENT_OUT)" || \
