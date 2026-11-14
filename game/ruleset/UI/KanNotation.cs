@@ -50,7 +50,7 @@ namespace Kan.Ruleset.UI
 
         public static KanNoteNames Names = KanNoteNames.Letters;
 
-        public static bool ColourByNote;
+        public static bool ColourByNote = true;
 
         /// <summary>The palette the player chose: the level's own, or a colour-blind-safe one that wins over the level.</summary>
         public static KanPaletteMode Palette = KanPaletteMode.AsTheLevel;

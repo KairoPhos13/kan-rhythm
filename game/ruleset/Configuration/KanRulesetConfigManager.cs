@@ -30,7 +30,7 @@ namespace Kan.Ruleset.Configuration
             // Owner 2026-10-15: "circles and fonts must be bigger" (2K screen).
             SetDefault(KanRulesetSetting.NoteSize, 1.2, 0.8, 2.0, 0.05);
             SetDefault(KanRulesetSetting.NoteNames, Kan.Ruleset.UI.KanNoteNames.Letters);
-            SetDefault(KanRulesetSetting.ColourByNote, false);
+            SetDefault(KanRulesetSetting.ColourByNote, true);
 
             // Accessibility (issues 18, 19): the palette is the level's until
             // the player asks for a colour-blind-safe one; text is the designed

@@ -708,3 +708,20 @@ the `kan!` wordmark.
   unused strings are left to this sweep
 - Default skin/logo/triangle assets and the `lazer.ico` app icon: replaced
   through `game/brand/` (F-21) once kan!'s are made
+### F-32: the online level listing opens on every level (2026-11-14)
+
+- **What:** `BeatmapListingSearchControl`: the category filter starts on
+  "Any" (was "Has Leaderboard"). `BeatmapListingSortTabControl`: its first
+  reset uses "Any", and "Any" sorts by last update when there is no query
+  (it holds unranked levels, which have no ranked date).
+- **Why:** owner (2026-11-14): show every level by default, newest first,
+  so new and work-in-progress levels can be found and tried; the ranked
+  filter ("Has Leaderboard", "Ranked") stays one click away. The server
+  lists every status under `s=any` (`server/docs/lazer-protocol.md` §4.9).
+- **Verified:** client builds with 0 warnings; by reading
+  `SearchBeatmapSetsRequest`, the default request is `s=any` with
+  `sort=updated_desc`, which the server's search supports. A look at the
+  running listing is part of the owner's QA (it needs the network).
+- **Merge-conflict cost:** low; three lines in two files.
+- **Upstream-PR:** no.
+
