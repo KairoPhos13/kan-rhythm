@@ -43,10 +43,11 @@ export const MAX_SEARCH_OFFSET = 10_000;
 
 /** `s` parameter values → SQL predicates (lazer-protocol.md §4.1). */
 const CATEGORY_SQL: Record<string, string> = {
-  // The default categories stay ranked/approved/loved: pending and WIP levels
-  // are listed under their own categories (and under "mine" for their creator),
-  // never in the listing a player opens by default.
-  any: 'status IN (1, 2, 4)',
+  // The listing a player opens by default is "Has Leaderboard" (the client's
+  // default category): ranked/approved/loved only. "Any" is what the player
+  // picks to see every level, as on osu!: pending and WIP levels too, so a
+  // creator finds a level they just submitted (owner QA 2026-11-14).
+  any: 'status IN (-2, -1, 0, 1, 2, 3, 4)',
   leaderboard: 'status IN (1, 2, 4)',
   ranked: 'status = 1',
   qualified: 'status = 3',
@@ -84,7 +85,7 @@ export function buildSearchQuery(filters: SearchFilters): { text: string; params
   const params: unknown[] = [];
   const conditions: string[] = [HAS_DIFFICULTIES];
 
-  const category = CATEGORY_SQL[filters.category] ?? CATEGORY_SQL['any'];
+  const category = CATEGORY_SQL[filters.category] ?? CATEGORY_SQL['leaderboard'];
   if (category === 'FALSE') {
     conditions.push('FALSE');
   } else if (category.includes('{owner}')) {

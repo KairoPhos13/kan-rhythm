@@ -406,13 +406,14 @@ Semantics the server keeps:
 |---|---|---|---|---|
 | Ranked `1` / Approved `2` | `s=ranked`, `s=leaderboard`, `s=any` | `ranked` | yes | admin CLI (`set-status rank`) |
 | Loved `4` | `s=loved`, `s=leaderboard`, `s=any` | `loved` | yes | admin CLI (`set-status loved`) |
-| Pending `0` | `s=pending` (the client labels it "Pending & WIP") | `pending` | no | the creator's submission target |
-| WIP `-1` | `s=pending`, `s=wip` | `pending` | no | the creator's submission target |
-| Graveyard `-2` | `s=graveyard` | `graveyard` | no | admin CLI (`set-status graveyard`) |
+| Pending `0` | `s=pending` (the client labels it "Pending & WIP"), `s=any` | `pending` | no | the creator's submission target |
+| WIP `-1` | `s=pending`, `s=wip`, `s=any` | `pending` | no | the creator's submission target |
+| Graveyard `-2` | `s=graveyard`, `s=any` | `graveyard` | no | admin CLI (`set-status graveyard`) |
 
-The categories a player opens by default stay ranked/approved/loved: pending and WIP levels are
-listed under their own categories (and under `s=mine` for their creator), never in `s=any` or
-`s=leaderboard`. As in osu!, only statuses above pending have a public leaderboard: scores set
+The category a player opens by default (`s=leaderboard`, "Has Leaderboard") stays
+ranked/approved/loved. `s=any` lists every level, as in osu!: it is what a player picks to see them
+all, and where a creator finds a level they just submitted (owner QA, 2026-11-14). Pending and WIP
+levels are also listed under their own categories, and under `s=mine` for their creator. As in osu!, only statuses above pending have a public leaderboard: scores set
 while a level is unranked are stored and show up once the level is ranked. `ranked_date` follows
 the status (set for ranked/approved/loved, cleared otherwise).
 

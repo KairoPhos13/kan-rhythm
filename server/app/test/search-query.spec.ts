@@ -56,10 +56,10 @@ describe('buildSearchQuery', () => {
   });
 
   it('keeps pending and WIP levels out of the default categories', () => {
-    for (const category of ['any', 'leaderboard']) {
-      expect(buildSearchQuery({ ...base, category }).text).toContain('status IN (1, 2, 4)');
-      expect(buildSearchQuery({ ...base, category }).text).not.toContain('status IN (0, -1)');
-    }
+    expect(buildSearchQuery({ ...base, category: 'leaderboard' }).text).toContain('status IN (1, 2, 4)');
+    expect(buildSearchQuery({ ...base, category: 'leaderboard' }).text).not.toContain('status IN (0, -1)');
+    // "Any" is every level, as on osu!: what a player picks to see them all
+    expect(buildSearchQuery({ ...base, category: 'any' }).text).toContain('status IN (-2, -1, 0, 1, 2, 3, 4)');
     // the client labels its pending category "Pending & WIP" (SearchCategory.cs)
     expect(buildSearchQuery({ ...base, category: 'pending' }).text).toContain('status IN (0, -1)');
     expect(buildSearchQuery({ ...base, category: 'wip' }).text).toContain('status = -1');

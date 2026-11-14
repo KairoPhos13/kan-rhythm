@@ -328,8 +328,12 @@ describe('level submission (the editor flow)', () => {
     const wip = await search('s=wip&sort=updated_desc&nsfw=false');
     expect(wip.body.beatmapsets.map((s: { id: number }) => s.id)).not.toContain(setId);
 
-    // ... and never in the categories a player opens by default
-    for (const category of ['any', 'leaderboard', 'ranked', 'loved', 'graveyard']) {
+    // ... under "Any", which lists every level (as on osu!) ...
+    const any = await search('s=any&sort=updated_desc&nsfw=false');
+    expect(any.body.beatmapsets.map((s: { id: number }) => s.id)).toContain(setId);
+
+    // ... and never in the category a player opens by default
+    for (const category of ['leaderboard', 'ranked', 'loved', 'graveyard']) {
       const response = await search(`s=${category}&sort=updated_desc&nsfw=false`);
       expect(response.body.beatmapsets.map((s: { id: number }) => s.id)).not.toContain(setId);
     }
