@@ -55,8 +55,8 @@ for p in game/core/Kan.Core.csproj game/forge/Kan.Forge.csproj game/ruleset/Kan.
         -p:WarningsNotAsErrors="NU1901%3BNU1902"
 done
 
-# Self-contained publish of the game (Velopack stays dormant: the zip is
-# the installer for now). Run from inside the fork's osu.Desktop folder so
+# Self-contained publish of the game (the CI then packs it with Velopack
+# for the in-game updater; the zip stays as the plain download). Run from inside the fork's osu.Desktop folder so
 # dotnet sees the fork's physical path, and with this leg's own MSBuild
 # output bookkeeping (-p:CleanFile): both matter in an agent worktree where
 # game/client is a symlink (see game/Makefile's `client` target for the

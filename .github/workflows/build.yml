@@ -218,8 +218,8 @@ jobs:
             --filter "FullyQualifiedName!~SeparationTest"
 
       # --- packaging --------------------------------------------------------
-      # Self-contained publish of the game (Velopack stays dormant: the zip
-      # is the installer for now) plus the kan! payload: ruleset plugin,
+      # Self-contained publish of the game (Velopack packs it further down,
+      # for the in-game updater) plus the kan! payload: ruleset plugin,
       # Kan.Forge/Kan.Core, the native bridge, brand/ (fork F-21), the
       # third-party notices + licence as readable files (docs/release-credits.md
       # GAP 8) and the licenses/ folder (game/packaging/licenses.manifest,
@@ -303,6 +303,32 @@ jobs:
             --team-id "$APPLE_TEAM_ID" --wait
           xcrun stapler staple "$app"
 
+      # --- Velopack: the packages the in-game updater reads -------------------
+      # The updater (fork F-20/F-24, VelopackUpdateManager) checks this
+      # repository's published releases for releases.<channel>.json and the
+      # full .nupkg it lists; one channel per RID, so the two macOS builds
+      # never mix. Only an install made from these packages can update
+      # itself (Windows Setup.exe or Portable.zip, Linux AppImage, macOS
+      # Portable.zip); the plain zips stay for anyone who prefers them.
+      # vpk matches the Velopack library the client links (1.2.0). Not fatal
+      # yet: the first releases with it must not lose their zips over it.
+      - name: Velopack tool
+        shell: bash
+        run: dotnet tool install -g vpk --version 1.2.0
+
+      - name: Velopack package (macOS)
+        if: runner.os == 'macOS'
+        continue-on-error: true
+        shell: bash
+        run: |
+          # vpk takes the bundle itself; a copy, so the zip below keeps the
+          # bundle exactly as built (and signed, when it was).
+          rm -rf dist/vpk-app && mkdir -p dist/vpk-app
+          cp -R "dist/kan!.app" dist/vpk-app/
+          vpk pack --packId kan --packVersion "$KAN_VERSION" \
+            --packDir "dist/vpk-app/kan!.app" --mainExe kan --packTitle "kan!" \
+            --channel "${{ matrix.rid }}" --noInst --outputDir dist/velopack --skip-updates
+
       - name: Zip (macOS)
         if: runner.os == 'macOS'
         shell: bash
@@ -327,6 +353,20 @@ jobs:
           cp -a dist/game/. "dist/kan-${{ matrix.rid }}/"
           cd dist && python -m zipfile -c "kan-${{ matrix.rid }}.zip" "kan-${{ matrix.rid }}"
 
+      - name: Velopack package (Windows, Linux)
+        if: runner.os != 'macOS'
+        continue-on-error: true
+        shell: bash
+        run: |
+          if [ "$RUNNER_OS" = Windows ]; then
+            set -- --mainExe kan.exe --icon game/client/osu.Desktop/lazer.ico
+          else
+            set -- --mainExe kan
+          fi
+          vpk pack --packId kan --packVersion "$KAN_VERSION" \
+            --packDir dist/game --packTitle "kan!" "$@" \
+            --channel "${{ matrix.rid }}" --outputDir dist/velopack --skip-updates
+
       - name: Upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
@@ -334,12 +374,24 @@ jobs:
           path: dist/kan-${{ matrix.rid }}.zip
           if-no-files-found: error
 
+      # The Velopack files, for the release job (tags only: each is the size
+      # of the game). assets.*.json is vpk's own upload list, not needed here.
+      - name: Upload Velopack artifact
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: velopack-${{ matrix.rid }}
+          path: |
+            dist/velopack/*
+            !dist/velopack/assets.*.json
+          if-no-files-found: warn
+
   release:
     name: draft release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: build
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 45
     permissions:
       contents: write
     steps:
@@ -361,6 +413,12 @@ jobs:
         run: |
           notes="docs/releases/$GITHUB_REF_NAME.md"
           if [ -f "$notes" ]; then set -- --notes-file "$notes"; else set -- --generate-notes; fi
+          # The zips, plus whatever Velopack produced (installers, AppImage,
+          # portable zips, the full .nupkg and releases.<channel>.json that
+          # the in-game updater reads). The updater sees a release only once
+          # it is published, not while it is a draft.
+          shopt -s nullglob
+          files=(dist/kan-*.zip dist/*.nupkg dist/*.AppImage dist/*Setup.exe dist/releases.*.json dist/RELEASES-*)
           gh release create "$GITHUB_REF_NAME" --draft \
             --title "kan! $GITHUB_REF_NAME" "$@" \
-            dist/kan-*.zip
+            "${files[@]}"

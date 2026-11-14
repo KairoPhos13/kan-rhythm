@@ -216,16 +216,22 @@ Still untested: the game actually running on Windows (see the list in §6).
   zip; `game/core/Kan.Core.csproj` and `game/ruleset/Kan.Ruleset.csproj`
   copy it for local builds (both CMake layouts: `build/` and
   `build/<Configuration>/`).
-- **Velopack:** the client is already wired for Velopack 1.2.0
+- **Velopack (since v0.1.2):** the client links Velopack 1.2.0
   (`osu.Desktop/Program.cs` `setupVelopack`, `Updater/VelopackUpdateManager.cs`),
-  but no installer is produced; the zip is the installer for now. To add
-  one later: run `vpk pack` over the publish output on Windows (produces
-  `install.exe` + `Setup.exe`), publish those as release assets, and, since
-  the updater (F-20) reads releases of `github.com/KairoPhos13/kan`, either
-  publish the Windows release there too or point the updater at the repo
-  that hosts the releases (a one-line fork change, would be logged as a
-  fork entry). Signing the installer for SmartScreen needs a code-signing
-  certificate (not the Apple one).
+  and its updater reads the published releases of
+  `github.com/KairoPhos13/kan-rhythm` (F-24). The CI packs every payload
+  with `vpk pack` (vpk 1.2.0, `--packId kan`, one channel per RID:
+  `win-x64`, `osx-arm64`, `osx-x64`, `linux-x64`) and the release job
+  attaches the results next to the zips: `kan-win-x64-Setup.exe`,
+  `kan-<rid>-Portable.zip` (Windows, macOS), `kan-linux-x64.AppImage`,
+  `kan-<version>-<rid>-full.nupkg` and `releases.<rid>.json`. Only an
+  install made from these updates itself; the plain zips do not. No delta
+  packages yet (full packages only). The Velopack steps are not fatal, so
+  a failure there never costs a release its zips. Checked locally on
+  Linux: the AppImage starts, imports the starter pack and loads the
+  updater. Signing the Windows installer for SmartScreen needs a
+  code-signing certificate (not the Apple one); macOS packages are
+  unsigned until the APPLE_* secrets exist.
 - Windows file/link associations stay off (fork F-20) and would need kan!'s
   own file types first.
 
@@ -314,7 +320,7 @@ From the November 2026 audit (section 7, `agent/release-hardening` lane):
 | `game/core/tests/TrackRolesTest.cs:23` and friends (`MixdownRuleTest`, `TrackTimelineTest`, `TrackAnalysisTest`, `TrackEditsTest`, `MediaExtractionTest`, `RenderMixTest`) | `/tmp/...` strings are **fixture data**; they never touch the filesystem, so they work on every OS (left as-is; grep keeps finding them) |
 | `game/brand/` + `game/brand/README.md` | resource names (`Textures/Menu/logo.png`, …) are matched **case-sensitively** by osu!framework's resource store on every OS; the README table is the contract; a case typo costs a fallback to osu!'s art on macOS/Windows too |
 | `game/client/osu.Desktop/MacOS/MacOSAppLocationChecker.cs` | upstream: warns when the app is outside `/Applications`, intended behaviour for the bundle |
-| `osu.Desktop/Updater/VelopackUpdateManager.cs:59` (fork, F-20) | updater reads releases of `github.com/KairoPhos13/kan`, while this workflow publishes releases of `kan-rhythm`; pick one (see §7) |
+| `osu.Desktop/Updater/VelopackUpdateManager.cs:60` (fork, F-24) | updater reads releases of `github.com/KairoPhos13/kan-rhythm`, where this workflow publishes them (resolved) |
 
 ### Untested until CI (or a human) runs it
 
@@ -337,11 +343,10 @@ From the November 2026 audit (section 7, `agent/release-hardening` lane):
    fork's remote, so a parent push with a dangling pin cannot go green.
 2. **Apple Developer account** (paid) + the six `APPLE_*` secrets for signed
    and notarized macOS builds. Until then ship unsigned (§3).
-3. **Where releases live.** This workflow attaches zips to `kan-rhythm`
-   releases; the in-game updater (F-20) looks at `KairoPhos13/kan`. Decide
-   whether to mirror releases there or repoint the updater.
-4. **Velopack installers** (Windows `install.exe`, macOS zip-updates): out of
-   scope for now (§4), needs `vpk` in CI and a signing certificate.
+3. **Where releases live** (resolved): `kan-rhythm` releases; the updater
+   reads them (F-24).
+4. **Velopack packages** (resolved 2026-11-14, §4): packed by the CI since
+   v0.1.2. Left: a code-signing certificate for the Windows installer.
 5. **`LSMinimumSystemVersion`** (resolved 2026-11-12): 14.0 in
    `Info.plist`, the floor of the .NET 10 supported macOS set
    (Microsoft's "Install .NET on macOS" support table lists macOS 14, 15
