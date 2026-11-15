@@ -20,7 +20,8 @@ likely causes:
   point where the rule finally fires, not where the sound began.
 - **N11:** event time is the sample count mapped to the level through a
   wall-clock stopwatch with no resync; drift and scheduling add to the
-  lag.
+  lag. On the Steam Deck the first play places everything early and a
+  restart fixes it (issue 39), which points at the start of the mapping.
 
 Fixes stay generalist (every instrument, never one instrument's special
 case) and live judging stays forgiving by default.

@@ -49,6 +49,7 @@ became issues:
 | [36 Notes large enough to read on small screens](36-note-size-on-small-screens.md) | notes too small on the Steam Deck even at the largest size |
 | [37 The starter levels on the server](37-starter-levels-on-the-server.md) | the online search finds no levels |
 | [38 Note times from the attack](38-onset-time-from-the-attack.md) | calibration shows on-time attacks late when recognition lags |
+| [39 Live input on the Steam Deck](39-live-input-on-the-steam-deck.md) | the trail is drawn early until a restart; recognition stops mid-play |
 | [30 Profile pages](30-profile-pages.md) (updated) | many profile fields come back empty |
 
 ## Accessibility work (2026-11-12)
