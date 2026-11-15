@@ -725,3 +725,30 @@ the `kan!` wordmark.
 - **Merge-conflict cost:** low; three lines in two files.
 - **Upstream-PR:** no.
 
+### F-33: a numbered kan! release is a released build (2026-11-14)
+
+- **What:** `OsuGameBase.IsDeployedBuild` is true for any version other
+  than 0.0.0 (was: major version above 0). `OsuGame`: error notifications
+  never say the error was reported. `UpdateManager`: no "not an official
+  build" notice; the post-update notice opens the version's GitHub
+  release page instead of osu!'s changelog. `VelopackUpdateManager`: a
+  game not installed from a Velopack package logs that updates are manual
+  and checks nothing; `KAN_UPDATE_SOURCE` (a folder of `vpk` output)
+  stands in for GitHub when testing an update offline.
+  `OsuGameDesktop.RestartAppWhenExited`: false when not installed from a
+  package.
+- **Why:** kan! numbers its releases from 0 (0.1.2). osu!'s rule took
+  every kan! release for a local build: "developer build" in the corner
+  and, through `UpdateManager.CanCheckForUpdate`, no update check at all
+  (owner's QA of v0.1.2 on a Steam Deck). Once released builds count as
+  such, the osu!-only notices (ppy's signed builds, Sentry reports, ppy's
+  changelog) would show, so they are adapted.
+- **Verified:** a Linux payload assembled as 0.1.3 and packed as 0.1.3
+  and 0.1.4 into a local feed. The 0.1.3 AppImage, in the isolated
+  instance with `KAN_UPDATE_SOURCE`, found 0.1.4, downloaded it and
+  posted "Update ready to install". Velopack's `UpdateNix apply` (the
+  step the restart runs) replaced the AppImage with 0.1.4's, and the next
+  start found no update.
+- **Merge-conflict cost:** low; a few lines in five files.
+- **Upstream-PR:** no.
+

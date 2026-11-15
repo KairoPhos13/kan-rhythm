@@ -111,7 +111,7 @@ namespace Kan.Ruleset.FirstRun
                 return;
             }
 
-            if (KanDevPlay.Enabled || isDone) return;
+            if (KanDevPlay.Enabled || isDone || flow?.State.Value == Visibility.Visible) return;
             if (game.ScreenStack.CurrentScreen is not MainMenu) return;
 
             replaceOsuSetup = false;
