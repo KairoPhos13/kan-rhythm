@@ -229,7 +229,10 @@ Still untested: the game actually running on Windows (see the list in §6).
   packages yet (full packages only). The Velopack steps are not fatal, so
   a failure there never costs a release its zips. Checked locally on
   Linux: the AppImage starts, imports the starter pack and loads the
-  updater. Signing the Windows installer for SmartScreen needs a
+  updater. Verified end to end on Linux by the owner (2026-11-15): the
+  v0.1.3 AppImage found v0.1.4 on GitHub, downloaded it and restarted on
+  it. v0.1.2 could not update itself (fork F-33); v0.1.3 is the first
+  release that can. Windows and macOS updates are still unverified. Signing the Windows installer for SmartScreen needs a
   code-signing certificate (not the Apple one); macOS packages are
   unsigned until the APPLE_* secrets exist.
 - Windows file/link associations stay off (fork F-20) and would need kan!'s
