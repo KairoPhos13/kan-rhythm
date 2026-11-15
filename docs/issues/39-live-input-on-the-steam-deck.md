@@ -80,6 +80,16 @@ updates, so the game cannot pick by name. Instead:
 - A kept choice that is no longer among the inputs is not forgotten: the
   step says so and the game uses the default until the player checks.
 
+**"Microphone busy" on the next level (owner, 2026-11-15).** With
+"acp5x" a whole level played as expected; the next one said the
+microphone was busy and never listened. A raw input takes one recording
+at a time, and a level let the microphone go only when its screen was
+disposed, late and in the background; the next level gave up at the
+first refusal. Now a level lets it go as soon as it ends, a busy
+microphone is tried again every 0.5 s for up to 15 s ("Waiting for the
+microphone…"), and the calibration's other steps open the chosen
+microphone too.
+
 ## Likely causes (from the code, to confirm with the Deck's logs)
 
 **1, early placement.** A heard moment is placed by its sample count

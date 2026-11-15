@@ -107,9 +107,17 @@ namespace Kan.Forge.Play
 
         public int SampleRate => SAMPLE_RATE;
 
+        /// <summary>
+        /// The last start failed because the device is in use: a raw input
+        /// (the Steam Deck's "acp5x") takes one recording at a time, and the
+        /// one before may still be closing (issue 39). Worth trying again.
+        /// </summary>
+        public bool WasBusy { get; private set; }
+
         public bool Start(out string error)
         {
             error = string.Empty;
+            WasBusy = false;
             MediaAudioExtractor.EnsureBass();
 
             // BASS keeps the recording device per thread, and a thread that never
@@ -121,6 +129,7 @@ namespace Kan.Forge.Play
 
             if (!Bass.RecordInit(index) && Bass.LastError != Errors.Already)
             {
+                WasBusy = Bass.LastError == Errors.Busy;
                 error = $"no microphone could be opened ({Bass.LastError})";
                 return false;
             }
@@ -132,6 +141,7 @@ namespace Kan.Forge.Play
 
             if (handle == 0)
             {
+                WasBusy = Bass.LastError == Errors.Busy;
                 error = $"the microphone could not start ({Bass.LastError})";
                 return false;
             }
@@ -280,6 +290,9 @@ namespace Kan.Forge.Play
 
         /// <summary>Why the session is not listening (empty while it is).</summary>
         public string Error { get; private set; } = string.Empty;
+
+        /// <summary>It could not open because the microphone is in use (<see cref="MicSource.WasBusy"/>): try again shortly.</summary>
+        public bool Busy => source is MicSource { WasBusy: true };
 
         /// <summary>Also hands what is heard to a recording (<see cref="PlayTake"/>), on the describer's thread.</summary>
         public PlayTake? Take { get; init; }

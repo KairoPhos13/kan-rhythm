@@ -83,6 +83,17 @@ namespace Kan.Ruleset.UI
 
         private bool micReopened;
 
+        /// <summary>The level is over: nothing more is heard (the microphone is let go at once).</summary>
+        private bool completed;
+
+        /// <summary>A busy microphone is tried again from this moment (Stopwatch timestamp).</summary>
+        private long reopenAfter;
+
+        private int busyTries;
+
+        /// <summary>How often, and for how long, a busy microphone is tried again (the level before may still be letting it go).</summary>
+        private const int busy_retry_ms = 500, busy_tries = 30;
+
         /// <summary>The describer listening now (null while not listening).</summary>
         internal LiveSession? Session => session;
 
@@ -197,9 +208,21 @@ namespace Kan.Ruleset.UI
             if (!opened)
             {
                 closing = closing.ContinueWith(_ => s.Dispose());
+
+                // In use (a raw input, still held by the level before): try again shortly.
+                if (s.Busy && busyTries++ < busy_tries)
+                {
+                    reopenAfter = System.Diagnostics.Stopwatch.GetTimestamp() + System.Diagnostics.Stopwatch.Frequency * busy_retry_ms / 1000;
+                    Status.Value = @"Waiting for the microphone…";
+                    if (busyTries == 1) osu.Framework.Logging.Logger.Log(@"kan!: the microphone is busy; trying again");
+                    return;
+                }
+
                 notListening(s.Error.Length > 0 ? s.Error : @"the microphone could not open");
                 return;
             }
+
+            busyTries = 0;
 
             // The take's first sample is "now", as in the mic calibration, whose
             // measured round trip (micDelayMs) covers everything after it.

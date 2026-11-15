@@ -130,7 +130,14 @@ namespace Kan.Ruleset.UI
             clockContainer = this.FindClosestParent<GameplayClockContainer>();
             scoreProcessor?.HasCompleted.BindValueChanged(c =>
             {
-                if (c.NewValue) saveTake();
+                if (!c.NewValue) return;
+
+                // The level is over: let the microphone go now, not when the
+                // screen is disposed (issue 39: a raw input takes one recording
+                // at a time, and the next level found it busy).
+                completed = true;
+                stopListening();
+                saveTake();
             });
         }
 
@@ -274,7 +281,8 @@ namespace Kan.Ruleset.UI
                     else if (Status.Value.Length == 0 && System.Diagnostics.Stopwatch.GetElapsedTime(openingSince).TotalMilliseconds > 1000)
                         Status.Value = @"Opening the microphone…";
                 }
-                else if (session == null && !failed && gameplayClock.IsRunning && !gameplayClock.IsPaused.Value)
+                else if (session == null && !failed && !completed && gameplayClock.IsRunning && !gameplayClock.IsPaused.Value
+                         && System.Diagnostics.Stopwatch.GetTimestamp() >= reopenAfter)
                     startListening(now);
 
                 if (session != null && micPlay && session.SilentForMs > mic_stall_ms)

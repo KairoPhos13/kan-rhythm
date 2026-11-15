@@ -27,10 +27,11 @@ namespace Kan.Ruleset.FirstRun
         private readonly int device;
         private LiveSession? session;
 
-        /// <param name="device">Which microphone (BASS; -1 is the default). A developer run listens to KAN_LIVE_INPUT whatever this says.</param>
-        public KanLiveListener(int device = -1)
+        /// <param name="device">Which microphone (BASS; -1 is the system default; null, the player's chosen one). A developer run listens to KAN_LIVE_INPUT whatever this says.</param>
+        public KanLiveListener(int? device = null)
         {
-            this.device = device;
+            // Issue 39: the calibration steps opened the system default, not the player's microphone.
+            this.device = device ?? MicSource.ChosenDevice();
         }
 
         /// <summary>What it heard (the same facts a play judges from): stream time, level and pitch.</summary>
