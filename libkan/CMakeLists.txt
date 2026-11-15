@@ -43,6 +43,10 @@ if(KAN_BUILD_TESTS)
     target_link_libraries(libkan_dsp_test PRIVATE libkan)
     add_test(NAME libkan_dsp_test COMMAND libkan_dsp_test)
 
+    add_executable(libkan_yin_early_exit_test tests/yin_early_exit_test.cpp)
+    target_link_libraries(libkan_yin_early_exit_test PRIVATE libkan)
+    add_test(NAME libkan_yin_early_exit_test COMMAND libkan_yin_early_exit_test)
+
     add_executable(libkan_loudness_test tests/loudness_test.cpp)
     target_link_libraries(libkan_loudness_test PRIVATE libkan)
     add_test(NAME libkan_loudness_test COMMAND libkan_loudness_test)

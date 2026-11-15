@@ -49,6 +49,34 @@ power limit.
    repeated computation, no allocation per block), with offline tests
    that show identical results (repo rule 5).
 
+## Progress
+
+**2026-11-15, the pitch reading (done).** The live describer's 10 ms
+pitch reading (YIN in `HybridDetector::detect_pitch_into`, also used
+inside the note describer) built the difference function for every lag
+up to 1024 and only then looked for the first lag under the threshold.
+It now stops at that lag. Same operations in the same order: the output
+is identical bit for bit (`libkan/tests/yin_early_exit_test.cpp`, 1725
+windows against the full pass, 0 differences; the game's describer
+gave byte-identical events on the five starter recordings and a
+melody-only take). CPU time of the whole live describer, one core,
+uncontended:
+
+| Input | Before | After |
+|---|---|---|
+| Sakura Sakura, melody alone (what a player plays) | 15.2 % of real time | 3.1 % |
+| The five starter references (melody and companion) | 16 to 17 % | 11 to 12.6 % |
+
+**What the bench showed next.** On two cores the whole game used about
+64 % of one core (update thread 34 %, draw 17.5 %, audio 6 %; the
+describer under 1 %), so the stutter is not a lack of CPU: it is the
+update thread taking 30 to 100 ms now and then. Next step: a sampling
+profile of those spikes (`dotnet-trace` through a diagnostic port; the
+attempt from the isolated instance did not connect yet).
+
+`game/tools/bench-play.sh` runs the bench; the play trace now has a
+`load` row each second (the describer's worst block).
+
 ## Acceptance
 
 - [ ] Bench on two cores: no stall over 50 ms in a full play; the

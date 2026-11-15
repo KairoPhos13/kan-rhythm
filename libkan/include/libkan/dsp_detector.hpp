@@ -176,6 +176,15 @@ public:
         cmndf[0] = 1.0f;
         float running_sum = 0.0f;
 
+        // Strict YIN periodicity threshold (configurable per spectrum): the
+        // first lag from tau_min whose cmndf is under it and still falling.
+        // The search runs as the cmndf is built and stops at that lag: every
+        // value it reads is computed exactly as a full pass would compute it
+        // (same operations, same order), so the result is identical, but the
+        // lags past the period, most of the window for a high note, are never
+        // computed (issue 40: this reading ran every 10 ms of live play).
+        const float threshold = periodicity_threshold_;
+        size_t best_tau = 0;
         for (size_t tau = 1; tau < tau_max; ++tau) {
             float diff_sum = 0.0f;
             for (size_t i = 0; i < W; ++i) {
@@ -184,14 +193,11 @@ public:
             }
             running_sum += diff_sum;
             cmndf[tau] = (running_sum > 0.0f) ? (diff_sum * tau / running_sum) : 1.0f;
-        }
 
-        // Strict YIN periodicity threshold (configurable per spectrum).
-        const float threshold = periodicity_threshold_;
-        size_t best_tau = 0;
-        for (size_t tau = tau_min; tau < tau_max - 1; ++tau) {
-            if (cmndf[tau] < threshold && cmndf[tau] < cmndf[tau + 1]) {
-                best_tau = tau;
+            // cmndf[tau] decides lag tau - 1 (it needs its right neighbour).
+            const size_t lag = tau - 1;
+            if (lag >= tau_min && cmndf[lag] < threshold && cmndf[lag] < cmndf[tau]) {
+                best_tau = lag;
                 break;
             }
         }

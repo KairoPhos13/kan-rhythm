@@ -256,7 +256,7 @@ namespace Kan.Ruleset.UI
                 $"kan! play trace {DateTime.Now:yyyy-MM-dd HH:mm:ss}; {Notes.Count} notes; instrument {listenAs}; mic delay {micDelayMs:0} ms; player timing {timeline.PlayerTimingMs:+0;-0;0} ms; rate {rate:0.##}; wait for the player {WaitForPlayer}; source {(micPlay ? "microphone" : "file")}",
                 "rows: listen,anchor_ms | hit,heard,stream_ms,placed_ms,stamp_ms | pitch,heard,stage,raw_midi,corrected_midi,cents | unresolved,heard,stage | read,stream_ms,placed_ms,midi,level",
                 "      verdict,note,start_ms,midi,result,reason,offset_ms,played_midi,heard (empty: timed by readings),late_ms (verdict after the note's start)",
-                "      frame,update_ms,draw_ms,gc_ms | clock,level_minus_real_ms | wait,note | release,note",
+                "      frame,update_ms,draw_ms,gc_ms | load,describer_worst_ms_per_10ms,backlog_ms | clock,level_minus_real_ms | wait,note | release,note",
                 "real_ms: since listening (re)started; level_ms: the level's clock when the row was written",
             });
             Trace?.Row(TraceRealMs, now, "listen", anchorMs);

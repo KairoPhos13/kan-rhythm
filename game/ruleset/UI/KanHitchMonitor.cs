@@ -92,6 +92,16 @@ namespace Kan.Ruleset.UI
             worstDraw = Math.Max(worstDraw, draw);
             worstAudio = Math.Max(worstAudio, audio);
             worstChunk = Math.Max(worstChunk, chunk);
+            secondChunk = Math.Max(secondChunk, chunk);
+            secondBacklog = Math.Max(secondBacklog, backlog);
+
+            // The describer's load, once a second, for the play's trace (issue 40's bench).
+            if (Environment.TickCount64 - lastLoadRow > 1000)
+            {
+                lastLoadRow = Environment.TickCount64;
+                state.Trace?.Row(state.TraceRealMs, state.ClockMs, "load", secondChunk, secondBacklog);
+                secondChunk = secondBacklog = 0;
+            }
             worstBacklog = Math.Max(worstBacklog, backlog);
             worstGcInFrame = Math.Max(worstGcInFrame, gcMs);
 
@@ -122,6 +132,9 @@ namespace Kan.Ruleset.UI
             Array.Copy(nowCollections, collections, 3);
             pauses = nowPauses;
         }
+
+        private long lastLoadRow;
+        private double secondChunk, secondBacklog;
 
         // Into an array kept for it: this runs every frame, and garbage is what it watches.
         private static void countGc(int[] into)
