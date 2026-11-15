@@ -70,9 +70,7 @@ uncontended:
 **What the bench showed next.** On two cores the whole game used about
 64 % of one core (update thread 34 %, draw 17.5 %, audio 6 %; the
 describer under 1 %), so the stutter is not a lack of CPU: it is the
-update thread taking 30 to 100 ms now and then. Next step: a sampling
-profile of those spikes (`dotnet-trace` through a diagnostic port; the
-attempt from the isolated instance did not connect yet).
+update thread taking 30 to 100 ms now and then. The cause is below.
 
 **2026-11-15, the stutter in play (done).** A sampling profile of a
 two-core play (`dotnet-trace` launched inside the isolated instance)
