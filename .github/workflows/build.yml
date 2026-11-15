@@ -418,7 +418,7 @@ jobs:
           # the in-game updater reads). The updater sees a release only once
           # it is published, not while it is a draft.
           shopt -s nullglob
-          files=(dist/kan-*.zip dist/*.nupkg dist/*.AppImage dist/*Setup.exe dist/releases.*.json dist/RELEASES-*)
+          files=(dist/kan-*.zip dist/*.nupkg dist/*.AppImage dist/*Setup.exe dist/releases.*.json)
           gh release create "$GITHUB_REF_NAME" --draft \
             --title "kan! $GITHUB_REF_NAME" "$@" \
             "${files[@]}"
