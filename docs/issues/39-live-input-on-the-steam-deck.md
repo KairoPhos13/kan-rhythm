@@ -135,7 +135,9 @@ heard last.
 
 ## Acceptance
 
-- [ ] On the Steam Deck, the first play after starting the game places
-      the trail on the now line, as a restart does.
+- [x] On the Steam Deck, the first play after starting the game places
+      the trail on the now line, as a restart does (v0.1.4, raw input).
+- [x] Restarting a level, and playing the next one, keeps listening
+      (owner, 2026-11-15).
 - [ ] Ten minutes of play on the Deck without recognition stopping.
 - [ ] Offline tests for a late-starting source and a gap.
