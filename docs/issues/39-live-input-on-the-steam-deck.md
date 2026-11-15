@@ -64,6 +64,22 @@ recorder, and each open logs which device it got. The stream-clock
 mapping (cause 1 below) stays to do: it makes any remaining start-up
 delay or gap harmless.
 
+**Held notes fade on the Deck's default input (owner, 2026-11-15).**
+With the selection fixed, a held ocarina note is heard at first and its
+level then falls while it is still played, on "Default microphone"; on
+"acp5x" (the raw input) it does not. The default input runs PipeWire's
+processing for calls. Input names change with software and hardware
+updates, so the game cannot pick by name. Instead:
+
+- *Check my microphones* in the microphone step: every input listens at
+  once while the player holds one note (`HeldNoteCheck`, tested
+  offline), and the one that keeps the note steadiest is chosen and
+  kept. The current one stays unless another holds the note 6 dB better.
+- While the player plays in that step, a held note that loses more than
+  9 dB at the same pitch brings up a hint to run the check.
+- A kept choice that is no longer among the inputs is not forgotten: the
+  step says so and the game uses the default until the player checks.
+
 ## Likely causes (from the code, to confirm with the Deck's logs)
 
 **1, early placement.** A heard moment is placed by its sample count

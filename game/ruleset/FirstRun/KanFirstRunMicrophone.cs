@@ -12,6 +12,7 @@ using osu.Framework.Graphics.Shapes;
 using osu.Framework.Localisation;
 using osu.Framework.Screens;
 using osu.Game.Graphics.Containers;
+using osu.Game.Graphics.UserInterface;
 using osu.Game.Graphics.UserInterfaceV2;
 using osu.Game.Overlays;
 using osuTK;
@@ -47,6 +48,22 @@ namespace Kan.Ruleset.FirstRun
         private Bindable<string> deviceName = null!;
 
         private KanLiveListener? listener;
+
+        /// <summary>The note being played on the chosen input, watched for fading (issue 39).</summary>
+        private readonly HeldNoteCheck watch = new HeldNoteCheck();
+
+        /// <summary>The chosen input fades held notes: shown until the player checks.</summary>
+        private double fadingSaidAt = double.NegativeInfinity;
+
+        /// <summary>The microphone check under way: every input listening to one held note.</summary>
+        private List<(string Name, KanLiveListener Listener, HeldNoteCheck Check)>? checking;
+
+        private double checkStartedAt, checkHeardAt;
+
+        private RoundedButton checkButton = null!;
+
+        /// <summary>The player's earlier choice is not among the inputs now (renamed by an update, or unplugged).</summary>
+        private string missingChoice = string.Empty;
         private double listeningSince;
         private double lastHitAt;
         private int lastHits = -1;
@@ -61,6 +78,8 @@ namespace Kan.Ruleset.FirstRun
             // The player's choice, kept (issue 39: it was only for this meter;
             // plays and calibration always opened the default).
             string chosen = Configuration.KanPlayer.Microphone?.Value ?? string.Empty;
+            if (chosen.Length > 0 && !devices.Any(d => d.Device >= 0 && d.Name == chosen))
+                missingChoice = chosen;
             deviceName = new Bindable<string>(devices.Any(d => d.Device >= 0 && d.Name == chosen) ? chosen : systemDefault)
             {
                 Default = systemDefault,
@@ -96,6 +115,15 @@ namespace Kan.Ruleset.FirstRun
                     },
                 },
                 words = KanFirstRunLayout.Words(OverlayColourProvider, string.Empty),
+                checkButton = new RoundedButton
+                {
+                    Width = 260,
+                    Height = 32,
+                    Text = @"Check my microphones",
+                    Action = startCheck,
+                },
+                KanFirstRunLayout.Words(OverlayColourProvider,
+                    @"Some inputs clean up the sound for calls and fade a held note away. The check listens to every input at once while you hold one note, and keeps the one that holds it best."),
             };
 
             deviceChoice.Items = devices.Select(d => d.Name).ToList();
@@ -105,6 +133,9 @@ namespace Kan.Ruleset.FirstRun
             // machine's own): choosing a device means nothing there.
             if (MicCalibrator.DevInput != null)
                 deviceChoice.Alpha = 0;
+
+            if (devices.Count(d => d.Device >= 0) < 2)
+                checkButton.Enabled.Value = false;
         }
 
         protected override void LoadComplete()
@@ -112,7 +143,9 @@ namespace Kan.Ruleset.FirstRun
             base.LoadComplete();
             deviceName.BindValueChanged(v =>
             {
-                if (Configuration.KanPlayer.Microphone is { } kept)
+                // Only a choice the player makes is kept: opening the step with
+                // their microphone missing must not forget it (it may come back).
+                if (v.OldValue != v.NewValue && Configuration.KanPlayer.Microphone is { } kept)
                     kept.Value = device() >= 0 ? v.NewValue : string.Empty;
                 startListening();
             }, true);
@@ -124,9 +157,90 @@ namespace Kan.Ruleset.FirstRun
             listener = new KanLiveListener(device());
             listeningSince = Time.Current;
             lastHits = -1;
+            watch.Clear();
+
+            listener.Hit += (_, _) => watch.Clear();
+            listener.Frame += (t, level, midi) => watch.Add(t, level, midi);
 
             if (!listener.Start())
                 listener = null;
+        }
+
+        /// <summary>Every input listens while the player holds one note (issue 39: names change, behaviour does not).</summary>
+        private void startCheck()
+        {
+            if (checking != null) return;
+
+            listener?.Dispose();
+            listener = null;
+            checking = new List<(string, KanLiveListener, HeldNoteCheck)>();
+
+            foreach (var (index, name) in devices)
+            {
+                if (index < 0) continue;
+
+                var check = new HeldNoteCheck();
+                var l = new KanLiveListener(index);
+                l.Frame += (t, level, midi) => check.Add(t, level, midi);
+
+                if (l.Start())
+                    checking.Add((name, l, check));
+                else
+                    l.Dispose();
+            }
+
+            checkStartedAt = Time.Current;
+            checkHeardAt = double.NaN;
+            checkButton.Enabled.Value = false;
+            say($@"Hold one note, any note, for about {HeldNoteCheck.HOLD_MS / 1000:0} seconds… ({checking.Count} inputs listening)");
+        }
+
+        /// <summary>Called each frame while checking: when the hold is over, keep the input that held the note best.</summary>
+        private void updateCheck()
+        {
+            foreach (var c in checking!)
+                c.Listener.Update();
+
+            if (double.IsNaN(checkHeardAt) && checking.Any(c => c.Listener.Hits > 0))
+                checkHeardAt = Time.Current;
+
+            bool held = !double.IsNaN(checkHeardAt) && Time.Current - checkHeardAt > HeldNoteCheck.HOLD_MS + 500;
+            bool gaveUp = double.IsNaN(checkHeardAt) && Time.Current - checkStartedAt > 15000;
+            if (!held && !gaveUp) return;
+
+            var results = checking.Select(c => (c.Name, Result: c.Check.Measure())).ToList();
+
+            foreach (var c in checking)
+                c.Listener.Dispose();
+            checking = null;
+            checkButton.Enabled.Value = true;
+
+            foreach (var r in results)
+                osu.Framework.Logging.Logger.Log($"kan!: microphone check: {r.Name}: heard {r.Result.Heard} ({r.Result.HeardFraction:P0}), fade {r.Result.FadeDb:0.0} dB, level {r.Result.LevelDb:0} dB");
+
+            string current = deviceName.Value;
+            string? best = HeldNoteCheck.Choose(results.Select(r => (r.Name, r.Result)), devices.Any(d => d.Device >= 0 && d.Name == current) ? current : null);
+
+            if (best == null)
+            {
+                startListening();
+                say(@"No input heard a note this time. Play a little closer to the microphone and try the check again, or move on: you can come back any time.");
+                lastHitAt = Time.Current;
+                return;
+            }
+
+            var won = results.First(r => r.Name == best).Result;
+            var faded = results.Where(r => r.Name != best && r.Result.Heard && r.Result.FadeDb - won.FadeDb >= HeldNoteCheck.BETTER_DB).OrderByDescending(r => r.Result.FadeDb).FirstOrDefault();
+            bool changed = best != current;
+
+            deviceName.Value = best; // kept, and listened to from now on
+            if (!changed) startListening();
+
+            say(faded.Name != null
+                ? $@"Your note held steady on “{best}”; “{faded.Name}” faded it by {faded.Result.FadeDb:0} dB. kan! listens to “{best}” from now on."
+                : $@"Your note held steady on “{best}”. kan! listens to it.");
+            lastHitAt = Time.Current; // the words stay a moment
+            fadingSaidAt = double.NegativeInfinity;
         }
 
         private int device()
@@ -166,6 +280,14 @@ namespace Kan.Ruleset.FirstRun
         {
             listener?.Dispose();
             listener = null;
+
+            if (checking != null)
+            {
+                foreach (var c in checking)
+                    c.Listener.Dispose();
+                checking = null;
+                checkButton.Enabled.Value = true;
+            }
         }
 
         protected override void Dispose(bool isDisposing)
@@ -178,6 +300,12 @@ namespace Kan.Ruleset.FirstRun
         {
             base.Update();
 
+            if (checking != null)
+            {
+                updateCheck();
+                return;
+            }
+
             if (listener == null)
             {
                 say($@"The microphone could not be opened. No harm done: you can skip this step and play later (the same steps wait in Settings > Rulesets > kan!).");
@@ -188,6 +316,25 @@ namespace Kan.Ruleset.FirstRun
 
             // The meter follows what it hears; the words follow the meter.
             meterFill.Width = (float)(meter.DrawWidth * Math.Clamp(listener.Level / loud_rms, 0, 1));
+
+            // A held note dying away while the player still plays it: this
+            // input processes the sound (issue 39). Said once a while.
+            if (watch.Fading(out double fadeDb) && Time.Current - fadingSaidAt > 10000 && checkButton.Enabled.Value)
+            {
+                fadingSaidAt = Time.Current;
+                lastHitAt = Time.Current;
+                say($@"Your note is fading although you hold it ({fadeDb:0} dB): this input may be cleaning up the sound for calls. Press “Check my microphones” and hold one note: kan! keeps the input that holds it.");
+                return;
+            }
+
+            if (Time.Current - fadingSaidAt < 6000)
+                return;
+
+            if (missingChoice.Length > 0 && Time.Current - listeningSince < 6000)
+            {
+                say($@"The microphone you chose before (“{missingChoice}”) is not here now, so kan! listens to the default. Press “Check my microphones” and hold one note to choose again.");
+                return;
+            }
 
             if (listener.Hits != lastHits)
             {
