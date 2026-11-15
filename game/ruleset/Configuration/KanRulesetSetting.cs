@@ -13,6 +13,9 @@ namespace Kan.Ruleset.Configuration
         /// <summary>The player's instrument: a transcription profile ("ocarina", "keyboard"…), what the game listens for.</summary>
         PlayerInstrument,
 
+        /// <summary>The microphone to listen to, by name (empty: the system default).</summary>
+        Microphone,
+
         /// <summary>The lowest and highest notes the player's instrument plays (MIDI).</summary>
         RangeLowest,
 

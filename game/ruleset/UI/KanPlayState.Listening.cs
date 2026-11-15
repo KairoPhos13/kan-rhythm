@@ -148,7 +148,7 @@ namespace Kan.Ruleset.UI
             }
             else
             {
-                source = new MicSource();
+                source = MicSource.Chosen();
                 micPlay = true;
             }
 

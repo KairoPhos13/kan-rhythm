@@ -113,7 +113,7 @@ namespace Kan.Forge.Play
             {
                 if (!t.IsRunning) return;
 
-                session = new LiveSession(source ?? new MicSource(), instrument);
+                session = new LiveSession(source ?? MicSource.Chosen(), instrument);
 
                 if (!session.Start())
                 {

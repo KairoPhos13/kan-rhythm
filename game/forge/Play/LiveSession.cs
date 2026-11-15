@@ -42,6 +42,34 @@ namespace Kan.Forge.Play
         /// <summary>The microphone to open: -1 is the one the system calls its default.</summary>
         private readonly int device;
 
+        /// <summary>
+        /// The microphone the player chose (by name, as <see cref="RecordingDevices"/>
+        /// lists it; empty for the system default). Plays and calibration open
+        /// it (<see cref="Chosen"/>); the ruleset keeps it in its settings.
+        /// </summary>
+        public static Func<string>? ChosenName { get; set; }
+
+        /// <summary>The player's chosen microphone, or the system default when it is gone.</summary>
+        public static MicSource Chosen() => new MicSource(ChosenDevice());
+
+        /// <summary>BASS's index of the player's chosen microphone, else of the system default (-1 when none says so).</summary>
+        public static int ChosenDevice()
+        {
+            string name = ChosenName?.Invoke() ?? string.Empty;
+
+            if (name.Length > 0)
+            {
+                foreach (var (index, deviceName) in RecordingDevices())
+                {
+                    if (index >= 0 && deviceName == name)
+                        return index;
+                }
+            }
+
+            MediaAudioExtractor.EnsureBass();
+            return DefaultDevice();
+        }
+
         private readonly float[] ring = new float[ring_size];
         private readonly RecordProcedure procedure;
         private long written;
@@ -84,15 +112,21 @@ namespace Kan.Forge.Play
             error = string.Empty;
             MediaAudioExtractor.EnsureBass();
 
-            if (!Bass.RecordInit(device) && Bass.LastError != Errors.Already)
+            // BASS keeps the recording device per thread, and a thread that never
+            // chose one records from the lowest device already opened (issue 39:
+            // on a Steam Deck, after trying microphones in the selector, plays and
+            // calibration heard whichever one their thread fell on). So the device
+            // is always named, the default one included, and chosen right here.
+            int index = device >= 0 ? device : DefaultDevice();
+
+            if (!Bass.RecordInit(index) && Bass.LastError != Errors.Already)
             {
                 error = $"no microphone could be opened ({Bass.LastError})";
                 return false;
             }
 
-            // A microphone chosen by hand: the one recording starts on.
-            if (device >= 0)
-                Bass.CurrentRecordingDevice = device;
+            if (index >= 0)
+                Bass.CurrentRecordingDevice = index;
 
             handle = Bass.RecordStart(SAMPLE_RATE, 1, BassFlags.Float, 10, procedure, IntPtr.Zero);
 
@@ -102,7 +136,22 @@ namespace Kan.Forge.Play
                 return false;
             }
 
+            int opened = Bass.CurrentRecordingDevice;
+            string what = Bass.RecordGetDeviceInfo(opened, out var info) ? $"{info.Name} ({info.Driver})" : "unknown";
+            osu.Framework.Logging.Logger.Log($"kan!: microphone {opened} opened: {what}; asked for {(device >= 0 ? device.ToString() : "the default")}");
             return true;
+        }
+
+        /// <summary>The recording device the system calls its default (BASS's index), or -1 when none says so.</summary>
+        public static int DefaultDevice()
+        {
+            for (int i = 0; i < Bass.RecordingDeviceCount; i++)
+            {
+                if (Bass.RecordGetDeviceInfo(i, out var info) && info.IsEnabled && info.IsDefault)
+                    return i;
+            }
+
+            return -1;
         }
 
         public int Read(float[] into)

@@ -39,6 +39,31 @@ which SteamOS runs through PipeWire filters (echo cancellation, noise
 suppression). Those add a delay that varies, and a noise suppressor fades
 out a steady tone such as a held ocarina note.
 
+**Common cause found in the code (2026-11-14).** The owner also reported
+that choosing a microphone in the selector sometimes takes two tries
+before the meter moves, and that the desktop's own microphone never shows
+any of this. Two faults explain all of it:
+
+- BASS keeps the recording device *per thread*, and a thread that never
+  chose one records from the lowest device already opened. `MicSource`
+  named the device only when one was chosen by hand, so "the default"
+  meant whatever device the opening thread last used. Plays and
+  calibration open the microphone on pool threads, so which device a
+  play heard changed from one start to the next. The Deck lists several
+  inputs (the built-in microphone, its PipeWire filters such as echo
+  cancellation, monitors); a desktop with one microphone never shows it.
+  A restart opens on another thread and may land on another device:
+  this is why restarting the level "fixed" the timing for a while.
+- The selector's choice was never kept: it fed only its own meter, and
+  plays and calibration always asked for the default.
+
+Fix: the device is always named and set on the opening thread (the
+default resolved to its index), the choice is kept in the ruleset's
+settings (`Microphone`) and used by plays, calibration and the editor's
+recorder, and each open logs which device it got. The stream-clock
+mapping (cause 1 below) stays to do: it makes any remaining start-up
+delay or gap harmless.
+
 ## Likely causes (from the code, to confirm with the Deck's logs)
 
 **1, early placement.** A heard moment is placed by its sample count

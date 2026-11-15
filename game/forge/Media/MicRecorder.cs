@@ -42,12 +42,18 @@ namespace Kan.Forge.Media
             error = string.Empty;
             MediaAudioExtractor.EnsureBass();
 
-            // An "already initialised" answer is fine: someone opened the device before.
-            if (!Bass.RecordInit() && Bass.LastError != Errors.Already)
+            // The player's microphone, named on this thread (BASS keeps the
+            // recording device per thread; issue 39). "Already initialised" is fine.
+            int index = Kan.Forge.Play.MicSource.ChosenDevice();
+
+            if (!Bass.RecordInit(index) && Bass.LastError != Errors.Already)
             {
                 error = $"no microphone could be opened ({Bass.LastError})";
                 return false;
             }
+
+            if (index >= 0)
+                Bass.CurrentRecordingDevice = index;
 
             written = 0;
             handle = Bass.RecordStart(SAMPLE_RATE, 1, BassFlags.Float, procedure, IntPtr.Zero);

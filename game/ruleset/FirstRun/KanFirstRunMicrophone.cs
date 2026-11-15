@@ -56,9 +56,14 @@ namespace Kan.Ruleset.FirstRun
         private void load()
         {
             devices = MicSource.RecordingDevices();
-            deviceName = new Bindable<string>(devices.Count > 0 ? devices[0].Name : @"Default microphone")
+            string systemDefault = devices.Count > 0 ? devices[0].Name : @"Default microphone";
+
+            // The player's choice, kept (issue 39: it was only for this meter;
+            // plays and calibration always opened the default).
+            string chosen = Configuration.KanPlayer.Microphone?.Value ?? string.Empty;
+            deviceName = new Bindable<string>(devices.Any(d => d.Device >= 0 && d.Name == chosen) ? chosen : systemDefault)
             {
-                Default = devices.Count > 0 ? devices[0].Name : @"Default microphone",
+                Default = systemDefault,
             };
 
             Content.Children = new Drawable[]
@@ -105,7 +110,12 @@ namespace Kan.Ruleset.FirstRun
         protected override void LoadComplete()
         {
             base.LoadComplete();
-            deviceName.BindValueChanged(v => startListening(), true);
+            deviceName.BindValueChanged(v =>
+            {
+                if (Configuration.KanPlayer.Microphone is { } kept)
+                    kept.Value = device() >= 0 ? v.NewValue : string.Empty;
+                startListening();
+            }, true);
         }
 
         private void startListening()

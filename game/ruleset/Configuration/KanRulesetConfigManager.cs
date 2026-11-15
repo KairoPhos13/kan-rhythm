@@ -24,6 +24,7 @@ namespace Kan.Ruleset.Configuration
             // The player's instrument (owner 2026-10-15: any level on any
             // instrument); as the level until they choose.
             SetDefault(KanRulesetSetting.PlayerInstrument, string.Empty); // empty: as the level
+            SetDefault(KanRulesetSetting.Microphone, string.Empty); // empty: the system default
             SetDefault(KanRulesetSetting.RangeLowest, 21, 12, 120);
             SetDefault(KanRulesetSetting.RangeHighest, 108, 12, 120);
 

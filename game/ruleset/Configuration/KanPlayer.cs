@@ -22,6 +22,10 @@ namespace Kan.Ruleset.Configuration
         private static Bindable<string>? instrument;
         private static Bindable<int>? lowest, highest;
         private static Bindable<bool>? onlyPlayable;
+        private static Bindable<string>? microphone;
+
+        /// <summary>The microphone the player chose (empty: the system default); plays and calibration open it.</summary>
+        public static Bindable<string>? Microphone => microphone;
 
         public static void Bind(KanRulesetConfigManager config)
         {
@@ -29,6 +33,8 @@ namespace Kan.Ruleset.Configuration
             lowest ??= config.GetBindable<int>(KanRulesetSetting.RangeLowest);
             highest ??= config.GetBindable<int>(KanRulesetSetting.RangeHighest);
             onlyPlayable ??= config.GetBindable<bool>(KanRulesetSetting.OnlyPlayableLevels);
+            microphone ??= config.GetBindable<string>(KanRulesetSetting.Microphone);
+            Kan.Forge.Play.MicSource.ChosenName = () => microphone.Value;
 
             // The editor greys what the player cannot play (it cannot see these settings).
             RangeFit.PlayerRange = () => Instrument == null ? null : (Lowest, Highest);
