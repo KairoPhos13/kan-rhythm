@@ -25,22 +25,29 @@ described, so it falls behind for a moment. Two cores of this desktop are
 roughly what the Deck gives a game while it also runs the GPU at a low
 power limit.
 
+## Rules (owner, 2026-11-15)
+
+- **Never remove a capability.** No lighter mode, no lower sample rate,
+  no skipped analysis, no feature switched off for weaker machines. The
+  game does everything it does today; it only does it with less work.
+- **Only clear improvements.** Every change is measured before and after
+  on the same bench, gives the same judging, and makes no measure worse.
+- **Moderate priority.** In kan! the player follows the music, not the
+  screen, so a late frame matters less than in osu!. The stutter seen on
+  the Deck on 2026-11-14 may have come largely from PipeWire's processing
+  of the default microphone (issue 39), which also runs on the Deck's CPU;
+  with the raw input the owner saw no stutter on 2026-11-15.
+
 ## What to do
 
-1. **A repeatable bench.** A script that plays a starter level from its
-   reference recording on two cores and prints the hitch count, the worst
-   stall and the describer's cost. Every change below is measured with it.
-2. **The update thread.** Profile a two-core play (`dotnet-trace`) and fix
-   what costs: per-frame allocations and LINQ in the staff, the judge and
-   the scene; work redone every frame that changes only when a note does.
-3. **The describer for one-note instruments.** A profile that plays one
-   note at a time needs no chord analysis; it can also analyse at a lower
-   sample rate (16 kHz covers an ocarina and its overtones) and compute
-   pitch only as often as the screen needs it. Offline tests keep the
-   judging identical (repo rule 5).
-4. **Defaults for handhelds.** A frame limiter at the screen's refresh
-   (not twice it) when the game detects a Steam Deck, or a "battery saver"
-   switch in Settings > kan!.
+1. **A repeatable bench** on two cores (hitch count, worst stall, the
+   describer's cost per block), run before and after every change.
+2. **The update thread.** Profile a two-core play and remove waste only:
+   per-frame allocations, LINQ in hot paths, work redone every frame
+   that changes only when a note does. Same output, less work.
+3. **The describer.** The same analysis, done with less work (no
+   repeated computation, no allocation per block), with offline tests
+   that show identical results (repo rule 5).
 
 ## Acceptance
 
