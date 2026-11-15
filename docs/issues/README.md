@@ -50,6 +50,7 @@ became issues:
 | [37 The starter levels on the server](37-starter-levels-on-the-server.md) | the online search finds no levels |
 | [38 Note times from the attack](38-onset-time-from-the-attack.md) | calibration shows on-time attacks late when recognition lags |
 | [39 Live input on the Steam Deck](39-live-input-on-the-steam-deck.md) | the trail is drawn early until a restart; recognition stops mid-play |
+| [40 Smooth play on low-power machines](40-smooth-play-on-low-power-machines.md) | the game stutters on the Steam Deck |
 | [30 Profile pages](30-profile-pages.md) (updated) | many profile fields come back empty |
 
 ## Accessibility work (2026-11-12)
