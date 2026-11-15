@@ -39,7 +39,7 @@ players install nothing.
 
 ## 2. What the workflow does (`.github/workflows/build.yml`)
 
-Triggers: push and PR to `main`, and tags `v*`. Four matrix jobs (one per
+Triggers: tags `v*`, and *Run workflow* on the Actions page (any branch, no release). A push to `main` builds nothing; it runs `pin-check.yml` only. Four matrix jobs (one per
 platform above), then a `release` job on tags. Per job:
 
 1. Checkout + `game/client` submodule (`.gitmodules` uses an SSH URL, CI has
@@ -337,10 +337,11 @@ From the November 2026 audit (section 7, `agent/release-hardening` lane):
    commits pinned by the submodule (see `fork-divergence.md` push blocker)
    and this `agent/ci` work must be pushed by hand before CI can run at all
    (CI clones both repositories). Both repos go public at the same time.
-   The workflow's submodule step doubles as the pre-push check the
-   November 2026 audit (C1) suggests: CI fails at "Fetch submodules over
+   `pin-check.yml` is the pre-push check the November 2026 audit (C1)
+   suggests: on every push to `main` it fails at "Fetch submodules over
    HTTPS" whenever the pinned `game/client` commit is not reachable on the
-   fork's remote, so a parent push with a dangling pin cannot go green.
+   fork's remote, so a parent push with a dangling pin cannot go green
+   (the full build runs on tags only).
 2. **Apple Developer account** (paid) + the six `APPLE_*` secrets for signed
    and notarized macOS builds. Until then ship unsigned (§3).
 3. **Where releases live** (resolved): `kan-rhythm` releases; the updater

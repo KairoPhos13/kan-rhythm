@@ -1,0 +1,29 @@
+# The one check every push to main still gets (the full build runs on
+# release tags only, build.yml): the fork commit that game/client pins is
+# reachable on the fork's remote (audit C1). A push of the parent without
+# the fork's commit fails here in seconds, instead of breaking the next
+# release build.
+
+name: pin-check
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  submodule:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      # .gitmodules has an SSH URL (read access is public, no key on CI).
+      - name: Fetch submodules over HTTPS
+        shell: bash
+        run: |
+          git config --global url."https://github.com/".insteadOf "git@github.com:"
+          git submodule update --init --depth 1 game/client

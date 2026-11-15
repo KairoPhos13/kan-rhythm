@@ -32,12 +32,14 @@
 
 name: build
 
+# Release tags only (owner 2026-11-15: a full four-platform build for
+# every commit was a waste). "Run workflow" on the Actions page builds any
+# branch by hand, without a release. pin-check.yml keeps the cheap check
+# every push still needs (the fork commit the submodule pins is reachable).
 on:
   push:
-    branches: [main]
     tags: ['v*']
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
