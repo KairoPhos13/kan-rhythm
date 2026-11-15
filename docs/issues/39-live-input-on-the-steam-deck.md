@@ -31,6 +31,14 @@ owner's desktop.
    output's and the microphone's reported latency, so this can be read
    instead of guessed.
 
+**Narrowed down (owner, same day):** the same v0.1.2 AppImage plays as
+expected on the owner's desktop, and capping the Deck's power (TDP 6 W)
+or not makes no difference. That rules out the package and the CPU, and
+points at the Deck's audio path: its built-in speaker and microphone,
+which SteamOS runs through PipeWire filters (echo cancellation, noise
+suppression). Those add a delay that varies, and a noise suppressor fades
+out a steady tone such as a held ocarina note.
+
 ## Likely causes (from the code, to confirm with the Deck's logs)
 
 **1, early placement.** A heard moment is placed by its sample count
