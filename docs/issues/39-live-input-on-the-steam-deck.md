@@ -18,6 +18,19 @@ owner's desktop.
    microphone had been switched off. No "The microphone stopped for a
    moment" message was reported.
 
+3. **Calibration measures 460 ms of microphone delay** (8 clicks, 7
+   heard, spread ±79 ms). The step measures the whole round trip: the
+   click's way out (game audio buffer, PipeWire, the speaker or
+   headphones), the microphone's way in, and recognition. On a desktop it
+   is tens of ms. Suspects: Bluetooth headphones (200 ms or more by
+   themselves), large PipeWire buffers behind BASS's ALSA output (osu!
+   players on Linux lower them with `PIPEWIRE_LATENCY`), and the describer
+   lagging (cause 2 below). A delay that differs from one start to the
+   next would also explain symptom 1: a play whose real delay is smaller
+   than the calibrated one lands early. Each start should log the audio
+   output's and the microphone's reported latency, so this can be read
+   instead of guessed.
+
 ## Likely causes (from the code, to confirm with the Deck's logs)
 
 **1, early placement.** A heard moment is placed by its sample count
