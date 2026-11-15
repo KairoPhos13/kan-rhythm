@@ -81,10 +81,31 @@ namespace Kan.Forge.Play
             var levelAudio = music.CurrentTrack;
             bool ours = playingLevel?.BeatmapSetInfo?.ID == set && music.TrackLoaded;
 
+            // Away from song select (a play, the editor, results) the part is
+            // silent: stop it once and leave it be. Following it there kept it
+            // cued every frame, a seek the update thread waits on the audio
+            // thread for, the main cause of stutter in play on two cores
+            // (issue 40). Back on song select it is placed again as it starts.
+            if (!onPreviewScreen())
+            {
+                if (!parked)
+                {
+                    part.Follow(levelAudio.CurrentTime, false, null, 0);
+                    parked = true;
+                }
+
+                return;
+            }
+
+            parked = false;
+
             // The level audio fades in and out on track changes, or is silenced (the
             // mic timing, 2026-10-17): so is its part (its whole volume, adjustments included).
-            part.Follow(levelAudio.CurrentTime, ours && levelAudio.IsRunning && onPreviewScreen(), ours ? levelAudio : null, (float)levelAudio.AggregateVolume.Value);
+            part.Follow(levelAudio.CurrentTime, ours && levelAudio.IsRunning, ours ? levelAudio : null, (float)levelAudio.AggregateVolume.Value);
         }
+
+        /// <summary>The part was stopped on leaving song select and is not followed until it is back.</summary>
+        private bool parked;
 
         private bool onPreviewScreen() => game.ScreenStack?.CurrentScreen is SongSelect or PlayerLoader;
 
@@ -94,6 +115,7 @@ namespace Kan.Forge.Play
             preparing?.Cancel();
             part?.Dispose();
             part = null;
+            parked = false;
 
             if (set == Guid.Empty) return;
 

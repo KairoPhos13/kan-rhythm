@@ -74,6 +74,20 @@ update thread taking 30 to 100 ms now and then. Next step: a sampling
 profile of those spikes (`dotnet-trace` through a diagnostic port; the
 attempt from the isolated instance did not connect yet).
 
+**2026-11-15, the stutter in play (done).** A sampling profile of a
+two-core play (`dotnet-trace` launched inside the isolated instance)
+put `Kan.Forge.Play.LevelPreview.Update` on 68 % of the update thread's
+samples, nearly all of it waiting: the song select preview lives on the
+whole game and, away from song select, kept its stopped part cued to the
+level audio every frame. With the level running that was a
+`TrackBass.Seek` each frame, which the update thread waits on the audio
+thread for. It is now stopped once on leaving song select and left
+alone until song select is back (where starting it places it anyway).
+Bench, Sakura Sakura on two cores, frames over 25 ms per play: 237, 428,
+239 before; 100, 25, 17, 12, 19 after. What remains over 50 ms is at the
+start of the level (loading, first-time compilation, a collection) and
+at its end, not during play.
+
 `game/tools/bench-play.sh` runs the bench; the play trace now has a
 `load` row each second (the describer's worst block).
 
