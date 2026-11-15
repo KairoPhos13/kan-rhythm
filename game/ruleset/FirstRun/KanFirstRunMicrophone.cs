@@ -175,7 +175,12 @@ namespace Kan.Ruleset.FirstRun
             listener = null;
             checking = new List<(string, KanLiveListener, HeldNoteCheck)>();
 
-            foreach (var (index, name) in devices)
+            // The system default last: on a Steam Deck it is PipeWire's processed
+            // copy of the same hardware, and opened first it would hold the
+            // hardware and leave the raw input deaf for the whole check.
+            int systemDefault = MicSource.DefaultDevice();
+
+            foreach (var (index, name) in devices.OrderBy(d => d.Device == systemDefault ? 1 : 0))
             {
                 if (index < 0) continue;
 
@@ -313,6 +318,15 @@ namespace Kan.Ruleset.FirstRun
             }
 
             listener.Update();
+
+            if (!listener.Listening)
+            {
+                meterFill.Width = 0;
+                say(listener.Waiting
+                    ? @"Waiting for the microphone: it is still being let go (by the check, or another program)…"
+                    : @"The microphone could not be opened. No harm done: you can skip this step and play later (the same steps wait in Settings > Rulesets > kan!).");
+                return;
+            }
 
             // The meter follows what it hears; the words follow the meter.
             meterFill.Width = (float)(meter.DrawWidth * Math.Clamp(listener.Level / loud_rms, 0, 1));

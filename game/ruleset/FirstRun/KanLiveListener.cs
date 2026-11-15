@@ -60,17 +60,42 @@ namespace Kan.Ruleset.FirstRun
 
         public bool Listening => session != null;
 
-        /// <summary>Open the microphone (or the developer run's recording) and begin.</summary>
+        /// <summary>
+        /// The microphone is in use and is tried again (<see cref="Update"/>):
+        /// a raw input takes one program at a time, and PipeWire keeps the
+        /// hardware a few seconds after its own input closes (issue 39: after
+        /// "Check my microphones" the Deck's "acp5x" was busy, and the step
+        /// gave up).
+        /// </summary>
+        public bool Waiting { get; private set; }
+
+        private bool lastBusy;
+        private long waitingSince, retryAt;
+        private const int retry_ms = 500, wait_ms = 10000;
+
+        /// <summary>Open the microphone (or the developer run's recording) and begin. A busy microphone counts as started: it is waited for.</summary>
         public bool Start()
         {
             Stop();
 
+            if (open()) return true;
+            if (!lastBusy) return false;
+
+            Waiting = true;
+            waitingSince = System.Diagnostics.Stopwatch.GetTimestamp();
+            retryAt = waitingSince + System.Diagnostics.Stopwatch.Frequency * retry_ms / 1000;
+            return true;
+        }
+
+        private bool open()
+        {
             var source = MicCalibrator.DevInput?.Invoke() ?? new MicSource(device);
             session = new LiveSession(source, ListenAs);
 
             if (!session.Start())
             {
                 Error = session.Error.Length > 0 ? session.Error : @"the microphone could not start";
+                lastBusy = session.Busy;
                 session.Dispose();
                 session = null;
                 return false;
@@ -83,6 +108,17 @@ namespace Kan.Ruleset.FirstRun
         /// <summary>Take whatever was heard since the last call.</summary>
         public void Update()
         {
+            if (session == null && Waiting)
+            {
+                long now = System.Diagnostics.Stopwatch.GetTimestamp();
+                if (now < retryAt) return;
+
+                if (open() || !lastBusy || (now - waitingSince) * 1000 / System.Diagnostics.Stopwatch.Frequency > wait_ms)
+                    Waiting = false;
+                else
+                    retryAt = now + System.Diagnostics.Stopwatch.Frequency * retry_ms / 1000;
+            }
+
             if (session == null) return;
 
             while (session.TryTake(out var f))
@@ -109,6 +145,7 @@ namespace Kan.Ruleset.FirstRun
         /// <summary>Stop hearing (the microphone is closed; <see cref="Start"/> may come again).</summary>
         public void Stop()
         {
+            Waiting = false;
             session?.Dispose();
             session = null;
         }

@@ -90,6 +90,16 @@ microphone is tried again every 0.5 s for up to 15 s ("Waiting for the
 microphone…"), and the calibration's other steps open the chosen
 microphone too.
 
+**"Check my microphones" left the step deaf (owner, 2026-11-15).** The
+check opens every input at once, the PipeWire default among them;
+PipeWire then holds the hardware and keeps it a few seconds after its
+input closes, so reopening "acp5x" right after the check found it busy
+and the step said the microphone could not be opened. The setup
+listener now waits for a busy microphone (retried every 0.5 s for up to
+10 s, "Waiting for the microphone…"), and the check opens the system
+default last, so PipeWire cannot take the hardware from the raw input
+for the length of the check.
+
 ## Likely causes (from the code, to confirm with the Deck's logs)
 
 **1, early placement.** A heard moment is placed by its sample count
