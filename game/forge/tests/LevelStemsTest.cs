@@ -8,16 +8,18 @@ using System.Linq;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 using NUnit.Framework;
+using osu.Game.Database;
 using Kan.Core.Tracks;
 using Kan.Forge.Editor;
 
 namespace Kan.Forge.Tests
 {
     /// <summary>
-    /// A level keeps its stems (issue 42): the raw separation of its song,
-    /// encoded once into the level under "stems/", with a manifest saying
-    /// what they are. The same stems are attached once; a set that does not
-    /// come from one separation is refused with a clear error.
+    /// A level keeps its stems (issue 42): the stems of its song as the
+    /// creator worked with them, encoded once into the level under "stems/",
+    /// with a manifest saying what they are. The same stems are attached
+    /// once; stems that are not of one song (lengths or formats apart) are
+    /// refused with a clear error.
     /// </summary>
     [TestFixture]
     public class LevelStemsTest
@@ -99,19 +101,40 @@ namespace Kan.Forge.Tests
             Assert.That(set.Files.Any(f => LevelStems.IsStemFile(f.Filename)), Is.False, "a refused set leaves no stems");
         });
 
+        /// <summary>
+        /// The stems the creator worked with (owner levels, 2026-11-16): a
+        /// stem edited after the demux (split by range, repaired in time)
+        /// sits outside the demux folder, may differ by a few samples, and
+        /// travels under its track's name, marked as edited.
+        /// </summary>
         [Test]
-        public void TestStemsOfTwoSeparationsAreRefused() => LevelTestBed.Run(async bed =>
+        public void TestEditedStemsTravelUnderTheirTrackNames() => LevelTestBed.Run(async bed =>
         {
             string work = workFolder();
-            var separated = demuxOutput(work, ("bass", 8820), ("vocals", 8820));
-            separated.AddRange(demuxOutput(work, ("drums", 8820)));
+            var separated = demuxOutput(work, ("bass", 8820));
+
+            string edited = Path.Combine(work, "edit-3ea4646e.wav");
+            writeStereoWav(edited, 8823);
+            separated.Add(new ForgeTrack("In range ocarina", edited) { IsSeparated = true });
 
             var set = bed.CreateLevel("My Song", new Dictionary<string, byte[]>());
             var working = bed.WorkingOf(set);
 
             string? problem = null;
-            Assert.That(await LevelStems.AttachAsync(separated, work, working, bed.Beatmaps, null, m => problem = m), Is.False);
-            Assert.That(problem, Does.Contain("one separation"));
+            Assert.That(await LevelStems.AttachAsync(separated, work, working, bed.Beatmaps, null, m => problem = m), Is.True, problem);
+
+            var files = bed.FileNames(set.ID);
+            Assert.That(files, Does.Contain("stems/bass.ogg"));
+            Assert.That(files, Does.Contain("stems/in-range-ocarina.ogg"), "named by the track, not by the work file");
+
+            var manifest = LevelStems.ReadManifest(bed.WorkingOf(bed.Realm.Run(r => r.Find<osu.Game.Beatmaps.BeatmapSetInfo>(set.ID)!.Detach())))!;
+            Assert.That(manifest.Frames, Is.EqualTo(8823));
+            Assert.That(manifest.Stems.Single(x => x.Kind == "bass").Edited, Is.False);
+            Assert.That(manifest.Stems.Single(x => x.Kind == "in-range-ocarina").Edited, Is.True);
+            Assert.That(manifest.Stems.Single(x => x.Kind == "in-range-ocarina").Frames, Is.EqualTo(8823));
+
+            // Up to date afterwards: the same sources are not attached twice.
+            Assert.That(LevelStems.IsUpToDate(bed.WorkingOf(bed.Realm.Run(r => r.Find<osu.Game.Beatmaps.BeatmapSetInfo>(set.ID)!.Detach())), separated), Is.True);
         });
 
         [Test]

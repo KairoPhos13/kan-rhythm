@@ -103,16 +103,10 @@ namespace Kan.Forge.Editor
                     return false;
                 }
 
-                // All of a level's stems come from ONE separation.
-                string folder = Path.GetDirectoryName(sources[0].Path) ?? string.Empty;
-                if (sources.Any(t => !string.Equals(Path.GetDirectoryName(t.Path) ?? string.Empty, folder, StringComparison.OrdinalIgnoreCase))
-                    || sources.Select(t => Path.GetFileNameWithoutExtension(t.Path)).Distinct(StringComparer.OrdinalIgnoreCase).Count() != sources.Count)
-                {
-                    problem?.Invoke("The stems cannot be attached: the set holds stems from more than one separation. Keep one separation in the set.");
-                    return false;
-                }
-
-                // The same frame count, rate and channels: they line up to the sample.
+                // The stems the creator worked with: a demuxed stem as the
+                // demux wrote it, or as edited in the set (moved in pitch,
+                // repaired in time, split by range). All start at the song's
+                // start, so they line up with each other and the level audio.
                 var infos = new List<WavInfo>();
 
                 foreach (var t in sources)
@@ -127,9 +121,15 @@ namespace Kan.Forge.Editor
                     infos.Add(info.Value);
                 }
 
-                if (infos.Any(i => i != infos[0]))
+                // One rate and channel count; lengths within a few samples (an
+                // edit may round them, owner levels 2026-11-16), never a
+                // different song.
+                long longest = infos.Max(i => i.Frames), shortest = infos.Min(i => i.Frames);
+
+                if (infos.Any(i => i.SampleRate != infos[0].SampleRate || i.Channels != infos[0].Channels)
+                    || longest - shortest > (long)(MAX_LENGTH_SPREAD_MS / 1000 * infos[0].SampleRate))
                 {
-                    problem?.Invoke("The stems cannot be attached: they do not all have the same length. They must come from one separation of one song.");
+                    problem?.Invoke("The stems cannot be attached: they do not have the same length and format. They must come from one separation of one song.");
                     return false;
                 }
 
@@ -141,11 +141,14 @@ namespace Kan.Forge.Editor
 
                 var encoded = await Task.Run(() =>
                 {
-                    var files = new List<(string Kind, string Path)>();
+                    var files = new List<(string Kind, string Path, long Frames, double OffsetMs, bool Edited)>();
 
-                    foreach (var t in sources)
+                    var kinds = KindsOf(sources);
+
+                    for (int i = 0; i < sources.Count; i++)
                     {
-                        string kind = Path.GetFileNameWithoutExtension(t.Path);
+                        var t = sources[i];
+                        string kind = kinds[i];
                         string outPath = Path.Combine(outDir, kind + BeatmapAudio.PLAY_FILE_EXTENSION);
                         var err = new byte[512];
 
@@ -159,7 +162,7 @@ namespace Kan.Forge.Editor
                             return (Files: files, Error: "the built-in audio encoder is not available: update kan!");
                         }
 
-                        files.Add((kind, outPath));
+                        files.Add((kind, outPath, infos[i].Frames, t.OffsetMs, isEdited(t)));
                     }
 
                     return (Files: files, Error: (string?)null);
@@ -177,12 +180,15 @@ namespace Kan.Forge.Editor
                     Model = ModelId(),
                     SampleRate = infos[0].SampleRate,
                     Channels = infos[0].Channels,
-                    Frames = infos[0].Frames,
+                    Frames = longest,
                     SourceSignature = sourceSignature(sources),
                     Stems = encoded.Files.Select(f => new Stem
                     {
                         File = f.Kind + BeatmapAudio.PLAY_FILE_EXTENSION,
                         Kind = f.Kind,
+                        Frames = f.Frames,
+                        OffsetMs = f.OffsetMs,
+                        Edited = f.Edited,
                         Sha256 = sha256Of(f.Path),
                     }).ToList(),
                 };
@@ -259,10 +265,42 @@ namespace Kan.Forge.Editor
             if (ReadManifest(working) is not { } manifest || manifest.SourceSignature != sourceSignature(sources))
                 return false;
 
-            return sources
-                   .Select(t => FOLDER + "/" + Path.GetFileNameWithoutExtension(t.Path) + BeatmapAudio.PLAY_FILE_EXTENSION)
+            return KindsOf(sources)
+                   .Select(kind => FOLDER + "/" + kind + BeatmapAudio.PLAY_FILE_EXTENSION)
                    .All(name => working.BeatmapSetInfo?.GetFile(name) != null);
         }
+
+        /// <summary>How far apart the stems' lengths may be (an edit may round a length by a few samples).</summary>
+        public const double MAX_LENGTH_SPREAD_MS = 50;
+
+        /// <summary>
+        /// Each stem's name in the level: its track's name ("bass",
+        /// "inrange12holesocarina"), safe for a file name, unique in the set.
+        /// </summary>
+        public static List<string> KindsOf(IReadOnlyList<ForgeTrack> sources)
+        {
+            var kinds = new List<string>();
+
+            foreach (var t in sources)
+            {
+                string name = string.IsNullOrWhiteSpace(t.Name) ? Path.GetFileNameWithoutExtension(t.Path) : t.Name;
+                string safe = new string(name.Trim().ToLowerInvariant()
+                                             .Select(c => char.IsLetterOrDigit(c) || c is '-' or '_' ? c : '-').ToArray()).Trim('-');
+                if (safe.Length == 0) safe = @"stem";
+
+                string kind = safe;
+                for (int n = 2; kinds.Contains(kind, StringComparer.OrdinalIgnoreCase); n++)
+                    kind = FormattableString.Invariant($"{safe}-{n}");
+
+                kinds.Add(kind);
+            }
+
+            return kinds;
+        }
+
+        /// <summary>A stem the creator changed after the demux (its file is not in a demux folder).</summary>
+        private static bool isEdited(ForgeTrack t)
+            => !string.Equals(Path.GetFileName(Path.GetDirectoryName(t.Path)), @"roformer", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>One file of a level's stems and what it is.</summary>
         public class Stem
@@ -272,6 +310,18 @@ namespace Kan.Forge.Editor
 
             [JsonPropertyName("kind")]
             public string Kind { get; set; } = string.Empty;
+
+            /// <summary>This stem's own length (stems may differ by a few samples).</summary>
+            [JsonPropertyName("frames")]
+            public long Frames { get; set; }
+
+            /// <summary>Where the stem starts in the song (ms; 0 for a stem as the demux wrote it).</summary>
+            [JsonPropertyName("offset_ms")]
+            public double OffsetMs { get; set; }
+
+            /// <summary>The creator changed it after the demux (pitch, timing repair, a split by range).</summary>
+            [JsonPropertyName("edited")]
+            public bool Edited { get; set; }
 
             [JsonPropertyName("sha256")]
             public string Sha256 { get; set; } = string.Empty;
@@ -297,7 +347,7 @@ namespace Kan.Forge.Editor
             [JsonPropertyName("channels")]
             public int Channels { get; set; }
 
-            /// <summary>The frames of every stem (they all have the same length).</summary>
+            /// <summary>The longest stem's frames (each stem records its own).</summary>
             [JsonPropertyName("frames")]
             public long Frames { get; set; }
 
