@@ -129,6 +129,9 @@ resolves as not measured, never as wrong.
 **One voice.** A mono profile ignores the chart call. The bench can dump
 every live event of a recording as text. The dumps of the starter
 references are taken before any change and compared after every step.
+The dump detects change, it does not forbid it (owner, 2026-11-15): if
+this work finds a bug in the one-voice path, the bug is fixed, and the
+change is explained and measured on the ocarina's own references.
 
 ## 4. Order of work
 
