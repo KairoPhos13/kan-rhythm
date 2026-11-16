@@ -38,6 +38,13 @@ namespace Kan.Ruleset.Configuration
 
             // The editor greys what the player cannot play (it cannot see these settings).
             RangeFit.PlayerRange = () => Instrument == null ? null : (Lowest, Highest);
+            RangeFit.SetPlayerRange = (low, high) =>
+            {
+                if (Instrument == null) return false;
+
+                (lowest!.Value, highest!.Value) = (System.Math.Min(low, high), System.Math.Max(low, high));
+                return true;
+            };
         }
 
         /// <summary>

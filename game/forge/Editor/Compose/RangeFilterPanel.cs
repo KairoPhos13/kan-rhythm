@@ -30,8 +30,9 @@ namespace Kan.Forge.Editor.Compose
         private readonly Action beforeChange;
         private readonly Action changed;
 
-        private readonly Bindable<string> low = new Bindable<string>(@"G4");
-        private readonly Bindable<string> high = new Bindable<string>(@"A8");
+        // Start from the range the roll greys (the player's instrument).
+        private readonly Bindable<string> low = new Bindable<string>();
+        private readonly Bindable<string> high = new Bindable<string>();
         private readonly List<ScoreNote> removed = new List<ScoreNote>();
 
         private FillFlowContainer removedList = null!;
@@ -56,6 +57,10 @@ namespace Kan.Forge.Editor.Compose
         [BackgroundDependencyLoader]
         private void load()
         {
+            var (lowest, highest) = roll.Range;
+            low.Value = KanScore.NoteName(lowest);
+            high.Value = KanScore.NoteName(highest);
+
             InternalChild = new FillFlowContainer
             {
                 RelativeSizeAxes = Axes.X,
@@ -73,7 +78,7 @@ namespace Kan.Forge.Editor.Compose
                     {
                         RelativeSizeAxes = Axes.X,
                         AutoSizeAxes = Axes.Y,
-                        Text = @"For example a piano's right hand: keep G4 to A8, then add back the keys that belong to it.",
+                        Text = @"The grey rows are outside your instrument's range (Settings, kan!). Type a range to make it yours, or to remove the notes outside it: for a piano's right hand, G4 to A8, then add back the keys that belong to it.",
                     },
                     new GridContainer
                     {
@@ -90,6 +95,11 @@ namespace Kan.Forge.Editor.Compose
                                 new FormTextBox { Caption = @"highest", Current = high },
                             },
                         },
+                    },
+                    new ForgeButton(FontAwesome.Solid.Check, @"make it my instrument's range")
+                    {
+                        Action = setMyRange,
+                        TooltipText = @"Save this range for your instrument (Settings, kan!): the grey rows, the levels you can play and how levels are fitted all follow it. No note changes.",
                     },
                     new ForgeButton(FontAwesome.Solid.Filter, @"remove notes outside")
                     {
@@ -110,6 +120,24 @@ namespace Kan.Forge.Editor.Compose
                     },
                 },
             };
+        }
+
+        private void setMyRange()
+        {
+            if (!KanScore.TryParseNote(low.Value, out int lowMidi) || !KanScore.TryParseNote(high.Value, out int highMidi))
+            {
+                show(@"Type note names such as A4 and F6.", true);
+                return;
+            }
+
+            if (Kan.Core.Play.RangeFit.SetPlayerRange?.Invoke(lowMidi, highMidi) != true)
+            {
+                show(@"Choose your instrument first (Settings, kan!, ""My instrument""): while it is ""As the level"", the level's own range is used.", true);
+                return;
+            }
+
+            roll.Invalidate();
+            show($"Your instrument's range is now {KanScore.NoteName(Math.Min(lowMidi, highMidi))}-{KanScore.NoteName(Math.Max(lowMidi, highMidi))}.", false);
         }
 
         private void apply()

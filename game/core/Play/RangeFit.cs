@@ -41,6 +41,14 @@ namespace Kan.Core.Play
         /// </summary>
         public static Func<(int Lowest, int Highest)?>? PlayerRange { get; set; }
 
+        /// <summary>
+        /// Save a new range for the player's instrument (the editor's compose
+        /// tab sets it beside the notes it greys; owner 2026-11-16). False
+        /// when there is nothing to save it to: no settings yet, or the
+        /// instrument is "as the level". The ruleset sets it.
+        /// </summary>
+        public static Func<int, int, bool>? SetPlayerRange { get; set; }
+
         /// <summary>The notes the player can play: their own range, else the level instrument's.</summary>
         public static (int Lowest, int Highest) Playable(string instrument) => PlayerRange?.Invoke() ?? DefaultRange(instrument);
 
