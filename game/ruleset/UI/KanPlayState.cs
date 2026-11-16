@@ -244,7 +244,15 @@ namespace Kan.Ruleset.UI
             // from the new position. Seen as the level drifting from that real time
             // (however the jump happened: osu! may run the clock through the gap).
             if (frameStableClock?.IsCatchingUp.Value == true)
+            {
+                // A replay's facts carry their own times: they reach the judge
+                // while the clock catches up too, because the notes are judged
+                // then (2026-11-15: a dense piano level's autoplay failed, every
+                // note closed as not heard before its facts arrived).
+                if (ReplaySource?.Invoke() is { } catchingUp)
+                    feedReplay(catchingUp, now);
                 return;
+            }
 
             if (session != null && !filePacedByLevel && waitingFor == null && !resuming && gameplayClock.IsRunning)
             {

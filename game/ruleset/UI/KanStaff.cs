@@ -154,6 +154,17 @@ namespace Kan.Ruleset.UI
         private readonly Box[] lineBoxes = new Box[line_pool];
         private readonly OsuSpriteText[] lineLabels = new OsuSpriteText[line_pool];
         private readonly NoteView[] views = new NoteView[note_pool];
+
+        /// <summary>
+        /// The note each view shows, and whether it showed one this frame. A
+        /// note keeps its view while it is in sight (note index modulo the
+        /// pool), so its name and marks are laid out once, not again each time
+        /// the notes before it scroll away (2026-11-15, issue 40: in a dense
+        /// piano passage every view changed note many times a second).
+        /// </summary>
+        private readonly int[] viewNote = Enumerable.Repeat(-1, note_pool).ToArray();
+
+        private readonly bool[] viewUsed = new bool[note_pool];
         private readonly Circle[] dots = new Circle[trail_pool];
 
         private KanNowLine nowLine = null!;
@@ -506,6 +517,25 @@ namespace Kan.Ruleset.UI
             }
         }
 
+        /// <summary>The view for note <paramref name="index"/> this frame: its own (index modulo the pool), else the next free one; a later note is drawn over an earlier one.</summary>
+        private NoteView viewFor(int index)
+        {
+            int slot = index % note_pool;
+
+            for (int k = 0; k < note_pool && viewUsed[slot] && viewNote[slot] != index; k++)
+                slot = (slot + 1) % note_pool;
+
+            viewUsed[slot] = true;
+
+            if (viewNote[slot] != index)
+            {
+                viewNote[slot] = index;
+                noteLayer.ChangeChildDepth(views[slot], -index);
+            }
+
+            return views[slot];
+        }
+
         private void drawNotes(double now)
         {
             double from = now - nowX / speed - 200; // what has scrolled off to the left
@@ -548,7 +578,8 @@ namespace Kan.Ruleset.UI
                 float emphasis = state.Verdicts[i] != null || isNext ? 1 : (float)Math.Clamp(1 - (n.StartTime - nextStart) / 3000, 0.45, 0.85);
 
                 var previous = i > 0 ? notes[i - 1] : null;
-                var view = views[used++];
+                var view = viewFor(i);
+                used++;
                 view.Show(n, state.Verdicts[i], now - judgedAt[i], heldUntil[i], previous, this, isNext, emphasis, look);
 
                 // "Hidden": a note fades out on its way to the line (gone 300 ms before it).
@@ -568,8 +599,11 @@ namespace Kan.Ruleset.UI
                 }
             }
 
-            for (int i = used; i < note_pool; i++)
-                views[i].Alpha = 0;
+            for (int i = 0; i < note_pool; i++)
+            {
+                if (!viewUsed[i]) views[i].Alpha = 0;
+                viewUsed[i] = false;
+            }
 
             // Where the next note will cross the line, marked on the line itself.
             if (next >= 0 && !state.HideNotes && state.SeenForMs == null)

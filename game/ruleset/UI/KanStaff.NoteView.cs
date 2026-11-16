@@ -249,7 +249,9 @@ namespace Kan.Ruleset.UI
 
                 name.Position = headCircle.Position;
                 name.Text = n.PitchUnknown ? @"?" : KanNotation.Name(n.Midi);
-                name.Font = isNext ? next_name_font : name_font;
+                // Set only when it changes: a font set lays the text out again, even the same font (issue 40).
+                var font = isNext ? next_name_font : name_font;
+                if (!name.Font.Equals(font)) name.Font = font;
                 name.Scale = new Vector2(scale * (1 + pop * 0.6f));
                 name.Alpha = missed ? 0.6f : 1;
 

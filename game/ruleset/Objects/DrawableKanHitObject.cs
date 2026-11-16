@@ -70,6 +70,16 @@ namespace Kan.Ruleset.Objects
             if (HitObject.EndsTheLevel) LifetimeEnd = Math.Max(HitStateUpdateTime, HitObject.EndMs) + 1;
         }
 
+        /// <summary>
+        /// Alive from this long before the note: the judge's earliest window
+        /// (<see cref="Kan.Core.Play.LiveJudge.MEH_MAX_MS"/>, widened by the
+        /// easiest mod) and a wrong try just before it, with room to spare.
+        /// osu!'s default is 10 s, and a drawable alive is checked every frame:
+        /// a dense piano passage held hundreds alive with nothing to decide
+        /// (2026-11-15, issue 40). The staff draws the notes, not these.
+        /// </summary>
+        protected override double InitialLifetimeOffset => 2500;
+
         /// <summary>A hit's moment: the note's start plus the judge's offset (the attack, not the decision).</summary>
         private double? resultTime;
 
