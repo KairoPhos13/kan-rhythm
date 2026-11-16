@@ -37,7 +37,7 @@ judgement or DSP research inside).
 | # | Package | Needs | Skill | Status |
 |---|---|---|---|---|
 | 0 | Orientation and design note | | A | done 2026-11-15 |
-| 1 | Truth bench, selftest, manifests, baseline of `blind`, `expect`, `core` | | B | done 2026-11-15, merged. Open: baseline on all 12 held-out excerpts (4 run so far), one-voice event dumps of the starter references |
+| 1 | Truth bench, selftest, manifests, baseline of `blind`, `expect`, `core` | | B | done 2026-11-15, merged. Baseline of 12 excerpts and one-voice dumps taken (findings) |
 | 2 | Learned evidence in the bench: a `bp` path on offline Basic Pitch posteriors (written note against rivals, attack time), then the same with emulated look-ahead of 50 to 500 ms | 1 | B | building (`agent/learned-evidence`) |
 | 3 | Harmonic evidence in the bench: attack curve from short windows, pitch from the tail with long windows, rivals in the joint fit. Prototype as a bench path first | 1 | A then B | prototype measured on the development list (`agent/harmonic-evidence`), see findings |
 | 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | open |
@@ -85,6 +85,17 @@ judgement or DSP research inside).
 
   CPU, share of real time, median of 3 pinned repeats: `blind` 30 %,
   `expect` 41 %, `core` 24 %. `expect` refuses 78 % of its chord sets.
+- 2026-11-16, the baseline on all 12 held-out excerpts (638 s, 6260
+  notes, none above 10 sounding), one run, no CPU repeats. This is the
+  baseline of record. Output (local):
+  `tools/dataset_bench/data/truth-bench/baseline-heldout-12/`.
+
+  | Path | Right accepted | Not measured | Absent | Wrong rejected: semitone / tone / octave / added |
+  |---|---|---|---|---|
+  | `blind` | 0.2 % | 8.2 % | 90.9 % | 99.9 / 100 / 100 / 100 |
+  | `expect` | 4.1 % | 14.5 % | 80.0 % | 98.3 / 98.7 / 97.8 / 97.9 |
+  | `core` | 89.6 % | 1.7 % | 8.7 % | 32.3 / 33.1 / 18.5 / 18.2 |
+  | `oracle` | 100 % | 0 | 0 | 100 (and 94.7 % accepted on `late120`) |
 - 2026-11-15. The `late250` case is beyond the judge's own window: the
   oracle accepts only 44 % there (the meh window can be 240 ms, and a
   repeated pitch pairs with the wrong attack). Read every path's
@@ -127,6 +138,19 @@ judgement or DSP research inside).
   - Reading: harmonic evidence alone is precise (it rejects) but finds
     too few right notes. It is the check, not the finder. Package 4
     joins it with the learned evidence.
+
+- 2026-11-16, owner. Fair to right notes first: a right note penalised
+  is worse than a wrong note forgiven. Tune for right notes accepted,
+  report wrong notes rejected as it falls. This reorders the acceptance
+  list of issue 41: target 4 (right notes found) leads, target 2 (wrong
+  notes rejected) follows. For package 4 it means the fusion starts from
+  "accept when either evidence supports the note and no rival is clearly
+  stronger", not from "accept when both agree".
+- 2026-11-16, owner. The tuning tracker of the game's judge moves into
+  libkan (package 5): common instruments are out of tune and winds drift.
+  The truth bench needs a detuned control for it: the same recording
+  shifted by 20, 40 and 60 cents must score like the original (add with
+  package 4; libkan has `pitch_shift.hpp`).
 
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 

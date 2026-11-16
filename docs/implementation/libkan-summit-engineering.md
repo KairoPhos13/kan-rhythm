@@ -91,6 +91,21 @@ Five parts with narrow seams, so each can be built and tested alone:
   flag that says so.
 - **Unmeasured is never wrong (I2).** No number is invented. A fact that
   cannot be measured honestly says so.
+- **Fair to what is played right, first (owner, 2026-11-16).** Of the
+  two errors, penalising a right note is the worse one: a player who
+  plays well and is told otherwise loses the joy of it. Settings are
+  chosen for right notes accepted first, and wrong notes rejected is
+  reported as it falls. In doubt a fact is accepted or not measured,
+  never a miss. The negative controls are still always reported.
+- **Pitch is relative to the instrument (owner, 2026-11-16).** People
+  play common instruments, and a wind drifts with air pressure. libkan
+  keeps a running estimate of the instrument's tuning and every pitch
+  test (rival search, cents tolerance, partial search range) is taken
+  from that estimate, never from standard pitch. The game did this in
+  its judge (`game/core/Play/TuningTracker.cs`: the median deviation of
+  recent readings, readings further than 0.7 semitones left out, at most
+  80 cents). That logic moves into libkan with the pairing, next to
+  `DetuneCalibrator` (`libkan/include/libkan/calibration.hpp`).
 - **Time and pitch are separate measurements.** Time from the attack with
   short windows. Pitch from the tail (struck) or the hold (blown) with
   long windows.
