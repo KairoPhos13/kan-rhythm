@@ -143,6 +143,10 @@ namespace Kan.Core.Native
         public static extern KanForgeStatus EditTrack(string audioPath, float startMs, float endMs,
                                                      int mode, string outWav, [Out] byte[] err, int errCap);
 
+        /// <summary>Decode a WAV, FLAC or MP3 to a PCM16 WAV at its own rate and channel count.</summary>
+        [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_decode_to_wav", CallingConvention = CallingConvention.Cdecl)]
+        public static extern KanForgeStatus DecodeToWav(string audioPath, string outWav, [Out] byte[] err, int errCap);
+
         [DllImport(LIBRARY_NAME, EntryPoint = @"kan_forge_analyze_track", CallingConvention = CallingConvention.Cdecl)]
         public static extern KanForgeStatus AnalyzeTrack(string audioPath,
                                                         [Out] float[] peaks, int bucketCount,

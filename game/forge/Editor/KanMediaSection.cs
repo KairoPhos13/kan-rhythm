@@ -108,7 +108,7 @@ namespace Kan.Forge.Editor
                 AutoSizeAxes = Axes.Y,
                 Padding = new MarginPadding { Horizontal = 9 },
             };
-            trackSelector = new FormFileSelector(SupportedExtensions.AUDIO_EXTENSIONS)
+            trackSelector = new FormFileSelector(MediaAudioExtractor.AUDIO_EXTENSIONS)
             {
                 Caption = @"Audio tracks",
                 HintText = @"Every file you pick joins the set below: the reference performance, companion tracks, your own stems. The same file is never added twice.",
@@ -397,15 +397,72 @@ namespace Kan.Forge.Editor
                 return;
             }
 
-            var track = trackSet.Import(Path.GetFileNameWithoutExtension(file.Name), file.FullName);
-            if (track == null)
+            if (MediaAudioExtractor.IsReadableAsIs(file.FullName))
             {
-                ForgeNotify.Info(notifications, $"'{file.Name}' is already in the set: a track is never added twice.", FontAwesome.Solid.Clone);
-                explorer.OfType<ExplorerRow>().FirstOrDefault(r => string.Equals(r.Track.Path, file.FullName, StringComparison.OrdinalIgnoreCase))?.Pulse();
+                importTrack(file.Name, file.FullName);
                 return;
             }
 
-            track.IsMixdown = ForgeTrack.LooksLikeMixdown(file.Name);
+            // Other formats (OGG, FLAC, M4A, AAC, ...) are decoded once to a
+            // WAV in the level's work folder, off the update thread; the
+            // same file always maps to the same WAV, so it is never added
+            // twice and never decoded twice.
+            string wav = decodedPath(file);
+
+            if (trackSet.ContainsPath(wav) || File.Exists(wav))
+            {
+                importTrack(file.Name, wav);
+                return;
+            }
+
+            ForgeNotify.Info(notifications, $"Reading '{file.Name}'…", FontAwesome.Solid.FileImport);
+
+            Task.Run(() => MediaAudioExtractor.TryExtractToWav(file.FullName, wav, out string error) ? null : error)
+                .ContinueWith(task => Schedule(() =>
+                {
+                    string? error = task.IsFaulted ? task.Exception?.GetBaseException().Message : task.Result;
+
+                    if (error != null)
+                    {
+                        try
+                        {
+                            File.Delete(wav);
+                        }
+                        catch
+                        {
+                            // Nothing was written, or it is already gone.
+                        }
+
+                        ForgeNotify.Error(notifications, $"Import: {error}");
+                        return;
+                    }
+
+                    importTrack(file.Name, wav);
+                }));
+        }
+
+        /// <summary>
+        /// The WAV a non-WAV source decodes to: named after the file, keyed
+        /// by its path, size and time, so a changed file decodes again.
+        /// </summary>
+        private static string decodedPath(FileInfo file)
+        {
+            string key = $"{file.FullName}|{file.Length}|{file.LastWriteTimeUtc.Ticks}";
+            byte[] hash = System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(key));
+            return ForgeTrackSession.WorkPath($"{Path.GetFileNameWithoutExtension(file.Name)}-{Convert.ToHexString(hash)[..8].ToLowerInvariant()}.wav");
+        }
+
+        private void importTrack(string fileName, string path)
+        {
+            var track = trackSet.Import(Path.GetFileNameWithoutExtension(fileName), path);
+            if (track == null)
+            {
+                ForgeNotify.Info(notifications, $"'{fileName}' is already in the set: a track is never added twice.", FontAwesome.Solid.Clone);
+                explorer.OfType<ExplorerRow>().FirstOrDefault(r => string.Equals(r.Track.Path, path, StringComparison.OrdinalIgnoreCase))?.Pulse();
+                return;
+            }
+
+            track.IsMixdown = ForgeTrack.LooksLikeMixdown(fileName);
             analyzeLater(track);
             syncExplorer();
         }

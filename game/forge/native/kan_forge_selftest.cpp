@@ -307,6 +307,24 @@ int main() {
         }
     }
 
+    // 7. Decode to WAV: the source's rate and channels kept, every frame
+    //    written; a missing file is a controlled error.
+    {
+        const std::string decoded = "kan_forge_selftest_decoded.wav";
+        st = kan_forge_decode_to_wav(wav.c_str(), decoded.c_str(), err, sizeof(err));
+        std::vector<float> in, out;
+        if (st != KAN_FORGE_OK || !read_wav(wav, in) || !read_wav(decoded, out) || in.size() != out.size()) {
+            std::fprintf(stderr, "SELFTEST FAIL: decode to wav (status %d, %zu vs %zu samples) %s\n",
+                         int(st), in.size(), out.size(), err);
+            ++failures;
+        }
+        st = kan_forge_decode_to_wav("definitely-not-here.flac", decoded.c_str(), err, sizeof(err));
+        if (st != KAN_FORGE_ERR_DECODE) {
+            std::fprintf(stderr, "SELFTEST FAIL: decode of a missing file gave status %d\n", int(st));
+            ++failures;
+        }
+    }
+
     // N. Live description: the melody fed in 10 ms chunks (as a microphone
     //    delivers it) gives the same onsets and pitches as the offline
     //    transcription of the same file, and a continuous pitch reading.

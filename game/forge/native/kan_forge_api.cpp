@@ -767,3 +767,67 @@ kan_forge_status kan_forge_normalize_loudness(const char* audio_path, const char
 }
 
 } // extern "C"
+
+namespace {
+
+kan_forge_status decode_to_wav_impl(const char* audio_path, const char* out_wav,
+                                    char* err, int32_t err_cap) {
+    if (audio_path == nullptr || out_wav == nullptr) {
+        set_err(err, err_cap, "decode: missing audio path or output path");
+        return KAN_FORGE_ERR_ARGS;
+    }
+
+    // Format, channels and rate 0 keep the source's own.
+    ma_decoder_config dcfg = ma_decoder_config_init(ma_format_s16, 0, 0);
+    ma_decoder dec;
+    if (ma_decoder_init_file(audio_path, &dcfg, &dec) != MA_SUCCESS) {
+        set_err(err, err_cap, "decode: cannot decode audio (missing file or unsupported codec)");
+        return KAN_FORGE_ERR_DECODE;
+    }
+
+    ma_encoder_config ecfg = ma_encoder_config_init(ma_encoding_format_wav, ma_format_s16,
+                                                    dec.outputChannels, dec.outputSampleRate);
+    ma_encoder enc;
+    if (ma_encoder_init_file(out_wav, &ecfg, &enc) != MA_SUCCESS) {
+        ma_decoder_uninit(&dec);
+        set_err(err, err_cap, "decode: cannot write the output file");
+        return KAN_FORGE_ERR_ARGS;
+    }
+
+    const ma_uint32 channels = dec.outputChannels;
+    std::vector<int16_t> chunk(size_t(4096) * channels);
+    ma_uint64 total = 0;
+    bool ok = true;
+    for (;;) {
+        ma_uint64 got = 0;
+        if (ma_decoder_read_pcm_frames(&dec, chunk.data(), 4096, &got) != MA_SUCCESS || got == 0) break;
+        ma_uint64 written = 0;
+        if (ma_encoder_write_pcm_frames(&enc, chunk.data(), got, &written) != MA_SUCCESS || written != got) {
+            ok = false;
+            break;
+        }
+        total += got;
+    }
+
+    ma_encoder_uninit(&enc);
+    ma_decoder_uninit(&dec);
+
+    if (!ok) {
+        set_err(err, err_cap, "decode: cannot write the output file");
+        return KAN_FORGE_ERR_ARGS;
+    }
+    if (total == 0) {
+        set_err(err, err_cap, "decode: the file has no audio data");
+        return KAN_FORGE_ERR_DECODE;
+    }
+    return KAN_FORGE_OK;
+}
+
+} // namespace
+
+kan_forge_status kan_forge_decode_to_wav(const char* audio_path, const char* out_wav,
+                                         char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "decode", [&] {
+        return decode_to_wav_impl(audio_path, out_wav, err, err_cap);
+    });
+}

@@ -2,9 +2,12 @@
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
 using System;
+using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using ManagedBass;
 using Kan.Core.Media;
+using Kan.Core.Native;
 
 namespace Kan.Forge.Media
 {
@@ -53,8 +56,130 @@ namespace Kan.Forge.Media
             }
         }
 
-        /// <summary>Decode <paramref name="mediaPath"/>'s audio into a PCM16 WAV.</summary>
+        /// <summary>
+        /// Decode <paramref name="mediaPath"/>'s audio into a PCM16 WAV, by
+        /// the first decoder that reads it (owner 2026-11-15: tracks in the
+        /// common formats, not only WAV):
+        /// <list type="number">
+        /// <item>BASS, the playback library: MP3, OGG and WAV everywhere; on
+        /// Windows and macOS also AAC, M4A and more through the system's own
+        /// codecs.</item>
+        /// <item>libkan's built-in decoder: FLAC (and WAV, MP3).</item>
+        /// <item>The system's <c>ffmpeg</c> program when one is installed:
+        /// AAC, M4A, Opus, WMA and video containers on Linux.</item>
+        /// </list>
+        /// The source's rate and channel count are kept.
+        /// </summary>
         public static bool TryExtractToWav(string mediaPath, string outWav, out string error)
+        {
+            if (!File.Exists(mediaPath))
+            {
+                error = $"'{Path.GetFileName(mediaPath)}' does not exist";
+                return false;
+            }
+
+            if (tryBass(mediaPath, outWav, out string bassError))
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            if (tryNative(mediaPath, outWav, out _))
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            if (tryFfmpeg(mediaPath, outWav, out string ffmpegError))
+            {
+                error = string.Empty;
+                return true;
+            }
+
+            error = $"no decoder on this system reads '{Path.GetFileName(mediaPath)}' ({bassError}; {ffmpegError}). "
+                    + "Convert it to WAV, MP3, OGG or FLAC, or install FFmpeg.";
+            return false;
+        }
+
+        private static bool tryNative(string mediaPath, string outWav, out string error)
+        {
+            var err = new byte[512];
+
+            try
+            {
+                if (KanForgeNative.DecodeToWav(mediaPath, outWav, err, err.Length) == KanForgeStatus.Ok)
+                {
+                    error = string.Empty;
+                    return true;
+                }
+            }
+            catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+            {
+                error = "the built-in decoder is not available";
+                return false;
+            }
+
+            error = System.Text.Encoding.UTF8.GetString(err).TrimEnd('\0');
+            return false;
+        }
+
+        /// <summary>
+        /// The system's ffmpeg program, when installed. Arguments go as a
+        /// list (no shell), the source is only read.
+        /// </summary>
+        private static bool tryFfmpeg(string mediaPath, string outWav, out string error)
+        {
+            var info = new ProcessStartInfo(@"ffmpeg")
+            {
+                UseShellExecute = false,
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                CreateNoWindow = true,
+            };
+
+            foreach (string arg in new[] { @"-nostdin", @"-v", @"error", @"-y", @"-i", mediaPath, @"-vn", @"-c:a", @"pcm_s16le", outWav })
+                info.ArgumentList.Add(arg);
+
+            try
+            {
+                using var process = Process.Start(info);
+
+                if (process == null)
+                {
+                    error = "ffmpeg did not start";
+                    return false;
+                }
+
+                process.StandardOutput.ReadToEndAsync();
+                var stderr = process.StandardError.ReadToEndAsync();
+
+                if (!process.WaitForExit(ffmpeg_timeout_ms))
+                {
+                    process.Kill(true);
+                    error = "ffmpeg took too long";
+                    return false;
+                }
+
+                if (process.ExitCode == 0 && File.Exists(outWav) && new FileInfo(outWav).Length > 44)
+                {
+                    error = string.Empty;
+                    return true;
+                }
+
+                string message = stderr.Result.Trim();
+                error = $"ffmpeg failed{(message.Length > 0 ? $": {message.Split('\n')[0]}" : string.Empty)}";
+                return false;
+            }
+            catch (Win32Exception)
+            {
+                error = "ffmpeg is not installed";
+                return false;
+            }
+        }
+
+        private const int ffmpeg_timeout_ms = 5 * 60 * 1000;
+
+        private static bool tryBass(string mediaPath, string outWav, out string error)
         {
             error = string.Empty;
             ensureBass();
@@ -472,12 +597,32 @@ namespace Kan.Forge.Media
             }
         }
 
+        /// <summary>
+        /// The audio files the editor imports as tracks (owner 2026-11-15:
+        /// the common formats, not only WAV).
+        /// </summary>
+        public static readonly string[] AUDIO_EXTENSIONS =
+        [
+            @".wav", @".mp3", @".ogg", @".oga", @".flac", @".m4a", @".aac", @".opus", @".wma", @".aif", @".aiff",
+        ];
+
+        /// <summary>
+        /// True when both the playback library and libkan read the file as
+        /// it is (WAV, MP3). Any other format is decoded once to a WAV on
+        /// import, so playback, the waveform, separation and transcription
+        /// all read the same audio.
+        /// </summary>
+        public static bool IsReadableAsIs(string path)
+        {
+            string ext = Path.GetExtension(path).ToLowerInvariant();
+            return ext is ".wav" or ".mp3";
+        }
+
         /// <summary>True when the file looks like a container we can pull audio from.</summary>
         public static bool CanExtract(string path)
         {
             string ext = Path.GetExtension(path).ToLowerInvariant();
-            return ext is ".mp4" or ".webm" or ".mkv" or ".mov" or ".avi"
-                or ".mp3" or ".ogg" or ".wav" or ".flac" or ".m4a" or ".aac";
+            return IsVideo(path) || Array.IndexOf(AUDIO_EXTENSIONS, ext) >= 0;
         }
 
         /// <summary>True when the file is a video container (its audio may carry the take).</summary>
