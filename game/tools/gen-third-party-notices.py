@@ -293,7 +293,10 @@ def main(argv: list[str] | None = None) -> int:
                  "Discord integration is active.")
     lines.append("- **kan!'s native bridge** (`kan_forge_native`): miniaudio (MIT-0), "
                  "the Basic Pitch C++ port and its ICASSP 2022 weights (Apache-2.0, "
-                 "Copyright 2022 Spotify AB), GGML (MIT) and BSRoformer.cpp (MIT). "
+                 "Copyright 2022 Spotify AB), GGML (MIT), BSRoformer.cpp (MIT), "
+                 "stb_vorbis (public domain, Sean Barrett) and libogg 1.3.6 and "
+                 "libvorbis 1.3.7 (BSD-3-Clause, Copyright (c) 2002-2020 Xiph.org "
+                 "Foundation; licence texts in `licenses/`). "
                  "Record of record with versions and changes: "
                  "`libkan/THIRD_PARTY_NOTICES.md` in the kan-rhythm monorepo.")
     lines.append("")

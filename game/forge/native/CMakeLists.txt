@@ -89,7 +89,10 @@ endif()
 
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../libkan libkan_build)
 
-add_library(kan_forge_native SHARED kan_forge_api.cpp)
+# Ogg Vorbis encoder for the level files (issue 42): target kan_vorbis.
+include(${CMAKE_CURRENT_SOURCE_DIR}/cmake/kan_vorbis.cmake)
+
+add_library(kan_forge_native SHARED kan_forge_api.cpp kan_forge_ogg.cpp)
 # P/Invoke resolves "kan_forge_native" to kan_forge_native.dll on Windows:
 # MinGW's CMake would name the DLL libkan_forge_native.dll: drop the lib
 # prefix there (MSVC has none; POSIX keeps libkan_forge_native.{so,dylib}).
@@ -97,7 +100,7 @@ if(WIN32)
     set_target_properties(kan_forge_native PROPERTIES PREFIX "")
 endif()
 target_include_directories(kan_forge_native SYSTEM PRIVATE ${miniaudio_SOURCE_DIR})
-target_link_libraries(kan_forge_native PRIVATE libkan)
+target_link_libraries(kan_forge_native PRIVATE libkan kan_vorbis)
 kan_first_party_target(kan_forge_native)
 target_compile_definitions(kan_forge_native PRIVATE KAN_FORGE_VERSION="${KAN_VERSION}")
 if(UNIX AND NOT APPLE)

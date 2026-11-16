@@ -69,11 +69,41 @@ Encoding needs an encoder in the native bridge: libvorbis and libogg
 Both build on Linux, Windows (MinGW) and macOS; they go through
 `kan_build_policy.cmake` like everything shipped.
 
+## Progress
+
+**Step 1 done (2026-11-16).** The owner chose Ogg Vorbis for the played
+files ("si ogg es mejor vamos por esa ruta"); MP3 stays readable
+everywhere (import, the game, libkan).
+
+- The native bridge encodes Ogg Vorbis: `kan_forge_encode_ogg`, libogg
+  1.3.6 and libvorbis 1.3.7 built from source into the bridge
+  (`game/forge/native/cmake/kan_vorbis.cmake`), deterministic output (a
+  fixed stream serial, so a file's hash changes only with its sound).
+- The bridge also reads Ogg now (stb_vorbis from miniaudio's extras), so
+  every native decode (imports, loudness, transcription) takes it.
+- The editor writes "<title> - level audio.ogg" and "<title> - level
+  voice.ogg" at Vorbis quality 0.6 (`BeatmapAudio.PLAY_FILE_QUALITY`). The
+  renders stay WAV in the work folder; only what the level carries is
+  compressed.
+- The format is part of the level audio's signature: a level written as
+  WAV renders again as Ogg on its next save in the editor, and the old WAV
+  files are removed. Voice files of both formats are found.
+- Measured on "No hay lugar más alto" (the level audio is mono 48 kHz,
+  6 min 11 s): 35.7 MB as WAV, 4.3 MB as Ogg, encoded in 1.5 s.
+- Tests: the bridge selftest (an Ogg file, smaller than a third of the
+  WAV, the same bytes twice, decoded back at full length with more than
+  30 dB SNR, the same transcribed notes) and `LevelPlayFileTest` (BASS
+  plays the Ogg at its rate, channels and exact length).
+
+Next: steps 2 to 4 (stems stored, levels from levels, play and full
+packages). The owner's choices on FLAC or Vorbis stems and one or two
+packages are still open.
+
 ## Acceptance
 
-- [ ] The level audio and the voice are Ogg Vorbis; a level with a voice
+- [x] The level audio and the voice are Ogg Vorbis; a level with a voice
       of six minutes is under 25 MB without stems.
-- [ ] Existing WAV levels keep playing; the next render writes Vorbis.
+- [x] Existing WAV levels keep playing; the next render writes Vorbis.
 - [ ] A demuxed level carries its stems under `stems/`, and the package
       stays within the server's limit for a song of 6 minutes.
 - [ ] Play opens no stem (measured: the same files open as before).

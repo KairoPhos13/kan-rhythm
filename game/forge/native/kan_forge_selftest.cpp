@@ -10,6 +10,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <cstdint>
+#include <cstring>
 #include <string>
 #include <vector>
 
@@ -321,6 +322,76 @@ int main() {
         st = kan_forge_decode_to_wav("definitely-not-here.flac", decoded.c_str(), err, sizeof(err));
         if (st != KAN_FORGE_ERR_DECODE) {
             std::fprintf(stderr, "SELFTEST FAIL: decode of a missing file gave status %d\n", int(st));
+            ++failures;
+        }
+    }
+
+    // 8. Ogg Vorbis (issue 42): the melody encoded is a real Ogg file,
+    //    smaller than the WAV, the same bytes every time; decoded back (the
+    //    decoder reads Ogg through stb_vorbis) it keeps its length and its
+    //    sound, and gives the same notes. Bad input is a controlled error.
+    {
+        const std::string ogg = "kan_forge_selftest.ogg", ogg2 = "kan_forge_selftest_again.ogg";
+        const std::string back = "kan_forge_selftest_from_ogg.wav";
+        st = kan_forge_encode_ogg(wav.c_str(), ogg.c_str(), 0.6f, err, sizeof(err));
+        auto bytes = [](const std::string& path) {
+            std::vector<char> b;
+            if (std::FILE* f = std::fopen(path.c_str(), "rb")) {
+                char buf[4096];
+                size_t n;
+                while ((n = std::fread(buf, 1, sizeof buf, f)) > 0) b.insert(b.end(), buf, buf + n);
+                std::fclose(f);
+            }
+            return b;
+        };
+        const std::vector<char> encoded = bytes(ogg), source = bytes(wav);
+        if (st != KAN_FORGE_OK || encoded.size() < 4 || std::memcmp(encoded.data(), "OggS", 4) != 0
+            || encoded.size() * 3 > source.size()) {
+            std::fprintf(stderr, "SELFTEST FAIL: encode ogg (status %d, %zu bytes from %zu) %s\n", int(st),
+                         encoded.size(), source.size(), err);
+            ++failures;
+        }
+
+        st = kan_forge_encode_ogg(wav.c_str(), ogg2.c_str(), 0.6f, err, sizeof(err));
+        if (st != KAN_FORGE_OK || bytes(ogg2) != encoded) {
+            std::fprintf(stderr, "SELFTEST FAIL: encoding the same audio twice gave different bytes\n");
+            ++failures;
+        }
+
+        std::vector<float> in, out;
+        st = kan_forge_decode_to_wav(ogg.c_str(), back.c_str(), err, sizeof(err));
+        if (st != KAN_FORGE_OK || !read_wav(wav, in) || !read_wav(back, out) || in.size() != out.size()) {
+            std::fprintf(stderr, "SELFTEST FAIL: ogg decode (status %d, %zu vs %zu samples) %s\n", int(st),
+                         in.size(), out.size(), err);
+            ++failures;
+        } else {
+            double signal = 0, noise = 0;
+            for (size_t i = 0; i < in.size(); ++i) {
+                signal += double(in[i]) * in[i];
+                noise += double(in[i] - out[i]) * (in[i] - out[i]);
+            }
+            const double snr_db = 10.0 * std::log10(signal / std::max(noise, 1e-12));
+            if (!(snr_db > 30.0)) {
+                std::fprintf(stderr, "SELFTEST FAIL: ogg round trip too far from the source (%.1f dB)\n", snr_db);
+                ++failures;
+            }
+        }
+
+        kan_forge_note from_wav[64], from_ogg[64];
+        int32_t n_wav = 0, n_ogg = 0;
+        kan_forge_transcribe_file(wav.c_str(), "keyboard", from_wav, 64, &n_wav, err, sizeof(err));
+        kan_forge_transcribe_file(ogg.c_str(), "keyboard", from_ogg, 64, &n_ogg, err, sizeof(err));
+        bool same = n_wav > 0 && n_wav == n_ogg;
+        for (int32_t k = 0; same && k < n_wav; ++k)
+            same = from_wav[k].midi == from_ogg[k].midi && std::fabs(from_wav[k].onset_ms - from_ogg[k].onset_ms) <= 10.0f;
+        if (!same) {
+            std::fprintf(stderr, "SELFTEST FAIL: the ogg file transcribes differently (%d vs %d notes)\n", n_wav, n_ogg);
+            ++failures;
+        }
+
+        if (kan_forge_encode_ogg("definitely-not-here.flac", ogg2.c_str(), 0.6f, err, sizeof(err)) != KAN_FORGE_ERR_DECODE
+            || kan_forge_encode_ogg(wav.c_str(), ogg2.c_str(), 2.0f, err, sizeof(err)) != KAN_FORGE_ERR_ARGS) {
+            std::fprintf(stderr, "SELFTEST FAIL: bad encode input not refused\n");
             ++failures;
         }
     }

@@ -124,8 +124,8 @@ namespace Kan.Forge.Play
         }
 
         /// <summary>A channel for the level's voice, cut to the level audio's window: it plays from the same start, at full volume.</summary>
-        public static LevelPart? OpenVoice(AudioManager audio, byte[] voiceWav, string name)
-            => AudioChannel.Open(audio, $"{name}.wav", voiceWav) is { } voiceChannel ? new LevelPart(voiceChannel, null, 0, 1) : null;
+        public static LevelPart? OpenVoice(AudioManager audio, byte[] voiceFile, string name)
+            => AudioChannel.Open(audio, name, voiceFile) is { } voiceChannel ? new LevelPart(voiceChannel, null, 0, 1) : null;
 
         /// <summary>
         /// Keep in step with the level audio: <paramref name="levelAudioMs"/>

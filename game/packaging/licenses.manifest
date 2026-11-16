@@ -13,6 +13,8 @@
 LICENSE                                  LICENSE-kan.txt
 libkan/licenses/basic-pitch-LICENSE      basic-pitch-LICENSE
 libkan/licenses/basic-pitch-NOTICE       basic-pitch-NOTICE
+game/forge/native/licenses/libogg-COPYING     libogg-COPYING
+game/forge/native/licenses/libvorbis-COPYING  libvorbis-COPYING
 game/packaging/licenses/LGPL-2.1.txt     LGPL-2.1.txt
 game/packaging/licenses/LGPL-3.0.txt     LGPL-3.0.txt
 game/packaging/licenses/GPL-3.0.txt      GPL-3.0.txt

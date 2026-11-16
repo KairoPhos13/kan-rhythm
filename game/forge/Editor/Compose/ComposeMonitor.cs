@@ -128,7 +128,7 @@ namespace Kan.Forge.Editor.Compose
                         readingVoice = false;
                         if (task.IsFaulted || task.Result == null || hash != voiceHash) return;
 
-                        voice = AudioChannel.Open(audio, $"kan-compose-voice-{hash}.wav", task.Result);
+                        voice = AudioChannel.Open(audio, $"kan-compose-voice-{hash}", task.Result);
                         voice?.Track.AddAdjustment(AdjustableProperty.Tempo, clock.AudioAdjustments.AggregateTempo);
                         voice?.Track.AddAdjustment(AdjustableProperty.Frequency, clock.AudioAdjustments.AggregateFrequency);
                     }));

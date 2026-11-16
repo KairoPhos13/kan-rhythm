@@ -50,7 +50,7 @@ The separation model is **not** shipped (see row 11).
 | 6 | FFmpeg 4.x (`libavcodec`/`libavformat`/`libavutil`/`libswscale`), via `ppy.osu.Framework.NativeLibs` | LGPL 2.1 or later (build-dependent, see GAP 3); accepted as the inherited set by [ADR-0013](adr/0013-accept-inherited-lgpl-set.md) | Notices §5 (corrected 2026-11-11, GAP 3) |
 | 7 | SDL2 and SDL3, `libveldrid-spirv` (SPIRV-Cross), `libstbi`, `librealm-wrappers`, `e_sqlite3` | SDL2/SDL3: Zlib; SPIRV-Cross: MIT; stbi: public domain/MIT; Realm: Apache-2.0; SQLite: public domain | packages in notices §3; native binaries named in notices §5 (GAP 4) |
 | 8 | kan! payload: `osu.Game.Rulesets.Kan.dll`, `Kan.Forge.dll`, `Kan.Core.dll` | MIT, kan-rhythm contributors | root README; release notes |
-| 9 | `libkan_forge_native` (the native bridge): miniaudio (MIT-0), Basic Pitch port + ICASSP 2022 weights (Apache-2.0, Spotify AB), GGML (MIT), BSRoformer.cpp (MIT) | MIT-0 / Apache-2.0 / MIT / MIT, record of record [libkan/THIRD_PARTY_NOTICES.md](../libkan/THIRD_PARTY_NOTICES.md) | Notices §5 (bridge components named 2026-11-11, GAP 4) |
+| 9 | `libkan_forge_native` (the native bridge): miniaudio (MIT-0), stb_vorbis (public domain), Basic Pitch port + ICASSP 2022 weights (Apache-2.0, Spotify AB), GGML (MIT), BSRoformer.cpp (MIT), libogg + libvorbis (BSD-3-Clause, since issue 42, texts in `licenses/`) | MIT-0 / public domain / Apache-2.0 / MIT / MIT / BSD-3-Clause, record of record [libkan/THIRD_PARTY_NOTICES.md](../libkan/THIRD_PARTY_NOTICES.md) | Notices §5 (bridge components named 2026-11-11, GAP 4) |
 | 10 | `brand/`: kan!'s logo, icons, intro art, menu backgrounds | MIT, kan-rhythm contributors (provenance in [game/brand/README.md](../game/brand/README.md), fixed 2026-11-11) | kan!'s own art, no third-party credit owed |
 | 11 | Separation model (BS-RoFormer SW 6-stem GGUF, ~180 MB): **not shipped**, downloaded to `models/` at first use from a **pinned, hash-verified** source (revision + SHA-256, GAP 10, since 2026-11-12) | **default f16 grade: MIT** (`studio409`, since 2026-11-11); q8 grade (`FractalSurfer`, licence unknown) is an explicit opt-in only | Notices §6 (model, source, licence) + release notes (GAP 7) |
 
@@ -210,6 +210,8 @@ All within MIT / MIT-0 / BSD / Apache-2.0 (ADR-0003,
 | Component | Where it is used | Licence | In a notices file? |
 |---|---|---|---|
 | miniaudio 0.11.25 | native bridge, `tools/`, `apps/` | MIT-0 | added to [libkan/THIRD_PARTY_NOTICES.md](../libkan/THIRD_PARTY_NOTICES.md) 2026-11-11 |
+| stb_vorbis (in miniaudio's extras) | native bridge (Ogg decoding, issue 42) | public domain / MIT | `libkan/THIRD_PARTY_NOTICES.md` |
+| libogg 1.3.6, libvorbis 1.3.7 | native bridge only (Ogg encoding of level files, issue 42) | BSD-3-Clause, texts in `game/forge/native/licenses/`, listed in `licenses.manifest` | `libkan/THIRD_PARTY_NOTICES.md` |
 | Basic Pitch ICASSP 2022 weights + C++ port | `libkan_basic_pitch`, compiled into the bridge | Apache-2.0 (Spotify AB), `libkan/licenses/` | `libkan/THIRD_PARTY_NOTICES.md` |
 | GGML (pinned) | `libkan_roformer`, compiled into the bridge | MIT | `libkan/THIRD_PARTY_NOTICES.md` |
 | BSRoformer.cpp (pinned) | `libkan_roformer`, compiled into the bridge | MIT (verified from the upstream `LICENSE`) | `libkan/THIRD_PARTY_NOTICES.md` |

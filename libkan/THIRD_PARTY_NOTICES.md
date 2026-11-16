@@ -40,6 +40,15 @@ and BSRoformer.cpp (MIT, Copyright (c) 2026 chenmozhijin <cmzj@cmzj.org>).
   utilities. Not part of libkan itself; the upstream copyright header
   stays in the fetched `miniaudio.h`.
 
+- **stb_vorbis** (public domain / MIT, Sean Barrett): Ogg Vorbis
+  decoding, shipped in miniaudio's `extras/` and compiled into the native
+  bridge with it (issue 42).
+- **libogg 1.3.6 and libvorbis 1.3.7** (BSD-3-Clause, Copyright (c)
+  2002-2020 Xiph.org Foundation): the Ogg Vorbis encoder for the level
+  files, fetched at build time and compiled into the native bridge only
+  (`game/forge/native/cmake/kan_vorbis.cmake`). Licence texts in
+  `game/forge/native/licenses/`, shipped in every release's `licenses/`.
+
 ## Optional backends (fetched by the root CMakeLists)
 
 - Cycfi Q (MIT): `libkan_bacf`.

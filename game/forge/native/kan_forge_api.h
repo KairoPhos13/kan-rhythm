@@ -169,12 +169,20 @@ KAN_FORGE_API kan_forge_status kan_forge_measure_loudness(const char* audio_path
                                                           float* out_lufs, float* out_peak,
                                                           char* err, int32_t err_cap);
 
-/* Decode any file the built-in decoder reads (WAV, FLAC, MP3) to a PCM16
+/* Decode any file the built-in decoder reads (WAV, FLAC, MP3, Ogg Vorbis) to a PCM16
  * WAV at the source's own sample rate and channel count, so a stereo
  * companion stays stereo. The editor uses it when the playback library
  * cannot read a format (FLAC on Linux). */
 KAN_FORGE_API kan_forge_status kan_forge_decode_to_wav(const char* audio_path, const char* out_wav,
                                                        char* err, int32_t err_cap);
+
+/* Encode any file the built-in decoder reads to Ogg Vorbis at the source's
+ * own sample rate and channel count (issue 42: the level audio and the
+ * level voice travel compressed). quality is libvorbis' VBR quality, -0.1
+ * to 1.0 (0.6 is about 190 kbit/s for stereo). The same input always gives
+ * the same bytes. On failure no output file is left. */
+KAN_FORGE_API kan_forge_status kan_forge_encode_ogg(const char* audio_path, const char* out_ogg, float quality,
+                                                    char* err, int32_t err_cap);
 
 /* Level a file to target_lufs (mono 48 kHz WAV out), its peak held at or
  * under ceiling_dbfs: a quiet file with sharp peaks comes up only as far as

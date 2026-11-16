@@ -77,7 +77,7 @@ namespace Kan.Forge.Editor
             }
         }
 
-        /// <summary>The level audio's file name: named after the level ("My Song - level audio.wav").</summary>
+        /// <summary>The level audio's file name: named after the level ("My Song - level audio.ogg").</summary>
         public static string LevelAudioFileName(WorkingBeatmap working)
         {
             string title = working.BeatmapInfo.Metadata.Title?.Trim() ?? string.Empty;
@@ -86,17 +86,35 @@ namespace Kan.Forge.Editor
             return string.IsNullOrEmpty(safe) ? LEVEL_AUDIO_SUFFIX.TrimStart(' ', '-') : safe + LEVEL_AUDIO_SUFFIX;
         }
 
-        private const string LEVEL_AUDIO_SUFFIX = @" - level audio.wav";
+        /// <summary>
+        /// The format the level's played files are written in (issue 42):
+        /// Ogg Vorbis, about a ninth of the WAV they were before. Levels
+        /// written as WAV keep playing; their next render writes Ogg.
+        /// </summary>
+        public const string PLAY_FILE_EXTENSION = @".ogg";
 
-        /// <summary>The level's voice file: named after the level ("My Song - level voice.wav").</summary>
+        /// <summary>The Vorbis quality of the played files (libvorbis VBR, about 190 kbit/s stereo).</summary>
+        public const float PLAY_FILE_QUALITY = 0.6f;
+
+        private const string level_audio_stem = @"level audio";
+        private const string LEVEL_AUDIO_SUFFIX = @" - " + level_audio_stem + PLAY_FILE_EXTENSION;
+
+        /// <summary>The level's voice file: named after the level ("My Song - level voice.ogg").</summary>
         public static string LevelVoiceFileName(WorkingBeatmap working)
-            => LevelAudioFileName(working).Replace(@"level audio.wav", LEVEL_VOICE_NAME, StringComparison.Ordinal);
+            => LevelAudioFileName(working).Replace(level_audio_stem + PLAY_FILE_EXTENSION, LEVEL_VOICE_NAME, StringComparison.Ordinal);
 
-        /// <summary>How every level voice file ends: the game finds it by this.</summary>
-        public const string LEVEL_VOICE_NAME = @"level voice.wav";
+        /// <summary>How a level voice file is named now; earlier levels end in "level voice.wav".</summary>
+        public const string LEVEL_VOICE_NAME = level_voice_stem + PLAY_FILE_EXTENSION;
 
-        /// <summary>Whether a file of a level is its voice file.</summary>
-        public static bool IsLevelVoice(string? fileName) => fileName?.EndsWith(LEVEL_VOICE_NAME, StringComparison.OrdinalIgnoreCase) == true;
+        private const string level_voice_stem = @"level voice";
+
+        /// <summary>Whether a file of a level is its voice file (Ogg, or WAV from before issue 42).</summary>
+        public static bool IsLevelVoice(string? fileName) => isLevelFile(fileName, level_voice_stem);
+
+        private static bool isLevelFile(string? fileName, string stem)
+            => !string.IsNullOrEmpty(fileName)
+               && Path.GetFileNameWithoutExtension(fileName).EndsWith(stem, StringComparison.OrdinalIgnoreCase)
+               && Path.GetExtension(fileName).ToLowerInvariant() is @".ogg" or @".wav";
 
         /// <summary>Whether two file names name the same file: the level's file store ignores case (audit B7).</summary>
         public static bool SameFile(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
@@ -118,7 +136,7 @@ namespace Kan.Forge.Editor
 
         private static bool isRender(string? fileName)
             => !string.IsNullOrEmpty(fileName)
-               && (fileName.EndsWith(LEVEL_AUDIO_SUFFIX.TrimStart(' ', '-'), StringComparison.OrdinalIgnoreCase)
+               && (isLevelFile(fileName, level_audio_stem)
                    || fileName.StartsWith(@"level-audio", StringComparison.OrdinalIgnoreCase)
                    || fileName.StartsWith(@"audio-render", StringComparison.OrdinalIgnoreCase)
                    || fileName.StartsWith(@"render-", StringComparison.OrdinalIgnoreCase));
@@ -168,7 +186,9 @@ namespace Kan.Forge.Editor
                 + string.Join(';', t.Edits.Ranges.Select(r => FormattableString.Invariant($"{(int)r.Mode}:{r.FromMs:0}-{r.ToMs:0}"))));
 
             // The levelling too: a level rendered before it, or at another offset, is rendered again.
-            return FormattableString.Invariant($"{set.AudioStartMs:0}-{set.AudioEndMs:0}#L{LevelLoudness.VERSION}:{set.LoudnessOffsetDb:0.0}#") + string.Join('#', parts);
+            // And the format: a level written as WAV is written again as Ogg (issue 42).
+            return FormattableString.Invariant($"{set.AudioStartMs:0}-{set.AudioEndMs:0}#L{LevelLoudness.VERSION}:{set.LoudnessOffsetDb:0.0}#F{PLAY_FILE_EXTENSION}#")
+                   + string.Join('#', parts);
         }
 
         /// <summary>The level audio matches the companion mix as it is now.</summary>
@@ -221,6 +241,11 @@ namespace Kan.Forge.Editor
                     voiceFile = await renderAtGain(voices, gain, @"level-voice", start, end, cut, scheduler);
                 }
 
+                // What the level carries is compressed; the renders stay WAV in the work folder.
+                levelAudio = await ToPlayFileAsync(levelAudio);
+                if (voiceFile != null)
+                    voiceFile = await ToPlayFileAsync(voiceFile);
+
                 string? name = Apply(working, beatmaps, music, editor, levelAudio, out string? error, replaceRendered: true,
                     targetName: LevelAudioFileName(working));
                 if (name == null)
@@ -240,6 +265,31 @@ namespace Kan.Forge.Editor
                 Rendering = false;
             }
         }
+
+        /// <summary>
+        /// Encode a render as the level's play format (Ogg Vorbis) next to it
+        /// in the work folder. Runs off the update thread.
+        /// </summary>
+        public static Task<string> ToPlayFileAsync(string wav) => Task.Run(() =>
+        {
+            string ogg = Path.ChangeExtension(wav, PLAY_FILE_EXTENSION);
+            var err = new byte[512];
+            KanForgeStatus status;
+
+            try
+            {
+                status = KanForgeNative.EncodeOgg(wav, ogg, PLAY_FILE_QUALITY, err, err.Length);
+            }
+            catch (Exception e) when (e is DllNotFoundException or EntryPointNotFoundException)
+            {
+                throw new ForgeException("the built-in audio encoder is not available: update kan!");
+            }
+
+            if (status != KanForgeStatus.Ok)
+                throw new ForgeException($"could not compress the level audio: {System.Text.Encoding.UTF8.GetString(err).TrimEnd('\0')}");
+
+            return ogg;
+        });
 
         /// <summary>Mix, cut to the level audio window, and bring to the game's loudness. Returns the file and the loudness before and after.</summary>
         private static async Task<(string Path, double Before, double After)> renderLevelled(List<ForgeTrack> tracks, double loudnessOffsetDb, double start, double end, bool cut, Scheduler scheduler)
@@ -281,21 +331,21 @@ namespace Kan.Forge.Editor
         /// removing any earlier one (the title, and so the name, may have
         /// changed). Returns false with an error.
         /// </summary>
-        private static bool setVoice(WorkingBeatmap working, BeatmapManager beatmaps, osu.Game.Screens.Edit.Editor? editor, string? voiceWav, out string? error)
+        private static bool setVoice(WorkingBeatmap working, BeatmapManager beatmaps, osu.Game.Screens.Edit.Editor? editor, string? voiceFile, out string? error)
         {
             error = null;
 
             try
             {
                 var set = working.BeatmapSetInfo;
-                string? name = voiceWav == null ? null : LevelVoiceFileName(working);
+                string? name = voiceFile == null ? null : LevelVoiceFileName(working);
 
                 foreach (var old in set.Files.Where(f => IsLevelVoice(f.Filename) && !SameFile(f.Filename, name)).ToList())
                     beatmaps.DeleteFile(set, old);
 
-                if (voiceWav != null)
+                if (voiceFile != null)
                 {
-                    using var stream = File.OpenRead(voiceWav);
+                    using var stream = File.OpenRead(voiceFile);
                     beatmaps.AddFile(set, stream, name!);
                 }
 

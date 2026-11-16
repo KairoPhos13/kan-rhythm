@@ -9,8 +9,14 @@
 #include "libkan/loudness.hpp"
 #include "libkan/transcribe.hpp"
 
+// stb_vorbis (public domain, shipped in miniaudio's extras) gives the
+// decoder Ogg Vorbis: its declarations before miniaudio's implementation,
+// its own implementation at the end of this file (miniaudio's recipe).
+#define STB_VORBIS_HEADER_ONLY
+#include "extras/stb_vorbis.c"
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio.h"
+#include "kan_forge_ogg.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -832,3 +838,17 @@ kan_forge_status kan_forge_decode_to_wav(const char* audio_path, const char* out
         return decode_to_wav_impl(audio_path, out_wav, err, err_cap);
     });
 }
+
+kan_forge_status kan_forge_encode_ogg(const char* audio_path, const char* out_ogg, float quality,
+                                      char* err, int32_t err_cap) {
+    return guarded(err, err_cap, "encode", [&] {
+        std::string error;
+        kan_forge_status status = kan_forge::encode_ogg(audio_path, out_ogg, quality, error);
+        if (status != KAN_FORGE_OK) set_err(err, err_cap, error.c_str());
+        return status;
+    });
+}
+
+// stb_vorbis' implementation, last: it defines short macros of its own.
+#undef STB_VORBIS_HEADER_ONLY
+#include "extras/stb_vorbis.c"
