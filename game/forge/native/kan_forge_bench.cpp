@@ -22,6 +22,8 @@
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 #include "kan_forge_api.h"
 
+#include "bench_io.hpp"
+
 #include <algorithm>
 #include <chrono>
 #include <cmath>
@@ -35,155 +37,10 @@
 
 namespace {
 
-struct Note {
-    double onset_ms;
-    double dur_ms;
-    int midi; // -1 = unresolved
-};
+using bench_io::Note;
+using bench_io::read_midi;
 
-// ---- input ------------------------------------------------------------------
-
-uint32_t rd32(const uint8_t* p) { return uint32_t(p[0]) | uint32_t(p[1]) << 8 | uint32_t(p[2]) << 16 | uint32_t(p[3]) << 24; }
-uint16_t rd16(const uint8_t* p) { return uint16_t(p[0] | p[1] << 8); }
-
-std::vector<uint8_t> read_file(const std::string& path) {
-    std::vector<uint8_t> data;
-    std::FILE* f = std::fopen(path.c_str(), "rb");
-    if (f == nullptr) return data;
-    std::fseek(f, 0, SEEK_END);
-    data.resize(size_t(std::ftell(f)));
-    std::fseek(f, 0, SEEK_SET);
-    if (std::fread(data.data(), 1, data.size(), f) != data.size()) data.clear();
-    std::fclose(f);
-    return data;
-}
-
-/// PCM16 / PCM24 / float32 WAV, any channel count, mixed to mono.
-bool read_wav(const std::string& path, std::vector<float>& out, int& sr) {
-    const auto d = read_file(path);
-    if (d.size() < 12 || std::memcmp(d.data(), "RIFF", 4) != 0 || std::memcmp(d.data() + 8, "WAVE", 4) != 0) return false;
-    int format = 0, channels = 0, bits = 0;
-    size_t pos = 12;
-    while (pos + 8 <= d.size()) {
-        const uint32_t size = rd32(d.data() + pos + 4);
-        const uint8_t* body = d.data() + pos + 8;
-        if (std::memcmp(d.data() + pos, "fmt ", 4) == 0 && size >= 16) {
-            format = rd16(body);
-            channels = rd16(body + 2);
-            sr = int(rd32(body + 4));
-            bits = rd16(body + 14);
-            if (format == 0xFFFE && size >= 26) format = rd16(body + 24); // extensible: sub-format
-        } else if (std::memcmp(d.data() + pos, "data", 4) == 0 && channels > 0) {
-            const size_t bytes = std::min<size_t>(size, d.size() - pos - 8);
-            const int bps = bits / 8;
-            const size_t frames = bytes / size_t(bps * channels);
-            out.assign(frames, 0.0f);
-            for (size_t i = 0; i < frames; ++i) {
-                float acc = 0.0f;
-                for (int c = 0; c < channels; ++c) {
-                    const uint8_t* s = body + (i * size_t(channels) + size_t(c)) * size_t(bps);
-                    if (format == 3 && bits == 32) {
-                        float v;
-                        std::memcpy(&v, s, 4);
-                        acc += v;
-                    } else if (format == 1 && bits == 16) {
-                        acc += float(int16_t(rd16(s))) / 32768.0f;
-                    } else if (format == 1 && bits == 24) {
-                        const int32_t v = int32_t(uint32_t(s[0]) << 8 | uint32_t(s[1]) << 16 | uint32_t(s[2]) << 24) >> 8;
-                        acc += float(v) / 8388608.0f;
-                    } else {
-                        return false;
-                    }
-                }
-                out[i] = acc / float(channels);
-            }
-            return true;
-        }
-        pos += 8 + size + (size & 1);
-    }
-    return false;
-}
-
-uint32_t vlq(const uint8_t*& p, const uint8_t* end) {
-    uint32_t v = 0;
-    while (p < end) {
-        const uint8_t b = *p++;
-        v = (v << 7) | (b & 0x7F);
-        if ((b & 0x80) == 0) break;
-    }
-    return v;
-}
-
-/// Standard MIDI file (format 0/1, PPQ division, tempo map) → notes in ms.
-bool read_midi(const std::string& path, std::vector<Note>& notes) {
-    const auto d = read_file(path);
-    if (d.size() < 14 || std::memcmp(d.data(), "MThd", 4) != 0) return false;
-    const int tracks = (d[10] << 8) | d[11];
-    const int ppq = (d[12] << 8) | d[13];
-    if (ppq <= 0 || (ppq & 0x8000) != 0) return false;
-
-    struct Ev { uint64_t tick; int on; int midi; };
-    std::vector<Ev> events;
-    std::map<uint64_t, double> tempo; // tick -> µs per quarter
-    size_t pos = 8 + ((d[4] << 24) | (d[5] << 16) | (d[6] << 8) | d[7]);
-
-    for (int t = 0; t < tracks && pos + 8 <= d.size(); ++t) {
-        if (std::memcmp(d.data() + pos, "MTrk", 4) != 0) return false;
-        const uint32_t len = (d[pos + 4] << 24) | (d[pos + 5] << 16) | (d[pos + 6] << 8) | d[pos + 7];
-        const uint8_t* p = d.data() + pos + 8;
-        const uint8_t* end = std::min(p + len, d.data() + d.size());
-        uint64_t tick = 0;
-        uint8_t status = 0;
-        while (p < end) {
-            tick += vlq(p, end);
-            if (p >= end) break;
-            if (*p & 0x80) status = *p++;
-            if (status == 0xFF) {
-                const uint8_t type = *p++;
-                const uint32_t mlen = vlq(p, end);
-                if (type == 0x51 && mlen == 3) tempo[tick] = double((p[0] << 16) | (p[1] << 8) | p[2]);
-                p += mlen;
-            } else if (status == 0xF0 || status == 0xF7) {
-                p += vlq(p, end);
-            } else {
-                const int kind = status & 0xF0;
-                const int a = *p++;
-                const int b = (kind == 0xC0 || kind == 0xD0) ? 0 : *p++;
-                if (kind == 0x90 && b > 0) events.push_back({tick, 1, a});
-                else if (kind == 0x80 || (kind == 0x90 && b == 0)) events.push_back({tick, 0, a});
-            }
-        }
-        pos += 8 + len;
-    }
-
-    if (tempo.empty() || tempo.begin()->first != 0) tempo[0] = 500000.0;
-    auto to_ms = [&](uint64_t tick) {
-        double ms = 0.0;
-        auto it = tempo.begin();
-        while (it != tempo.end()) {
-            auto next = std::next(it);
-            const uint64_t until = (next == tempo.end() || next->first > tick) ? tick : next->first;
-            ms += double(until - it->first) * it->second / 1000.0 / ppq;
-            if (until == tick) break;
-            it = next;
-        }
-        return ms;
-    };
-
-    std::stable_sort(events.begin(), events.end(), [](const Ev& x, const Ev& y) { return x.tick < y.tick; });
-    std::map<int, std::vector<uint64_t>> open;
-    for (const auto& e : events) {
-        if (e.on) {
-            open[e.midi].push_back(e.tick);
-        } else if (!open[e.midi].empty()) {
-            const uint64_t on = open[e.midi].front();
-            open[e.midi].erase(open[e.midi].begin());
-            notes.push_back({to_ms(on), to_ms(e.tick) - to_ms(on), e.midi});
-        }
-    }
-    std::sort(notes.begin(), notes.end(), [](const Note& x, const Note& y) { return x.onset_ms < y.onset_ms; });
-    return !notes.empty();
-}
+// ---- input: bench_io.hpp (readers shared with kan_truth_bench) ---------------
 
 // ---- statistics -------------------------------------------------------------
 
@@ -402,9 +259,9 @@ int main(int argc, char** argv) {
         return 1;
     }
     std::vector<float> sig;
-    int sr = 0;
-    if (!read_wav(audio, sig, sr)) {
-        std::fprintf(stderr, "cannot read WAV %s (PCM16/24 or float32)\n", audio.c_str());
+    const int sr = 48000; // bench_io decodes every input to 48 kHz mono float
+    if (!bench_io::read_audio(audio, sig)) {
+        std::fprintf(stderr, "cannot decode audio %s\n", audio.c_str());
         return 1;
     }
 

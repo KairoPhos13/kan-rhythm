@@ -119,7 +119,28 @@ add_test(NAME kan_forge_selftest COMMAND kan_forge_selftest)
 # Detection quality against ground truth (validation exports of the compose
 # tab): blind transcription, expected mode and decoys, through this bridge,
 # exactly as the game calls it. Not a test: a measurement tool
-# (game/docs/transcription-quality.md).
+# (game/docs/transcription-quality.md). Its readers live in bench_io.hpp,
+# shared with kan_truth_bench (miniaudio for any audio, MIDI parsing).
 add_executable(kan_forge_bench kan_forge_bench.cpp)
+target_include_directories(kan_forge_bench SYSTEM PRIVATE ${miniaudio_SOURCE_DIR})
 kan_first_party_target(kan_forge_bench)
 target_link_libraries(kan_forge_bench PRIVATE kan_forge_native)
+
+# Truth bench (issue 41, docs/architecture/polyphonic-live-measurement.md
+# section 2): how well a live path judges real piano, with negative
+# controls built from the same recordings, driven through this bridge's C
+# ABI. Not a test: a measurement tool. The engine (truth_bench.hpp) and
+# the paths (truth_paths.hpp) are headers so the selftest can use them.
+add_executable(kan_truth_bench kan_truth_bench.cpp)
+target_include_directories(kan_truth_bench SYSTEM PRIVATE ${miniaudio_SOURCE_DIR})
+target_link_libraries(kan_truth_bench PRIVATE kan_forge_native libkan)
+kan_first_party_target(kan_truth_bench)
+
+# Selftest of the truth bench on a synthetic piano-like piece: known
+# truth, expected case counts and control behaviour (repo rule 5), no
+# dataset needed.
+add_executable(kan_truth_selftest kan_truth_selftest.cpp)
+target_include_directories(kan_truth_selftest SYSTEM PRIVATE ${miniaudio_SOURCE_DIR})
+target_link_libraries(kan_truth_selftest PRIVATE kan_forge_native libkan)
+kan_first_party_target(kan_truth_selftest)
+add_test(NAME kan_truth_selftest COMMAND kan_truth_selftest)
