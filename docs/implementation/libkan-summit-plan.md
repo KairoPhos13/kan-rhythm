@@ -349,6 +349,31 @@ judgement or DSP research inside).
     resting level and reach differ by register, which is calibration
     data of the evidence source, not a special case.
 
+- 2026-11-16, attack time (study on the dumps, to enter `pair` as
+  package 4e). A note claims the peak with the highest
+  `value * (1 - distance / meh window)`, where the distance is taken
+  from the score time plus the player's running time offset. The offset
+  is causal: the median offset of the last 15 unambiguous notes (one
+  peak of at least 0.3 of the pitch in the meh window) written at least
+  300 ms earlier.
+
+  | Right notes inside the perfect window | development | held-out |
+  |---|---|---|
+  | strongest peak (package 4d) | 79.6 % | 80.2 % (within 50 ms) |
+  | closeness, no offset | 98.4 %, but 60.6 % when the player is 120 ms late | |
+  | closeness around the running offset | 98.3 % | 96.1 % |
+  | the same, player 120 ms late | 97.0 % | 96.1 % |
+  | the same, jitter of 60 ms | 95.9 % | 93.8 % |
+
+  95 % of the errors are under 40 ms on the held-out list (was 185 ms).
+  **The summit's attack time measure (95 % in the perfect window) is
+  met on the held-out list** for right and late play. With a jitter of
+  60 ms it is 93.8 %: that control moves each note by up to 60 ms, more
+  than the perfect window of a fast passage. The share of right notes
+  with support of 0.25 or more stays within 0.4 points.
+  The running time offset is the twin of the tuning tracker: both follow
+  the player, both belong in `ChartMeasurer`.
+
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
 The owner raised moving the judge into libkan (2026-11-15), for faster
