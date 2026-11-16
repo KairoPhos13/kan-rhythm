@@ -309,6 +309,7 @@ Mods that need nothing from the level editor:
 | Wait for me (WT) | the level waits at each note until it is played: a gentle walk for learning (see below); score ×0.02, cannot fail |
 | Auto / Cinema | a perfect performance, played as a replay, and heard: the reference take when it is on this computer, else the notes as tones, one of the two, never both (owner 2026-10-15; `AutoplayPart`, shared with the song select preview as `LevelPart`) |
 | Muted | as in osu! |
+| No voice (NV) | the level's voice file (a companion marked as a voice in the editor) is not heard, in play and in the song select preview; the rest of the companion plays as usual. Off by default; no effect on a level without a voice; cosmetic, the score is untouched (owner 2026-11-16) |
 
 Not applicable: Relax, Auto Pilot, Spun Out (no cursor or spinners).
 Later: Flashlight (needs its own shader), Score V2.

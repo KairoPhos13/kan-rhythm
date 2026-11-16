@@ -37,6 +37,10 @@ namespace Kan.Forge.Editor
     internal enum ForgeRole
     {
         Companion,
+
+        /// <summary>A companion that is a voice: its own file in the level, which the No voice mod silences.</summary>
+        Voice,
+
         Reference,
     }
 
@@ -47,23 +51,26 @@ namespace Kan.Forge.Editor
     /// </summary>
     internal static class ForgeRoles
     {
-        public static readonly ForgeRole[] ALL = { ForgeRole.Companion, ForgeRole.Reference };
+        public static readonly ForgeRole[] ALL = { ForgeRole.Companion, ForgeRole.Voice, ForgeRole.Reference };
 
         public static string Label(ForgeRole role) => role switch
         {
             ForgeRole.Companion => @"companion",
+            ForgeRole.Voice => @"voice",
             _ => @"reference",
         };
 
         public static IconUsage Icon(ForgeRole role) => role switch
         {
             ForgeRole.Companion => FontAwesome.Solid.LayerGroup,
+            ForgeRole.Voice => FontAwesome.Solid.Comment,
             _ => FontAwesome.Solid.Microphone,
         };
 
         public static Color4 Colour(OsuColour colours, ForgeRole role) => role switch
         {
             ForgeRole.Companion => colours.Blue,
+            ForgeRole.Voice => colours.Green,
             _ => colours.Yellow,
         };
 
@@ -73,12 +80,14 @@ namespace Kan.Forge.Editor
         public static string Description(ForgeRole role) => role switch
         {
             ForgeRole.Companion => @"companion: plays under the player during the level. The companion tracks, mixed, are the level audio.",
+            ForgeRole.Voice => @"voice: a companion that sings. It plays with the level, but goes into it as its own file, so a player can turn it off (the No voice mod). Marking it makes it a companion too.",
             _ => @"reference, the full performance (one per level): what gets transcribed, and what the demo plays along with the companion.",
         };
 
         public static bool Has(ForgeTrack track, ForgeRole role) => role switch
         {
             ForgeRole.Companion => track.IsCompanion,
+            ForgeRole.Voice => track.IsVoiceCompanion,
             _ => track.IsReference,
         };
 

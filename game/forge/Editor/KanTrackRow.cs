@@ -728,6 +728,13 @@ namespace Kan.Forge.Editor
 
                 case ForgeRole.Companion:
                     Track.IsCompanion = !Track.IsCompanion;
+                    if (!Track.IsCompanion) Track.IsVoice = false;
+                    break;
+
+                case ForgeRole.Voice:
+                    // A voice is a companion: marking it makes it one.
+                    Track.IsVoice = !Track.IsVoiceCompanion;
+                    if (Track.IsVoice) Track.IsCompanion = true;
                     break;
             }
 

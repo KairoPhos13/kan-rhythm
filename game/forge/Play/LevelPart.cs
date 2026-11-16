@@ -8,6 +8,7 @@ using System.Linq;
 using osu.Framework.Audio;
 using osu.Framework.Audio.Track;
 using osu.Game.Beatmaps;
+using osu.Game.Extensions;
 using Kan.Core;
 using Kan.Forge.Editor;
 using Kan.Forge.Media;
@@ -44,6 +45,9 @@ namespace Kan.Forge.Play
         private readonly AudioChannel channel;
         private readonly ForgeTrack? reference;
 
+        /// <summary>The volume of a part that is not the reference (the notes; the level's voice plays at 1).</summary>
+        private readonly float plainVolume = notes_volume;
+
         /// <summary>Where the channel's audio starts on the level audio's timeline.</summary>
         private readonly double offsetMs;
 
@@ -54,9 +58,10 @@ namespace Kan.Forge.Play
 
         public Source Kind => reference != null ? Source.Reference : Source.Notes;
 
-        private LevelPart(AudioChannel channel, ForgeTrack? reference, double offsetMs)
+        private LevelPart(AudioChannel channel, ForgeTrack? reference, double offsetMs, float plainVolume = notes_volume)
         {
             this.channel = channel;
+            this.plainVolume = plainVolume;
             this.reference = reference;
             this.offsetMs = offsetMs;
 
@@ -101,6 +106,28 @@ namespace Kan.Forge.Play
         }
 
         /// <summary>
+        /// The level's voice file (owner 2026-11-16: a companion that sings,
+        /// which the No voice mod silences), read from the level. Null when
+        /// the level has none. Slow: call it off the update thread.
+        /// </summary>
+        public static byte[]? FindVoice(WorkingBeatmap working)
+        {
+            var file = working.BeatmapSetInfo?.Files.FirstOrDefault(f => BeatmapAudio.IsLevelVoice(f.Filename));
+            if (file == null) return null;
+
+            using var stream = working.GetStream(file.File.GetStoragePath());
+            if (stream == null) return null;
+
+            using var copy = new MemoryStream();
+            stream.CopyTo(copy);
+            return copy.ToArray();
+        }
+
+        /// <summary>A channel for the level's voice, cut to the level audio's window: it plays from the same start, at full volume.</summary>
+        public static LevelPart? OpenVoice(AudioManager audio, byte[] voiceWav, string name)
+            => AudioChannel.Open(audio, $"{name}.wav", voiceWav) is { } voiceChannel ? new LevelPart(voiceChannel, null, 0, 1) : null;
+
+        /// <summary>
         /// Keep in step with the level audio: <paramref name="levelAudioMs"/>
         /// is its position, <paramref name="rate"/> what sets its speed (rate
         /// mods), <paramref name="volume"/> a fade (0..1). Call every frame.
@@ -123,7 +150,7 @@ namespace Kan.Forge.Play
                 channel.ApplyFilters(reference.Edits);
             }
             else
-                t.Volume.Value = notes_volume * volume;
+                t.Volume.Value = plainVolume * volume;
 
             channel.Sync.Update(t, filePos, play, clock.Elapsed.TotalMilliseconds);
             channel.Sync.TakeResyncs();

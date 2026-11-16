@@ -117,6 +117,7 @@ Every track wears a chip or two. There are two roles:
 | Chip | What it means |
 |---|---|
 | **companion** | Plays under the player during the level. The companion tracks, mixed, are the level audio. There can be many. |
+| **voice** | A companion that sings. It plays with the level like any companion, but goes into the level as its own file ("<title> - level voice.wav"), at the same loudness as the rest, so a player can turn it off with the No voice mod. Marking it makes the track a companion. A demuxed vocals stem comes marked as a voice: make it a companion and it is one. |
 | **reference** | The full performance (one per level): what gets transcribed, and what plays along with the companion in the song-select preview. |
 
 There is no "music" or "accompaniment" role, and **demux** is not a role:

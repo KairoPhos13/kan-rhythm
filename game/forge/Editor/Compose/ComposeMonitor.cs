@@ -62,6 +62,12 @@ namespace Kan.Forge.Editor.Compose
 
         private AudioChannel? notes;
         private string? notesPath;
+
+        // The level's voice file (a companion that sings): the level audio
+        // no longer holds it, so it plays beside it with the companion toggle.
+        private AudioChannel? voice;
+        private string? voiceHash;
+        private bool readingVoice;
         private int notesVersion, renderedVersion = -1;
         private double renderAfter;
         private bool rendering;
@@ -82,6 +88,7 @@ namespace Kan.Forge.Editor.Compose
                 {
                     reference?.Track.Stop();
                     notes?.Track.Stop();
+                    voice?.Track.Stop();
                 }
 
                 updateCompanion();
@@ -96,6 +103,46 @@ namespace Kan.Forge.Editor.Compose
             updateCompanion();
             syncReference();
             syncNotes();
+            syncVoice();
+        }
+
+        private void syncVoice()
+        {
+            var file = working.Value.BeatmapSetInfo?.Files.FirstOrDefault(f => BeatmapAudio.IsLevelVoice(f.Filename));
+            string? hash = file?.File.Hash;
+
+            // A new render (or the voice removed) changes the file.
+            if (hash != voiceHash && !readingVoice)
+            {
+                voiceHash = hash;
+                voice?.Dispose();
+                voice = null;
+
+                if (hash != null)
+                {
+                    readingVoice = true;
+                    var beatmap = working.Value;
+
+                    Task.Run(() => Kan.Forge.Play.LevelPart.FindVoice(beatmap)).ContinueWith(task => Schedule(() =>
+                    {
+                        readingVoice = false;
+                        if (task.IsFaulted || task.Result == null || hash != voiceHash) return;
+
+                        voice = AudioChannel.Open(audio, $"kan-compose-voice-{hash}.wav", task.Result);
+                        voice?.Track.AddAdjustment(AdjustableProperty.Tempo, clock.AudioAdjustments.AggregateTempo);
+                        voice?.Track.AddAdjustment(AdjustableProperty.Frequency, clock.AudioAdjustments.AggregateFrequency);
+                    }));
+                }
+            }
+
+            if (voice == null) return;
+
+            var t = voice.Track;
+            if (!t.IsLoaded) return;
+
+            bool running = Active.Value && CompanionOn.Value && clock.IsRunning;
+            voice.Sync.Update(t, levelAudioTime(), running, Time.Current);
+            voice.Sync.TakeResyncs();
         }
 
         /// <summary>The score changed: render its sound again shortly.</summary>
@@ -237,6 +284,8 @@ namespace Kan.Forge.Editor.Compose
             silenced = null;
             reference?.Dispose();
             reference = null;
+            voice?.Dispose();
+            voice = null;
             closeNotes();
 
             base.Dispose(isDisposing);

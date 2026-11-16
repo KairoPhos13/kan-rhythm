@@ -118,6 +118,10 @@ namespace Kan.Forge.Editor
                         {
                             IsSeparated = true,
                             OffsetMs = track.OffsetMs, // stems share their source's timing
+
+                            // The vocals stem is a voice: if it becomes a
+                            // companion, it goes to the level's voice file.
+                            IsVoice = Path.GetFileNameWithoutExtension(file).Contains(@"vocal", StringComparison.OrdinalIgnoreCase),
                         };
 
                         // Label stems that seem to carry no meaningful audio

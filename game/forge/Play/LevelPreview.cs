@@ -2,6 +2,7 @@
 // See the LICENCE file in the kan-rhythm repository root for full licence text.
 
 using System;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using osu.Framework.Allocation;
@@ -42,9 +43,18 @@ namespace Kan.Forge.Play
         [Resolved]
         private OsuGame game { get; set; } = null!;
 
+        [Resolved]
+        private IBindable<System.Collections.Generic.IReadOnlyList<osu.Game.Rulesets.Mods.Mod>> mods { get; set; } = null!;
+
         private Guid preparedFor;
         private CancellationTokenSource? preparing;
         private LevelPart? part;
+
+        /// <summary>The level's voice (a companion that sings, its own file): heard with the preview unless No voice is selected.</summary>
+        private LevelPart? voice;
+
+        /// <summary>The No voice mod's acronym (the mod lives in the ruleset, which this cannot see).</summary>
+        private const string no_voice_acronym = @"NV";
 
         /// <summary>The level whose audio the music controller plays now.</summary>
         private WorkingBeatmap? playingLevel;
@@ -76,7 +86,7 @@ namespace Kan.Forge.Play
             if (set != preparedFor)
                 prepare(beatmap, set);
 
-            if (part == null) return;
+            if (part == null && voice == null) return;
 
             var levelAudio = music.CurrentTrack;
             bool ours = playingLevel?.BeatmapSetInfo?.ID == set && music.TrackLoaded;
@@ -90,7 +100,8 @@ namespace Kan.Forge.Play
             {
                 if (!parked)
                 {
-                    part.Follow(levelAudio.CurrentTime, false, null, 0);
+                    part?.Follow(levelAudio.CurrentTime, false, null, 0);
+                    voice?.Follow(levelAudio.CurrentTime, false, null, 0);
                     parked = true;
                 }
 
@@ -101,7 +112,10 @@ namespace Kan.Forge.Play
 
             // The level audio fades in and out on track changes, or is silenced (the
             // mic timing, 2026-10-17): so is its part (its whole volume, adjustments included).
-            part.Follow(levelAudio.CurrentTime, ours && levelAudio.IsRunning, ours ? levelAudio : null, (float)levelAudio.AggregateVolume.Value);
+            part?.Follow(levelAudio.CurrentTime, ours && levelAudio.IsRunning, ours ? levelAudio : null, (float)levelAudio.AggregateVolume.Value);
+
+            bool voiceOff = mods.Value.Any(m => m.Acronym == no_voice_acronym);
+            voice?.Follow(levelAudio.CurrentTime, ours && levelAudio.IsRunning, ours ? levelAudio : null, voiceOff ? 0 : (float)levelAudio.AggregateVolume.Value);
         }
 
         /// <summary>The part was stopped on leaving song select and is not followed until it is back.</summary>
@@ -115,6 +129,8 @@ namespace Kan.Forge.Play
             preparing?.Cancel();
             part?.Dispose();
             part = null;
+            voice?.Dispose();
+            voice = null;
             parked = false;
 
             if (set == Guid.Empty) return;
@@ -123,7 +139,7 @@ namespace Kan.Forge.Play
             var setInfo = beatmap.BeatmapSetInfo;
             string? root = forgeRoot();
 
-            Task.Run(() => LevelPart.Find(setInfo, root, loadScore), cancel.Token).ContinueWith(task => Schedule(() =>
+            Task.Run(() => (Part: LevelPart.Find(setInfo, root, loadScore), Voice: LevelPart.FindVoice(beatmap)), cancel.Token).ContinueWith(task => Schedule(() =>
             {
                 if (cancel.IsCancellationRequested || preparedFor != set) return;
 
@@ -133,8 +149,9 @@ namespace Kan.Forge.Play
                     return;
                 }
 
-                part = LevelPart.Open(audio, task.Result, $"kan-preview-{set:N}");
-                Logger.Log($"kan!: level preview adds {(part?.Kind ?? LevelPart.Source.None).ToString().ToLowerInvariant()}");
+                part = LevelPart.Open(audio, task.Result.Part, $"kan-preview-{set:N}");
+                voice = task.Result.Voice is { } voiceWav ? LevelPart.OpenVoice(audio, voiceWav, $"kan-preview-voice-{set:N}") : null;
+                Logger.Log($"kan!: level preview adds {(part?.Kind ?? LevelPart.Source.None).ToString().ToLowerInvariant()}{(voice != null ? " and the voice" : string.Empty)}");
             }), CancellationToken.None);
         }
 
@@ -143,6 +160,8 @@ namespace Kan.Forge.Play
             preparing?.Cancel();
             part?.Dispose();
             part = null;
+            voice?.Dispose();
+            voice = null;
 
             if (music != null)
                 music.TrackChanged -= onTrackChanged;

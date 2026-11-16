@@ -111,7 +111,7 @@ namespace Kan.Ruleset
                 new Kan.Ruleset.Mods.KanModByHeart(),
             },
             ModType.Automation => new Mod[] { new MultiMod(new Kan.Ruleset.Mods.KanModAutoplay(), new Kan.Ruleset.Mods.KanModCinema()) },
-            ModType.Fun => new Mod[] { new Kan.Ruleset.Mods.KanModMuted() },
+            ModType.Fun => new Mod[] { new Kan.Ruleset.Mods.KanModMuted(), new Kan.Ruleset.Mods.KanModNoVoice() },
             _ => Array.Empty<Mod>(),
         };
 

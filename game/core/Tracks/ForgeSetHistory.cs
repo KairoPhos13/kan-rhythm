@@ -190,6 +190,7 @@ namespace Kan.Core.Tracks
                 to.Edits = from.Edits.Clone();
                 to.IsReference = from.IsReference;
                 to.IsCompanion = from.IsCompanion;
+                to.IsVoice = from.IsVoice;
                 to.DemuxPending = from.DemuxPending;
                 to.IsSeparated = from.IsSeparated;
                 to.IsMixdown = from.IsMixdown;

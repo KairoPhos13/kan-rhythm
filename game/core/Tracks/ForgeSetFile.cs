@@ -43,6 +43,9 @@ namespace Kan.Core.Tracks
             public bool IsReference { get; set; }
             public bool IsCompanion { get; set; }
 
+            /// <summary>A companion that is a voice (its own file in the level; the No voice mod silences it).</summary>
+            public bool IsVoice { get; set; }
+
             // Sets saved before the naming convention (2026-10-14): the old
             // "accompaniment" and "music" roles both meant "plays as the
             // level audio": they read as companion. Never written.
@@ -110,6 +113,7 @@ namespace Kan.Core.Tracks
                     ClipEndMs = t.ClipEndMs,
                     IsReference = t.IsReference,
                     IsCompanion = t.IsCompanion,
+                    IsVoice = t.IsVoice,
                     DemuxPending = t.DemuxPending,
                     IsSeparated = t.IsSeparated,
                     IsMixdown = t.IsMixdown,
@@ -134,6 +138,7 @@ namespace Kan.Core.Tracks
                 ClipEndMs = e.ClipEndMs,
                 IsReference = e.IsReference,
                 IsCompanion = e.IsCompanion,
+                IsVoice = e.IsVoice,
                 DemuxPending = e.DemuxPending,
                 IsSeparated = e.IsSeparated,
                 IsMixdown = e.IsMixdown,

@@ -129,6 +129,17 @@ namespace Kan.Core.Tracks
         /// <summary>Plays under the player: part of the level audio (the companion mix).</summary>
         public bool IsCompanion;
 
+        /// <summary>
+        /// A companion that is a voice (owner 2026-11-16): it plays with the
+        /// level like any companion, but goes into the level as its own file,
+        /// so a player may silence it (the No voice mod). Only counts on a
+        /// companion (<see cref="IsVoiceCompanion"/>).
+        /// </summary>
+        public bool IsVoice;
+
+        /// <summary>A companion that is a voice: rendered to the level's voice file.</summary>
+        public bool IsVoiceCompanion => IsCompanion && IsVoice;
+
         /// <summary>Queued for source separation (the demux action).</summary>
         public bool DemuxPending;
 
@@ -203,6 +214,7 @@ namespace Kan.Core.Tracks
             Edits = Edits.Clone(),
             IsReference = IsReference,
             IsCompanion = IsCompanion,
+            IsVoice = IsVoice,
             DemuxPending = DemuxPending,
             IsSeparated = IsSeparated,
             IsMixdown = IsMixdown,
@@ -263,6 +275,12 @@ namespace Kan.Core.Tracks
 
         /// <summary>The audible companion tracks: what the level audio mixes.</summary>
         public IEnumerable<ForgeTrack> Companions => Tracks.Where(t => t.IsCompanion && !t.Muted);
+
+        /// <summary>The audible companions that are a voice: the level's voice file.</summary>
+        public IEnumerable<ForgeTrack> Voices => Companions.Where(t => t.IsVoice);
+
+        /// <summary>The audible companions that are not a voice: the level audio when the level has a voice.</summary>
+        public IEnumerable<ForgeTrack> Instrumental => Companions.Where(t => !t.IsVoice);
 
         /// <summary>The tracks queued for source separation.</summary>
         public IEnumerable<ForgeTrack> DemuxQueue => Tracks.Where(t => t.DemuxPending && t.CanDemux);

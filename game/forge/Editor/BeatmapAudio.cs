@@ -88,6 +88,16 @@ namespace Kan.Forge.Editor
 
         private const string LEVEL_AUDIO_SUFFIX = @" - level audio.wav";
 
+        /// <summary>The level's voice file: named after the level ("My Song - level voice.wav").</summary>
+        public static string LevelVoiceFileName(WorkingBeatmap working)
+            => LevelAudioFileName(working).Replace(@"level audio.wav", LEVEL_VOICE_NAME, StringComparison.Ordinal);
+
+        /// <summary>How every level voice file ends: the game finds it by this.</summary>
+        public const string LEVEL_VOICE_NAME = @"level voice.wav";
+
+        /// <summary>Whether a file of a level is its voice file.</summary>
+        public static bool IsLevelVoice(string? fileName) => fileName?.EndsWith(LEVEL_VOICE_NAME, StringComparison.OrdinalIgnoreCase) == true;
+
         /// <summary>Whether two file names name the same file: the level's file store ignores case (audit B7).</summary>
         public static bool SameFile(string? a, string? b) => string.Equals(a, b, StringComparison.OrdinalIgnoreCase);
 
@@ -154,7 +164,7 @@ namespace Kan.Forge.Editor
             // the machine's locale would re-render the level audio on every
             // save after a locale change.
             var parts = set.Companions.Select(t =>
-                FormattableString.Invariant($"{t.Path}|{t.Gain:0.000}|{t.OffsetMs:0}|{t.ClipStartMs:0}-{t.ClipEndMs:0}|{t.Edits.LowCutHz:0}/{t.Edits.HighCutHz:0}^{t.Edits.PitchSemitones}|")
+                FormattableString.Invariant($"{t.Path}|{(t.IsVoice ? "V" : "")}{t.Gain:0.000}|{t.OffsetMs:0}|{t.ClipStartMs:0}-{t.ClipEndMs:0}|{t.Edits.LowCutHz:0}/{t.Edits.HighCutHz:0}^{t.Edits.PitchSemitones}|")
                 + string.Join(';', t.Edits.Ranges.Select(r => FormattableString.Invariant($"{(int)r.Mode}:{r.FromMs:0}-{r.ToMs:0}"))));
 
             // The levelling too: a level rendered before it, or at another offset, is rendered again.
@@ -191,24 +201,34 @@ namespace Kan.Forge.Editor
 
             try
             {
-                string mix = await ForgeJobs.RenderMixAsync(companions, ForgeTrackSession.NewWorkPath("level-audio-mix"), null, scheduler);
+                // The whole companion mix sets the level's loudness, voice
+                // included: the player hears it whole unless they turn the
+                // voice off.
+                var (full, before, after) = await renderLevelled(companions, set.LoudnessOffsetDb, start, end, cut, scheduler);
 
-                if (cut)
+                // A level with a voice (owner 2026-11-16): the level audio is
+                // the rest, the voice its own file, both at the gain the whole
+                // mix took, so together they sound exactly as the whole.
+                var voices = set.Voices.ToList();
+                var instrumental = set.Instrumental.ToList();
+                string levelAudio = full;
+                string? voiceFile = null;
+
+                if (voices.Count > 0 && instrumental.Count > 0)
                 {
-                    mix = await ForgeJobs.EditTrackAsync(mix, KanForgeEditMode.Trim, (float)start,
-                        end > 0 ? (float)end : ForgeTrack.TO_THE_END_MS,
-                        ForgeTrackSession.NewWorkPath("level-audio"), null, scheduler);
+                    double gain = double.IsFinite(before) && double.IsFinite(after) ? Math.Pow(10, (after - before) / 20) : 1;
+                    levelAudio = await renderAtGain(instrumental, gain, @"level-audio-instrumental", start, end, cut, scheduler);
+                    voiceFile = await renderAtGain(voices, gain, @"level-voice", start, end, cut, scheduler);
                 }
 
-                // Every level at the game's reference loudness (or the creator's offset from it).
-                string levelled = ForgeTrackSession.NewWorkPath("level-audio");
-                var (_, after) = await ForgeJobs.NormalizeLoudnessAsync(mix, LevelLoudness.TargetLufs(set.LoudnessOffsetDb), levelled, null, scheduler);
-                mix = levelled;
-
-                string? name = Apply(working, beatmaps, music, editor, mix, out string? error, replaceRendered: true,
+                string? name = Apply(working, beatmaps, music, editor, levelAudio, out string? error, replaceRendered: true,
                     targetName: LevelAudioFileName(working));
                 if (name == null)
                     throw new ForgeException($"could not set the level audio: {error}");
+
+                // The voice file follows: added, replaced, or gone with the voice.
+                if (!setVoice(working, beatmaps, editor, voiceFile, out string? voiceError))
+                    throw new ForgeException($"could not set the level's voice: {voiceError}");
 
                 ForgeTrackSession.LevelAudioSignature = signature;
                 ForgeTrackSession.LevelAudioLufs = double.IsFinite(after) ? after : null;
@@ -218,6 +238,74 @@ namespace Kan.Forge.Editor
             finally
             {
                 Rendering = false;
+            }
+        }
+
+        /// <summary>Mix, cut to the level audio window, and bring to the game's loudness. Returns the file and the loudness before and after.</summary>
+        private static async Task<(string Path, double Before, double After)> renderLevelled(List<ForgeTrack> tracks, double loudnessOffsetDb, double start, double end, bool cut, Scheduler scheduler)
+        {
+            string mix = await ForgeJobs.RenderMixAsync(tracks, ForgeTrackSession.NewWorkPath("level-audio-mix"), null, scheduler);
+            mix = await cutToWindow(mix, @"level-audio", start, end, cut, scheduler);
+
+            // Every level at the game's reference loudness (or the creator's offset from it).
+            string levelled = ForgeTrackSession.NewWorkPath("level-audio");
+            var (before, after) = await ForgeJobs.NormalizeLoudnessAsync(mix, LevelLoudness.TargetLufs(loudnessOffsetDb), levelled, null, scheduler);
+            return (levelled, before, after);
+        }
+
+        /// <summary>Mix some of the tracks at a fixed extra gain, cut to the level audio window.</summary>
+        private static async Task<string> renderAtGain(List<ForgeTrack> tracks, double gain, string prefix, double start, double end, bool cut, Scheduler scheduler)
+        {
+            var scaled = tracks.Select(t =>
+            {
+                var copy = t.Clone();
+                copy.Gain = (float)(t.Gain * gain);
+                return copy;
+            }).ToList();
+
+            string mix = await ForgeJobs.RenderMixAsync(scaled, ForgeTrackSession.NewWorkPath(prefix + "-mix"), null, scheduler);
+            return await cutToWindow(mix, prefix, start, end, cut, scheduler);
+        }
+
+        private static async Task<string> cutToWindow(string mix, string prefix, double start, double end, bool cut, Scheduler scheduler)
+        {
+            if (!cut) return mix;
+
+            return await ForgeJobs.EditTrackAsync(mix, KanForgeEditMode.Trim, (float)start,
+                end > 0 ? (float)end : ForgeTrack.TO_THE_END_MS,
+                ForgeTrackSession.NewWorkPath(prefix), null, scheduler);
+        }
+
+        /// <summary>
+        /// Put the voice file into the level (null: the level has no voice),
+        /// removing any earlier one (the title, and so the name, may have
+        /// changed). Returns false with an error.
+        /// </summary>
+        private static bool setVoice(WorkingBeatmap working, BeatmapManager beatmaps, osu.Game.Screens.Edit.Editor? editor, string? voiceWav, out string? error)
+        {
+            error = null;
+
+            try
+            {
+                var set = working.BeatmapSetInfo;
+                string? name = voiceWav == null ? null : LevelVoiceFileName(working);
+
+                foreach (var old in set.Files.Where(f => IsLevelVoice(f.Filename) && !SameFile(f.Filename, name)).ToList())
+                    beatmaps.DeleteFile(set, old);
+
+                if (voiceWav != null)
+                {
+                    using var stream = File.OpenRead(voiceWav);
+                    beatmaps.AddFile(set, stream, name!);
+                }
+
+                SaveEditor(editor);
+                return true;
+            }
+            catch (Exception e)
+            {
+                error = e.Message;
+                return false;
             }
         }
     }

@@ -45,6 +45,24 @@ namespace Kan.Ruleset.Mods
     {
     }
 
+    /// <summary>
+    /// The level's voice is not heard (owner 2026-11-16): a level can carry a
+    /// companion that sings as its own file, and a player who prefers to sing
+    /// or play the melody over the accompaniment alone turns it off. Off by
+    /// default (the voice plays); no effect on a level without a voice. Read
+    /// by <see cref="Kan.Ruleset.UI.KanDrawableRuleset"/>, which then does not
+    /// add the voice part. Cosmetic: the score is untouched.
+    /// </summary>
+    public class KanModNoVoice : Mod, IApplicableMod
+    {
+        public override string Name => @"No voice";
+        public override string Acronym => @"NV";
+        public override LocalisableString Description => @"The level's singing voice is not heard, only the rest of the accompaniment. No effect on levels without a voice.";
+        public override ModType Type => ModType.Fun;
+        public override osu.Framework.Graphics.Sprites.IconUsage? Icon => osu.Framework.Graphics.Sprites.FontAwesome.Solid.CommentSlash;
+        public override bool Ranked => true;
+    }
+
     /// <summary>Wider timing windows (×1.4) and pitch tolerance (±75 cents instead of ±50).</summary>
     public class KanModEasy : ModEasy
     {

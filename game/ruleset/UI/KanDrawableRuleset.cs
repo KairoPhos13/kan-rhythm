@@ -164,6 +164,10 @@ namespace Kan.Ruleset.UI
 
             if (Mods.Any(m => m is Kan.Ruleset.Mods.KanModHardRock)) state.Judge.WindowScale = 0.7;
 
+            // The level's voice plays with the level audio, unless the player turned it off.
+            if (!Mods.Any(m => m is Kan.Ruleset.Mods.KanModNoVoice))
+                AddInternal(new Kan.Forge.Play.VoicePart());
+
             // Autoplay is heard: the perfect player's part plays with the level.
             if (Mods.Any(m => m is ModAutoplay) || listening)
                 AddInternal(new Kan.Forge.Play.AutoplayPart(KanLevelFiles.LoadScore, () => KanLevelFiles.ForgeRoot));

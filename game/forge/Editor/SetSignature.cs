@@ -56,6 +56,7 @@ namespace Kan.Forge.Editor
                 order.Append(RuntimeHelpers.GetHashCode(t)).Append(',');
                 state.Append(t.IsReference ? 'R' : '-')
                      .Append(t.IsCompanion ? 'C' : '-')
+                     .Append(t.IsVoice ? 'V' : '-')
                      .Append(t.DemuxPending ? 'D' : '-')
                      .Append(t.IsSeparated ? 's' : '-')
                      .Append(t.IsMixdown ? 'x' : '-')
