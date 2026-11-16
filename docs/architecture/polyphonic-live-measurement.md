@@ -121,6 +121,26 @@ support, margin, and the not-measured flag. The event struct keeps its
 layout. The game turns each into what its judge already takes (an attack
 with a pitch), so the judge and its forgiving defaults stay as they are.
 
+**One lane per expected key (owner, 2026-11-15).** The game should show
+piano keys lighting as they are played, as it shows one voice today. So
+each written note lives as a record of its own, many at once, with the
+event shapes the game already takes:
+
+1. a provisional attack, fast, so the key lights (the aim is under
+   about 100 ms; harmonic evidence in short windows is the candidate);
+2. the final fact: measured attack time and the pitch confirmed against
+   its rivals (what the judge uses);
+3. the level while it sounds, so the key stays lit;
+4. the close, so the key goes dark and the duration is known.
+
+A wrong key near the written one (a rival) can be shown as such, because
+it is a hypothesis already measured. A key far from anything written is
+blind transcription, the problem this design chooses not to take on: at
+most a weaker fact, "something sounded that the chart does not explain".
+The principle stands for the whole path: the chart makes every question
+a closed one. The truth bench also reports the provisional fact's
+latency and how often it differs from the final one.
+
 **Effort.** All heavy work runs as scheduled units on the describer's
 worker thread. The chart gives the density ahead of time, so the
 schedule is known before the passage arrives. Past the budget a note
