@@ -40,7 +40,7 @@ judgement or DSP research inside).
 | 1 | Truth bench, selftest, manifests, baseline of `blind`, `expect`, `core` | | B | done 2026-11-15, merged. Baseline of 12 excerpts and one-voice dumps taken (findings) |
 | 2 | Learned evidence in the bench: a `bp` path on offline Basic Pitch posteriors (written note against rivals, attack time), then the same with emulated look-ahead of 50 to 500 ms | 1 | B | done 2026-11-16, merged (findings) |
 | 3 | Harmonic evidence in the bench: attack curve from short windows, pitch from the tail with long windows, rivals in the joint fit. Prototype as a bench path first | 1 | A then B | prototype v3 measured on both lists and not kept: it adds nothing to the learned evidence (findings 2026-11-16). Branch `agent/harmonic-evidence` stays unmerged. A new design is needed |
-| 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | measured 2026-11-16: the best forgiving rule uses the learned evidence only and is far from the summit (findings). Detuned control still to add |
+| 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | measured 2026-11-16: the best forgiving rule uses the learned evidence only and is far from the summit (findings). Rule `fair`, contour features and detuned control merged (package 4b, findings) |
 | 5 | `ChartMeasurer` in libkan: lanes (provisional attack, final fact, level, close), clock map, offline tests with known input | 4 | B, reviewed by A | open |
 | 6 | Streamed Basic Pitch (incremental CQT and convolutions, causal normalisation), if package 2 shows it earns its place | 2 | B | open |
 | 7 | C API: chart feed, clock map, lane events. `chart` path in the bench | 5 | B | open |
@@ -235,6 +235,39 @@ judgement or DSP research inside).
     bins per semitone), which the port already computes, as a semitone
     witness and as the reading for the tuning tracker; (3) the detuned
     control.
+
+- 2026-11-16, package 4b (merged): rule `fair` is the default of the
+  `bp` paths, the features file carries contour columns, and the cases
+  `detune20`, `detune40`, `detune60` exist. The builder's held-out
+  numbers equal the design's exactly (98.3 %; 78.3 / 74.9 / 47.1 /
+  69.5). Outputs (local): `truth-bench/wp4-fair/`.
+
+  | Recording shifted by | Right accepted (held-out / development) | Median contour reading |
+  |---|---|---|
+  | 0 cents | 98.3 / 99.1 % | -0.1 / +0.4 cents |
+  | 20 cents | 97.9 / 98.7 % | +6.9 / +8.7 |
+  | 40 cents | 94.2 / 96.3 % | +15.0 / +16.8 |
+  | 60 cents | 66.0 / 68.8 % | +19.9 / +21.5 |
+
+  - **Without a tuning tracker the learned path fails the owner's rule
+    from 40 cents.** At 60 cents a quarter of the right notes are
+    reported as the neighbour semitone. The tracker of package 5 is
+    needed, not optional.
+  - The contour reading follows the shift but compressed (slope about
+    0.45 on piano, 0.66 on a pure tone): the model's resting level pulls
+    it to zero. A tracker must read the contour's peak bin over a wider
+    span, or calibrate the slope. The contour's centre bin of a pitch is
+    `3 * (midi - 21) + 1`.
+  - **The contour does not move the frontier.** Own contour level of a
+    right note: median 0.39; of a wrong one: 0.12 to 0.13. But the right
+    notes it misses are the ones the other two outputs miss. With it in
+    the rule the held-out row at the 99 % floor is 98.3 %; 77.7 / 75.2 /
+    48.4 / 67.2. The three outputs of the model fail together.
+  - Next idea (package 4c dumps the posteriors to study it): judge a
+    wrong note by positive evidence, not by weak support. Pair the
+    model's attacks with the written notes first; a rival is then only
+    an attack no written note explains. Today a rival may be the next
+    note of a melody that moves by step.
 
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
