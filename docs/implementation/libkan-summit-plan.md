@@ -401,6 +401,53 @@ What the API must carry whichever way it goes:
   guitar strings and other layouts;
 - facts keyed by chart note, so any visual can be drawn from them.
 
+## 5b. Owner's rules of 2026-11-16 (evening): settling, deviations, streak protection
+
+Stated by the owner. The split between libkan and the policy layer is
+the architect's proposal, following section 5.
+
+1. **A wind may need a short time to settle its pitch.** Adjusting the
+   air pressure after the attack is not an error in itself. So: pitch is
+   read from the hold after a settle time (profile data, per envelope
+   family), never from the first milliseconds. libkan reports the settle
+   as a fact (how long, how far) and it is not a refusal. Only a pitch
+   that stays wrong after the settle time is a wrong pitch.
+2. **Facts are deviations, not verdicts.** The game already grades from
+   how far a note was in time and in pitch (perfect, ok, meh, fail).
+   The polyphonic path must feed the same: each lane's final fact
+   carries the time deviation in ms (against the clock map and the
+   player's running offset) and the pitch deviation in cents (against
+   the instrument's running tuning), plus support. Accepted or refused
+   is not enough.
+3. **Streak protection, hidden.** Errors in the grey zone must not break
+   a combo, and the player must never see or manage it. It never covers
+   a clear error. If grey errors come faster than libkan's known error
+   rate explains, the player is making them: the protection runs out
+   and the next ones count. When they stop, it refills.
+
+   Proposal:
+   - **libkan says how sure a refusal is** (a measurement): `clear`
+     when there is positive evidence (a real rival that sustains, or
+     silence where the note should be with strong notes found around
+     it), `grey` when the refusal rests on weak support only. The truth
+     bench reports, per condition, how often a right note gets a grey
+     refusal (today 1.4 % on the held-out list, almost all "nothing
+     played") and how often a clear one (0.2 %). Those two rates are
+     published with the library.
+   - **The policy layer holds the budget** (a choice, not a
+     measurement; in the game today, in the optional policy module
+     later). A token bucket: a grey refusal spends a token and is
+     judged as not measured (no miss, no combo break, no score); with
+     no token left it is judged as a miss. Tokens refill with notes
+     judged right. Capacity and refill come from libkan's published
+     grey rate with a margin (first values to measure: capacity 3, one
+     token per 25 right notes, which is 4 %, about three times the
+     measured rate). Nothing of it is drawn on screen or stored in
+     results.
+   - The truth bench gets a policy check: over the right case no miss
+     is ever charged; over the wrong cases the share of wrong notes
+     that end as misses is reported with the bucket on.
+
 ## 6. Conventions for every brief
 
 Files to read and code to reuse. Exact deliverables and tests. What not
