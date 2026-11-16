@@ -52,7 +52,7 @@ platform above), then a `release` job on tags. Per job:
 4. Native bridge: `cmake -S game/forge/native ... -DKAN_GGML_BACKEND=...
    -DGGML_NATIVE=OFF -DKAN_WERROR=ON -DKAN_VERSION=...`, build
    (`--parallel 6`), then its offline self-test (`ctest`). The bridge's
-   own CMake enforces the portable CPU baseline (x86-64-v2 on x86_64,
+   own CMake enforces the portable CPU baseline (x86-64-v3 on x86_64,
    arm64 on Apple silicon; `libkan/cmake/kan_build_policy.cmake`,
    November 2026 audit C2) and never tunes to the runner's CPU;
    `KAN_WERROR=ON` makes first-party warnings fatal (audit C6) and

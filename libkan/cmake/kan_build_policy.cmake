@@ -12,11 +12,19 @@
 # dies with "illegal instruction" on older player CPUs, so kan! builds for
 # a fixed, documented baseline instead:
 #
-#   x86_64   x86-64-v2 (SSE4.2, POPCNT, CMPXCHG16B; Nehalem 2008+ and
-#            later). GCC/Clang/MinGW get -march=x86-64-v2 and ggml's x86
-#            kernels are capped at SSE4.2. MSVC has no -march levels, so
-#            it builds at the x64 floor (SSE2): even more portable, and
-#            ggml's SSE4.2 kernels are still compiled where they apply.
+#   x86_64   x86-64-v3 (AVX2, FMA, F16C, BMI2; Intel Haswell 2013+, AMD
+#            Zen and later, the Steam Deck included). GCC/Clang/MinGW get
+#            -march=x86-64-v3 and ggml's x86 kernels go up to AVX2, FMA
+#            and F16C, never AVX-512 or the build host's own extras. MSVC
+#            gets /arch:AVX2.
+#
+#            The baseline was x86-64-v2 with ggml capped at SSE4.2 (audit
+#            C2, 2026-11-12). That made the stem separator's CPU pass many
+#            times slower: the f16 model converts every value in scalar
+#            code without F16C, and the device check's CPU reference did
+#            not finish in 20 minutes on a 12 core desktop (owner
+#            2026-11-15: a demux stayed on "device check"; the owner asked
+#            to lift the cap).
 #   arm64    armv8-a: the arm64 floor. Apple silicon needs no flag (arm64
 #            is the platform's baseline); other aarch64 targets get
 #            -march=armv8-a. ggml never sees -mcpu=native here.
@@ -45,27 +53,31 @@ function(kan_cpu_baseline mode)
             "kan_cpu_baseline: mode must be BASELINE or NATIVE (got '${mode}')")
     endif()
 
-    # ggml: no host tuning, x86 kernels capped at the x86-64-v2 level.
-    # The caps matter: with GGML_NATIVE=OFF but a native (non-cross) build,
-    # ggml's INS_ENB default turns GGML_SSE42/AVX/AVX2/BMI2/FMA/F16C all
-    # ON, which is above the baseline. CACHE FORCE also overrides values
-    # left over from earlier configure runs of the same build directory.
+    # ggml: no host tuning (a CI host may have AVX-512, which the Steam
+    # Deck and many player CPUs lack), x86 kernels at the x86-64-v3 level.
+    # CACHE FORCE also overrides values left over from earlier configure
+    # runs of the same build directory.
     set(GGML_NATIVE OFF CACHE BOOL
         "ggml: optimize the build for the current system" FORCE)
     if(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
-        set(GGML_SSE42 ON CACHE BOOL "ggml: enable SSE 4.2" FORCE)
-        foreach(_kan_ggml_feat GGML_AVX GGML_AVX_VNNI GGML_AVX2 GGML_BMI2
+        foreach(_kan_ggml_feat GGML_SSE42 GGML_AVX GGML_AVX2 GGML_BMI2
                                GGML_FMA GGML_F16C)
+            set(${_kan_ggml_feat} ON CACHE BOOL
+                "ggml: the kan! x86-64-v3 baseline" FORCE)
+        endforeach()
+        foreach(_kan_ggml_feat GGML_AVX_VNNI GGML_AVX512 GGML_AVX512_VBMI
+                               GGML_AVX512_VNNI GGML_AVX512_BF16 GGML_AMX_TILE
+                               GGML_AMX_INT8 GGML_AMX_BF16)
             set(${_kan_ggml_feat} OFF CACHE BOOL
-                "ggml: capped at the kan! x86-64-v2 baseline" FORCE)
+                "ggml: above the kan! x86-64-v3 baseline" FORCE)
         endforeach()
     endif()
 
     # The baseline for everything compiled below the calling directory.
     if(MSVC)
-        # No -march levels on MSVC: the x64 floor (SSE2) is the baseline.
+        add_compile_options(/arch:AVX2)
     elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(x86_64|amd64|AMD64)$")
-        add_compile_options(-march=x86-64-v2)
+        add_compile_options(-march=x86-64-v3)
     elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64|arm64)$")
         if(NOT APPLE)
             add_compile_options(-march=armv8-a)

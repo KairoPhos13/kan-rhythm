@@ -484,6 +484,11 @@ every build path of the bridge. `-march=native` is opt-in at the root now
 (`KAN_MARCH_NATIVE=ON`, local developer builds only) and no packaging
 script or workflow uses it; CI and `cross-build-native.sh` pass
 `-DGGML_NATIVE=OFF` explicitly on top.
+**Update (2026-11-15):** the x86_64 baseline is now x86-64-v3 (AVX2, FMA,
+F16C; 2013 and later, the Steam Deck included), MSVC `/arch:AVX2`, and
+still never the build host's own extras such as AVX-512. The SSE4.2 cap
+made the stem separator's CPU pass so slow that its device check did not
+finish in 20 minutes; the owner asked to lift it.
 
 ## 5. What this audit could not verify
 
