@@ -5,6 +5,9 @@ Any session or agent picks the work up from here. Keep it short and
 current: update the status table and add findings as they are measured.
 
 - Design of record: `docs/architecture/polyphonic-live-measurement.md`.
+- System design, practices and policies:
+  `docs/implementation/libkan-summit-engineering.md`.
+- Briefs, one per package: `docs/implementation/libkan-summit-briefs/`.
 - Mission brief (local, not committed):
   `tools/dataset_bench/data/brief-fable-libkan-summit.md`.
 - Rule for every number: it comes from the truth bench, with its
@@ -44,7 +47,7 @@ judgement or DSP research inside).
 | 8 | Game: feed the chart, consume lane facts, the judge's wait follows the fact's deadline. MAESTRO levels end to end in the isolated instance, autoplay, `bench-play.sh` for the ocarina | 7 | B, reviewed by A | open |
 | 9 | Effort by density, scheduled ahead. Deck budget | 5 | A then B | open |
 | 10 | Documents: issue 41, validation status, libkan README as a library | 8 | B | open |
-| 11 | Decision: where the judge lives (section 5) | 5 | owner + A | open |
+| 11 | Policy layer as an optional libkan module (section 5, part 3) | 5 | A then B | open |
 
 ## 4. Findings (dated, measured or read from the code)
 
@@ -67,12 +70,12 @@ judgement or DSP research inside).
   Time comes from the attack, pitch from the tail. Family physics is
   profile data.
 
-## 5. Open decision: where the judge lives
+## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
 The owner raised moving the judge into libkan (2026-11-15), for faster
 answers and better verdicts. The rule so far was "libkan describes, the
-game judges". The architect's proposal, to be decided once package 5
-exists and can be measured:
+game judges". The owner approved this proposal the same day. Part 3 is
+built only after package 5 exists and can be measured:
 
 1. **Pairing moves to libkan now.** Which sound belongs to which written
    note is the hard part, and the chart-anchored measurer does it. This
