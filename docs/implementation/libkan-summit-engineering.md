@@ -106,6 +106,17 @@ Five parts with narrow seams, so each can be built and tested alone:
   recent readings, readings further than 0.7 semitones left out, at most
   80 cents). That logic moves into libkan with the pairing, next to
   `DetuneCalibrator` (`libkan/include/libkan/calibration.hpp`).
+- **Settling is not an error (owner, 2026-11-16).** A blown note may
+  take a short time to reach its pitch. Pitch is read after the settle
+  time of the profile. The settle is reported, never refused.
+- **Facts are deviations (owner, 2026-11-16).** A final fact carries
+  the time deviation in ms and the pitch deviation in cents, relative
+  to the player's running offset and the instrument's running tuning,
+  so the policy can grade perfect, ok, meh and fail as the game does.
+- **A refusal says how sure it is (owner, 2026-11-16).** `clear` on
+  positive evidence, `grey` on weak support. The hidden streak
+  protection of the policy layer spends its budget only on grey ones
+  (plan, section 5b).
 - **Time and pitch are separate measurements.** Time from the attack with
   short windows. Pitch from the tail (struck) or the hold (blown) with
   long windows.

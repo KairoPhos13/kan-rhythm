@@ -40,7 +40,7 @@ judgement or DSP research inside).
 | 1 | Truth bench, selftest, manifests, baseline of `blind`, `expect`, `core` | | B | done 2026-11-15, merged. Baseline of 12 excerpts and one-voice dumps taken (findings) |
 | 2 | Learned evidence in the bench: a `bp` path on offline Basic Pitch posteriors (written note against rivals, attack time), then the same with emulated look-ahead of 50 to 500 ms | 1 | B | done 2026-11-16, merged (findings) |
 | 3 | Harmonic evidence in the bench: attack curve from short windows, pitch from the tail with long windows, rivals in the joint fit. Prototype as a bench path first | 1 | A then B | prototype v3 measured on both lists and not kept: it adds nothing to the learned evidence (findings 2026-11-16). Branch `agent/harmonic-evidence` stays unmerged. A new design is needed |
-| 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | measured 2026-11-16: the best forgiving rule uses the learned evidence only and is far from the summit (findings). Detuned control still to add |
+| 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | measured 2026-11-16: the best forgiving rule uses the learned evidence only and is far from the summit (findings). Rule `fair`, contour features, detuned control (4b), posterior dump (4c) and the `pair` path (4d) merged (findings). `pair` is the path of record |
 | 5 | `ChartMeasurer` in libkan: lanes (provisional attack, final fact, level, close), clock map, offline tests with known input | 4 | B, reviewed by A | open |
 | 6 | Streamed Basic Pitch (incremental CQT and convolutions, causal normalisation), if package 2 shows it earns its place | 2 | B | open |
 | 7 | C API: chart feed, clock map, lane events. `chart` path in the bench | 5 | B | open |
@@ -236,6 +236,232 @@ judgement or DSP research inside).
     witness and as the reading for the tuning tracker; (3) the detuned
     control.
 
+- 2026-11-16, package 4b (merged): rule `fair` is the default of the
+  `bp` paths, the features file carries contour columns, and the cases
+  `detune20`, `detune40`, `detune60` exist. The builder's held-out
+  numbers equal the design's exactly (98.3 %; 78.3 / 74.9 / 47.1 /
+  69.5). Outputs (local): `truth-bench/wp4-fair/`.
+
+  | Recording shifted by | Right accepted (held-out / development) | Median contour reading |
+  |---|---|---|
+  | 0 cents | 98.3 / 99.1 % | -0.1 / +0.4 cents |
+  | 20 cents | 97.9 / 98.7 % | +6.9 / +8.7 |
+  | 40 cents | 94.2 / 96.3 % | +15.0 / +16.8 |
+  | 60 cents | 66.0 / 68.8 % | +19.9 / +21.5 |
+
+  - **Without a tuning tracker the learned path fails the owner's rule
+    from 40 cents.** At 60 cents a quarter of the right notes are
+    reported as the neighbour semitone. The tracker of package 5 is
+    needed, not optional.
+  - The contour reading follows the shift but compressed (slope about
+    0.45 on piano, 0.66 on a pure tone): the model's resting level pulls
+    it to zero. A tracker must read the contour's peak bin over a wider
+    span, or calibrate the slope. The contour's centre bin of a pitch is
+    `3 * (midi - 21) + 1`.
+  - **The contour does not move the frontier.** Own contour level of a
+    right note: median 0.39; of a wrong one: 0.12 to 0.13. But the right
+    notes it misses are the ones the other two outputs miss. With it in
+    the rule the held-out row at the 99 % floor is 98.3 %; 77.7 / 75.2 /
+    48.4 / 67.2. The three outputs of the model fail together.
+  - Next idea (package 4c dumps the posteriors to study it): judge a
+    wrong note by positive evidence, not by weak support. Pair the
+    model's attacks with the written notes first; a rival is then only
+    an attack no written note explains. Today a rival may be the next
+    note of a melody that moves by step.
+
+- 2026-11-16, pairing first (study on the posterior dumps of package
+  4c, `truth-bench/wp4c-posteriors/`, 1.7 GB local; scripts were scratch
+  and the rule below is all that is needed to rebuild them). Every
+  attack peak of the model (onset posterior at least 0.15) is first
+  claimed by the written note of its pitch whose meh window holds it. A
+  rival of a written note is then only an unclaimed peak at 1, 2 or 12
+  semitones inside the note's perfect window, and it counts as real
+  only when the model's note posterior of that rival also holds after
+  its attack. Held-out list, settings from the development list:
+
+  | Rule | Right accepted | Wrong rejected: semitone / tone / octave / added |
+  |---|---|---|
+  | `fair` (before) | 98.3 % | 78.3 / 74.9 / 47.1 / 69.5 |
+  | paired, hand rule, floor 99 % | 98.4 % | 86.5 / 84.6 / 59.8 / 67.6 |
+  | paired, hand rule, floor 99.5 % | 99.5 % | 76.9 / 75.6 / 55.1 / 31.6 |
+  | paired, boosted trees on ten features, floor 99.5 % | 98.4 % | 92.8 / 92.1 / 71.9 / 72.6 |
+  | paired, boosted trees, floor 98 % | 96.0 % | 97.0 / 96.4 / 82.2 / 88.5 |
+
+  Hand rule (floor 99 %): a rival is real when its peak u >= 0.3, its
+  note posterior after the attack un >= 0.15 and u >= s + 0.3. Accept
+  when the written note's highest note posterior over its written
+  length (at most 1 s) is at least 0.13 and no real rival sustains 0.15
+  above it, or when s >= 0.25 and there is no real rival.
+
+  - **Pairing is the lever.** Same model, same audio: 8 to 17 points
+    more wrong notes rejected at the same floor. The fitted model shows
+    the features hold more than the hand rule takes (the trees are a
+    ceiling to aim at, not a rule to ship: they are not explainable and
+    lose 1.1 points of right notes from one list to the other).
+  - **Two different refusals.** "Another pitch was played" is cheap for
+    right notes: it needs positive evidence. "Nothing was played" is the
+    costly one: it can only rest on weak support, and that is where
+    right low notes are lost. They must stay two facts in libkan
+    (wrong pitch, no attack), each with its own bar.
+  - The model's attack output fires on octaves of a right note (an
+    unclaimed peak with a median of 0.45 next to right notes). Its note
+    output does not (median 0.17). A rival needs both.
+  - What is left: right notes below midi 48 (94 % accepted against
+    99.7 % in the middle), wrong octaves in the middle register (55 %
+    pass), and a written note that was not played at all while other
+    notes sound (a third pass).
+  - Next: the paired rule as a bench path (`pair`), with the two
+    refusals reported apart, then features for what is left (octave:
+    the rival's and the note's sustain compared over the written
+    length; low register: a longer span after the attack).
+
+- 2026-11-16, package 4d (merged): path `pair` in the bench
+  (`truth_path_pair.hpp`). The architect rebuilt, ran ctest (3 of 3)
+  and tabulated the builder's runs. Outputs (local):
+  `truth-bench/wp4d-pair/`. The held-out row reproduces the study.
+
+  | `pair`, held-out (development) | Accepted | Refused as wrong pitch | Refused as nothing played |
+  |---|---|---|---|
+  | right notes | 98.4 % (99.2) | 0.2 % | 1.4 % |
+  | wrong semitone | 13.5 % (11.4) | 72.0 % | 14.5 % |
+  | wrong tone | 15.3 % (14.9) | 70.2 % | 14.5 % |
+  | wrong octave | 40.0 % (34.7) | 51.7 % | 8.3 % |
+  | written, not played | 32.4 % (36.0) | 9.1 % | 58.6 % |
+  | right, score late by 120 ms | 98.0 % (99.0) | 0.3 % | 1.7 % |
+  | right, jitter 60 ms | 98.4 % (99.2) | 0.2 % | 1.4 % |
+  | right, others left out | 97.9 % (99.0) | 0.9 % | 1.2 % |
+  | right, shifted 20 cents | 97.9 % (98.7) | 0.3 % | 1.7 % |
+  | right, shifted 40 cents | 94.8 % (97.1) | 0.1 % | 5.1 % |
+
+  - **A right note is almost never told it was another pitch** (0.2 %).
+    What is lost is lost as "nothing played". So the wrong pitch bar can
+    be tightened further without cost, and "nothing played" is the fact
+    to treat with doubt (not measured) when support is merely weak.
+  - Attack time of accepted right notes: median +2.4 ms, 80 % within
+    50 ms, 95 % within 185 ms. The tail is a wrong peak claimed (the
+    strongest in the meh window, not the nearest to the score time).
+    The summit asks 95 % in the perfect window: the claim must weigh
+    closeness, to try next.
+  - More witnesses tried on the dumps (longer sustain, contour, octave
+    neighbours, in boosted trees): octave rejection stays at 72 to
+    77 % at this floor. A bar that depends on register and written
+    length lifts "written, not played" to 84 to 87 %: the model's
+    resting level and reach differ by register, which is calibration
+    data of the evidence source, not a special case.
+
+- 2026-11-16, attack time (study on the dumps, to enter `pair` as
+  package 4e). A note claims the peak with the highest
+  `value * (1 - distance / meh window)`, where the distance is taken
+  from the score time plus the player's running time offset. The offset
+  is causal: the median offset of the last 15 unambiguous notes (one
+  peak of at least 0.3 of the pitch in the meh window) written at least
+  300 ms earlier.
+
+  | Right notes inside the perfect window | development | held-out |
+  |---|---|---|
+  | strongest peak (package 4d) | 79.6 % | 80.2 % (within 50 ms) |
+  | closeness, no offset | 98.4 %, but 60.6 % when the player is 120 ms late | |
+  | closeness around the running offset | 98.3 % | 96.1 % |
+  | the same, player 120 ms late | 97.0 % | 96.1 % |
+  | the same, jitter of 60 ms | 95.9 % | 93.8 % |
+
+  95 % of the errors are under 40 ms on the held-out list (was 185 ms).
+  **The summit's attack time measure (95 % in the perfect window) is
+  met on the held-out list** for right and late play. With a jitter of
+  60 ms it is 93.8 %: that control moves each note by up to 60 ms, more
+  than the perfect window of a fast passage. The share of right notes
+  with support of 0.25 or more stays within 0.4 points.
+  The running time offset is the twin of the tuning tracker: both follow
+  the player, both belong in `ChartMeasurer`.
+
+- 2026-11-16, package 4e (merged): the claim of `pair` follows the
+  player's time. Held-out: right accepted 98.0 % (was 98.4: 28 right
+  notes lost, 5 gained), rejections 92.0 / 89.4 / 65.5 / 73.4 (were
+  86.5 / 84.7 / 60.0 / 67.6: a wrong note no longer borrows the
+  strongest stray peak), right notes in the perfect window 95.8 % (was
+  80.3 %), late play 95.7 %, jitter 93.5 %. Kept: the attack time
+  measure of the summit is met and every rejection rose. The 0.4 points
+  of right notes are owed back (the bars were set for the old claim).
+- 2026-11-16, the three local expert piano levels through `pair` (the
+  level's own reference audio and score; the owner asked for it).
+  Inputs and outputs (local): `truth-bench/levels/`. The streak
+  protection is simulated on the bench's results (capacity 3, one token
+  per 25 accepted notes, section 5b). The Etude and the Liszt were never
+  used to choose a setting.
+
+  | Level (notes, most sounding at once) | Right notes refused: clear / grey | Misses left with protection | Wrong notes caught: semitone / tone / octave / not played | Attack within 50 ms |
+  |---|---|---|---|---|
+  | Chopin, Nocturne Op. 9 No. 2 (580, 6) | 0 / 1 | **0** | 98.3 / 93.1 / 73.6 / 64.9 % | 99.3 % |
+  | Chopin, Etude Op. 25 No. 10 (1048, 10) | 5 / 35 | **18** | 82.3 / 72.6 / 60.2 / 65.7 % | 93.9 % |
+  | Liszt, Wilde Jagd (1051, 15) | 7 / 95 | **67** | 80.9 / 82.0 / 60.1 / 68.1 % | 92.6 % |
+
+  - The calm piece is judged without error. The two virtuoso pieces are
+    not: 3.8 % and 9.7 % of the right notes are refused, far above the
+    1.6 % of the held-out list, and the protection cannot hide that
+    many. The refused notes sit at the two ends of the keyboard (below
+    midi 48 and above 84) in fast octave passages.
+  - The Liszt level reaches 15 notes sounding, above the summit's bound
+    of 10.
+  - This is the case to work on next: fast doubled octaves at the
+    extremes. The model's note posterior does not rise there, so the
+    harmonic check has to carry those notes.
+
+- 2026-11-16, zero misses on right play (owner: it has to reach zero,
+  also on the hardest levels; "let the best approach win"). Study on the
+  features of `pair` (scripts beside the local data,
+  `truth-bench/levels/lv*.py`). Two changes, both in the sense of
+  section 5b:
+
+  1. **A refusal is `clear` only on strong positive evidence**: a real
+     rival with `u - s >= 0.6` and `un - nmax >= 0.4`. Every other
+     refusal is `grey`. With the old bar 25 right notes of the
+     development material were refused as clear (mostly a low note whose
+     octave above the model hears louder); with this bar none in the
+     right case.
+  2. **The protection refills by libkan's known doubt for each note**,
+     not at a flat rate. Doubt is the chance that a right note of this
+     kind is refused, fitted on the development list from what the
+     chart alone says:
+     `logit = -6.35 + 3.01 * max(0, 48 - midi) / 12 + 0.27 * max(0, midi - 84) / 12
+     - 1.34 * ln(min(pace_ms, 400) / 100) + 1.02 * min(sounding, 10) / 5
+     + 0.14 * min(chord_size, 6) / 3`.
+     Each note adds `12 * doubt` tokens, capacity 5. A grey refusal
+     spends one token and is judged as not measured; with none left it
+     is a miss.
+
+  | Right play: misses charged | flat, 1 per 25, 3 tokens | flat, 1 per 5, 8 tokens | by doubt, x12, 5 tokens |
+  |---|---|---|---|
+  | Nocturne | 0 | 0 | **0** |
+  | Etude Op. 25 No. 10 | 15 | 0 | **0** |
+  | Wilde Jagd | 63 | 0 | **0** |
+  | development list (7018 notes) | 2 | 0 | **0** |
+  | held-out list (6260 notes) | 14 | 0 | **0** |
+
+  | Wrong notes that end as a miss (semitone / tone / octave / not played) | flat, 1 per 5, 8 tokens | by doubt, x12, 5 tokens |
+  |---|---|---|
+  | Nocturne | 52.9 / 54.9 / 15.5 / 0.0 % | 77.3 / 72.3 / 46.0 / 36.8 % |
+  | held-out list | 35.3 / 34.5 / 15.1 / 1.3 % | 54.9 / 52.9 / 23.0 / 22.7 % |
+  | Etude | 20.8 / 20.4 / 10.0 / 3.2 % | 18.8 / 15.4 / 8.8 / 3.5 % |
+  | Wilde Jagd | 28.5 / 28.7 / 10.6 / 8.6 % | 22.5 / 24.0 / 8.4 / 9.6 % |
+
+  - **By doubt wins.** Both reach zero misses on right play. The flat
+    budget pays for it everywhere; the budget by doubt stays strict
+    where libkan sees well and forgives where it is known to see badly.
+  - A wrong note that is spared is never credited: it is "not
+    measured", it gives no score and keeps the combo. Wrong notes
+    credited as right stay as in the `pair` table.
+  - Honest limits. The Etude and the Liszt were used to choose the
+    margin and the clear bar, so they are development material now. The
+    controls change 30 % of the notes, far more than a player who slips.
+    On the two virtuoso levels the game today forgives about four of
+    five wrong notes: zero misses there is bought with leniency, until
+    the evidence improves for fast octaves at the ends of the keyboard.
+    With late or jittered right play the result is also zero; with notes
+    left out of the score ("others play too") 1 or 2 misses remain.
+  - Next: package 4f puts both changes and the policy check in the
+    bench so the tables come from the tool, then packages 5 to 8 by
+    `docs/implementation/libkan-summit-game-integration.md`.
+
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
 The owner raised moving the judge into libkan (2026-11-15), for faster
@@ -262,6 +488,53 @@ What the API must carry whichever way it goes:
 - lanes: many notes alive at once, each with its own id, for piano keys,
   guitar strings and other layouts;
 - facts keyed by chart note, so any visual can be drawn from them.
+
+## 5b. Owner's rules of 2026-11-16 (evening): settling, deviations, streak protection
+
+Stated by the owner. The split between libkan and the policy layer is
+the architect's proposal, following section 5.
+
+1. **A wind may need a short time to settle its pitch.** Adjusting the
+   air pressure after the attack is not an error in itself. So: pitch is
+   read from the hold after a settle time (profile data, per envelope
+   family), never from the first milliseconds. libkan reports the settle
+   as a fact (how long, how far) and it is not a refusal. Only a pitch
+   that stays wrong after the settle time is a wrong pitch.
+2. **Facts are deviations, not verdicts.** The game already grades from
+   how far a note was in time and in pitch (perfect, ok, meh, fail).
+   The polyphonic path must feed the same: each lane's final fact
+   carries the time deviation in ms (against the clock map and the
+   player's running offset) and the pitch deviation in cents (against
+   the instrument's running tuning), plus support. Accepted or refused
+   is not enough.
+3. **Streak protection, hidden.** Errors in the grey zone must not break
+   a combo, and the player must never see or manage it. It never covers
+   a clear error. If grey errors come faster than libkan's known error
+   rate explains, the player is making them: the protection runs out
+   and the next ones count. When they stop, it refills.
+
+   Proposal:
+   - **libkan says how sure a refusal is** (a measurement): `clear`
+     when there is positive evidence (a real rival that sustains, or
+     silence where the note should be with strong notes found around
+     it), `grey` when the refusal rests on weak support only. The truth
+     bench reports, per condition, how often a right note gets a grey
+     refusal (today 1.4 % on the held-out list, almost all "nothing
+     played") and how often a clear one (0.2 %). Those two rates are
+     published with the library.
+   - **The policy layer holds the budget** (a choice, not a
+     measurement; in the game today, in the optional policy module
+     later). A token bucket: a grey refusal spends a token and is
+     judged as not measured (no miss, no combo break, no score); with
+     no token left it is judged as a miss. Tokens refill with notes
+     judged right. Capacity and refill come from libkan's published
+     grey rate with a margin (first values to measure: capacity 3, one
+     token per 25 right notes, which is 4 %, about three times the
+     measured rate). Nothing of it is drawn on screen or stored in
+     results.
+   - The truth bench gets a policy check: over the right case no miss
+     is ever charged; over the wrong cases the share of wrong notes
+     that end as misses is reported with the bucket on.
 
 ## 6. Conventions for every brief
 

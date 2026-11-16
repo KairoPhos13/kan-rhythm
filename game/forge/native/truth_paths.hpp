@@ -11,6 +11,7 @@
 #include "truth_bench.hpp"
 
 #include "kan_forge_api.h"
+#include "libkan/pitch_shift.hpp"
 #include "libkan/score_verify.hpp"
 
 #include <chrono>
@@ -21,6 +22,30 @@
 #include <vector>
 
 namespace truth_bench {
+
+/// The detuned control's audio (work package 4b): the recording shifted
+/// up by `cents` through libkan's pitch shifter at equal in and out
+/// counts, which keeps the duration, so the score and the truth times
+/// stay valid. The shifter's group delay (input latency plus output
+/// latency) is cut from the front and the end is padded with silence,
+/// so the attacks stay at their times and the length is unchanged.
+inline std::vector<float> detuned_audio(const std::vector<float>& in, float sr, float cents) {
+    ::kan::PitchShifter shifter(sr);
+    shifter.set_detune_cents(float(cents));
+    const size_t delay = size_t(shifter.input_latency() + shifter.output_latency());
+    std::vector<float> work(in.size() + delay, 0.0f);
+    std::copy(in.begin(), in.end(), work.begin());
+    std::vector<float> shifted(work.size());
+    constexpr size_t kBlock = 512;
+    for (size_t at = 0; at < work.size(); at += kBlock) {
+        const size_t n = std::min(kBlock, work.size() - at);
+        shifter.process(work.data() + at, n, shifted.data() + at, n);
+    }
+    std::vector<float> out(in.size());
+    std::copy(shifted.begin() + std::ptrdiff_t(delay),
+              shifted.begin() + std::ptrdiff_t(delay + in.size()), out.begin());
+    return out;
+}
 
 /// One played note: a HIT plus its latest PITCH. midi <= 0 means no pitch
 /// (unresolved, or a pitch of no note number).

@@ -87,6 +87,25 @@ if(MSVC)
     add_compile_definitions(_USE_MATH_DEFINES _CRT_SECURE_NO_WARNINGS)
 endif()
 
+# Signalsmith Stretch (MIT): the pitch shifter behind libkan's
+# pitch_shift.hpp, fetched with the same pin as the monorepo root so
+# libkan/CMakeLists creates the libkan_stretch target. The truth bench's
+# detuned control (work package 4b) shifts recordings through it.
+FetchContent_Declare(
+    signalsmith_stretch
+    GIT_REPOSITORY https://github.com/signalsmith-audio/signalsmith-stretch.git
+    GIT_TAG        88061fd4eda56a2353c5d65c74aa3f4ccf76f9da  # pinned (1.4.0+1): a moving branch breaks rebuilds
+    GIT_SHALLOW    FALSE
+)
+FetchContent_MakeAvailable(signalsmith_stretch)
+if(TARGET signalsmith-stretch)
+    get_target_property(_kan_stretch_inc signalsmith-stretch INTERFACE_INCLUDE_DIRECTORIES)
+    if(_kan_stretch_inc)
+        set_target_properties(signalsmith-stretch PROPERTIES
+            INTERFACE_SYSTEM_INCLUDE_DIRECTORIES "${_kan_stretch_inc}")
+    endif()
+endif()
+
 add_subdirectory(${CMAKE_CURRENT_SOURCE_DIR}/../../../libkan libkan_build)
 
 # Ogg Vorbis encoder for the level files (issue 42): target kan_vorbis.
@@ -137,6 +156,10 @@ target_link_libraries(kan_forge_bench PRIVATE kan_forge_native)
 add_executable(kan_truth_bench kan_truth_bench.cpp)
 target_include_directories(kan_truth_bench SYSTEM PRIVATE ${miniaudio_SOURCE_DIR})
 target_link_libraries(kan_truth_bench PRIVATE kan_forge_native libkan)
+# libkan_stretch: libkan/pitch_shift.hpp for the detuned control cases.
+if(TARGET libkan_stretch)
+    target_link_libraries(kan_truth_bench PRIVATE libkan_stretch)
+endif()
 kan_first_party_target(kan_truth_bench)
 
 # Selftest of the truth bench on a synthetic piano-like piece: known
@@ -145,5 +168,10 @@ kan_first_party_target(kan_truth_bench)
 add_executable(kan_truth_selftest kan_truth_selftest.cpp)
 target_include_directories(kan_truth_selftest SYSTEM PRIVATE ${miniaudio_SOURCE_DIR})
 target_link_libraries(kan_truth_selftest PRIVATE kan_forge_native libkan)
+# libkan_stretch: truth_paths.hpp includes libkan/pitch_shift.hpp for the
+# detuned control's audio.
+if(TARGET libkan_stretch)
+    target_link_libraries(kan_truth_selftest PRIVATE libkan_stretch)
+endif()
 kan_first_party_target(kan_truth_selftest)
 add_test(NAME kan_truth_selftest COMMAND kan_truth_selftest)
