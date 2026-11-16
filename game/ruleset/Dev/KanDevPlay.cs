@@ -45,6 +45,7 @@ namespace Kan.Ruleset.Dev
     /// KAN_DEV_PAUSE=12 pauses 12 s in and continues 2 s later;
     /// KAN_DEV_RESTART=12 restarts the level quickly 12 s in;
     /// KAN_DEV_SEEK="20:8" (with replay) seeks to 8 s, 20 s in.
+    /// KAN_DEV_FOCUSED=1 keeps the focused frame rates on an unfocused window.
     /// KAN_DEV_SCREEN=firstrun / =calibrate opens kan!'s first-run guide or
     /// its calibration screen with no level (issues 16, 17); KAN_DEV_STEP
     /// picks the step (welcome / instrument / microphone / calibration / level;
@@ -122,8 +123,21 @@ namespace Kan.Ruleset.Dev
             if (Enabled && Environment.GetEnvironmentVariable(@"KAN_DEV_LOGIN") is { } login && login.IndexOf(':') is var colon and > 0)
                 api.Login(login[..colon], login[(colon + 1)..]);
 
+            // KAN_DEV_FOCUSED=1: run at the focused frame rates although the
+            // window is unfocused (a headless display never focuses it, and
+            // an unfocused game drops to 60 Hz), so a bench measures what a
+            // player sees.
+            if (Enabled && Environment.GetEnvironmentVariable(@"KAN_DEV_FOCUSED") == @"1")
+            {
+                host.UpdateThread.InactiveHz = host.UpdateThread.ActiveHz;
+                host.DrawThread.InactiveHz = host.DrawThread.ActiveHz;
+            }
+
             Scheduler.AddDelayed(start, 8000);
         }
+
+        [Resolved]
+        private osu.Framework.Platform.GameHost host { get; set; } = null!;
 
         [Resolved]
         private osu.Game.Online.API.IAPIProvider api { get; set; } = null!;

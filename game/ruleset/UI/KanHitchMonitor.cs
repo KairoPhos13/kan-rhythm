@@ -95,11 +95,13 @@ namespace Kan.Ruleset.UI
             secondChunk = Math.Max(secondChunk, chunk);
             secondBacklog = Math.Max(secondBacklog, backlog);
 
-            // The describer's load, once a second, for the play's trace (issue 40's bench).
+            // The describer's load and the frame rates (reached, aimed at), once a second, for the play's trace (issue 40's bench).
             if (Environment.TickCount64 - lastLoadRow > 1000)
             {
                 lastLoadRow = Environment.TickCount64;
-                state.Trace?.Row(state.TraceRealMs, state.ClockMs, "load", secondChunk, secondBacklog);
+                state.Trace?.Row(state.TraceRealMs, state.ClockMs, "load", secondChunk, secondBacklog,
+                    updateThread?.Clock.FramesPerSecond ?? 0, drawThread?.Clock.FramesPerSecond ?? 0,
+                    updateThread?.Clock.MaximumUpdateHz ?? 0, drawThread?.Clock.MaximumUpdateHz ?? 0);
                 secondChunk = secondBacklog = 0;
             }
             worstBacklog = Math.Max(worstBacklog, backlog);
