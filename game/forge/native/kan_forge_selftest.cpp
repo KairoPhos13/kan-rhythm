@@ -16,13 +16,14 @@
 
 namespace {
 
-// Minimal PCM16 mono WAV writer (48 kHz), no external dependencies.
-bool write_wav(const std::string& path, const std::vector<float>& sig, int sr) {
+// Minimal PCM16 interleaved WAV writer (48 kHz), no external dependencies.
+// One channel by default: the callers writing a melody pass mono samples.
+bool write_wav(const std::string& path, const std::vector<float>& sig, int sr, int channels = 1) {
     std::FILE* f = std::fopen(path.c_str(), "wb");
     if (f == nullptr) return false;
     const uint32_t data_bytes = uint32_t(sig.size() * 2);
-    const uint32_t byte_rate = uint32_t(sr) * 2;
-    const uint16_t block_align = 2;
+    const uint32_t byte_rate = uint32_t(sr) * 2 * uint32_t(channels);
+    const uint16_t block_align = uint16_t(2 * channels);
     const uint16_t bits = 16;
     std::fwrite("RIFF", 1, 4, f);
     const uint32_t riff_size = 36 + data_bytes;
@@ -30,9 +31,10 @@ bool write_wav(const std::string& path, const std::vector<float>& sig, int sr) {
     std::fwrite("WAVEfmt ", 1, 8, f);
     const uint32_t fmt_size = 16;
     std::fwrite(&fmt_size, 4, 1, f);
-    const uint16_t format = 1, channels = 1;
+    const uint16_t format = 1;
+    const uint16_t channels_field = uint16_t(channels);
     std::fwrite(&format, 2, 1, f);
-    std::fwrite(&channels, 2, 1, f);
+    std::fwrite(&channels_field, 2, 1, f);
     const uint32_t sr_u = uint32_t(sr);
     std::fwrite(&sr_u, 4, 1, f);
     std::fwrite(&byte_rate, 4, 1, f);
@@ -49,7 +51,8 @@ bool write_wav(const std::string& path, const std::vector<float>& sig, int sr) {
     return true;
 }
 
-// Reader for the PCM16 mono WAV files written above (self-test round-trip).
+// Reader for the PCM16 WAV files written above (self-test round-trip):
+// every sample, interleaved when the file has more than one channel.
 bool read_wav(const std::string& path, std::vector<float>& sig) {
     std::FILE* f = std::fopen(path.c_str(), "rb");
     if (f == nullptr) return false;
@@ -393,6 +396,118 @@ int main() {
             || kan_forge_encode_ogg(wav.c_str(), ogg2.c_str(), 2.0f, err, sizeof(err)) != KAN_FORGE_ERR_ARGS) {
             std::fprintf(stderr, "SELFTEST FAIL: bad encode input not refused\n");
             ++failures;
+        }
+    }
+
+    // 8b. Stems (issue 42): the separated stems travel as Ogg Vorbis at
+    //     quality 0.8, source material for other levels. A stereo signal
+    //     with different content per channel keeps its frame count and its
+    //     channels apart: each decoded channel stays above 30 dB SNR
+    //     against its own source and clearly worse against the other
+    //     channel. Quality 0.8 is at least as close to the source as the
+    //     played files at 0.6.
+    {
+        const int channels = 2;
+        const std::string stereo = "kan_forge_selftest_stereo.wav";
+        std::vector<float> left(size_t(2.0f * sr)), right(size_t(2.0f * sr));
+        for (size_t i = 0; i < left.size(); ++i) {
+            // Two different harmonic stacks (220 Hz and 370 Hz share no
+            // partial below 8 kHz), one with vibrato: music-like content,
+            // each channel its own sound.
+            const float t = float(i) / sr;
+            const float env_left = 0.5f + 0.5f * std::sin(6.2831853f * 0.7f * t);
+            const float env_right = 0.5f + 0.5f * std::sin(6.2831853f * 1.3f * t);
+            const float vib = 2.0f * std::sin(6.2831853f * 2.0f * t);
+            float l = 0, r = 0;
+            for (int h = 1; h <= 5; ++h) {
+                l += 0.3f * std::sin(6.2831853f * (220.0f + vib) * h * t) / float(h);
+                r += 0.25f * std::sin(6.2831853f * 370.0f * h * t) / float(h);
+            }
+            left[i] = l * env_left;
+            right[i] = r * env_right;
+        }
+        std::vector<float> source;
+        source.reserve(left.size() * 2);
+        for (size_t i = 0; i < left.size(); ++i) {
+            source.push_back(left[i]);
+            source.push_back(right[i]);
+        }
+        if (!write_wav(stereo, source, int(sr), channels)) {
+            std::fprintf(stderr, "SELFTEST FAIL: cannot write %s\n", stereo.c_str());
+            ++failures;
+        }
+
+        // Per-channel SNR of a decoded interleaved signal against the source.
+        auto snr_db = [&](const std::vector<float>& decoded, int channel) {
+            double signal = 0, noise = 0;
+            for (size_t i = size_t(channel); i < source.size() && i < decoded.size(); i += size_t(channels)) {
+                signal += double(source[i]) * source[i];
+                const double d = double(source[i]) - double(decoded[i]);
+                noise += d * d;
+            }
+            return 10.0 * std::log10(signal / std::max(noise, 1e-12));
+        };
+
+        auto decode_back = [&](const std::string& encoded, float quality, std::vector<float>& decoded) {
+            const std::string ogg = encoded + std::to_string(int(quality * 10)) + ".ogg";
+            const std::string back = encoded + std::to_string(int(quality * 10)) + "-back.wav";
+            const kan_forge_status status = kan_forge_encode_ogg(stereo.c_str(), ogg.c_str(), quality, err, sizeof(err));
+            decoded.clear();
+            if (status != KAN_FORGE_OK || kan_forge_decode_to_wav(ogg.c_str(), back.c_str(), err, sizeof(err)) != KAN_FORGE_OK
+                || !read_wav(back, decoded)) {
+                std::fprintf(stderr, "SELFTEST FAIL: stem round trip at %.1f (status %d) %s\n", double(quality), int(status), err);
+                ++failures;
+                return false;
+            }
+            return true;
+        };
+
+        std::vector<float> at08, at06;
+        if (decode_back("kan_forge_selftest_stem", 0.8f, at08) && decode_back("kan_forge_selftest_stem", 0.6f, at06)) {
+            // The exact frame count, and the channels kept apart.
+            if (at08.size() != source.size() || at08.size() / 2 != left.size()) {
+                std::fprintf(stderr, "SELFTEST FAIL: stem frame count %zu vs %zu frames\n", at08.size() / 2, left.size());
+                ++failures;
+            }
+
+            const double own_left = snr_db(at08, 0), own_right = snr_db(at08, 1);
+
+            // The other channel's content lives at the odd (right) samples;
+            // measured against it, the same decoded channel must look far
+            // worse (the channels do not bleed into each other).
+            double cross_left = 0, cross_right = 0;
+            {
+                double signal = 0, noise = 0;
+                for (size_t i = 0; i < source.size() && i < at08.size(); i += 2) {
+                    signal += double(source[i]) * source[i];
+                    const double d = double(source[i]) - double(at08[i + 1]);
+                    noise += d * d;
+                }
+                cross_left = 10.0 * std::log10(signal / std::max(noise, 1e-12));
+
+                signal = 0, noise = 0;
+                for (size_t i = 1; i < source.size() && i < at08.size(); i += 2) {
+                    signal += double(source[i]) * source[i];
+                    const double d = double(source[i]) - double(at08[i - 1]);
+                    noise += d * d;
+                }
+                cross_right = 10.0 * std::log10(signal / std::max(noise, 1e-12));
+            }
+
+            if (!(own_left > 30.0) || !(own_right > 30.0) || !(own_left > cross_left + 20.0) || !(own_right > cross_right + 20.0)) {
+                std::fprintf(stderr, "SELFTEST FAIL: stem channels not kept apart (own %.1f/%.1f dB, cross %.1f/%.1f dB)\n",
+                             own_left, own_right, cross_left, cross_right);
+                ++failures;
+            }
+
+            // Quality 0.8 (the stems) is at least as close to the source as
+            // 0.6 (the played files): the source material never sounds worse.
+            const double at08_snr = 0.5 * (own_left + own_right);
+            const double at06_snr = 0.5 * (snr_db(at06, 0) + snr_db(at06, 1));
+            if (!(at08_snr + 0.01 >= at06_snr)) {
+                std::fprintf(stderr, "SELFTEST FAIL: stem quality 0.8 (%.1f dB) below 0.6 (%.1f dB)\n", at08_snr, at06_snr);
+                ++failures;
+            }
         }
     }
 
