@@ -56,6 +56,10 @@ became issues:
 Found after the QA (2026-11-15): [41 Polyphonic live play](41-polyphonic-live-play.md),
 piano measured on the game's own path with MAESTRO.
 
+Owner direction (2026-11-16): [42 A level keeps its stems; its audio
+travels compressed](42-level-stems-and-compressed-audio.md). Also found:
+a level with a voice file is already over the server's 100 MiB limit.
+
 ## Accessibility work (2026-11-12)
 
 Issues 18 and 19 are done: kan!'s own surfaces got colour-blind-safe
