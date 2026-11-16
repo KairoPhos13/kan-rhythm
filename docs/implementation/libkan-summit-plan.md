@@ -38,8 +38,8 @@ judgement or DSP research inside).
 |---|---|---|---|---|
 | 0 | Orientation and design note | | A | done 2026-11-15 |
 | 1 | Truth bench, selftest, manifests, baseline of `blind`, `expect`, `core` | | B | done 2026-11-15, merged. Open: baseline on all 12 held-out excerpts (4 run so far), one-voice event dumps of the starter references |
-| 2 | Learned evidence in the bench: a `bp` path on offline Basic Pitch posteriors (written note against rivals, attack time), then the same with emulated look-ahead of 50 to 500 ms | 1 | B | next |
-| 3 | Harmonic evidence in the bench: attack curve from short windows, pitch from the tail with long windows, rivals in the joint fit. Prototype as a bench path first | 1 | A then B | open |
+| 2 | Learned evidence in the bench: a `bp` path on offline Basic Pitch posteriors (written note against rivals, attack time), then the same with emulated look-ahead of 50 to 500 ms | 1 | B | building (`agent/learned-evidence`) |
+| 3 | Harmonic evidence in the bench: attack curve from short windows, pitch from the tail with long windows, rivals in the joint fit. Prototype as a bench path first | 1 | A then B | prototype measured on the development list (`agent/harmonic-evidence`), see findings |
 | 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | open |
 | 5 | `ChartMeasurer` in libkan: lanes (provisional attack, final fact, level, close), clock map, offline tests with known input | 4 | B, reviewed by A | open |
 | 6 | Streamed Basic Pitch (incremental CQT and convolutions, causal normalisation), if package 2 shows it earns its place | 2 | B | open |
@@ -96,6 +96,37 @@ judgement or DSP research inside).
   The development list's audio is not all there yet: package 2 needs it.
 - 2026-11-15. A full run of all paths, cases and 3 repeats on 12 excerpts
   takes about 100 minutes. Run recognition without repeats, and CPU apart.
+
+- 2026-11-15. One-voice event dumps of the five starter references
+  (`wind_bowed` and `keyboard` profiles) are in
+  `tools/dataset_bench/data/truth-bench/one-voice-dumps/`, with their
+  SHA-256 and the commit they were taken at. A second run is byte
+  identical. Compare after every libkan change.
+- 2026-11-16. Harmonic evidence, prototype (`harm` path, branch
+  `agent/harmonic-evidence`, not merged). Three development excerpts,
+  1381 notes. Numbers are from the development list, so they are a
+  direction, not a result.
+  - Version 1, one long spectrum per note and a count of "new peaks":
+    55 % of right notes could not be measured, because the partials
+    shared with other written notes were left out too widely. Dropped.
+  - Version 2, a window per partial as short as still parts a semitone
+    there (42 periods: about 20 ms at 2 kHz, 170 ms at 250 Hz), still
+    counting peaks with three thresholds each: a partial passed all
+    three only 48 % of the time on right notes. Counting is too brittle
+    in dense music. Dropped.
+  - Version 3, the new level of each partial (after minus before the
+    attack) weighed against the rival's same partial: at the first
+    settings 55 % of right notes accepted, 6 % not measured, wrong notes
+    rejected 99.3 % (semitone), 97.1 % (tone), 90.1 % (octave), 99.5 %
+    (added). A threshold sweep on the features file reaches about 60 %
+    accepted with every near rival above 95 %. Octaves stay near 90 %.
+  - Attack time of accepted notes: median +6 ms, 85 % within 50 ms. The
+    misses are a wrong candidate chosen, not a blurred one.
+  - Piano partials sit about 10 cents above whole multiples (median, all
+    registers, first 12 partials). The search range is -10 to +30 cents.
+  - Reading: harmonic evidence alone is precise (it rejects) but finds
+    too few right notes. It is the check, not the finder. Package 4
+    joins it with the learned evidence.
 
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
