@@ -84,9 +84,10 @@ namespace Kan.Forge.Tests
             Directory.CreateDirectory(ForgeRoot);
 
             // The kan! ruleset: a level's .osu says "Mode: 0", which decodes
-            // as kan! (its legacy id). Its assembly must be loaded before the
-            // first decode asks for it.
-            ruleset = new RulesetInfo("kan", "kan!", string.Empty, 0) { Available = true };
+            // as kan! (its legacy id), and the exporters re-encode it through
+            // the ruleset's own converter. Its assembly must be loaded before
+            // the first decode asks for it.
+            ruleset = new RulesetInfo("kan", "kan!", typeof(KanRuleset).AssemblyQualifiedName!, 0) { Available = true };
             Realm.Write(r => r.Add(ruleset, update: true));
         }
 
