@@ -146,6 +146,10 @@ namespace Kan.Forge.Editor
                 //    Ogg (issue 42 step 1). The same samples in, Ogg out.
                 bool converted = false;
 
+                // Difficulties may share one audio file: convert it once,
+                // then point the others at the same Ogg.
+                var done = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+
                 foreach (var difficulty in level.Beatmaps.Where(b => b.Ruleset.ShortName == @"kan").ToList())
                 {
                     string? name = difficulty.Metadata.AudioFile;
@@ -168,6 +172,12 @@ namespace Kan.Forge.Editor
                         continue;
                     }
 
+                    if (done.TryGetValue(name, out string? already))
+                    {
+                        converted |= repointLevel(beatmaps, difficulty, already, report);
+                        continue;
+                    }
+
                     var audio = await convertAsync(working, level, name, workDir);
 
                     if (audio.Error != null)
@@ -176,7 +186,11 @@ namespace Kan.Forge.Editor
                         continue;
                     }
 
-                    converted |= swapIntoLevel(beatmaps, level, difficulty, name, audio.New!, audio.Ogg!, report);
+                    if (swapIntoLevel(beatmaps, level, difficulty, name, audio.New!, audio.Ogg!, report))
+                    {
+                        done[name] = audio.New!;
+                        converted = true;
+                    }
                 }
 
                 foreach (var voice in level.Files.Where(f => BeatmapAudio.IsLevelVoice(f.Filename)).ToList())
@@ -261,10 +275,36 @@ namespace Kan.Forge.Editor
                 return false;
             }
 
-            if (level.GetFile(oldName) is { } old)
+            // The old file goes once no difficulty plays it any more.
+            if (level.GetFile(oldName) is { } old
+                && level.Beatmaps.All(b => b.Equals(difficulty) || !BeatmapAudio.SameFile(b.Metadata.AudioFile, oldName)))
                 beatmaps.DeleteFile(level, old);
 
             return true;
+        }
+
+        /// <summary>Point a difficulty at an audio file another difficulty of the level was just converted to.</summary>
+        private static bool repointLevel(BeatmapManager beatmaps, BeatmapInfo difficulty, string newName, LevelReport report)
+        {
+            string? previous = difficulty.Metadata.AudioFile;
+            difficulty.Metadata.AudioFile = newName;
+
+            try
+            {
+                var difficultyWorking = beatmaps.GetWorkingBeatmap(difficulty);
+
+                if (difficultyWorking.Beatmap == null)
+                    throw new InvalidOperationException("the level's osu! file could not be read");
+
+                beatmaps.Save(difficulty, difficultyWorking.Beatmap, difficultyWorking.Skin, difficultyWorking.Storyboard);
+                return true;
+            }
+            catch (Exception e)
+            {
+                difficulty.Metadata.AudioFile = previous;
+                report.Failed.Add($"the level could not be saved: {e.Message}");
+                return false;
+            }
         }
 
         /// <summary>The level's WAV into the work folder, and the same samples as Ogg next to it.</summary>
@@ -298,7 +338,11 @@ namespace Kan.Forge.Editor
             }
         }
 
-        /// <summary>Keep the level audio's signature in the set, so the editor does not render it again.</summary>
+        /// <summary>
+        /// Keep the level audio's signature in the set, so the editor does not
+        /// render it again, but only when the WAV was up to date: a level
+        /// whose tracks changed since its last render still renders again.
+        /// </summary>
         private static void storeSignature(string workDir)
         {
             string setFile = Path.Combine(workDir, ForgeSetFile.FILE_NAME);
@@ -313,7 +357,12 @@ namespace Kan.Forge.Editor
             tracks.AudioStartMs = doc.AudioStartMs;
             tracks.AudioEndMs = doc.AudioEndMs;
             tracks.LoudnessOffsetDb = doc.LoudnessOffsetDb;
-            doc.LevelAudioSignature = BeatmapAudio.Signature(tracks);
+            string now = BeatmapAudio.Signature(tracks);
+            string asWav = now.Replace(@"#F" + BeatmapAudio.PLAY_FILE_EXTENSION + @"#", @"#", StringComparison.Ordinal);
+
+            if (doc.LevelAudioSignature != asWav) return;
+
+            doc.LevelAudioSignature = now;
             ForgeSetFile.Save(doc, setFile);
         }
 

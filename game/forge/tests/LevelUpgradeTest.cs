@@ -42,6 +42,10 @@ namespace Kan.Forge.Tests
 
             var doc = new ForgeSetFile.Document();
             doc.Tracks.Add(new ForgeSetFile.TrackEntry { Name = "bass", Path = bass, IsSeparated = true });
+
+            // The WAV was up to date: the set holds the signature as the
+            // editor wrote it before the format was part of it.
+            doc.LevelAudioSignature = wavEraSignature(doc);
             ForgeSetFile.Save(doc, Path.Combine(workDir, ForgeSetFile.FILE_NAME));
 
             var report = await LevelUpgrade.UpgradeAllAsync(bed.Beatmaps, bed.Realm, bed.ForgeRoot);
@@ -76,6 +80,44 @@ namespace Kan.Forge.Tests
             Assert.That(again.Skipped, Is.EqualTo(1));
             Assert.That(bed.FileNames(set.ID).OrderBy(n => n, StringComparer.Ordinal), Is.EqualTo(before));
         });
+
+        /// <summary>
+        /// A level whose tracks changed after its last render is converted,
+        /// but stays out of date: the editor still renders it again.
+        /// </summary>
+        [Test]
+        public void TestAStaleLevelStaysStale() => LevelTestBed.Run(async bed =>
+        {
+            var set = bed.CreateLevel("Stale", new Dictionary<string, byte[]>
+            {
+                ["Stale - level audio.wav"] = wav(),
+            }, audioFile: "Stale - level audio.wav");
+
+            string workDir = Path.Combine(bed.ForgeRoot, LevelSession.KeyOf(bed.WorkingOf(set)));
+            Directory.CreateDirectory(workDir);
+
+            var doc = new ForgeSetFile.Document { LevelAudioSignature = "an older mix" };
+            ForgeSetFile.Save(doc, Path.Combine(workDir, ForgeSetFile.FILE_NAME));
+
+            var report = await LevelUpgrade.UpgradeAllAsync(bed.Beatmaps, bed.Realm, bed.ForgeRoot);
+
+            Assert.That(report.Converted, Is.EqualTo(1));
+            Assert.That(ForgeSetFile.Load(Path.Combine(workDir, ForgeSetFile.FILE_NAME))!.LevelAudioSignature, Is.EqualTo("an older mix"));
+        });
+
+        /// <summary>The level audio's signature as the editor wrote it before the format was part of it (issue 42 step 1).</summary>
+        private static string wavEraSignature(ForgeSetFile.Document doc)
+        {
+            var tracks = new ForgeTrackSet();
+
+            foreach (var (track, _) in ForgeSetFile.ToTracks(doc))
+                tracks.Add(track);
+
+            tracks.AudioStartMs = doc.AudioStartMs;
+            tracks.AudioEndMs = doc.AudioEndMs;
+            tracks.LoudnessOffsetDb = doc.LoudnessOffsetDb;
+            return BeatmapAudio.Signature(tracks).Replace("#F" + BeatmapAudio.PLAY_FILE_EXTENSION + "#", "#", StringComparison.Ordinal);
+        }
 
         [Test]
         public void TestALevelWithAnImportedSongIsLeftAlone() => LevelTestBed.Run(async bed =>
