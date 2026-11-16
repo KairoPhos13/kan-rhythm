@@ -374,6 +374,38 @@ judgement or DSP research inside).
   The running time offset is the twin of the tuning tracker: both follow
   the player, both belong in `ChartMeasurer`.
 
+- 2026-11-16, package 4e (merged): the claim of `pair` follows the
+  player's time. Held-out: right accepted 98.0 % (was 98.4: 28 right
+  notes lost, 5 gained), rejections 92.0 / 89.4 / 65.5 / 73.4 (were
+  86.5 / 84.7 / 60.0 / 67.6: a wrong note no longer borrows the
+  strongest stray peak), right notes in the perfect window 95.8 % (was
+  80.3 %), late play 95.7 %, jitter 93.5 %. Kept: the attack time
+  measure of the summit is met and every rejection rose. The 0.4 points
+  of right notes are owed back (the bars were set for the old claim).
+- 2026-11-16, the three local expert piano levels through `pair` (the
+  level's own reference audio and score; the owner asked for it).
+  Inputs and outputs (local): `truth-bench/levels/`. The streak
+  protection is simulated on the bench's results (capacity 3, one token
+  per 25 accepted notes, section 5b). The Etude and the Liszt were never
+  used to choose a setting.
+
+  | Level (notes, most sounding at once) | Right notes refused: clear / grey | Misses left with protection | Wrong notes caught: semitone / tone / octave / not played | Attack within 50 ms |
+  |---|---|---|---|---|
+  | Chopin, Nocturne Op. 9 No. 2 (580, 6) | 0 / 1 | **0** | 98.3 / 93.1 / 73.6 / 64.9 % | 99.3 % |
+  | Chopin, Etude Op. 25 No. 10 (1048, 10) | 5 / 35 | **18** | 82.3 / 72.6 / 60.2 / 65.7 % | 93.9 % |
+  | Liszt, Wilde Jagd (1051, 15) | 7 / 95 | **67** | 80.9 / 82.0 / 60.1 / 68.1 % | 92.6 % |
+
+  - The calm piece is judged without error. The two virtuoso pieces are
+    not: 3.8 % and 9.7 % of the right notes are refused, far above the
+    1.6 % of the held-out list, and the protection cannot hide that
+    many. The refused notes sit at the two ends of the keyboard (below
+    midi 48 and above 84) in fast octave passages.
+  - The Liszt level reaches 15 notes sounding, above the summit's bound
+    of 10.
+  - This is the case to work on next: fast doubled octaves at the
+    extremes. The model's note posterior does not rise there, so the
+    harmonic check has to carry those notes.
+
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
 The owner raised moving the judge into libkan (2026-11-15), for faster
