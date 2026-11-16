@@ -40,7 +40,7 @@ judgement or DSP research inside).
 | 1 | Truth bench, selftest, manifests, baseline of `blind`, `expect`, `core` | | B | done 2026-11-15, merged. Baseline of 12 excerpts and one-voice dumps taken (findings) |
 | 2 | Learned evidence in the bench: a `bp` path on offline Basic Pitch posteriors (written note against rivals, attack time), then the same with emulated look-ahead of 50 to 500 ms | 1 | B | done 2026-11-16, merged (findings) |
 | 3 | Harmonic evidence in the bench: attack curve from short windows, pitch from the tail with long windows, rivals in the joint fit. Prototype as a bench path first | 1 | A then B | prototype v3 measured on both lists and not kept: it adds nothing to the learned evidence (findings 2026-11-16). Branch `agent/harmonic-evidence` stays unmerged. A new design is needed |
-| 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | measured 2026-11-16: the best forgiving rule uses the learned evidence only and is far from the summit (findings). Rule `fair`, contour features and detuned control merged (package 4b, findings) |
+| 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | measured 2026-11-16: the best forgiving rule uses the learned evidence only and is far from the summit (findings). Rule `fair`, contour features, detuned control (4b), posterior dump (4c) and the `pair` path (4d) merged (findings). `pair` is the path of record |
 | 5 | `ChartMeasurer` in libkan: lanes (provisional attack, final fact, level, close), clock map, offline tests with known input | 4 | B, reviewed by A | open |
 | 6 | Streamed Basic Pitch (incremental CQT and convolutions, causal normalisation), if package 2 shows it earns its place | 2 | B | open |
 | 7 | C API: chart feed, clock map, lane events. `chart` path in the bench | 5 | B | open |
@@ -314,6 +314,40 @@ judgement or DSP research inside).
     refusals reported apart, then features for what is left (octave:
     the rival's and the note's sustain compared over the written
     length; low register: a longer span after the attack).
+
+- 2026-11-16, package 4d (merged): path `pair` in the bench
+  (`truth_path_pair.hpp`). The architect rebuilt, ran ctest (3 of 3)
+  and tabulated the builder's runs. Outputs (local):
+  `truth-bench/wp4d-pair/`. The held-out row reproduces the study.
+
+  | `pair`, held-out (development) | Accepted | Refused as wrong pitch | Refused as nothing played |
+  |---|---|---|---|
+  | right notes | 98.4 % (99.2) | 0.2 % | 1.4 % |
+  | wrong semitone | 13.5 % (11.4) | 72.0 % | 14.5 % |
+  | wrong tone | 15.3 % (14.9) | 70.2 % | 14.5 % |
+  | wrong octave | 40.0 % (34.7) | 51.7 % | 8.3 % |
+  | written, not played | 32.4 % (36.0) | 9.1 % | 58.6 % |
+  | right, score late by 120 ms | 98.0 % (99.0) | 0.3 % | 1.7 % |
+  | right, jitter 60 ms | 98.4 % (99.2) | 0.2 % | 1.4 % |
+  | right, others left out | 97.9 % (99.0) | 0.9 % | 1.2 % |
+  | right, shifted 20 cents | 97.9 % (98.7) | 0.3 % | 1.7 % |
+  | right, shifted 40 cents | 94.8 % (97.1) | 0.1 % | 5.1 % |
+
+  - **A right note is almost never told it was another pitch** (0.2 %).
+    What is lost is lost as "nothing played". So the wrong pitch bar can
+    be tightened further without cost, and "nothing played" is the fact
+    to treat with doubt (not measured) when support is merely weak.
+  - Attack time of accepted right notes: median +2.4 ms, 80 % within
+    50 ms, 95 % within 185 ms. The tail is a wrong peak claimed (the
+    strongest in the meh window, not the nearest to the score time).
+    The summit asks 95 % in the perfect window: the claim must weigh
+    closeness, to try next.
+  - More witnesses tried on the dumps (longer sustain, contour, octave
+    neighbours, in boosted trees): octave rejection stays at 72 to
+    77 % at this floor. A bar that depends on register and written
+    length lifts "written, not played" to 84 to 87 %: the model's
+    resting level and reach differ by register, which is calibration
+    data of the evidence source, not a special case.
 
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
