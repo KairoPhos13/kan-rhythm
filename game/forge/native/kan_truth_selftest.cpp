@@ -10,7 +10,10 @@
 // right notes accepted, 60 % of the wrong semitone notes rejected) and
 // obeys its clauses on hand-written measurements, that the detuned
 // control's audio keeps the duration and the attack times, and that the
-// event dump of the same audio twice is identical.
+// event dump of the same audio twice is identical. It also round trips
+// the posterior dump of work package 4c: one dump of the synthetic piece
+// is written to a temporary directory, read back, and its frames, its
+// first and last frame times and one posterior are compared.
 //
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 #include "truth_bench.hpp"
@@ -19,6 +22,8 @@
 
 #include <cmath>
 #include <cstdio>
+#include <filesystem>
+#include <limits>
 #include <random>
 #include <string>
 #include <vector>
@@ -395,6 +400,57 @@ int main() {
     const std::string d2 = dump_live_events(audio, kSr, "keyboard");
     check(!d1.empty(), "the event dump of the synthetic piece must not be empty");
     check(d1 == d2, "the event dump of the same audio twice must be identical");
+
+    // 9. The posterior dump of work package 4c: one dump of the synthetic
+    //    piece is written to a temporary directory and read back; the
+    //    frames, the first and the last frame time and one posterior must
+    //    survive the round trip. The analysis columns are filled here the
+    //    way the bench fills them (the path never reads them).
+    {
+        const BuiltCase b = build_case(Case::Right, truth, 7);
+        bp::BpPath dpath;
+        std::vector<NoteResult> res;
+        CpuStats cpu;
+        dpath.run(audio, kSr, b.notes, res, cpu);
+        std::vector<bp::DumpScoreRow> rows = bp::dump_score_rows(b.notes);
+        for (size_t i = 0; i < b.notes.size(); ++i) {
+            const ScoreNote& sn = b.notes[i];
+            const double truth_onset = sn.truth_index >= 0
+                                           ? truth[size_t(sn.truth_index)].onset_ms
+                                           : std::numeric_limits<double>::quiet_NaN();
+            const double at = sn.truth_index >= 0 ? truth_onset : sn.onset_ms;
+            int sounding = 0;
+            for (const auto& g : truth)
+                if (g.onset_ms <= at && at < g.onset_ms + g.dur_ms) ++sounding;
+            rows[i].right = sn.right ? 1 : 0;
+            rows[i].sounding = sounding;
+            rows[i].truth_onset_ms = truth_onset;
+        }
+        const std::string dir =
+            (std::filesystem::temp_directory_path() / "kan_truth_selftest_dump").string();
+        std::filesystem::create_directories(dir);
+        check(bp::write_posterior_dump(dir, 3, "right", dpath.posteriors(), rows),
+              "the posterior dump must write");
+        bp::PosteriorDump got;
+        check(bp::read_posterior_dump(dir + "/03_right.post", got),
+              "the posterior dump must read back");
+        const bp::PosteriorView& want = dpath.posteriors();
+        check_eq(size_t(got.frames), size_t(want.frames), "the dump's frame count");
+        if (want.frames > 0) {
+            check(got.time_ms.size() == size_t(want.frames) &&
+                      got.time_ms.front() == want.time_ms.front(),
+                  "the dump's first frame time");
+            check(got.time_ms.size() == size_t(want.frames) && got.time_ms.back() == want.time_ms.back(),
+                  "the dump's last frame time");
+            // One posterior: the onset posterior of the middle frame at
+            // midi 60 (the bin of a midi note is midi - 21).
+            const size_t cell = size_t(want.frames / 2) * bp::kNotes + size_t(60 - bp::kMidiOffset);
+            check(got.onset.size() == size_t(want.frames) * bp::kNotes &&
+                      got.onset[cell] == want.onset_at(want.frames / 2, 60),
+                  "the dump's onset posterior");
+        }
+        std::filesystem::remove_all(dir);
+    }
 
     if (failures == 0) std::printf("kan_truth_selftest OK\n");
     return failures == 0 ? 0 : 1;
