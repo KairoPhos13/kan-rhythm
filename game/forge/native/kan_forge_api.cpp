@@ -187,7 +187,8 @@ kan_forge_status separate_stems_impl(const char* audio_path, const char* out_dir
 #ifdef KAN_HAVE_ROFORMER_RUNTIME
         kan::report_progress("device check", 0);
         std::string why;
-        const bool parity_ok = kan::roformer_device_parity_ok(sep.substr(8), &why);
+        const bool parity_ok = kan::roformer_device_parity_ok(
+            sep.substr(8), &why, [](int percent) { kan::report_progress("device check", percent); });
         kan::report_progress(parity_ok ? "device check (GPU ok)" : "device check failed (CPU fallback)", 100);
 #endif
     }

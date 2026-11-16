@@ -28,6 +28,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
+#include <functional>
 #include <iostream>
 #include <streambuf>
 #include <string>
@@ -46,6 +47,36 @@ void set_env(const char* k, const char* v) {
 }
 
 const char* get_env(const char* k) { return std::getenv(k); }
+
+// Force or release the CPU backend for one probe. BSRoformer only asks
+// whether BSR_FORCE_CPU exists, and set_env never overwrites, so setting
+// it to "" afterwards left it at "1": after a fresh device check every
+// separation of the session ran on the CPU (found 2026-11-15). A value
+// the user set before the probe is kept.
+class ForceCpu {
+public:
+    explicit ForceCpu(bool on) : on_(on && get_env("BSR_FORCE_CPU") == nullptr) {
+        if (!on_) return;
+#ifdef _WIN32
+        _putenv_s("BSR_FORCE_CPU", "1");
+#else
+        setenv("BSR_FORCE_CPU", "1", 1);
+#endif
+    }
+    ~ForceCpu() {
+        if (!on_) return;
+#ifdef _WIN32
+        _putenv_s("BSR_FORCE_CPU", ""); // an empty value removes it on Windows
+#else
+        unsetenv("BSR_FORCE_CPU");
+#endif
+    }
+    ForceCpu(const ForceCpu&) = delete;
+    ForceCpu& operator=(const ForceCpu&) = delete;
+
+private:
+    bool on_;
+};
 
 // Called before ANY Inference construction (backend init reads env).
 // ggml's own lines (devices found, backend chosen, graph sizes) only when
@@ -153,20 +184,26 @@ void parity_marker_write(const std::string& model) {
     f << parity_marker_line() << "\n";
 }
 
+// The probe's chunk: the probe's own length (2 s, a whole number of STFT
+// hops), not the model's default 13.4 s chunk. A 2 s signal padded to a
+// full default chunk made the CPU pass take over 10 minutes on a loaded
+// 12 core desktop (owner 2026-11-15: the demux stayed on "device check").
+// Every layer and operation of the model still runs; only the length of
+// the time axis is shorter.
+constexpr int kProbeChunk = 172 * 512;
+
 bool run_probe(const std::string& model_path, bool force_cpu,
-               std::vector<std::vector<float>>& stems) {
+               std::vector<std::vector<float>>& stems,
+               const std::function<void(float)>& progress) {
     QuietStreams quiet;
-    if (force_cpu) set_env("BSR_FORCE_CPU", "1");
+    ForceCpu cpu(force_cpu);
     try {
         Inference engine(model_path);
         std::vector<float> probe = make_probe_signal();
-        stems = engine.Process(probe, engine.GetDefaultChunkSize(),
-                               engine.GetDefaultNumOverlap(), nullptr);
+        stems = engine.Process(probe, kProbeChunk, engine.GetDefaultNumOverlap(), progress);
     } catch (...) {
-        if (force_cpu) set_env("BSR_FORCE_CPU", "");
         return false;
     }
-    if (force_cpu) set_env("BSR_FORCE_CPU", "");
     return !stems.empty();
 }
 
@@ -188,18 +225,24 @@ double roformer_snr_db(const std::vector<float>& ref,
 }
 
 bool roformer_device_parity_ok(const std::string& model_path,
-                               std::string* detail) {
+                               std::string* detail,
+                               const std::function<void(int)>& progress) {
     ensure_runtime_configured();
     if (parity_marker_valid(model_path)) {
         if (detail) *detail = "cached pass (these ggml/BSRoformer pins)";
         return true;
     }
+    // The device pass is the fast one: 0..10 %; the CPU pass 10..100 %.
+    auto span = [&progress](float from, float to) -> std::function<void(float)> {
+        if (!progress) return nullptr;
+        return [&progress, from, to](float f) { progress(int(from + (to - from) * f)); };
+    };
     std::vector<std::vector<float>> gpu_stems, cpu_stems;
-    if (!run_probe(model_path, false, gpu_stems)) {
+    if (!run_probe(model_path, false, gpu_stems, span(0.0f, 10.0f))) {
         if (detail) *detail = "probe failed on default device";
         return false;
     }
-    if (!run_probe(model_path, true, cpu_stems)) {
+    if (!run_probe(model_path, true, cpu_stems, span(10.0f, 100.0f))) {
         if (detail) *detail = "probe failed on CPU";
         return false;
     }

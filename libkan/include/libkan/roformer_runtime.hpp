@@ -23,8 +23,11 @@ double roformer_snr_db(const std::vector<float>& ref,
 /// match at >= 30 dB SNR. Cached per (model, ggml and BSRoformer pins, backend);
 /// a pin update re-probes, a plain rebuild does not.
 /// A failure means the caller must fall back to CPU.
+/// progress (optional) receives 0..100 across both passes: the CPU pass
+/// is the slow one, and a caller must never show a frozen bar.
 bool roformer_device_parity_ok(const std::string& model_path,
-                               std::string* detail = nullptr);
+                               std::string* detail = nullptr,
+                               const std::function<void(int)>& progress = nullptr);
 
 /// Model requirements exposed to the acquisition layer (44.1 kHz models).
 int roformer_sample_rate();
