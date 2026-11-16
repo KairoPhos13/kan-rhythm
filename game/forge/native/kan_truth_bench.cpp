@@ -14,9 +14,19 @@
 // Usage:
 //   kan_truth_bench --maestro <dir> --manifest <file>   (excerpts)
 //   kan_truth_bench --audio a.wav --truth a.midi --from 0 --to 60
-//   [--paths blind,expect,core,oracle,yes]  (default blind,core)
+//   [--paths blind,expect,core,oracle,yes,bp,bp-la]  (default blind,core)
 //   [--cases all | right,semitone,...] [--seed N] [--repeat N]
 //   [--out <dir>]           writes summary.txt and notes.csv
+//   [--bp-th 0.3] [--bp-rule rival | plain]  the bp paths' decision
+//   [--bp-lookahead <ms>]   the look-ahead the bp-la path must respect
+//   [--features <file.csv>] the bp path writes one row per excerpt, case
+//                           and score note (the fusion input)
+//   --bp-sweep              instead of the paths: one table over (rule,
+//                           th) built from one bp measurement per score
+//                           note, with --features the same rows
+//   [--jobs N]              excerpts in parallel (at most 6), for runs
+//                           where CPU time is not reported (bp-la and the
+//                           sweep); with --jobs no CPU is measured
 //   --dump-events <audio> --profile <name>
 //                           every live event as one text line (compare a
 //                           path before and after a change)
@@ -29,8 +39,10 @@
 #include "bench_io.hpp"
 #include "truth_bench.hpp"
 #include "truth_paths.hpp"
+#include "truth_paths_bp.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cmath>
 #include <cstdio>
 #include <cstdlib>
@@ -38,6 +50,7 @@
 #include <filesystem>
 #include <memory>
 #include <string>
+#include <thread>
 #include <vector>
 
 using namespace truth_bench;
@@ -298,43 +311,179 @@ void annotate_cpu(CpuStats& cpu, const std::vector<TruthNote>& truth) {
     }
 }
 
-std::unique_ptr<Path> make_path(const std::string& name, const std::vector<TruthNote>& truth) {
+std::unique_ptr<Path> make_path(const std::string& name, const std::vector<TruthNote>& truth,
+                                double bp_th, bp::Rule bp_rule, double bp_lookahead_ms) {
     if (name == "blind") return std::make_unique<BlindPath>();
     if (name == "expect") return std::make_unique<ExpectPath>();
     if (name == "core") return std::make_unique<CorePath>();
     if (name == "oracle") return std::make_unique<OraclePath>(truth);
+    if (name == "bp") {
+        auto p = std::make_unique<bp::BpPath>();
+        p->th = bp_th;
+        p->rule = bp_rule;
+        return p;
+    }
+    if (name == "bp-la") {
+        auto p = std::make_unique<bp::BpLaPath>();
+        p->th = bp_th;
+        p->rule = bp_rule;
+        p->lookahead_ms = bp_lookahead_ms;
+        return p;
+    }
     return std::make_unique<YesPath>();
+}
+
+// ---- truth columns of one score note (the path never sees these) -----------
+
+double truth_onset_of(const std::vector<TruthNote>& truth, const ScoreNote& sn) {
+    return sn.truth_index >= 0 ? truth[size_t(sn.truth_index)].onset_ms
+                               : std::numeric_limits<double>::quiet_NaN();
+}
+
+int sounding_at(const std::vector<TruthNote>& truth, double at) {
+    int sounding = 0;
+    for (const auto& g : truth)
+        if (g.onset_ms <= at && at < g.onset_ms + g.dur_ms) ++sounding;
+    return sounding;
+}
+
+// One features row (deliverable 2): the measurement of the bp path plus
+// the truth columns only the bench can fill.
+void write_feature_row(std::string& out, const char* excerpt, const char* case_name, size_t index,
+                       const ScoreNote& sn, double truth_onset_ms, int sounding,
+                       const bp::NoteMeasure& m) {
+    char truth_s[32] = "na", atk_s[32] = "na", rival_s[32] = "na", before_s[32] = "na",
+         after_s[32] = "na";
+    if (std::isfinite(truth_onset_ms)) std::snprintf(truth_s, sizeof(truth_s), "%.3f", truth_onset_ms);
+    if (std::isfinite(m.attack_ms)) std::snprintf(atk_s, sizeof(atk_s), "%.3f", m.attack_ms);
+    if (std::isfinite(m.rival_midi)) std::snprintf(rival_s, sizeof(rival_s), "%d", int(m.rival_midi));
+    if (std::isfinite(m.n_before)) std::snprintf(before_s, sizeof(before_s), "%.6f", double(m.n_before));
+    if (std::isfinite(m.n_after)) std::snprintf(after_s, sizeof(after_s), "%.6f", double(m.n_after));
+    char line[2048];
+    const int len = std::snprintf(line, sizeof(line), "%s,%s,%zu,%d,%d,%d,%.3f,%s,%s,%.6f,%.6f,%s,%s,%s\n",
+                                  excerpt, case_name, index, sn.right ? 1 : 0, sounding, sn.midi,
+                                  sn.onset_ms, truth_s, atk_s, double(m.s), double(m.r), rival_s,
+                                  before_s, after_s);
+    out.append(line, size_t(std::max(0, std::min(len, int(sizeof(line)) - 1))));
+}
+
+// ---- the bp sweep (deliverable 3) -----------------------------------------
+
+constexpr size_t kSweepThCount = 7;
+const double kSweepTh[kSweepThCount] = {0.05, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6};
+constexpr size_t kSweepLines = 2 * kSweepThCount; // plain lines, then rival lines
+
+bp::Rule sweep_rule(size_t line) {
+    return line < kSweepThCount ? bp::Rule::Plain : bp::Rule::Rival;
+}
+
+double sweep_th(size_t line) { return kSweepTh[line % kSweepThCount]; }
+
+size_t case_index(Case c) {
+    for (size_t i = 0; i < kCaseCount; ++i)
+        if (kAllCases[i] == c) return i;
+    return 0;
+}
+
+// One sweep line, all on up to 10 sounding: right accepted % (case
+// right), wrong rejected % of semitone, tone, octave and added, right
+// accepted % of left_out, late250 and jitter60, and the attack error
+// (median, p95, % in the perfect window, % within 50 ms) of right and
+// late250.
+void print_sweep_line(FILE* f, size_t line, const CaseStats* st) {
+    auto acc = [&](Case c) {
+        const BucketStats& b = st[case_index(c)].up_to_10;
+        char buf[16];
+        pct_str(double(b.accepted), double(b.right_n), buf, sizeof(buf));
+        return std::string(buf);
+    };
+    auto rej = [&](Case c) {
+        const BucketStats& b = st[case_index(c)].up_to_10;
+        char buf[16];
+        pct_str(double(b.rejected), double(b.wrong_n), buf, sizeof(buf));
+        return std::string(buf);
+    };
+    const TimeErr rt = time_error(st[case_index(Case::Right)].up_to_10);
+    const TimeErr lt = time_error(st[case_index(Case::Late250)].up_to_10);
+    auto tcol = [](const TimeErr& e, char* buf, size_t cap) {
+        if (!e.has) {
+            std::snprintf(buf, cap, "%8s %7s %7s %7s", "n/a", "n/a", "n/a", "n/a");
+        } else {
+            std::snprintf(buf, cap, "%8.1f %7.1f %7.1f %7.1f", e.median_ms, e.p95_abs_ms,
+                          e.in_perfect_pct, e.in_50ms_pct);
+        }
+    };
+    char rt_s[64], lt_s[64];
+    tcol(rt, rt_s, sizeof(rt_s));
+    tcol(lt, lt_s, sizeof(lt_s));
+    std::fprintf(f, "%6s %5.2f %7s %7s %7s %7s %7s %7s %8s %7s | %s | %s\n", rule_name(sweep_rule(line)),
+                 sweep_th(line), acc(Case::Right).c_str(), rej(Case::Semitone).c_str(),
+                 rej(Case::Tone).c_str(), rej(Case::Octave).c_str(), rej(Case::Added).c_str(),
+                 acc(Case::LeftOut).c_str(), acc(Case::Late250).c_str(), acc(Case::Jitter60).c_str(),
+                 rt_s, lt_s);
+}
+
+void print_sweep_header(FILE* f) {
+    std::fprintf(f, "%6s %5s %7s %7s %7s %7s %7s %7s %8s %7s | %8s %7s %7s %7s | %8s %7s %7s %7s\n",
+                 "rule", "th", "right%", "semi%", "tone%", "octv%", "added%", "left%", "late250%",
+                 "jitter%", "r med", "r p95", "r perf%", "r 50ms%", "l med", "l p95", "l perf%",
+                 "l 50ms%");
 }
 
 } // namespace
 
 int main(int argc, char** argv) {
     std::string maestro, manifest, audio_path, truth_path, paths_arg = "blind,core",
-                cases_arg = "all", out_dir, dump_audio, dump_profile, make_manifests_csv;
-    double from_s = 0.0, to_s = -1.0;
+                cases_arg = "all", out_dir, dump_audio, dump_profile, make_manifests_csv,
+                features_path, bp_rule_arg = "rival";
+    double from_s = 0.0, to_s = -1.0, bp_th = 0.3, bp_lookahead_ms = -1.0;
     unsigned seed = 7;
-    int repeat = 1;
+    int repeat = 1, jobs = 1;
+    bool bp_sweep = false;
 
-    for (int i = 1; i + 1 < argc; i += 2) {
-        const std::string k = argv[i], v = argv[i + 1];
-        if (k == "--maestro") maestro = v;
-        else if (k == "--manifest") manifest = v;
-        else if (k == "--audio") audio_path = v;
-        else if (k == "--truth") truth_path = v;
-        else if (k == "--from") from_s = std::atof(v.c_str());
-        else if (k == "--to") to_s = std::atof(v.c_str());
-        else if (k == "--paths") paths_arg = v;
-        else if (k == "--cases") cases_arg = v;
-        else if (k == "--seed") seed = unsigned(std::atoi(v.c_str()));
-        else if (k == "--repeat") repeat = std::max(1, std::atoi(v.c_str()));
-        else if (k == "--out") out_dir = v;
-        else if (k == "--dump-events") dump_audio = v;
-        else if (k == "--profile") dump_profile = v;
-        else if (k == "--make-manifests") make_manifests_csv = v;
+    int i = 0;
+    bool bad = false;
+    auto value = [&](const char* k) -> std::string {
+        if (i + 1 >= argc) {
+            std::fprintf(stderr, "missing value for %s\n", k);
+            bad = true;
+            return std::string();
+        }
+        return argv[++i];
+    };
+    for (i = 1; i < argc && !bad; ++i) {
+        const std::string k = argv[i];
+        if (k == "--maestro") maestro = value("--maestro");
+        else if (k == "--manifest") manifest = value("--manifest");
+        else if (k == "--audio") audio_path = value("--audio");
+        else if (k == "--truth") truth_path = value("--truth");
+        else if (k == "--from") from_s = std::atof(value("--from").c_str());
+        else if (k == "--to") to_s = std::atof(value("--to").c_str());
+        else if (k == "--paths") paths_arg = value("--paths");
+        else if (k == "--cases") cases_arg = value("--cases");
+        else if (k == "--seed") seed = unsigned(std::atoi(value("--seed").c_str()));
+        else if (k == "--repeat") repeat = std::max(1, std::atoi(value("--repeat").c_str()));
+        else if (k == "--out") out_dir = value("--out");
+        else if (k == "--features") features_path = value("--features");
+        else if (k == "--bp-th") bp_th = std::atof(value("--bp-th").c_str());
+        else if (k == "--bp-rule") bp_rule_arg = value("--bp-rule");
+        else if (k == "--bp-lookahead") bp_lookahead_ms = std::atof(value("--bp-lookahead").c_str());
+        else if (k == "--bp-sweep") bp_sweep = true;
+        else if (k == "--jobs") jobs = std::max(1, std::min(6, std::atoi(value("--jobs").c_str())));
+        else if (k == "--dump-events") dump_audio = value("--dump-events");
+        else if (k == "--profile") dump_profile = value("--profile");
+        else if (k == "--make-manifests") make_manifests_csv = value("--make-manifests");
         else {
             std::fprintf(stderr, "unknown option %s\n", k.c_str());
-            return 2;
+            bad = true;
         }
+    }
+    if (bad) return 2;
+
+    bp::Rule bp_rule;
+    if (!bp::rule_from_name(bp_rule_arg, bp_rule)) {
+        std::fprintf(stderr, "unknown rule %s (plain or rival)\n", bp_rule_arg.c_str());
+        return 2;
     }
 
     if (!make_manifests_csv.empty()) return make_manifests(make_manifests_csv);
@@ -353,22 +502,30 @@ int main(int argc, char** argv) {
 
     // ---- the paths under test ---------------------------------------------
     std::vector<std::string> path_names;
-    for (size_t a = 0;;) {
-        const size_t b = paths_arg.find(',', a);
-        const std::string name = paths_arg.substr(a, b == std::string::npos ? b : b - a);
-        if (name != "blind" && name != "expect" && name != "core" && name != "oracle" &&
-            name != "yes") {
-            std::fprintf(stderr, "unknown path %s (blind, expect, core, oracle, yes)\n", name.c_str());
-            return 2;
+    if (!bp_sweep) {
+        for (size_t a = 0;;) {
+            const size_t b = paths_arg.find(',', a);
+            const std::string name = paths_arg.substr(a, b == std::string::npos ? b : b - a);
+            if (name != "blind" && name != "expect" && name != "core" && name != "oracle" &&
+                name != "yes" && name != "bp" && name != "bp-la") {
+                std::fprintf(stderr,
+                             "unknown path %s (blind, expect, core, oracle, yes, bp, bp-la)\n",
+                             name.c_str());
+                return 2;
+            }
+            if (name == "bp-la" && bp_lookahead_ms <= 0.0) {
+                std::fprintf(stderr, "the bp-la path needs --bp-lookahead <ms>\n");
+                return 2;
+            }
+            path_names.push_back(name);
+            if (b == std::string::npos) break;
+            a = b + 1;
         }
-        path_names.push_back(name);
-        if (b == std::string::npos) break;
-        a = b + 1;
     }
 
     std::vector<Case> cases;
     if (cases_arg == "all") {
-        for (size_t i = 0; i < kCaseCount; ++i) cases.push_back(kAllCases[i]);
+        for (size_t ci = 0; ci < kCaseCount; ++ci) cases.push_back(kAllCases[ci]);
     } else {
         for (size_t a = 0;;) {
             const size_t b = cases_arg.find(',', a);
@@ -412,13 +569,212 @@ int main(int argc, char** argv) {
         std::fprintf(stderr,
                      "usage: kan_truth_bench --maestro <dir> --manifest <file> | "
                      "--audio a.wav --truth a.midi --from 0 --to 60 "
-                     "[--paths blind,core] [--cases all] [--seed N] [--repeat N] [--out <dir>]\n");
+                     "[--paths blind,core] [--cases all] [--seed N] [--repeat N] [--out <dir>] "
+                     "[--bp-th 0.3] [--bp-rule rival] [--bp-lookahead <ms>] [--features <file.csv>] "
+                     "[--bp-sweep] [--jobs N]\n");
         return 2;
     }
 
+    // One excerpt: the audio and the truth in its time. A note needs 500
+    // ms past its attack to be judged fairly (polybench's cut of the
+    // excerpt tail), so the truth stops there.
+    struct Loaded {
+        std::vector<float> audio;
+        std::vector<TruthNote> truth;
+        double audio_ms = 0.0;
+        std::string msg;
+        int status = 0; // 0 ok, 1 skip (no truth notes), 2 fatal
+    };
+    auto load_excerpt = [](const Excerpt& ex) {
+        Loaded ld;
+        std::fprintf(stderr, "excerpt %s %.3g-%.3g s\n", ex.audio.c_str(), ex.from_s, ex.to_s);
+        std::vector<float> full;
+        if (!bench_io::read_audio(ex.audio, full)) {
+            ld.status = 2;
+            ld.msg = "cannot decode audio " + ex.audio;
+            return ld;
+        }
+        std::vector<bench_io::Note> midi;
+        if (!bench_io::read_midi(ex.midi, midi)) {
+            ld.status = 2;
+            ld.msg = "cannot read MIDI " + ex.midi;
+            return ld;
+        }
+        const double from_ms = ex.from_s * 1000.0, to_ms = ex.to_s * 1000.0;
+        const size_t s0 = size_t(from_ms * 48.0), s1 = std::min(full.size(), size_t(to_ms * 48.0));
+        if (s0 >= s1) {
+            ld.status = 2;
+            ld.msg = "empty excerpt range " + ex.audio;
+            return ld;
+        }
+        ld.audio.assign(full.begin() + std::ptrdiff_t(s0), full.begin() + std::ptrdiff_t(s1));
+        ld.audio_ms = 1000.0 * double(ld.audio.size()) / 48000.0;
+        for (const auto& n : midi) {
+            if (n.onset_ms < from_ms || n.onset_ms >= to_ms - 500.0) continue;
+            ld.truth.push_back({n.onset_ms - from_ms, n.dur_ms, n.midi});
+        }
+        if (ld.truth.empty()) {
+            ld.status = 1;
+            ld.msg = "no truth notes in range " + ex.audio;
+        }
+        return ld;
+    };
+
     if (!out_dir.empty()) std::filesystem::create_directories(out_dir);
-    const std::string csv_path = out_dir.empty() ? "notes.csv" : out_dir + "/notes.csv";
     const std::string summary_path = out_dir.empty() ? "summary.txt" : out_dir + "/summary.txt";
+
+    // ---- the bp sweep ------------------------------------------------------
+    if (bp_sweep) {
+        struct SweepOut {
+            int status = 0;
+            std::string msg, features;
+            std::vector<CaseStats> stats; // kSweepLines x kCaseCount
+            double infer_ms = 0.0, audio_ms = 0.0;
+        };
+        std::vector<SweepOut> outs(excerpts.size());
+        std::atomic<size_t> next{0};
+        std::vector<std::thread> pool;
+        for (int j = 0; j < jobs; ++j) {
+            pool.emplace_back([&]() {
+                for (size_t idx; (idx = next.fetch_add(1)) < excerpts.size();) {
+                    SweepOut& out = outs[idx];
+                    const Loaded ld = load_excerpt(excerpts[idx]);
+                    out.status = ld.status;
+                    out.msg = ld.msg;
+                    if (ld.status == 2) continue;
+                    out.audio_ms = ld.audio_ms;
+                    out.stats.assign(kSweepLines * kCaseCount, CaseStats());
+                    bp::BpPath path; // one measurement per score note, no verdict here
+                    char label[768];
+                    std::snprintf(label, sizeof(label), "%s@%g-%g", excerpts[idx].audio.c_str(),
+                                  excerpts[idx].from_s, excerpts[idx].to_s);
+                    for (size_t ci = 0; ci < kCaseCount; ++ci) {
+                        const Case c = kAllCases[ci];
+                        if (!selected(c)) continue;
+                        const BuiltCase built = build_case(c, ld.truth, seed);
+                        std::vector<NoteResult> res;
+                        CpuStats cpu;
+                        path.run(ld.audio, 48000.0f, built.notes, res, cpu);
+                        if (out.infer_ms <= 0.0) out.infer_ms = cpu.total_ms;
+                        const std::vector<bp::NoteMeasure>& measures = path.measures();
+                        for (size_t n = 0; n < built.notes.size(); ++n) {
+                            const ScoreNote& sn = built.notes[n];
+                            const double truth_onset = truth_onset_of(ld.truth, sn);
+                            const double at = sn.truth_index >= 0 ? truth_onset : sn.onset_ms;
+                            write_feature_row(out.features, label, case_name(c), n, sn, truth_onset,
+                                              sounding_at(ld.truth, at), measures[n]);
+                        }
+                        for (size_t line = 0; line < kSweepLines; ++line) {
+                            std::vector<NoteResult> dec(built.notes.size());
+                            for (size_t n = 0; n < built.notes.size(); ++n)
+                                dec[n] = bp::decide(measures[n], sweep_rule(line), sweep_th(line),
+                                                    built.notes[n].midi);
+                            merge(out.stats[line * kCaseCount + ci],
+                                  score_case(ld.truth, built.notes, dec));
+                        }
+                    }
+                }
+            });
+        }
+        for (auto& t : pool) t.join();
+
+        std::vector<CaseStats> totals(kSweepLines * kCaseCount);
+        double infer_ms = 0.0, audio_ms = 0.0;
+        bool fatal = false;
+        std::string features;
+        for (size_t idx = 0; idx < excerpts.size(); ++idx) {
+            SweepOut& out = outs[idx];
+            if (out.status == 2) {
+                std::fprintf(stderr, "%s\n", out.msg.c_str());
+                fatal = true;
+                continue;
+            }
+            if (out.status == 1) {
+                std::fprintf(stderr, "%s\n", out.msg.c_str());
+                continue;
+            }
+            features += out.features;
+            infer_ms += out.infer_ms;
+            audio_ms += out.audio_ms;
+            for (size_t line = 0; line < kSweepLines; ++line)
+                for (size_t ci = 0; ci < kCaseCount; ++ci)
+                    merge(totals[line * kCaseCount + ci], out.stats[line * kCaseCount + ci]);
+        }
+        if (fatal) return 1;
+        if (!features_path.empty()) {
+            std::FILE* feat = std::fopen(features_path.c_str(), "w");
+            if (feat == nullptr) {
+                std::fprintf(stderr, "cannot write %s\n", features_path.c_str());
+                return 1;
+            }
+            std::fprintf(feat, "excerpt,case,note,right,sounding,midi,score_onset_ms,truth_onset_ms,"
+                               "measured_attack_ms,s,r,rival_midi,n_before,n_after\n");
+            std::fwrite(features.data(), 1, features.size(), feat);
+            std::fclose(feat);
+            std::fprintf(stderr, "wrote %s\n", features_path.c_str());
+        }
+
+        auto print_sweep = [&](FILE* f) {
+            std::fprintf(f, "kan_truth_bench --bp-sweep\n");
+            std::fprintf(f, "excerpts: %zu   cases: %s   seed %u   rule plain then rival\n",
+                         excerpts.size(), cases_arg.c_str(), seed);
+            std::fprintf(f, "every column is up to 10 sounding: right%% is right notes accepted "
+                            "(case right),\nsemi%%/tone%%/octv%%/added%% wrong notes rejected, left%%/"
+                            "late250%%/jitter%% right notes\naccepted; r and l are the attack error "
+                            "of right and late250 (med and p95 in ms,\nperf%% and 50ms%% the shares "
+                            "inside the perfect window and within 50 ms)\n");
+            print_sweep_header(f);
+            for (size_t line = 0; line < kSweepLines; ++line)
+                print_sweep_line(f, line, totals.data() + line * kCaseCount);
+            // The setting the report runs with: the mean of right accepted
+            // % (case right) and the mean wrong rejected % (semitone,
+            // tone, octave, added), highest wins, ties go to the higher
+            // threshold and then to the rival rule.
+            double best_score = -1.0;
+            size_t best_line = 0;
+            for (size_t line = 0; line < kSweepLines; ++line) {
+                const std::vector<CaseStats> st(totals.begin() + std::ptrdiff_t(line * kCaseCount),
+                                                totals.begin() + std::ptrdiff_t((line + 1) * kCaseCount));
+                const BucketStats& right = st[case_index(Case::Right)].up_to_10;
+                if (right.right_n == 0) continue;
+                double wrong_sum = 0.0;
+                int wrong_cases = 0;
+                for (Case c : {Case::Semitone, Case::Tone, Case::Octave, Case::Added}) {
+                    const BucketStats& b = st[case_index(c)].up_to_10;
+                    if (b.wrong_n == 0) continue;
+                    wrong_sum += pct(double(b.rejected), double(b.wrong_n));
+                    ++wrong_cases;
+                }
+                const double score = 0.5 * (pct(double(right.accepted), double(right.right_n)) +
+                                            (wrong_cases > 0 ? wrong_sum / wrong_cases : 0.0));
+                if (score > best_score) {
+                    best_score = score;
+                    best_line = line;
+                }
+            }
+            std::fprintf(f, "best (rule, th) by the mean of right accepted %% and wrong rejected %%: "
+                            "%s %.2f\n",
+                         rule_name(sweep_rule(best_line)), sweep_th(best_line));
+            std::fprintf(f, "CPU of the offline network (infer, one thread): %.1f %% of real time "
+                            "(%.1f s over %.1f s of audio)\n",
+                         100.0 * infer_ms / std::max(1.0, audio_ms), infer_ms / 1000.0, audio_ms / 1000.0);
+            if (jobs > 1)
+                std::fprintf(f, "note: the excerpts ran in parallel (--jobs %d), the infer times "
+                                "include that load\n", jobs);
+        };
+        print_sweep(stdout);
+        std::FILE* sum = std::fopen(summary_path.c_str(), "w");
+        if (sum == nullptr) {
+            std::fprintf(stderr, "cannot write %s\n", summary_path.c_str());
+            return 1;
+        }
+        print_sweep(sum);
+        std::fclose(sum);
+        std::fprintf(stderr, "wrote %s\n", summary_path.c_str());
+        return 0;
+    }
+
+    const std::string csv_path = out_dir.empty() ? "notes.csv" : out_dir + "/notes.csv";
     std::FILE* csv = std::fopen(csv_path.c_str(), "w");
     if (csv == nullptr) {
         std::fprintf(stderr, "cannot write %s\n", csv_path.c_str());
@@ -426,6 +782,22 @@ int main(int argc, char** argv) {
     }
     std::fprintf(csv, "excerpt,path,case,outcome,right,sounding,score_onset_ms,truth_onset_ms,"
                       "measured_onset_ms,midi,reported_midi\n");
+
+    std::FILE* feat = nullptr;
+    if (!features_path.empty()) {
+        feat = std::fopen(features_path.c_str(), "w");
+        if (feat == nullptr) {
+            std::fprintf(stderr, "cannot write %s\n", features_path.c_str());
+            return 1;
+        }
+        std::fprintf(feat, "excerpt,case,note,right,sounding,midi,score_onset_ms,truth_onset_ms,"
+                           "measured_attack_ms,s,r,rival_midi,n_before,n_after\n");
+        bool has_bp = false;
+        for (const auto& name : path_names) has_bp = has_bp || name == "bp";
+        if (!has_bp)
+            std::fprintf(stderr, "note: --features writes rows only for the bp path, which is not "
+                                 "among the paths\n");
+    }
 
     // Reports pooled over the excerpts, one per path and case.
     struct Pool {
@@ -436,108 +808,141 @@ int main(int argc, char** argv) {
     // CPU of the right case, one point per repeat and excerpt.
     std::vector<std::vector<CpuPoint>> cpu_points(path_names.size());
 
-    for (const Excerpt& ex : excerpts) {
-        std::fprintf(stderr, "excerpt %s %.3g-%.3g s\n", ex.audio.c_str(), ex.from_s, ex.to_s);
-        std::vector<float> full;
-        if (!bench_io::read_audio(ex.audio, full)) {
-            std::fprintf(stderr, "cannot decode audio %s\n", ex.audio.c_str());
-            return 1;
-        }
-        std::vector<bench_io::Note> midi;
-        if (!bench_io::read_midi(ex.midi, midi)) {
-            std::fprintf(stderr, "cannot read MIDI %s\n", ex.midi.c_str());
-            return 1;
-        }
+    // ---- the excerpts, in parallel ----------------------------------------
+    struct ExcerptOut {
+        int status = 0;
+        std::string msg, csv, features;
+        std::vector<std::vector<Pool>> pools; // path x case
+        std::vector<std::vector<CpuPoint>> cpu;
+    };
+    std::vector<ExcerptOut> outs(excerpts.size());
+    {
+        std::atomic<size_t> next{0};
+        std::vector<std::thread> pool;
+        for (int j = 0; j < jobs; ++j) {
+            pool.emplace_back([&]() {
+                for (size_t idx; (idx = next.fetch_add(1)) < excerpts.size();) {
+                    ExcerptOut& out = outs[idx];
+                    const Excerpt& ex = excerpts[idx];
+                    const Loaded ld = load_excerpt(ex);
+                    out.status = ld.status;
+                    out.msg = ld.msg;
+                    if (ld.status == 2) continue;
+                    out.pools.assign(path_names.size(), std::vector<Pool>(kCaseCount));
+                    out.cpu.resize(path_names.size());
 
-        // The excerpt: the audio and the truth in its time. A note needs
-        // 500 ms past its attack to be judged fairly (polybench's cut of
-        // the excerpt tail), so the truth stops there.
-        const double from_ms = ex.from_s * 1000.0, to_ms = ex.to_s * 1000.0;
-        const size_t s0 = size_t(from_ms * 48.0), s1 = std::min(full.size(), size_t(to_ms * 48.0));
-        if (s0 >= s1) {
-            std::fprintf(stderr, "empty excerpt range\n");
-            return 1;
-        }
-        const std::vector<float> audio(full.begin() + s0, full.begin() + s1);
-        const double audio_ms = 1000.0 * double(audio.size()) / 48000.0;
+                    // Fresh path instances per excerpt (the blind pass is
+                    // cached per audio buffer; the oracle gets the truth
+                    // here and only here).
+                    std::vector<std::unique_ptr<Path>> run_paths;
+                    for (const auto& name : path_names)
+                        run_paths.push_back(make_path(name, ld.truth, bp_th, bp_rule, bp_lookahead_ms));
 
-        std::vector<TruthNote> truth;
-        for (const auto& n : midi) {
-            if (n.onset_ms < from_ms || n.onset_ms >= to_ms - 500.0) continue;
-            truth.push_back({n.onset_ms - from_ms, n.dur_ms, n.midi});
+                    const char* label_base = ex.audio.c_str();
+                    for (size_t ci = 0; ci < kCaseCount; ++ci) {
+                        const Case c = kAllCases[ci];
+                        if (!selected(c)) continue;
+                        const BuiltCase built = build_case(c, ld.truth, seed);
+
+                        for (size_t pi = 0; pi < run_paths.size(); ++pi) {
+                            CpuStats cpu;
+                            std::vector<NoteResult> results;
+                            run_paths[pi]->run(ld.audio, 48000.0f, built.notes, results, cpu);
+                            annotate_cpu(cpu, ld.truth);
+                            merge(out.pools[pi][ci].stats, score_case(ld.truth, built.notes, results));
+                            if (path_names[pi] == "expect") {
+                                const ExpectPath* ep = dynamic_cast<const ExpectPath*>(run_paths[pi].get());
+                                out.pools[pi][ci].sets += ep->last_sets;
+                                out.pools[pi][ci].refused += ep->last_refused;
+                                out.pools[pi][ci].late += ep->last_late;
+                            }
+                            const bp::BpPath* bpp =
+                                features_path.empty() || path_names[pi] != "bp"
+                                    ? nullptr
+                                    : dynamic_cast<const bp::BpPath*>(run_paths[pi].get());
+
+                            for (size_t n = 0; n < built.notes.size(); ++n) {
+                                const ScoreNote& sn = built.notes[n];
+                                const NoteResult& r = results[n];
+                                const double truth_onset = truth_onset_of(ld.truth, sn);
+                                const int sounding =
+                                    sounding_at(ld.truth, sn.truth_index >= 0 ? truth_onset : sn.onset_ms);
+                                char label[768];
+                                std::snprintf(label, sizeof(label), "%s@%g-%g", label_base, ex.from_s,
+                                              ex.to_s);
+                                char truth_s[32] = "na", meas_s[32] = "na", rep_s[32] = "na";
+                                if (std::isfinite(truth_onset))
+                                    std::snprintf(truth_s, sizeof(truth_s), "%.3f", truth_onset);
+                                if (std::isfinite(r.onset_ms))
+                                    std::snprintf(meas_s, sizeof(meas_s), "%.3f", r.onset_ms);
+                                if (std::isfinite(r.midi))
+                                    std::snprintf(rep_s, sizeof(rep_s), "%.2f", double(r.midi));
+                                char line[2048];
+                                const int len = std::snprintf(
+                                    line, sizeof(line), "%s,%s,%s,%s,%d,%d,%.3f,%s,%s,%d,%s\n", label,
+                                    path_names[pi].c_str(), case_name(c), outcome_name(r.outcome),
+                                    sn.right ? 1 : 0, sounding, sn.onset_ms, truth_s, meas_s, sn.midi,
+                                    rep_s);
+                                out.csv.append(line, size_t(std::max(0, std::min(len, int(sizeof(line)) - 1))));
+                                if (bpp != nullptr)
+                                    write_feature_row(out.features, label, case_name(c), n, sn,
+                                                      truth_onset, sounding, bpp->measures()[n]);
+                            }
+                        }
+                    }
+
+                    // CPU measuring pass of the right case, repeated. Only
+                    // with one thread and only for paths that report CPU.
+                    if (jobs <= 1) {
+                        const BuiltCase right = build_case(Case::Right, ld.truth, seed);
+                        for (size_t pi = 0; pi < path_names.size(); ++pi) {
+                            if (!make_path(path_names[pi], ld.truth, bp_th, bp_rule, bp_lookahead_ms)
+                                     ->reports_cpu())
+                                continue;
+                            for (int rep = 0; rep < repeat; ++rep) {
+                                std::unique_ptr<Path> p =
+                                    make_path(path_names[pi], ld.truth, bp_th, bp_rule, bp_lookahead_ms);
+                                CpuStats cpu;
+                                std::vector<NoteResult> results;
+                                p->run(ld.audio, 48000.0f, right.notes, results, cpu);
+                                annotate_cpu(cpu, ld.truth);
+                                out.cpu[pi].push_back(cpu_point(cpu, ld.audio_ms));
+                            }
+                        }
+                    }
+                }
+            });
         }
-        if (truth.empty()) {
-            std::fprintf(stderr, "no truth notes in range\n");
+        for (auto& t : pool) t.join();
+    }
+
+    bool fatal = false;
+    for (size_t idx = 0; idx < excerpts.size(); ++idx) {
+        ExcerptOut& out = outs[idx];
+        if (out.status == 2) {
+            std::fprintf(stderr, "%s\n", out.msg.c_str());
+            fatal = true;
             continue;
         }
-
-        // Fresh path instances per excerpt (the blind pass is cached per
-        // audio buffer; the oracle gets the truth here and only here).
-        std::vector<std::unique_ptr<Path>> run_paths;
-        for (const auto& name : path_names) run_paths.push_back(make_path(name, truth));
-
-        const char* label_base = ex.audio.c_str();
-        for (size_t ci = 0; ci < kCaseCount; ++ci) {
-            const Case c = kAllCases[ci];
-            if (!selected(c)) continue;
-            const BuiltCase built = build_case(c, truth, seed);
-
-            for (size_t pi = 0; pi < run_paths.size(); ++pi) {
-                CpuStats cpu;
-                std::vector<NoteResult> results;
-                run_paths[pi]->run(audio, 48000.0f, built.notes, results, cpu);
-                annotate_cpu(cpu, truth);
-                merge(pools[pi][ci].stats, score_case(truth, built.notes, results));
-                if (path_names[pi] == "expect") {
-                    const ExpectPath* ep = dynamic_cast<const ExpectPath*>(run_paths[pi].get());
-                    pools[pi][ci].sets += ep->last_sets;
-                    pools[pi][ci].refused += ep->last_refused;
-                    pools[pi][ci].late += ep->last_late;
-                }
-
-                const ScoreWindows w = compute_windows(built.notes);
-                (void)w;
-                for (size_t i = 0; i < built.notes.size(); ++i) {
-                    const ScoreNote& sn = built.notes[i];
-                    const NoteResult& r = results[i];
-                    const double truth_onset =
-                        sn.truth_index >= 0 ? truth[size_t(sn.truth_index)].onset_ms
-                                            : std::numeric_limits<double>::quiet_NaN();
-                    int sounding = 0;
-                    const double at =
-                        sn.truth_index >= 0 ? truth[size_t(sn.truth_index)].onset_ms : sn.onset_ms;
-                    for (const auto& g : truth)
-                        if (g.onset_ms <= at && at < g.onset_ms + g.dur_ms) ++sounding;
-                    char label[768];
-                    std::snprintf(label, sizeof(label), "%s@%g-%g", label_base, ex.from_s, ex.to_s);
-                    char truth_s[32] = "na", meas_s[32] = "na", rep_s[32] = "na";
-                    if (std::isfinite(truth_onset))
-                        std::snprintf(truth_s, sizeof(truth_s), "%.3f", truth_onset);
-                    if (std::isfinite(r.onset_ms))
-                        std::snprintf(meas_s, sizeof(meas_s), "%.3f", r.onset_ms);
-                    if (std::isfinite(r.midi)) std::snprintf(rep_s, sizeof(rep_s), "%.2f", double(r.midi));
-                    std::fprintf(csv, "%s,%s,%s,%s,%d,%d,%.3f,%s,%s,%d,%s\n", label,
-                                 path_names[pi].c_str(), case_name(c), outcome_name(r.outcome),
-                                 sn.right ? 1 : 0, sounding, sn.onset_ms, truth_s, meas_s, sn.midi,
-                                 rep_s);
-                }
-            }
+        if (out.status == 1) {
+            std::fprintf(stderr, "%s\n", out.msg.c_str());
+            continue;
         }
-
-        // CPU measuring pass of the right case, repeated.
-        const BuiltCase right = build_case(Case::Right, truth, seed);
+        std::fwrite(out.csv.data(), 1, out.csv.size(), csv);
+        if (feat != nullptr) std::fwrite(out.features.data(), 1, out.features.size(), feat);
         for (size_t pi = 0; pi < path_names.size(); ++pi) {
-            for (int rep = 0; rep < repeat; ++rep) {
-                std::unique_ptr<Path> p = make_path(path_names[pi], truth);
-                CpuStats cpu;
-                std::vector<NoteResult> results;
-                p->run(audio, 48000.0f, right.notes, results, cpu);
-                annotate_cpu(cpu, truth);
-                cpu_points[pi].push_back(cpu_point(cpu, audio_ms));
+            for (size_t ci = 0; ci < kCaseCount; ++ci) {
+                merge(pools[pi][ci].stats, out.pools[pi][ci].stats);
+                pools[pi][ci].sets += out.pools[pi][ci].sets;
+                pools[pi][ci].refused += out.pools[pi][ci].refused;
+                pools[pi][ci].late += out.pools[pi][ci].late;
             }
+            for (const auto& p : out.cpu[pi]) cpu_points[pi].push_back(p);
         }
     }
     std::fclose(csv);
+    if (feat != nullptr) std::fclose(feat);
+    if (fatal) return 1;
 
     // ---- summary ----------------------------------------------------------
     auto print_summary = [&](FILE* f) {
@@ -608,6 +1013,9 @@ int main(int argc, char** argv) {
             (void)has_blocks;
         }
         std::fprintf(f, "each line: min / median / max across the repeats\n");
+        if (jobs > 1)
+            std::fprintf(f, "note: CPU was not measured, the excerpts ran in parallel (--jobs %d).\n",
+                         jobs);
         std::fprintf(f, "note: CPU numbers mean something only when run alone under taskset.\n");
     };
 
