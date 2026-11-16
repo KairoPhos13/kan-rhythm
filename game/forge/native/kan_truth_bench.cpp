@@ -27,6 +27,11 @@
 //   [--bp-lookahead <ms>]   the look-ahead the bp-la path must respect
 //   [--features <file.csv>] the bp path writes one row per excerpt, case
 //                           and score note (the fusion input)
+//   [--dump-posteriors <dir>]
+//                           the bp path writes its whole-recording
+//                           posteriors and the score it was given, one
+//                           .post and one .score.csv per excerpt and
+//                           case, plus index.csv (work package 4c)
 //   --bp-sweep              instead of the paths: one table over (rule,
 //                           th) built from one bp measurement per score
 //                           note, with --features the same rows
@@ -376,6 +381,17 @@ int sounding_at(const std::vector<TruthNote>& truth, double at) {
     return sounding;
 }
 
+// The dump's index.csv (work package 4c): one row per written dump, in
+// the order the excerpts and cases ran.
+bool write_dump_index(const std::string& dir, const std::vector<std::string>& rows) {
+    const std::string path = dir + "/index.csv";
+    std::FILE* f = std::fopen(path.c_str(), "w");
+    if (f == nullptr) return false;
+    std::fprintf(f, "e,excerpt,case,frames,notes\n");
+    for (const auto& r : rows) std::fwrite(r.data(), 1, r.size(), f);
+    return std::fclose(f) == 0;
+}
+
 // One features row (deliverable 2): the measurement of the bp path plus
 // the truth columns only the bench can fill. The contour columns are
 // empty when they could not be measured (c_cents when its weight is
@@ -482,7 +498,7 @@ void print_sweep_header(FILE* f) {
 int main(int argc, char** argv) {
     std::string maestro, manifest, audio_path, truth_path, paths_arg = "blind,core",
                 cases_arg = "all", out_dir, dump_audio, dump_profile, make_manifests_csv,
-                features_path, bp_rule_arg = "fair";
+                features_path, dump_posteriors_dir, bp_rule_arg = "fair";
     double from_s = 0.0, to_s = -1.0, bp_th = 0.3, bp_lookahead_ms = -1.0;
     bp::FairParams bp_fair;
     unsigned seed = 7;
@@ -513,6 +529,7 @@ int main(int argc, char** argv) {
         else if (k == "--repeat") repeat = std::max(1, std::atoi(value("--repeat").c_str()));
         else if (k == "--out") out_dir = value("--out");
         else if (k == "--features") features_path = value("--features");
+        else if (k == "--dump-posteriors") dump_posteriors_dir = value("--dump-posteriors");
         else if (k == "--bp-th") bp_th = std::atof(value("--bp-th").c_str());
         else if (k == "--bp-rule") bp_rule_arg = value("--bp-rule");
         else if (k == "--bp-fair-a") bp_fair.a = std::atof(value("--bp-fair-a").c_str());
@@ -624,7 +641,7 @@ int main(int argc, char** argv) {
                      "--audio a.wav --truth a.midi --from 0 --to 60 "
                      "[--paths blind,core] [--cases all] [--seed N] [--repeat N] [--out <dir>] "
                      "[--bp-th 0.3] [--bp-rule fair] [--bp-lookahead <ms>] [--features <file.csv>] "
-                     "[--bp-sweep] [--jobs N]\n");
+                     "[--dump-posteriors <dir>] [--bp-sweep] [--jobs N]\n");
         return 2;
     }
 
@@ -674,6 +691,7 @@ int main(int argc, char** argv) {
     };
 
     if (!out_dir.empty()) std::filesystem::create_directories(out_dir);
+    if (!dump_posteriors_dir.empty()) std::filesystem::create_directories(dump_posteriors_dir);
     const std::string summary_path = out_dir.empty() ? "summary.txt" : out_dir + "/summary.txt";
 
     // ---- the bp sweep ------------------------------------------------------
@@ -683,6 +701,8 @@ int main(int argc, char** argv) {
             std::string msg, features;
             std::vector<CaseStats> stats; // kSweepLines x kCaseCount
             double infer_ms = 0.0, audio_ms = 0.0;
+            std::vector<std::string> dump_rows; // index.csv lines (work package 4c)
+            std::string dump_err;
         };
         std::vector<SweepOut> outs(excerpts.size());
         std::atomic<size_t> next{0};
@@ -711,6 +731,32 @@ int main(int argc, char** argv) {
                         path.run(case_audio.of(c), 48000.0f, built.notes, res, cpu);
                         if (out.infer_ms <= 0.0) out.infer_ms = cpu.total_ms;
                         const std::vector<bp::NoteMeasure>& measures = path.measures();
+                        if (!dump_posteriors_dir.empty()) {
+                            // The whole-recording posteriors of this run
+                            // and the score it was given (work package
+                            // 4c); the analysis columns come from the
+                            // truth the bench holds.
+                            std::vector<bp::DumpScoreRow> rows = bp::dump_score_rows(built.notes);
+                            for (size_t n = 0; n < built.notes.size(); ++n) {
+                                const ScoreNote& sn = built.notes[n];
+                                const double truth_onset = truth_onset_of(ld.truth, sn);
+                                rows[n].right = sn.right ? 1 : 0;
+                                rows[n].sounding = sounding_at(
+                                    ld.truth, sn.truth_index >= 0 ? truth_onset : sn.onset_ms);
+                                rows[n].truth_onset_ms = truth_onset;
+                            }
+                            const bp::PosteriorView& pv = path.posteriors();
+                            if (!bp::write_posterior_dump(dump_posteriors_dir, int(idx), case_name(c),
+                                                         pv, rows)) {
+                                out.dump_err = "cannot write the posterior dump of " +
+                                               std::string(label) + " " + case_name(c);
+                            } else {
+                                char line[2048];
+                                std::snprintf(line, sizeof(line), "%02d,%s,%s,%d,%zu\n", int(idx),
+                                              label, case_name(c), pv.frames, rows.size());
+                                out.dump_rows.push_back(line);
+                            }
+                        }
                         for (size_t n = 0; n < built.notes.size(); ++n) {
                             const ScoreNote& sn = built.notes[n];
                             const double truth_onset = truth_onset_of(ld.truth, sn);
@@ -736,6 +782,7 @@ int main(int argc, char** argv) {
         double infer_ms = 0.0, audio_ms = 0.0;
         bool fatal = false;
         std::string features;
+        std::vector<std::string> dump_index;
         for (size_t idx = 0; idx < excerpts.size(); ++idx) {
             SweepOut& out = outs[idx];
             if (out.status == 2) {
@@ -748,11 +795,20 @@ int main(int argc, char** argv) {
                 continue;
             }
             features += out.features;
+            if (!out.dump_err.empty()) {
+                std::fprintf(stderr, "%s\n", out.dump_err.c_str());
+                fatal = true;
+            }
+            dump_index.insert(dump_index.end(), out.dump_rows.begin(), out.dump_rows.end());
             infer_ms += out.infer_ms;
             audio_ms += out.audio_ms;
             for (size_t line = 0; line < kSweepLines; ++line)
                 for (size_t ci = 0; ci < kCaseCount; ++ci)
                     merge(totals[line * kCaseCount + ci], out.stats[line * kCaseCount + ci]);
+        }
+        if (!dump_posteriors_dir.empty() && !write_dump_index(dump_posteriors_dir, dump_index)) {
+            std::fprintf(stderr, "cannot write %s/index.csv\n", dump_posteriors_dir.c_str());
+            return 1;
         }
         if (fatal) return 1;
         if (!features_path.empty()) {
@@ -854,6 +910,13 @@ int main(int argc, char** argv) {
             std::fprintf(stderr, "note: --features writes rows only for the bp path, which is not "
                                  "among the paths\n");
     }
+    if (!dump_posteriors_dir.empty()) {
+        bool has_bp = false;
+        for (const auto& name : path_names) has_bp = has_bp || name == "bp";
+        if (!has_bp)
+            std::fprintf(stderr, "note: --dump-posteriors writes dumps only for the bp path, which "
+                                 "is not among the paths\n");
+    }
 
     // Reports pooled over the excerpts, one per path and case.
     struct Pool {
@@ -870,6 +933,8 @@ int main(int argc, char** argv) {
         std::string msg, csv, features;
         std::vector<std::vector<Pool>> pools; // path x case
         std::vector<std::vector<CpuPoint>> cpu;
+        std::vector<std::string> dump_rows; // index.csv lines (work package 4c)
+        std::string dump_err;
     };
     std::vector<ExcerptOut> outs(excerpts.size());
     {
@@ -946,6 +1011,39 @@ int main(int argc, char** argv) {
                                     write_feature_row(out.features, label, case_name(c), n, sn,
                                                       truth_onset, sounding, bpp->measures()[n]);
                             }
+
+                            // The dump of work package 4c (the bp path
+                            // only): the whole-recording posteriors of
+                            // this run and the score it was given. The
+                            // analysis columns come from the truth the
+                            // bench holds; the path never reads them.
+                            if (!dump_posteriors_dir.empty() && path_names[pi] == "bp") {
+                                const bp::BpPath* bpd =
+                                    dynamic_cast<const bp::BpPath*>(run_paths[pi].get());
+                                std::vector<bp::DumpScoreRow> rows = bp::dump_score_rows(built.notes);
+                                for (size_t n = 0; n < built.notes.size(); ++n) {
+                                    const ScoreNote& sn = built.notes[n];
+                                    const double truth_onset = truth_onset_of(ld.truth, sn);
+                                    rows[n].right = sn.right ? 1 : 0;
+                                    rows[n].sounding = sounding_at(
+                                        ld.truth, sn.truth_index >= 0 ? truth_onset : sn.onset_ms);
+                                    rows[n].truth_onset_ms = truth_onset;
+                                }
+                                char label[768];
+                                std::snprintf(label, sizeof(label), "%s@%g-%g", label_base, ex.from_s,
+                                              ex.to_s);
+                                const bp::PosteriorView& pv = bpd->posteriors();
+                                if (!bp::write_posterior_dump(dump_posteriors_dir, int(idx),
+                                                             case_name(c), pv, rows)) {
+                                    out.dump_err = "cannot write the posterior dump of " +
+                                                   std::string(label) + " " + case_name(c);
+                                } else {
+                                    char line[2048];
+                                    std::snprintf(line, sizeof(line), "%02d,%s,%s,%d,%zu\n", int(idx),
+                                                  label, case_name(c), pv.frames, rows.size());
+                                    out.dump_rows.push_back(line);
+                                }
+                            }
                         }
                     }
 
@@ -976,6 +1074,7 @@ int main(int argc, char** argv) {
     }
 
     bool fatal = false;
+    std::vector<std::string> dump_index;
     for (size_t idx = 0; idx < excerpts.size(); ++idx) {
         ExcerptOut& out = outs[idx];
         if (out.status == 2) {
@@ -989,6 +1088,11 @@ int main(int argc, char** argv) {
         }
         std::fwrite(out.csv.data(), 1, out.csv.size(), csv);
         if (feat != nullptr) std::fwrite(out.features.data(), 1, out.features.size(), feat);
+        if (!out.dump_err.empty()) {
+            std::fprintf(stderr, "%s\n", out.dump_err.c_str());
+            fatal = true;
+        }
+        dump_index.insert(dump_index.end(), out.dump_rows.begin(), out.dump_rows.end());
         for (size_t pi = 0; pi < path_names.size(); ++pi) {
             for (size_t ci = 0; ci < kCaseCount; ++ci) {
                 merge(pools[pi][ci].stats, out.pools[pi][ci].stats);
@@ -1001,6 +1105,10 @@ int main(int argc, char** argv) {
     }
     std::fclose(csv);
     if (feat != nullptr) std::fclose(feat);
+    if (!dump_posteriors_dir.empty() && !write_dump_index(dump_posteriors_dir, dump_index)) {
+        std::fprintf(stderr, "cannot write %s/index.csv\n", dump_posteriors_dir.c_str());
+        return 1;
+    }
     if (fatal) return 1;
 
     // ---- summary ----------------------------------------------------------

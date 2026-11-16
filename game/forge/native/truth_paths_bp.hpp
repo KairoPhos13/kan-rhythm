@@ -52,6 +52,12 @@
 // When the two paths are compared (the 1000 ms check) frames are paired
 // by that same sample position rule.
 //
+// The posterior dump (work package 4c) writes the whole-recording
+// posteriors of one run and the score it was given, one pair of files per
+// excerpt and case, for the analysis of what the learned evidence can
+// answer. Its score.csv carries analysis columns (right, sounding,
+// truth_onset_ms) that only the bench can fill; the path never reads them.
+//
 // The path sees the audio and the case's score only, never the truth.
 //
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
@@ -66,7 +72,9 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstdint>
 #include <cstdio>
+#include <cstring>
 #include <limits>
 #include <string>
 #include <vector>
@@ -334,6 +342,191 @@ inline NoteResult decide(const NoteMeasure& m, Rule rule, double th, int written
     return r;
 }
 
+// ---- the posterior dump (work package 4c) -----------------------------------
+
+/// One score row of a dump's score.csv. `note`, `midi`, `score_onset_ms`
+/// and `score_end_ms` are the columns of the score the path was given.
+/// `right`, `sounding` and `truth_onset_ms` are the analysis columns: the
+/// bench fills them with the same values the notes CSV carries, for the
+/// analysis only. The path never reads them. `truth_onset_ms` is NaN for
+/// an added note.
+struct DumpScoreRow {
+    int note = 0;
+    int midi = 0;
+    double score_onset_ms = 0.0, score_end_ms = 0.0;
+    int right = 0, sounding = 0;
+    double truth_onset_ms = nand_v();
+};
+
+/// The score rows of a dump, filled from the score the path was given.
+/// The analysis columns stay at their defaults here; the bench fills
+/// them.
+inline std::vector<DumpScoreRow> dump_score_rows(const std::vector<ScoreNote>& score) {
+    std::vector<DumpScoreRow> rows(score.size());
+    for (size_t i = 0; i < score.size(); ++i) {
+        rows[i].note = int(i);
+        rows[i].midi = score[i].midi;
+        rows[i].score_onset_ms = score[i].onset_ms;
+        rows[i].score_end_ms = score[i].onset_ms + score[i].dur_ms;
+    }
+    return rows;
+}
+
+namespace dump_io {
+
+// The .post file is little endian whatever the host is: every integer and
+// every float goes in through its bytes, low first.
+inline void put_u32(std::string& out, std::uint32_t v) {
+    out.push_back(char(v & 0xffu));
+    out.push_back(char((v >> 8) & 0xffu));
+    out.push_back(char((v >> 16) & 0xffu));
+    out.push_back(char((v >> 24) & 0xffu));
+}
+
+inline void put_f32(std::string& out, float v) {
+    std::uint32_t bits = 0;
+    std::memcpy(&bits, &v, 4);
+    put_u32(out, bits);
+}
+
+inline void put_f64(std::string& out, double v) {
+    std::uint64_t bits = 0;
+    std::memcpy(&bits, &v, 8);
+    put_u32(out, std::uint32_t(bits & 0xffffffffu));
+    put_u32(out, std::uint32_t(bits >> 32));
+}
+
+inline void put_f32_array(std::string& out, const float* p, size_t n) {
+    out.reserve(out.size() + n * 4);
+    for (size_t i = 0; i < n; ++i) put_f32(out, p[i]);
+}
+
+inline bool get_u32(const char*& p, const char* end, std::uint32_t& v) {
+    if (end - p < 4) return false;
+    v = std::uint32_t(std::uint8_t(p[0])) | (std::uint32_t(std::uint8_t(p[1])) << 8) |
+        (std::uint32_t(std::uint8_t(p[2])) << 16) | (std::uint32_t(std::uint8_t(p[3])) << 24);
+    p += 4;
+    return true;
+}
+
+inline bool get_f32(const char*& p, const char* end, float& v) {
+    std::uint32_t bits = 0;
+    if (!get_u32(p, end, bits)) return false;
+    std::memcpy(&v, &bits, 4);
+    return true;
+}
+
+inline bool get_f64(const char*& p, const char* end, double& v) {
+    std::uint32_t lo = 0, hi = 0;
+    if (!get_u32(p, end, lo) || !get_u32(p, end, hi)) return false;
+    const std::uint64_t bits = std::uint64_t(lo) | (std::uint64_t(hi) << 32);
+    std::memcpy(&v, &bits, 8);
+    return true;
+}
+
+} // namespace dump_io
+
+/// Write the whole-recording posteriors of one run and the score it was
+/// given (work package 4c) as <dir>/<e>_<case>.post and
+/// <dir>/<e>_<case>.score.csv, where <e> is the excerpt's index in the
+/// manifest with two digits. The .post is little endian: the 8 bytes
+/// KANPOST1, int32 frames, int32 88, int32 264, float64 time_ms[frames],
+/// float32 onset[frames*88], float32 note[frames*88], float32
+/// contour[frames*264], each row major by frame. The score CSV holds a
+/// header and one line per score note in the order of the results. False
+/// when a file cannot be written.
+inline bool write_posterior_dump(const std::string& dir, int e, const char* case_label,
+                                 const PosteriorView& p, const std::vector<DumpScoreRow>& rows) {
+    if (p.frames < 0 || size_t(p.frames) != p.time_ms.size()) return false;
+    const size_t f = size_t(p.frames);
+    if (f > 0 && (p.onset == nullptr || p.note == nullptr || p.contour == nullptr)) return false;
+
+    char stem[256];
+    std::snprintf(stem, sizeof(stem), "%02d_%s", e, case_label);
+    const std::string base = dir + "/" + stem;
+
+    std::string buf;
+    buf.reserve(20 + f * 8 + f * (size_t(kNotes) + size_t(kNotes) + size_t(kContourBins)) * 4);
+    buf.append("KANPOST1", 8);
+    dump_io::put_u32(buf, std::uint32_t(p.frames));
+    dump_io::put_u32(buf, std::uint32_t(kNotes));
+    dump_io::put_u32(buf, std::uint32_t(kContourBins));
+    for (size_t i = 0; i < f; ++i) dump_io::put_f64(buf, p.time_ms[i]);
+    dump_io::put_f32_array(buf, p.onset, f * kNotes);
+    dump_io::put_f32_array(buf, p.note, f * kNotes);
+    dump_io::put_f32_array(buf, p.contour, f * kContourBins);
+    std::FILE* post = std::fopen((base + ".post").c_str(), "wb");
+    if (post == nullptr) return false;
+    const bool post_ok = std::fwrite(buf.data(), 1, buf.size(), post) == buf.size();
+    if (std::fclose(post) != 0) return false;
+    if (!post_ok) return false;
+
+    std::FILE* csv = std::fopen((base + ".score.csv").c_str(), "w");
+    if (csv == nullptr) return false;
+    std::fprintf(csv, "note,midi,score_onset_ms,score_end_ms,right,sounding,truth_onset_ms\n");
+    for (const DumpScoreRow& r : rows) {
+        char truth_s[32];
+        if (std::isfinite(r.truth_onset_ms))
+            std::snprintf(truth_s, sizeof(truth_s), "%.3f", r.truth_onset_ms);
+        else
+            std::snprintf(truth_s, sizeof(truth_s), "na");
+        std::fprintf(csv, "%d,%d,%.3f,%.3f,%d,%d,%s\n", r.note, r.midi, r.score_onset_ms,
+                     r.score_end_ms, r.right, r.sounding, truth_s);
+    }
+    return std::fclose(csv) == 0;
+}
+
+/// A whole-recording posterior dump read back from its .post file (the
+/// selftest's round trip and the analysis tools).
+struct PosteriorDump {
+    int frames = 0;
+    std::vector<double> time_ms;
+    std::vector<float> onset, note, contour; // row major by frame
+};
+
+/// Read a .post file back. False when the file cannot be read or does not
+/// hold a dump of this format.
+inline bool read_posterior_dump(const std::string& path, PosteriorDump& out) {
+    std::FILE* f = std::fopen(path.c_str(), "rb");
+    if (f == nullptr) return false;
+    std::string buf;
+    char chunk[65536];
+    for (size_t got; (got = std::fread(chunk, 1, sizeof(chunk), f)) > 0;) buf.append(chunk, got);
+    const bool read_ok = std::feof(f) != 0;
+    std::fclose(f);
+    if (!read_ok || buf.size() < 20) return false;
+
+    const char* p = buf.data();
+    const char* end = p + buf.size();
+    if (std::memcmp(p, "KANPOST1", 8) != 0) return false;
+    p += 8;
+    std::uint32_t frames = 0, notes = 0, bins = 0;
+    if (!dump_io::get_u32(p, end, frames) || !dump_io::get_u32(p, end, notes) ||
+        !dump_io::get_u32(p, end, bins))
+        return false;
+    if (notes != std::uint32_t(kNotes) || bins != std::uint32_t(kContourBins)) return false;
+    const size_t f_count = size_t(frames);
+    if (buf.size() != 20 + f_count * 8 + f_count * (size_t(notes) * 2 + size_t(bins)) * 4)
+        return false;
+
+    PosteriorDump d;
+    d.frames = int(frames);
+    d.time_ms.resize(f_count);
+    d.onset.resize(f_count * kNotes);
+    d.note.resize(f_count * kNotes);
+    d.contour.resize(f_count * kContourBins);
+    for (size_t i = 0; i < f_count; ++i)
+        if (!dump_io::get_f64(p, end, d.time_ms[i])) return false;
+    for (size_t i = 0; i < d.onset.size(); ++i)
+        if (!dump_io::get_f32(p, end, d.onset[i])) return false;
+    for (size_t i = 0; i < d.note.size(); ++i)
+        if (!dump_io::get_f32(p, end, d.note[i])) return false;
+    for (size_t i = 0; i < d.contour.size(); ++i)
+        if (!dump_io::get_f32(p, end, d.contour[i])) return false;
+    out = std::move(d);
+    return true;
+}
+
 /// bp: Basic Pitch over the whole recording (the ceiling). The
 /// posteriors do not depend on the score, so one infer per excerpt is
 /// cached by the audio buffer (as the blind path caches its pass). The
@@ -352,6 +545,9 @@ struct BpPath : Path {
     const char* name() override { return "bp"; }
     bool uses_score() override { return true; }
     const std::vector<NoteMeasure>& measures() const { return last; }
+    /// The posteriors of the whole recording of the last run (the dump of
+    /// work package 4c writes them out).
+    const PosteriorView& posteriors() const { return view; }
 
     void run(const std::vector<float>& audio, float sr, const std::vector<ScoreNote>& score,
              std::vector<NoteResult>& results, CpuStats& cpu) override {
