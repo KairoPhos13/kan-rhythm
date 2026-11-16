@@ -8,7 +8,10 @@
 // that its sweep line with th 0 and rule plain accepts every right note,
 // that the fair rule of work package 4b holds its floor (98 % of the
 // right notes accepted, 60 % of the wrong semitone notes rejected) and
-// obeys its clauses on hand-written measurements, that the detuned
+// obeys its clauses on hand-written measurements, that the paired rule
+// of work package 4d obeys each of its clauses on hand-written
+// measurements and holds its own floor (98 % of the right notes
+// accepted, 80 % of the wrong semitone notes rejected), that the detuned
 // control's audio keeps the duration and the attack times, and that the
 // event dump of the same audio twice is identical. It also round trips
 // the posterior dump of work package 4c: one dump of the synthetic piece
@@ -19,6 +22,7 @@
 #include "truth_bench.hpp"
 #include "truth_paths.hpp"
 #include "truth_paths_bp.hpp"
+#include "truth_path_pair.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -450,6 +454,127 @@ int main() {
                   "the dump's onset posterior");
         }
         std::filesystem::remove_all(dir);
+    }
+
+    // 10. The paired rule of work package 4d. First the decision on
+    //     hand-written measurements (each clause and its boundary), then
+    //     its floor on the synthetic piece through the pair path: at
+    //     least 98 % of the right notes accepted and at least 80 % of the
+    //     wrong semitone notes rejected.
+    {
+        const pair::PairParams pp; // the defaults
+        auto outcome_of = [&](const pair::PairMeasure& m) {
+            return pair::decide(m, pp, 60).outcome;
+        };
+        pair::PairMeasure m;
+        m.attack_ms = 1000.0;
+
+        // The sustain bar carries the note alone while no rival is real.
+        // (0.13f is just under the 0.13 bar as a float; 0.1301f is the
+        // first check at it.)
+        m.s = 0.10f;
+        m.nmax = 0.1301f;
+        check(outcome_of(m) == Outcome::Accepted, "pair: nmax at pair-a accepts");
+        m.nmax = 0.129f;
+        check(outcome_of(m) == Outcome::Absent, "pair: nmax under pair-a alone is absent");
+        // The onset bar carries it with no rival.
+        m.s = 0.25f;
+        m.nmax = 0.12f;
+        check(outcome_of(m) == Outcome::Accepted, "pair: s at pair-b with no rival accepts");
+        m.s = 0.24f;
+        check(outcome_of(m) == Outcome::Absent, "pair: both bars missed is absent");
+
+        // A rival is real only when all three of its clauses hold. Both
+        // bars stay missed below, so the outcome shows real directly:
+        // misreported with the rival's pitch when real, absent when not.
+        m.s = 0.10f;
+        m.nmax = 0.12f;
+        m.u = 0.60f;
+        m.un = 0.20f;
+        m.u_midi = 61;
+        m.rival_ms = 1010.0;
+        check(outcome_of(m) == Outcome::Misreported, "pair: a real rival makes the refusal misreported");
+        {
+            const NoteResult r = pair::decide(m, pp, 60);
+            check(r.midi == 61.0f, "pair: misreported carries the rival's pitch");
+            check(r.onset_ms == 1010.0, "pair: misreported carries the rival's attack");
+        }
+        m.u = 0.29f;
+        check(outcome_of(m) == Outcome::Absent, "pair: u under pair-u is not real");
+        m.u = 0.60f;
+        m.un = 0.14f;
+        check(outcome_of(m) == Outcome::Absent, "pair: un under pair-un is not real");
+        m.un = 0.20f;
+        m.u = 0.35f;
+        check(outcome_of(m) == Outcome::Absent, "pair: u must lead s by pair-c to be real");
+        {
+            const NoteResult r = pair::decide(m, pp, 60);
+            check(std::isnan(r.midi), "pair: absent carries no pitch");
+        }
+        // The boundary values themselves are real.
+        m.s = 0.0f;
+        m.u = 0.30f;
+        m.un = 0.15f;
+        check(outcome_of(m) == Outcome::Misreported, "pair: the boundary values make the rival real");
+
+        // The sustain bar is blocked only by a real rival whose un
+        // reaches nmax + 0.15 (0.25 + 0.15 = 0.40 below).
+        m.s = 0.10f;
+        m.nmax = 0.25f;
+        m.u = 0.45f;
+        m.un = 0.30f;
+        check(outcome_of(m) == Outcome::Accepted,
+              "pair: a real rival that does not out-sustain does not block");
+        m.un = 0.40f;
+        check(outcome_of(m) == Outcome::Misreported, "pair: un at nmax + 0.15 blocks the sustain bar");
+        m.un = 0.3999f;
+        check(outcome_of(m) == Outcome::Accepted, "pair: un under nmax + 0.15 leaves the sustain bar");
+
+        // The onset bar is blocked by any real rival (u = s + pair-c
+        // exactly is real).
+        m.s = 0.25f;
+        m.nmax = 0.12f;
+        m.u = 0.55f;
+        m.un = 0.20f;
+        check(outcome_of(m) == Outcome::Misreported, "pair: a real rival blocks the onset bar");
+        m.u = 0.54f;
+        check(outcome_of(m) == Outcome::Accepted, "pair: u below s + pair-c leaves the onset bar");
+
+        pair::PairPath pair_path;
+        {
+            const BuiltCase b = build_case(Case::Right, truth, 7);
+            std::vector<NoteResult> res;
+            CpuStats cpu;
+            pair_path.run(audio, kSr, b.notes, res, cpu);
+            size_t right = 0, accepted = 0;
+            for (size_t i = 0; i < b.notes.size(); ++i) {
+                if (!b.notes[i].right) continue;
+                ++right;
+                if (res[i].outcome == Outcome::Accepted) ++accepted;
+            }
+            check(right > 0, "the synthetic piece must have right notes");
+            const double rate = right > 0 ? 100.0 * double(accepted) / double(right) : 0.0;
+            std::printf("selftest: pair accepts %.1f %% of the right notes (%zu of %zu)\n", rate,
+                        accepted, right);
+            check(rate >= 98.0, "pair must accept at least 98 % of the right notes");
+        }
+        {
+            const BuiltCase b = build_case(Case::Semitone, truth, 7);
+            std::vector<NoteResult> res;
+            CpuStats cpu;
+            pair_path.run(audio, kSr, b.notes, res, cpu);
+            size_t wrong = 0, rejected = 0;
+            for (size_t i = 0; i < b.notes.size(); ++i) {
+                if (b.notes[i].right) continue;
+                ++wrong;
+                if (res[i].outcome != Outcome::Accepted) ++rejected;
+            }
+            check(wrong > 0, "the semitone case must have wrong notes");
+            const double rate = wrong > 0 ? 100.0 * double(rejected) / double(wrong) : 0.0;
+            std::printf("selftest: pair rejects %.1f %% of the wrong semitone notes (%zu of %zu)\n",
+                        rate, rejected, wrong);
+            check(rate >= 80.0, "pair must reject at least 80 % of the semitone notes");
+        }
     }
 
     if (failures == 0) std::printf("kan_truth_selftest OK\n");
