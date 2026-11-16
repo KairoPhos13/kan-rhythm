@@ -16,8 +16,14 @@
 //   kan_truth_bench --audio a.wav --truth a.midi --from 0 --to 60
 //   [--paths blind,expect,core,oracle,yes,bp,bp-la]  (default blind,core)
 //   [--cases all | right,semitone,...] [--seed N] [--repeat N]
+//                           (all is every case but the detuned controls
+//                           detune20/40/60, which run only when named)
 //   [--out <dir>]           writes summary.txt and notes.csv
-//   [--bp-th 0.3] [--bp-rule rival | plain]  the bp paths' decision
+//   [--bp-th 0.3] [--bp-rule fair | plain | rival]  the bp paths' decision
+//                           (default fair: accept when n_after >= A, or
+//                           when s >= B and no rival has r >= s + c)
+//   [--bp-fair-a 0.13 --bp-fair-b 0.25 --bp-fair-c 0.3]
+//                           the fair rule's settings
 //   [--bp-lookahead <ms>]   the look-ahead the bp-la path must respect
 //   [--features <file.csv>] the bp path writes one row per excerpt, case
 //                           and score note (the fusion input)
@@ -48,6 +54,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <filesystem>
+#include <map>
 #include <memory>
 #include <string>
 #include <thread>
@@ -312,7 +319,8 @@ void annotate_cpu(CpuStats& cpu, const std::vector<TruthNote>& truth) {
 }
 
 std::unique_ptr<Path> make_path(const std::string& name, const std::vector<TruthNote>& truth,
-                                double bp_th, bp::Rule bp_rule, double bp_lookahead_ms) {
+                                double bp_th, bp::Rule bp_rule, double bp_lookahead_ms,
+                                const bp::FairParams& bp_fair) {
     if (name == "blind") return std::make_unique<BlindPath>();
     if (name == "expect") return std::make_unique<ExpectPath>();
     if (name == "core") return std::make_unique<CorePath>();
@@ -321,17 +329,38 @@ std::unique_ptr<Path> make_path(const std::string& name, const std::vector<Truth
         auto p = std::make_unique<bp::BpPath>();
         p->th = bp_th;
         p->rule = bp_rule;
+        p->fp = bp_fair;
         return p;
     }
     if (name == "bp-la") {
         auto p = std::make_unique<bp::BpLaPath>();
         p->th = bp_th;
         p->rule = bp_rule;
+        p->fp = bp_fair;
         p->lookahead_ms = bp_lookahead_ms;
         return p;
     }
     return std::make_unique<YesPath>();
 }
+
+/// The audio of one excerpt for one case: the recording itself, or the
+/// detuned control's shifted copy (work package 4b), cached per shift.
+struct CaseAudio {
+    const std::vector<float>& base;
+    float sr;
+    std::map<int, std::vector<float>> shifted;
+
+    CaseAudio(const std::vector<float>& a, float sample_rate) : base(a), sr(sample_rate) {}
+    const std::vector<float>& of(Case c) {
+        const double cents = case_detune_cents(c);
+        if (cents == 0.0) return base;
+        const int key = int(cents);
+        auto it = shifted.find(key);
+        if (it == shifted.end())
+            it = shifted.emplace(key, detuned_audio(base, sr, cents)).first;
+        return it->second;
+    }
+};
 
 // ---- truth columns of one score note (the path never sees these) -----------
 
@@ -348,7 +377,9 @@ int sounding_at(const std::vector<TruthNote>& truth, double at) {
 }
 
 // One features row (deliverable 2): the measurement of the bp path plus
-// the truth columns only the bench can fill.
+// the truth columns only the bench can fill. The contour columns are
+// empty when they could not be measured (c_cents when its weight is
+// under 0.05).
 void write_feature_row(std::string& out, const char* excerpt, const char* case_name, size_t index,
                        const ScoreNote& sn, double truth_onset_ms, int sounding,
                        const bp::NoteMeasure& m) {
@@ -359,11 +390,27 @@ void write_feature_row(std::string& out, const char* excerpt, const char* case_n
     if (std::isfinite(m.rival_midi)) std::snprintf(rival_s, sizeof(rival_s), "%d", int(m.rival_midi));
     if (std::isfinite(m.n_before)) std::snprintf(before_s, sizeof(before_s), "%.6f", double(m.n_before));
     if (std::isfinite(m.n_after)) std::snprintf(after_s, sizeof(after_s), "%.6f", double(m.n_after));
+    auto fmt6 = [](float v, char* buf, size_t cap) {
+        if (std::isfinite(v)) std::snprintf(buf, cap, "%.6f", double(v));
+        else buf[0] = '\0';
+    };
+    auto fmt4 = [](float v, char* buf, size_t cap) {
+        if (std::isfinite(v)) std::snprintf(buf, cap, "%.4f", double(v));
+        else buf[0] = '\0';
+    };
+    char c_own[32], c_up1[32], c_dn1[32], c_up2[32], c_dn2[32], c_cents[32];
+    fmt6(m.c_own, c_own, sizeof(c_own));
+    fmt6(m.c_up1, c_up1, sizeof(c_up1));
+    fmt6(m.c_dn1, c_dn1, sizeof(c_dn1));
+    fmt6(m.c_up2, c_up2, sizeof(c_up2));
+    fmt6(m.c_dn2, c_dn2, sizeof(c_dn2));
+    fmt4(m.c_cents, c_cents, sizeof(c_cents));
     char line[2048];
-    const int len = std::snprintf(line, sizeof(line), "%s,%s,%zu,%d,%d,%d,%.3f,%s,%s,%.6f,%.6f,%s,%s,%s\n",
+    const int len = std::snprintf(line, sizeof(line),
+                                  "%s,%s,%zu,%d,%d,%d,%.3f,%s,%s,%.6f,%.6f,%s,%s,%s,%s,%s,%s,%s,%s,%s\n",
                                   excerpt, case_name, index, sn.right ? 1 : 0, sounding, sn.midi,
                                   sn.onset_ms, truth_s, atk_s, double(m.s), double(m.r), rival_s,
-                                  before_s, after_s);
+                                  before_s, after_s, c_own, c_up1, c_dn1, c_up2, c_dn2, c_cents);
     out.append(line, size_t(std::max(0, std::min(len, int(sizeof(line)) - 1))));
 }
 
@@ -435,8 +482,9 @@ void print_sweep_header(FILE* f) {
 int main(int argc, char** argv) {
     std::string maestro, manifest, audio_path, truth_path, paths_arg = "blind,core",
                 cases_arg = "all", out_dir, dump_audio, dump_profile, make_manifests_csv,
-                features_path, bp_rule_arg = "rival";
+                features_path, bp_rule_arg = "fair";
     double from_s = 0.0, to_s = -1.0, bp_th = 0.3, bp_lookahead_ms = -1.0;
+    bp::FairParams bp_fair;
     unsigned seed = 7;
     int repeat = 1, jobs = 1;
     bool bp_sweep = false;
@@ -467,6 +515,9 @@ int main(int argc, char** argv) {
         else if (k == "--features") features_path = value("--features");
         else if (k == "--bp-th") bp_th = std::atof(value("--bp-th").c_str());
         else if (k == "--bp-rule") bp_rule_arg = value("--bp-rule");
+        else if (k == "--bp-fair-a") bp_fair.a = std::atof(value("--bp-fair-a").c_str());
+        else if (k == "--bp-fair-b") bp_fair.b = std::atof(value("--bp-fair-b").c_str());
+        else if (k == "--bp-fair-c") bp_fair.c = std::atof(value("--bp-fair-c").c_str());
         else if (k == "--bp-lookahead") bp_lookahead_ms = std::atof(value("--bp-lookahead").c_str());
         else if (k == "--bp-sweep") bp_sweep = true;
         else if (k == "--jobs") jobs = std::max(1, std::min(6, std::atoi(value("--jobs").c_str())));
@@ -482,7 +533,7 @@ int main(int argc, char** argv) {
 
     bp::Rule bp_rule;
     if (!bp::rule_from_name(bp_rule_arg, bp_rule)) {
-        std::fprintf(stderr, "unknown rule %s (plain or rival)\n", bp_rule_arg.c_str());
+        std::fprintf(stderr, "unknown rule %s (fair, plain or rival)\n", bp_rule_arg.c_str());
         return 2;
     }
 
@@ -525,7 +576,9 @@ int main(int argc, char** argv) {
 
     std::vector<Case> cases;
     if (cases_arg == "all") {
-        for (size_t ci = 0; ci < kCaseCount; ++ci) cases.push_back(kAllCases[ci]);
+        // The default list: every case but the detuned controls, which
+        // run only when named.
+        for (size_t ci = 0; ci < kDefaultCaseCount; ++ci) cases.push_back(kDefaultCases[ci]);
     } else {
         for (size_t a = 0;;) {
             const size_t b = cases_arg.find(',', a);
@@ -570,7 +623,7 @@ int main(int argc, char** argv) {
                      "usage: kan_truth_bench --maestro <dir> --manifest <file> | "
                      "--audio a.wav --truth a.midi --from 0 --to 60 "
                      "[--paths blind,core] [--cases all] [--seed N] [--repeat N] [--out <dir>] "
-                     "[--bp-th 0.3] [--bp-rule rival] [--bp-lookahead <ms>] [--features <file.csv>] "
+                     "[--bp-th 0.3] [--bp-rule fair] [--bp-lookahead <ms>] [--features <file.csv>] "
                      "[--bp-sweep] [--jobs N]\n");
         return 2;
     }
@@ -645,6 +698,7 @@ int main(int argc, char** argv) {
                     out.audio_ms = ld.audio_ms;
                     out.stats.assign(kSweepLines * kCaseCount, CaseStats());
                     bp::BpPath path; // one measurement per score note, no verdict here
+                    CaseAudio case_audio(ld.audio, 48000.0f);
                     char label[768];
                     std::snprintf(label, sizeof(label), "%s@%g-%g", excerpts[idx].audio.c_str(),
                                   excerpts[idx].from_s, excerpts[idx].to_s);
@@ -654,7 +708,7 @@ int main(int argc, char** argv) {
                         const BuiltCase built = build_case(c, ld.truth, seed);
                         std::vector<NoteResult> res;
                         CpuStats cpu;
-                        path.run(ld.audio, 48000.0f, built.notes, res, cpu);
+                        path.run(case_audio.of(c), 48000.0f, built.notes, res, cpu);
                         if (out.infer_ms <= 0.0) out.infer_ms = cpu.total_ms;
                         const std::vector<bp::NoteMeasure>& measures = path.measures();
                         for (size_t n = 0; n < built.notes.size(); ++n) {
@@ -708,7 +762,8 @@ int main(int argc, char** argv) {
                 return 1;
             }
             std::fprintf(feat, "excerpt,case,note,right,sounding,midi,score_onset_ms,truth_onset_ms,"
-                               "measured_attack_ms,s,r,rival_midi,n_before,n_after\n");
+                               "measured_attack_ms,s,r,rival_midi,n_before,n_after,"
+                               "c_own,c_up1,c_dn1,c_up2,c_dn2,c_cents\n");
             std::fwrite(features.data(), 1, features.size(), feat);
             std::fclose(feat);
             std::fprintf(stderr, "wrote %s\n", features_path.c_str());
@@ -791,7 +846,8 @@ int main(int argc, char** argv) {
             return 1;
         }
         std::fprintf(feat, "excerpt,case,note,right,sounding,midi,score_onset_ms,truth_onset_ms,"
-                           "measured_attack_ms,s,r,rival_midi,n_before,n_after\n");
+                           "measured_attack_ms,s,r,rival_midi,n_before,n_after,"
+                           "c_own,c_up1,c_dn1,c_up2,c_dn2,c_cents\n");
         bool has_bp = false;
         for (const auto& name : path_names) has_bp = has_bp || name == "bp";
         if (!has_bp)
@@ -836,7 +892,9 @@ int main(int argc, char** argv) {
                     // here and only here).
                     std::vector<std::unique_ptr<Path>> run_paths;
                     for (const auto& name : path_names)
-                        run_paths.push_back(make_path(name, ld.truth, bp_th, bp_rule, bp_lookahead_ms));
+                        run_paths.push_back(
+                            make_path(name, ld.truth, bp_th, bp_rule, bp_lookahead_ms, bp_fair));
+                    CaseAudio case_audio(ld.audio, 48000.0f);
 
                     const char* label_base = ex.audio.c_str();
                     for (size_t ci = 0; ci < kCaseCount; ++ci) {
@@ -847,7 +905,7 @@ int main(int argc, char** argv) {
                         for (size_t pi = 0; pi < run_paths.size(); ++pi) {
                             CpuStats cpu;
                             std::vector<NoteResult> results;
-                            run_paths[pi]->run(ld.audio, 48000.0f, built.notes, results, cpu);
+                            run_paths[pi]->run(case_audio.of(c), 48000.0f, built.notes, results, cpu);
                             annotate_cpu(cpu, ld.truth);
                             merge(out.pools[pi][ci].stats, score_case(ld.truth, built.notes, results));
                             if (path_names[pi] == "expect") {
@@ -896,12 +954,13 @@ int main(int argc, char** argv) {
                     if (jobs <= 1) {
                         const BuiltCase right = build_case(Case::Right, ld.truth, seed);
                         for (size_t pi = 0; pi < path_names.size(); ++pi) {
-                            if (!make_path(path_names[pi], ld.truth, bp_th, bp_rule, bp_lookahead_ms)
+                            if (!make_path(path_names[pi], ld.truth, bp_th, bp_rule, bp_lookahead_ms,
+                                           bp_fair)
                                      ->reports_cpu())
                                 continue;
                             for (int rep = 0; rep < repeat; ++rep) {
-                                std::unique_ptr<Path> p =
-                                    make_path(path_names[pi], ld.truth, bp_th, bp_rule, bp_lookahead_ms);
+                                std::unique_ptr<Path> p = make_path(path_names[pi], ld.truth, bp_th,
+                                                                    bp_rule, bp_lookahead_ms, bp_fair);
                                 CpuStats cpu;
                                 std::vector<NoteResult> results;
                                 p->run(ld.audio, 48000.0f, right.notes, results, cpu);
@@ -955,6 +1014,15 @@ int main(int argc, char** argv) {
         std::fprintf(f,
                      "time error = measured onset minus TRUTH onset of accepted right notes; n/a = "
                      "the path measures no time\n\n");
+
+        bool has_detune = false;
+        for (Case s : cases) has_detune = has_detune || case_detune_cents(s) != 0.0;
+        if (has_detune)
+            std::fprintf(f,
+                         "detuned controls: the audio shifted up with libkan's pitch shifter at "
+                         "equal in and out\ncounts, which keeps the duration (the shifter's group "
+                         "delay is cut from the front and\npadded at the end); the score and the "
+                         "truth times are unchanged\n\n");
 
         for (size_t pi = 0; pi < path_names.size(); ++pi) {
             for (size_t ci = 0; ci < kCaseCount; ++ci) {

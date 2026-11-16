@@ -6,7 +6,11 @@
 // what it claims), that the blind path runs through with counts that add
 // up, that the bp path of work package 2 runs with counts that add up and
 // that its sweep line with th 0 and rule plain accepts every right note,
-// and that the event dump of the same audio twice is identical.
+// that the fair rule of work package 4b holds its floor (98 % of the
+// right notes accepted, 60 % of the wrong semitone notes rejected) and
+// obeys its clauses on hand-written measurements, that the detuned
+// control's audio keeps the duration and the attack times, and that the
+// event dump of the same audio twice is identical.
 //
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 #include "truth_bench.hpp"
@@ -135,7 +139,7 @@ int main() {
         std::snprintf(what, sizeof(what), "%s: kept_unchanged must be 0", name);
         check(b.kept_unchanged == 0, what);
         if (c == Case::Right || c == Case::Late120 || c == Case::Late250 || c == Case::Early120 ||
-            c == Case::Jitter60) {
+            c == Case::Jitter60 || case_detune_cents(c) != 0.0) {
             std::snprintf(what, sizeof(what), "%s: right notes", name);
             check_eq(right, n, what);
             std::snprintf(what, sizeof(what), "%s: wrong notes", name);
@@ -238,7 +242,7 @@ int main() {
     //    counts add up like the blind path's, and the sweep line with
     //    th 0 and rule plain accepts 100 % of the right notes.
     {
-        bp::BpPath bpath; // th 0.3, rule rival: only the counts matter here
+        bp::BpPath bpath; // rule fair, th 0.3: only the counts matter here
         for (size_t ci = 0; ci < kCaseCount; ++ci) {
             const Case c = kAllCases[ci];
             const BuiltCase b = build_case(c, truth, 7);
@@ -290,7 +294,103 @@ int main() {
         check_eq(accepted, right, "bp sweep th 0 plain must accept every right note");
     }
 
-    // 6. The event dump of the same audio twice is identical.
+    // 6. The fair rule of work package 4b. First the rule function on
+    //    hand-written measurements (its clauses and their boundaries),
+    //    then its floor on the synthetic piece through the bp path: at
+    //    least 98 % of the right notes accepted and at least 60 % of the
+    //    wrong semitone notes rejected.
+    {
+        const bp::FairParams fp; // the defaults
+        auto outcome_of = [&](const bp::NoteMeasure& m) {
+            return bp::decide(m, bp::Rule::Fair, 0.3, 60, fp).outcome;
+        };
+        bp::NoteMeasure m;
+        m.attack_ms = 1000.0;
+        // n_after above the bar accepts at once, whatever the rivals say.
+        m.n_after = 0.14f;
+        m.s = 0.0f;
+        m.r = 1.0f;
+        m.rival_midi = 61.0f;
+        check(outcome_of(m) == Outcome::Accepted, "fair: n_after above a accepts");
+        // Under the note bar the onset support carries it while no rival
+        // leads by c. (0.13f is just under 0.13, so the note bar alone
+        // does not carry these.)
+        m.n_after = 0.12f;
+        m.s = 0.25f;
+        m.r = 0.54f;
+        check(outcome_of(m) == Outcome::Accepted, "fair: s at b with no rival lead accepts");
+        // A rival leading by c vetoes.
+        m.r = 0.55f;
+        check(outcome_of(m) != Outcome::Accepted, "fair: a rival lead of c vetoes");
+        // Both bars missed: not accepted.
+        m.s = 0.24f;
+        m.r = 0.0f;
+        check(outcome_of(m) != Outcome::Accepted, "fair: both bars missed rejects");
+        // No attack measured: no n_after and no support.
+        const bp::NoteMeasure none;
+        check(outcome_of(none) != Outcome::Accepted, "fair: no attack is not accepted");
+        // plain and rival keep their behaviour: rival vetoes when the
+        // rival is stronger, plain ignores the rival.
+        m.s = 0.5f;
+        m.r = 0.6f;
+        check(bp::decide(m, bp::Rule::Rival, 0.3, 60).outcome != Outcome::Accepted,
+              "rival: a rival stronger than s still vetoes");
+        check(bp::decide(m, bp::Rule::Plain, 0.3, 60).outcome == Outcome::Accepted,
+              "plain: s at th accepts");
+
+        bp::BpPath fair_path; // rule fair, the default settings
+        {
+            const BuiltCase b = build_case(Case::Right, truth, 7);
+            std::vector<NoteResult> res;
+            CpuStats cpu;
+            fair_path.run(audio, kSr, b.notes, res, cpu);
+            size_t right = 0, accepted = 0;
+            for (size_t i = 0; i < b.notes.size(); ++i) {
+                if (!b.notes[i].right) continue;
+                ++right;
+                if (res[i].outcome == Outcome::Accepted) ++accepted;
+            }
+            check(right > 0, "the synthetic piece must have right notes");
+            const double rate = right > 0 ? 100.0 * double(accepted) / double(right) : 0.0;
+            std::printf("selftest: fair accepts %.1f %% of the right notes (%zu of %zu)\n", rate,
+                        accepted, right);
+            check(rate >= 98.0, "fair must accept at least 98 % of the right notes");
+        }
+        {
+            const BuiltCase b = build_case(Case::Semitone, truth, 7);
+            std::vector<NoteResult> res;
+            CpuStats cpu;
+            fair_path.run(audio, kSr, b.notes, res, cpu);
+            size_t wrong = 0, rejected = 0;
+            for (size_t i = 0; i < b.notes.size(); ++i) {
+                if (b.notes[i].right) continue;
+                ++wrong;
+                if (res[i].outcome != Outcome::Accepted) ++rejected;
+            }
+            check(wrong > 0, "the semitone case must have wrong notes");
+            const double rate = wrong > 0 ? 100.0 * double(rejected) / double(wrong) : 0.0;
+            std::printf("selftest: fair rejects %.1f %% of the wrong semitone notes (%zu of %zu)\n",
+                        rate, rejected, wrong);
+            check(rate >= 60.0, "fair must reject at least 60 % of the semitone notes");
+        }
+    }
+
+    // 7. The detuned control's audio (work package 4b): the shifter
+    //    keeps the duration and the attacks stay at their times (its
+    //    group delay is cut from the front and padded at the end).
+    {
+        std::vector<float> click(size_t(kSr), 0.0f);
+        click[size_t(kSr / 2)] = 1.0f;
+        const std::vector<float> shifted = detuned_audio(click, kSr, 20.0);
+        check(shifted.size() == click.size(), "detuned audio must keep the duration");
+        size_t peak = 0;
+        for (size_t i = 0; i < shifted.size(); ++i)
+            if (std::fabs(shifted[i]) > std::fabs(shifted[peak])) peak = i;
+        check(std::fabs(double(peak) - double(kSr / 2)) < 0.030 * kSr,
+              "detuned audio must keep the attack time (within 30 ms)");
+    }
+
+    // 8. The event dump of the same audio twice is identical.
     const std::string d1 = dump_live_events(audio, kSr, "keyboard");
     const std::string d2 = dump_live_events(audio, kSr, "keyboard");
     check(!d1.empty(), "the event dump of the synthetic piece must not be empty");

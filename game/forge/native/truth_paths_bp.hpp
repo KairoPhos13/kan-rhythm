@@ -21,8 +21,30 @@
 // over the 10 frames after and the 10 frames before the attack (clipped
 // to the recording; a note that already rang has both high). The
 // decision takes a threshold th and a rule: plain accepts when s >= th,
-// rival accepts when s >= th and s >= r. Not accepted is Misreported
-// (midi = the rival) when r >= th and r > s, else Absent.
+// rival accepts when s >= th and s >= r, and fair (the default, the
+// owner's rule of 2026-11-16) takes its own settings (a, b, c) and
+// accepts when n_after >= a, or when s >= b and no rival has
+// r >= s + c. Not accepted is Misreported (midi = the rival) when the
+// rule's onset bar (th, or b for fair) is reached by r and r > s, else
+// Absent.
+//
+// Contour features (work package 4b), computed for every score note
+// over the frames from the measured attack to 150 ms after it (the
+// score time when no attack was measured). The written pitch m has
+// three bins, 3 * (m - 21) to 3 * (m - 21) + 2 (three per semitone from
+// A0), centred on bin 3 * (m - 21) + 1: an exact tone peaks on that
+// centre bin (the reference capture of libkan's basic_pitch test, an
+// exact C5, peaks on bin 154 = 3 * (72 - 21) + 1). Bin j sits at
+// (j - centre) * 100 / 3 cents from the written pitch. The five bins of
+// a pitch are its three bins and their two neighbours: centre - 2 to
+// centre + 2. c_own is the mean over the window's frames of the largest
+// contour value in the written pitch's five bins; c_up1, c_dn1, c_up2
+// and c_dn2 are the same one and two semitones up and down (each shifts
+// the centre by 3 bins). c_cents is the contour-weighted mean offset in
+// cents of the bins within +-70 cents of the written pitch (centre - 2
+// to centre + 2) over the same frames, pooled over frames and bins,
+// empty when the total contour weight is under 0.05. It is the reading
+// a tuning tracker will use.
 //
 // Frame times. The offline path uses Posteriorgrams::frame_time, the
 // reference's own mapping. The look-ahead path places frame i of a window
@@ -64,10 +86,17 @@ constexpr double kSampleRate = 22050.0;
 inline float nanf_v() { return std::numeric_limits<float>::quiet_NaN(); }
 inline double nand_v() { return std::numeric_limits<double>::quiet_NaN(); }
 
-/// The decision rule of deliverable 1.
-enum class Rule { Plain, Rival };
+/// The decision rule of deliverable 1 (plain, rival) and of the fair rule
+/// of work package 4b (fair, the default).
+enum class Rule { Plain, Rival, Fair };
 
-inline const char* rule_name(Rule r) { return r == Rule::Plain ? "plain" : "rival"; }
+inline const char* rule_name(Rule r) {
+    switch (r) {
+    case Rule::Plain: return "plain";
+    case Rule::Rival: return "rival";
+    default: return "fair";
+    }
+}
 
 inline bool rule_from_name(const std::string& s, Rule& out) {
     if (s == "plain") {
@@ -78,16 +107,32 @@ inline bool rule_from_name(const std::string& s, Rule& out) {
         out = Rule::Rival;
         return true;
     }
+    if (s == "fair") {
+        out = Rule::Fair;
+        return true;
+    }
     return false;
 }
 
+/// The fair rule's three settings (the defaults are the floor 99 %
+/// development settings of the fusion, plan section 4 of 2026-11-16:
+/// a note posterior after the attack of 0.13, an onset support of 0.25
+/// and a rival lead of 0.3).
+struct FairParams {
+    double a = 0.13; // n_after accepts at once
+    double b = 0.25; // the onset support bar
+    double c = 0.3;  // a rival must lead s by this to veto
+};
+
 /// The posteriors of one excerpt as the paths see them: onset and note
-/// (frames x 88, the bin of midi is midi - 21) and each frame's time in
-/// ms (strictly increasing).
+/// (frames x 88, the bin of midi is midi - 21), the contour (frames x
+/// 264, bin j at 100/3 cents per bin from midi 21; nullptr when the
+/// caller has none) and each frame's time in ms (strictly increasing).
 struct PosteriorView {
     int frames = 0;
     const float* onset = nullptr;
     const float* note = nullptr;
+    const float* contour = nullptr;
     std::vector<double> time_ms;
 
     float onset_at(int f, int midi) const {
@@ -96,10 +141,14 @@ struct PosteriorView {
     float note_at(int f, int midi) const {
         return note[size_t(f) * kNotes + size_t(midi - kMidiOffset)];
     }
+    float contour_at(int f, int bin) const {
+        return contour[size_t(f) * kContourBins + size_t(bin)];
+    }
 };
 
 /// What the posteriors say about one score note. The verdict is separate
-/// (decide), so one measurement serves many (rule, th) settings.
+/// (decide), so one measurement serves many (rule, th) settings. The
+/// contour features (c_*) are NaN when they could not be measured.
 struct NoteMeasure {
     double attack_ms = nand_v(); // measured attack (frame time), NaN = none
     int attack_frame = -1;
@@ -107,7 +156,56 @@ struct NoteMeasure {
     float r = 0.0f;        // rival support, 0 when no rival was measured
     float rival_midi = nanf_v();
     float n_before = nanf_v(), n_after = nanf_v();
+    float c_own = nanf_v(), c_up1 = nanf_v(), c_dn1 = nanf_v();
+    float c_up2 = nanf_v(), c_dn2 = nanf_v();
+    float c_cents = nanf_v(); // empty when the contour weight is under 0.05
 };
+
+/// The contour features of one score note (work package 4b), over the
+/// frames from t_ms (the measured attack, or the score time when no
+/// attack was measured) to 150 ms after it. See the header comment for
+/// the bin layout. Bins outside 0..263 are left out of the maxima and
+/// the weights.
+inline void measure_contour(const PosteriorView& p, int midi, double t_ms, NoteMeasure& m) {
+    if (p.contour == nullptr || p.frames <= 0 || midi < kMinMidi || midi > kMaxMidi) return;
+    const int f0 = int(std::lower_bound(p.time_ms.begin(), p.time_ms.end(), t_ms) - p.time_ms.begin());
+    const int f1 =
+        int(std::upper_bound(p.time_ms.begin(), p.time_ms.end(), t_ms + 150.0) - p.time_ms.begin()) - 1;
+    if (f0 >= p.frames || f0 > f1) return;
+    // The written pitch's centre bin: the middle of its three bins (see
+    // the header comment).
+    const int centre = 3 * (midi - kMidiOffset) + 1;
+    auto five_max = [&](int c) {
+        double sum = 0.0;
+        for (int f = f0; f <= f1; ++f) {
+            float best = 0.0f;
+            for (int j = c - 2; j <= c + 2; ++j) {
+                if (j < 0 || j >= kContourBins) continue;
+                best = std::max(best, p.contour_at(f, j));
+            }
+            sum += best;
+        }
+        return float(sum / double(f1 - f0 + 1));
+    };
+    m.c_own = five_max(centre);
+    m.c_up1 = five_max(centre + 3);
+    m.c_dn1 = five_max(centre - 3);
+    m.c_up2 = five_max(centre + 6);
+    m.c_dn2 = five_max(centre - 6);
+    // The tuning reading: bins within +-70 cents of the written pitch
+    // (2 bins either side, the third would sit at 100 cents), the
+    // contour as weight, pooled over the window's frames.
+    double wsum = 0.0, csum = 0.0;
+    for (int f = f0; f <= f1; ++f) {
+        for (int j = centre - 2; j <= centre + 2; ++j) {
+            if (j < 0 || j >= kContourBins) continue;
+            const double w = p.contour_at(f, j);
+            wsum += w;
+            csum += w * (double(j - centre) * 100.0 / 3.0);
+        }
+    }
+    if (wsum >= 0.05) m.c_cents = float(csum / wsum);
+}
 
 /// Measure every score note against the posteriors. Score notes are
 /// processed in score time order; a used peak blocks 3 frames either side
@@ -150,7 +248,12 @@ inline std::vector<NoteMeasure> measure(const PosteriorView& p, const std::vecto
                 best = f;
             }
         }
-        if (best < 0) continue; // every frame used: no attack measured
+        if (best < 0) {
+            // Every frame used: no attack measured. The contour features
+            // still read from the score time.
+            measure_contour(p, midi, t, m);
+            continue;
+        }
         m.attack_frame = best;
         m.attack_ms = p.time_ms[size_t(best)];
         m.s = best_v;
@@ -195,19 +298,33 @@ inline std::vector<NoteMeasure> measure(const PosteriorView& p, const std::vecto
         };
         m.n_before = mean_note(best - 10, best - 1);
         m.n_after = mean_note(best + 1, best + 10);
+        measure_contour(p, midi, m.attack_ms, m);
     }
     return out;
 }
 
-/// The decision of deliverable 1 on one measurement.
-inline NoteResult decide(const NoteMeasure& m, Rule rule, double th, int written_midi) {
+/// The decision of deliverable 1 and of the fair rule on one measurement.
+/// plain and rival take the threshold th; fair takes its own settings
+/// (FairParams) and never penalises a right note for a loud rival: a
+/// rival vetoes only when it leads the onset support by c.
+inline NoteResult decide(const NoteMeasure& m, Rule rule, double th, int written_midi,
+                         const FairParams& fp = FairParams()) {
     NoteResult r;
-    const bool accepted = m.s >= th && (rule == Rule::Plain || m.s >= m.r);
+    bool accepted;
+    double onset_bar;
+    if (rule == Rule::Fair) {
+        accepted = (std::isfinite(m.n_after) && double(m.n_after) >= fp.a) ||
+                   (double(m.s) >= fp.b && double(m.r) < double(m.s) + fp.c);
+        onset_bar = fp.b;
+    } else {
+        accepted = m.s >= th && (rule == Rule::Plain || m.s >= m.r);
+        onset_bar = th;
+    }
     if (accepted) {
         r.outcome = Outcome::Accepted;
         r.onset_ms = m.attack_ms;
         r.midi = float(written_midi);
-    } else if (m.r >= th && m.r > m.s && std::isfinite(m.rival_midi)) {
+    } else if (m.r >= onset_bar && m.r > m.s && std::isfinite(m.rival_midi)) {
         r.outcome = Outcome::Misreported;
         r.onset_ms = m.attack_ms;
         r.midi = m.rival_midi;
@@ -223,7 +340,8 @@ inline NoteResult decide(const NoteMeasure& m, Rule rule, double th, int written
 /// CPU time of that pass is what the bench reports for this path.
 struct BpPath : Path {
     double th = 0.3;
-    Rule rule = Rule::Rival;
+    Rule rule = Rule::Fair;
+    FairParams fp;
 
     const void* cached_audio = nullptr;
     size_t cached_n = 0;
@@ -247,6 +365,7 @@ struct BpPath : Path {
             view.frames = pg.frames;
             view.onset = pg.onset.data();
             view.note = pg.note.data();
+            view.contour = pg.contour.data();
             view.time_ms.resize(size_t(pg.frames));
             for (int j = 0; j < pg.frames; ++j) view.time_ms[size_t(j)] = pg.frame_time(j) * 1000.0;
             cached_audio = audio.data();
@@ -256,7 +375,8 @@ struct BpPath : Path {
         }
         last = measure(view, score, compute_windows(score));
         results.resize(score.size());
-        for (size_t i = 0; i < score.size(); ++i) results[i] = decide(last[i], rule, th, score[i].midi);
+        for (size_t i = 0; i < score.size(); ++i)
+            results[i] = decide(last[i], rule, th, score[i].midi, fp);
     }
 };
 
@@ -276,13 +396,14 @@ struct BpPath : Path {
 /// not report its CPU time.
 struct BpLaPath : Path {
     double th = 0.3;
-    Rule rule = Rule::Rival;
+    Rule rule = Rule::Fair;
+    FairParams fp;
     double lookahead_ms = 100.0;
 
     const void* cached_audio = nullptr;
     size_t cached_n = 0;
     PosteriorView view;
-    std::vector<float> onset, note;
+    std::vector<float> onset, note, contour;
     std::vector<NoteMeasure> last;
 
     const char* name() override { return "bp-la"; }
@@ -300,7 +421,8 @@ struct BpLaPath : Path {
         cpu = CpuStats(); // no CPU numbers for this path
         last = measure(view, score, compute_windows(score));
         results.resize(score.size());
-        for (size_t i = 0; i < score.size(); ++i) results[i] = decide(last[i], rule, th, score[i].midi);
+        for (size_t i = 0; i < score.size(); ++i)
+            results[i] = decide(last[i], rule, th, score[i].midi, fp);
     }
 
     void compute(const std::vector<float>& audio, float sr) {
@@ -310,9 +432,11 @@ struct BpLaPath : Path {
         const long frames = (n + kHop - 1) / kHop;
         onset.assign(size_t(frames) * kNotes, 0.0f);
         note.assign(size_t(frames) * kNotes, 0.0f);
+        contour.assign(size_t(frames) * kContourBins, 0.0f);
         view.frames = int(frames);
         view.onset = onset.data();
         view.note = note.data();
+        view.contour = contour.data();
         view.time_ms.assign(size_t(frames), 0.0);
         const long la = std::lround(lookahead_ms * kSampleRate / 1000.0);
 
@@ -339,6 +463,9 @@ struct BpLaPath : Path {
                     onset[size_t(f) * kNotes + size_t(b)] = wo[size_t(i) * kNotes + size_t(b)];
                     note[size_t(f) * kNotes + size_t(b)] = wn[size_t(i) * kNotes + size_t(b)];
                 }
+                for (int b = 0; b < kContourBins; ++b)
+                    contour[size_t(f) * kContourBins + size_t(b)] =
+                        wc[size_t(i) * kContourBins + size_t(b)];
             }
         }
         if (lookahead_ms == 1000.0) check_against_offline(audio, sr);

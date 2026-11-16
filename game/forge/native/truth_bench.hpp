@@ -97,6 +97,10 @@ struct ScoreNote {
 };
 
 /// The cases of section 2: the truth itself and the negative controls.
+/// The detuned controls (work package 4b) score the same right score on
+/// the audio shifted up in pitch; their score is unchanged and every note
+/// is right. They are not in the default case list (kDefaultCases); they
+/// run when named in --cases.
 enum class Case {
     Right,    // the truth
     Semitone, // 30% of the notes moved by +-1 semitone
@@ -107,14 +111,25 @@ enum class Case {
     Late120,  // the whole score 120 ms late
     Late250,  // 250 ms late
     Early120, // 120 ms early
-    Jitter60  // each note moved by a uniform +-60 ms
+    Jitter60, // each note moved by a uniform +-60 ms
+    Detune20, // the audio of right shifted up 20 cents
+    Detune40, // 40 cents
+    Detune60  // 60 cents
 };
 
-constexpr Case kAllCases[] = {Case::Right,   Case::Semitone, Case::Tone,
-                              Case::Octave,  Case::Added,    Case::LeftOut,
-                              Case::Late120, Case::Late250,  Case::Early120,
-                              Case::Jitter60};
+constexpr Case kAllCases[] = {Case::Right,    Case::Semitone, Case::Tone,
+                              Case::Octave,   Case::Added,    Case::LeftOut,
+                              Case::Late120,  Case::Late250,  Case::Early120,
+                              Case::Jitter60, Case::Detune20, Case::Detune40,
+                              Case::Detune60};
 constexpr size_t kCaseCount = sizeof(kAllCases) / sizeof(kAllCases[0]);
+
+/// What --cases all runs: every case but the detuned controls.
+constexpr Case kDefaultCases[] = {Case::Right,   Case::Semitone, Case::Tone,
+                                  Case::Octave,  Case::Added,    Case::LeftOut,
+                                  Case::Late120, Case::Late250,  Case::Early120,
+                                  Case::Jitter60};
+constexpr size_t kDefaultCaseCount = sizeof(kDefaultCases) / sizeof(kDefaultCases[0]);
 
 inline const char* case_name(Case c) {
     switch (c) {
@@ -128,8 +143,21 @@ inline const char* case_name(Case c) {
     case Case::Late250: return "late250";
     case Case::Early120: return "early120";
     case Case::Jitter60: return "jitter60";
+    case Case::Detune20: return "detune20";
+    case Case::Detune40: return "detune40";
+    case Case::Detune60: return "detune60";
     }
     return "?";
+}
+
+/// The detuned control's shift in cents (0 for every other case).
+inline double case_detune_cents(Case c) {
+    switch (c) {
+    case Case::Detune20: return 20.0;
+    case Case::Detune40: return 40.0;
+    case Case::Detune60: return 60.0;
+    default: return 0.0;
+    }
 }
 
 inline bool case_from_name(const char* s, Case& out) {
