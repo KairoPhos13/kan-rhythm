@@ -113,8 +113,10 @@ namespace Kan.Forge.Tests
             string work = workFolder();
             var separated = demuxOutput(work, ("bass", 8820));
 
+            // The editor's edits are mono 48 kHz; the demux is stereo 44.1
+            // kHz (rate in this test). The same 200 ms, give or take samples.
             string edited = Path.Combine(work, "edit-3ea4646e.wav");
-            writeStereoWav(edited, 8823);
+            writeMonoWav48(edited, 9603);
             separated.Add(new ForgeTrack("In range ocarina", edited) { IsSeparated = true });
 
             var set = bed.CreateLevel("My Song", new Dictionary<string, byte[]>());
@@ -128,10 +130,11 @@ namespace Kan.Forge.Tests
             Assert.That(files, Does.Contain("stems/in-range-ocarina.ogg"), "named by the track, not by the work file");
 
             var manifest = LevelStems.ReadManifest(bed.WorkingOf(bed.Realm.Run(r => r.Find<osu.Game.Beatmaps.BeatmapSetInfo>(set.ID)!.Detach())))!;
-            Assert.That(manifest.Frames, Is.EqualTo(8823));
+            Assert.That(manifest.DurationMs, Is.EqualTo(9603 * 1000.0 / 48000).Within(0.01));
             Assert.That(manifest.Stems.Single(x => x.Kind == "bass").Edited, Is.False);
             Assert.That(manifest.Stems.Single(x => x.Kind == "in-range-ocarina").Edited, Is.True);
-            Assert.That(manifest.Stems.Single(x => x.Kind == "in-range-ocarina").Frames, Is.EqualTo(8823));
+            var ocarina = manifest.Stems.Single(x => x.Kind == "in-range-ocarina");
+            Assert.That((ocarina.Frames, ocarina.SampleRate, ocarina.Channels), Is.EqualTo((9603L, 48000, 1)));
 
             // Up to date afterwards: the same sources are not attached twice.
             Assert.That(LevelStems.IsUpToDate(bed.WorkingOf(bed.Realm.Run(r => r.Find<osu.Game.Beatmaps.BeatmapSetInfo>(set.ID)!.Detach())), separated), Is.True);
@@ -217,6 +220,28 @@ namespace Kan.Forge.Tests
                 writer.Write((short)(1000 * Math.Sin(2 * Math.PI * 220 * i / rate)));
                 writer.Write((short)(1000 * Math.Sin(2 * Math.PI * 330 * i / rate)));
             }
+        }
+
+        private static void writeMonoWav48(string path, int frames)
+        {
+            using var stream = File.Create(path);
+            using var writer = new BinaryWriter(stream);
+
+            writer.Write("RIFF"u8);
+            writer.Write(36 + frames * 2);
+            writer.Write("WAVEfmt "u8);
+            writer.Write(16);
+            writer.Write((short)1);
+            writer.Write((short)1);
+            writer.Write(48000);
+            writer.Write(48000 * 2);
+            writer.Write((short)2);
+            writer.Write((short)16);
+            writer.Write("data"u8);
+            writer.Write(frames * 2);
+
+            for (int i = 0; i < frames; i++)
+                writer.Write((short)(1000 * Math.Sin(2 * Math.PI * 523.25 * i / 48000)));
         }
 
         private static string sha256Of(byte[] bytes) => Convert.ToHexString(SHA256.HashData(bytes)).ToLowerInvariant();

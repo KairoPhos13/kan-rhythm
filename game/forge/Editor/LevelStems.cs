@@ -121,15 +121,15 @@ namespace Kan.Forge.Editor
                     infos.Add(info.Value);
                 }
 
-                // One rate and channel count; lengths within a few samples (an
-                // edit may round them, owner levels 2026-11-16), never a
-                // different song.
-                long longest = infos.Max(i => i.Frames), shortest = infos.Min(i => i.Frames);
+                // The same length in time, within a few samples (an edit may
+                // round it, and may write its own rate and channels: the
+                // editor's edits are mono 48 kHz, the demux stereo 44.1 kHz;
+                // owner levels 2026-11-16), never a different song.
+                var durations = infos.Select(i => i.Frames * 1000.0 / i.SampleRate).ToList();
 
-                if (infos.Any(i => i.SampleRate != infos[0].SampleRate || i.Channels != infos[0].Channels)
-                    || longest - shortest > (long)(MAX_LENGTH_SPREAD_MS / 1000 * infos[0].SampleRate))
+                if (durations.Max() - durations.Min() > MAX_LENGTH_SPREAD_MS)
                 {
-                    problem?.Invoke("The stems cannot be attached: they do not have the same length and format. They must come from one separation of one song.");
+                    problem?.Invoke("The stems cannot be attached: they do not have the same length. They must all come from one song.");
                     return false;
                 }
 
@@ -141,7 +141,7 @@ namespace Kan.Forge.Editor
 
                 var encoded = await Task.Run(() =>
                 {
-                    var files = new List<(string Kind, string Path, long Frames, double OffsetMs, bool Edited)>();
+                    var files = new List<(string Kind, string Path, WavInfo Info, double OffsetMs, bool Edited)>();
 
                     var kinds = KindsOf(sources);
 
@@ -162,7 +162,7 @@ namespace Kan.Forge.Editor
                             return (Files: files, Error: "the built-in audio encoder is not available: update kan!");
                         }
 
-                        files.Add((kind, outPath, infos[i].Frames, t.OffsetMs, isEdited(t)));
+                        files.Add((kind, outPath, infos[i], t.OffsetMs, isEdited(t)));
                     }
 
                     return (Files: files, Error: (string?)null);
@@ -180,13 +180,16 @@ namespace Kan.Forge.Editor
                     Model = ModelId(),
                     SampleRate = infos[0].SampleRate,
                     Channels = infos[0].Channels,
-                    Frames = longest,
+                    Frames = infos[0].Frames,
+                    DurationMs = durations.Max(),
                     SourceSignature = sourceSignature(sources),
                     Stems = encoded.Files.Select(f => new Stem
                     {
                         File = f.Kind + BeatmapAudio.PLAY_FILE_EXTENSION,
                         Kind = f.Kind,
-                        Frames = f.Frames,
+                        SampleRate = f.Info.SampleRate,
+                        Channels = f.Info.Channels,
+                        Frames = f.Info.Frames,
                         OffsetMs = f.OffsetMs,
                         Edited = f.Edited,
                         Sha256 = sha256Of(f.Path),
@@ -311,7 +314,13 @@ namespace Kan.Forge.Editor
             [JsonPropertyName("kind")]
             public string Kind { get; set; } = string.Empty;
 
-            /// <summary>This stem's own length (stems may differ by a few samples).</summary>
+            /// <summary>This stem's own format and length: an edited stem may differ from the demux.</summary>
+            [JsonPropertyName("sample_rate")]
+            public int SampleRate { get; set; }
+
+            [JsonPropertyName("channels")]
+            public int Channels { get; set; }
+
             [JsonPropertyName("frames")]
             public long Frames { get; set; }
 
@@ -347,9 +356,13 @@ namespace Kan.Forge.Editor
             [JsonPropertyName("channels")]
             public int Channels { get; set; }
 
-            /// <summary>The longest stem's frames (each stem records its own).</summary>
+            /// <summary>The first stem's frames (each stem records its own format and length).</summary>
             [JsonPropertyName("frames")]
             public long Frames { get; set; }
+
+            /// <summary>The song's length (ms, the longest stem).</summary>
+            [JsonPropertyName("duration_ms")]
+            public double DurationMs { get; set; }
 
             [JsonPropertyName("stems")]
             public List<Stem> Stems { get; set; } = new List<Stem>();
