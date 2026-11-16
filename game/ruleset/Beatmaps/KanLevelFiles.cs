@@ -33,6 +33,9 @@ namespace Kan.Ruleset.Beatmaps
         {
             storage ??= gameStorage;
             game ??= osuGame;
+
+            // The editor's objects are the ruleset's own, as the converter makes them.
+            Kan.Forge.Editor.LevelOsuMarks.EditorObject = time => new Objects.KanHitObject { StartTime = time };
         }
 
         /// <summary>

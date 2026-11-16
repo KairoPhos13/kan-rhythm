@@ -26,6 +26,15 @@ namespace Kan.Forge.Editor
         public static IReadOnlyList<HitObject> ObjectsFor(IReadOnlyList<ScoreNote> notes)
             => LevelMarks.TimesOf(notes).Select(time => new HitObject { StartTime = time }).ToList();
 
+        /// <summary>
+        /// The editor's own object for a mark. The editor holds the ruleset's
+        /// objects (a <c>Beatmap&lt;KanHitObject&gt;</c>), which refuses a plain
+        /// <see cref="HitObject"/>: saving from compose failed with "is not of
+        /// type KanHitObject" (owner 2026-11-16). The ruleset sets this when
+        /// it starts (forge cannot see its types); plain marks otherwise.
+        /// </summary>
+        public static Func<double, HitObject> EditorObject { get; set; } = time => new HitObject { StartTime = time };
+
         /// <summary>Whether a level's .osu already carries the score's marks (within half a ms).</summary>
         public static bool Matches(IBeatmap beatmap, IReadOnlyList<ScoreNote> notes)
         {
@@ -56,14 +65,14 @@ namespace Kan.Forge.Editor
 
             var marks = ObjectsFor(score.Notes);
 
-            if (editor != null)
-            {
-                editor.Clear();
-                editor.AddRange(marks);
-            }
-
             try
             {
+                if (editor != null)
+                {
+                    editor.Clear();
+                    editor.AddRange(marks.Select(m => EditorObject(m.StartTime)).ToList());
+                }
+
                 if (working.Beatmap is not Beatmap beatmap)
                     return "the level's osu! file could not be read";
 
