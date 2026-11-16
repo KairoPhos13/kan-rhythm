@@ -752,3 +752,24 @@ the `kan!` wordmark.
 - **Merge-conflict cost:** low; a few lines in five files.
 - **Upstream-PR:** no.
 
+### F-34: the level's stems are not hitsounds (2026-11-16)
+
+- **What:** `osu.Game/Beatmaps/KanLevelStems.cs` (new, `Kan.Client`):
+  `IsStem(fileName)`, true for anything under `stems/`. The general
+  verify checks that open every file of the set skip the stems:
+  `CheckTooShortAudioFiles`, `CheckHitsoundsFormat`, `CheckZeroByteFiles`
+  and `CheckDelayedHitsounds`.
+- **Why:** issue 42: a level keeps the separated tracks of its song
+  under `stems/`, as source material for the levels made from it later.
+  Play never opens them. The verify tab must not decode them either (six
+  stems of a six minute song are about 30 MB of Ogg per verify run) and
+  must not flag them as hitsounds in a wrong format.
+- **Verified:** `game/forge/tests/PlayNeverOpensStemsTest`: the checks
+  still flag a too short sample, a corrupt audio file and a zero byte
+  file at the top level of the same level, and say nothing about the
+  same problems under `stems/`; the voice lookup opens no stem there
+  either. `make check` green.
+- **Merge-conflict cost:** low; one new file and one line in each of
+  four check files.
+- **Upstream-PR:** no (stems are kan!'s own concept).
+
