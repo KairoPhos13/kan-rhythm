@@ -198,6 +198,24 @@ namespace Kan.Forge.Editor
         {
             if (trackSet.Companions.Any() && !BeatmapAudio.IsUpToDate(trackSet) && !BeatmapAudio.Rendering)
                 renderLevelAudio(true);
+            else
+                attachStemsIfAny();
+        }
+
+        /// <summary>
+        /// The level keeps its stems (issue 42): the save after a demux puts
+        /// them in the level even when the level audio needs no new render.
+        /// </summary>
+        private void attachStemsIfAny()
+        {
+            var separated = trackSet.Tracks.Where(t => t.IsSeparated).ToList();
+            if (separated.Count == 0 || LevelStems.Attaching) return;
+
+            runJob(() => LevelStems.AttachAsync(separated, ForgeTrackSession.WorkDir, working.Value, beatmaps, editor,
+                                                m => ForgeNotify.Error(notifications, m)),
+                null,
+                _ => { },
+                ex => ForgeNotify.Error(notifications, $"The stems could not be attached: {ex.Message}"));
         }
 
         /// <summary>
@@ -223,7 +241,7 @@ namespace Kan.Forge.Editor
             setBusy(true);
             renderCard.Indeterminate($"mixing {what}");
 
-            runJob(() => BeatmapAudio.RenderAsync(trackSet, working.Value, beatmaps, music, editor, Scheduler),
+            runJob(() => BeatmapAudio.RenderAsync(trackSet, working.Value, beatmaps, music, editor, Scheduler, notifications),
                 renderCard,
                 name =>
                 {

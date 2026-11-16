@@ -111,8 +111,14 @@ namespace Kan.Forge.Editor
         /// <summary>Whether a file of a level is its voice file (Ogg, or WAV from before issue 42).</summary>
         public static bool IsLevelVoice(string? fileName) => isLevelFile(fileName, level_voice_stem);
 
+        /// <summary>Whether a file of a level is its level audio (Ogg now, WAV from before issue 42).</summary>
+        public static bool IsLevelAudio(string? fileName) => isLevelFile(fileName, level_audio_stem);
+
         private static bool isLevelFile(string? fileName, string stem)
             => !string.IsNullOrEmpty(fileName)
+               // A stem is never the level's audio or voice (issue 42): play
+               // never opens the stems, whatever they are named.
+               && !LevelStems.IsStemFile(fileName)
                && Path.GetFileNameWithoutExtension(fileName).EndsWith(stem, StringComparison.OrdinalIgnoreCase)
                && Path.GetExtension(fileName).ToLowerInvariant() is @".ogg" or @".wav";
 
@@ -201,10 +207,12 @@ namespace Kan.Forge.Editor
         /// Render the companion tracks (as heard: edits, filters, trims,
         /// positions) cut to the level audio window, and install the result
         /// as the level's audio. Call from the update thread; returns the
-        /// beatmap file name.
+        /// beatmap file name. A failure to attach the level's stems never
+        /// fails the render; it is reported to <paramref name="notifications"/>.
         /// </summary>
         public static async Task<string> RenderAsync(ForgeTrackSet set, WorkingBeatmap working, BeatmapManager beatmaps,
-                                                     MusicController music, osu.Game.Screens.Edit.Editor? editor, Scheduler scheduler)
+                                                     MusicController music, osu.Game.Screens.Edit.Editor? editor, Scheduler scheduler,
+                                                     INotificationOverlay? notifications = null)
         {
             var companions = set.Companions.ToList();
             if (companions.Count == 0)
@@ -258,6 +266,13 @@ namespace Kan.Forge.Editor
                 ForgeTrackSession.LevelAudioSignature = signature;
                 ForgeTrackSession.LevelAudioLufs = double.IsFinite(after) ? after : null;
                 ForgeTrackSession.Save();
+
+                // The level keeps its stems of the song (issue 42): after the
+                // level audio and the voice are set. A failure is not fatal
+                // (the level plays on) and is reported the way the editor
+                // reports other non-fatal problems.
+                await LevelStems.AttachAsync(set.Tracks.Where(t => t.IsSeparated).ToList(), ForgeTrackSession.WorkDir,
+                                             working, beatmaps, editor, m => ForgeNotify.Error(notifications, m));
                 return name;
             }
             finally
