@@ -5,7 +5,9 @@ using System.Threading;
 using osu.Game.Beatmaps;
 using osu.Game.Beatmaps.ControlPoints;
 using osu.Game.Rulesets.Judgements;
+using osu.Game.Rulesets.Objects.Types;
 using osu.Game.Rulesets.Scoring;
+using osuTK;
 using Kan.Core.Score;
 
 namespace Kan.Ruleset.Objects
@@ -17,7 +19,7 @@ namespace Kan.Ruleset.Objects
     /// Levels without a score keep timing-only placeholder objects
     /// (<see cref="HasScore"/> false) that resolve by themselves.
     /// </summary>
-    public class KanHitObject : osu.Game.Rulesets.Objects.HitObject
+    public class KanHitObject : osu.Game.Rulesets.Objects.HitObject, IHasPosition
     {
         /// <summary>False for the placeholder objects of a level without a score.</summary>
         public bool HasScore { get; set; }
@@ -47,6 +49,34 @@ namespace Kan.Ruleset.Objects
 
         /// <summary>The note's pace (ms, <see cref="Kan.Core.Play.LiveJudge.PaceOf"/>): it sizes the timing windows; 0 = unknown.</summary>
         public double PaceMs { get; set; }
+
+        /// <summary>
+        /// The centre of the osu! playfield. A note has no position (its
+        /// pitch lives in the score), but the legacy .osu encoder writes a
+        /// position for every hit object and kan! claims legacy ruleset id
+        /// 0 (osu!standard, so a level's .osu says "Mode: 0" and decodes as
+        /// kan!), the one case where it reads
+        /// <see cref="IHasPosition.Position"/>. Without this the encoder
+        /// threw and no kan! level with notes could be exported or submitted.
+        /// The setters are ignored: nothing about a note is positional.
+        /// </summary>
+        public Vector2 Position
+        {
+            get => new Vector2(256, 192);
+            set { }
+        }
+
+        float IHasXPosition.X
+        {
+            get => 256;
+            set { }
+        }
+
+        float IHasYPosition.Y
+        {
+            get => 192;
+            set { }
+        }
 
         protected override void CreateNestedHitObjects(CancellationToken cancellationToken)
         {

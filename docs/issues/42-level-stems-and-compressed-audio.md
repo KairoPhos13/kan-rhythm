@@ -58,9 +58,10 @@ stem.
 
 ## Open choices (owner)
 
-- Stems lossless (FLAC, about 96 MB here, the limit would rise) or
-  transparent lossy (Vorbis, about 50 to 70 MB here, fits today).
-- Whether the server serves two packages (play, full) or one.
+Resolved 2026-11-16: the stems travel as **Ogg Vorbis** (FLAC was
+weighed and dropped: no new library, smaller levels and downloads) and
+as **one package** for now; the light play package without stems is the
+server side's (work package 2).
 
 ## Dependencies
 
@@ -95,19 +96,76 @@ everywhere (import, the game, libkan).
   30 dB SNR, the same transcribed notes) and `LevelPlayFileTest` (BASS
   plays the Ogg at its rate, channels and exact length).
 
-Next: steps 2 to 4 (stems stored, levels from levels, play and full
-packages). The owner's choices on FLAC or Vorbis stems and one or two
+Next: step 2 (stems stored), then levels from levels and the server
+side. The owner's choices on FLAC or Vorbis stems and one or two
 packages are still open.
+
+**Step 2 done (2026-11-16).** The owner chose **Ogg Vorbis** for the
+stems too ("stems are Ogg Vorbis, NOT FLAC"): no new library, smaller
+levels and downloads, transparent at the quality used. One package for
+now; the light play package without stems stays with the server side.
+
+- A level keeps its stems under `stems/`: `stems/<kind>.ogg` for every
+  stem of ONE demux (vocals, bass, drums, guitar, piano, other) and
+  `stems/stems.json` (rate, channels, frames, the model and its grade,
+  a sha256 per stem, and the signature of the source files, so the same
+  stems are attached once). They are the raw separation: full song
+  length, no gain, edits or trims. Stems from more than one separation,
+  or of different lengths, are refused with a clear error.
+- The stems are encoded at Ogg quality 0.8 (`LevelStems.STEM_QUALITY`),
+  above the 0.6 of the played files: they are source material for the
+  levels made from them later. They attach where the level audio is
+  rendered and on the save after a demux, so a demuxed level carries its
+  stems from its next save. A failure never fails the render.
+- Play never opens them: the voice lookup, the level audio and voice
+  naming, the resources tab's video lookup and the fork's verify checks
+  all pass over `stems/` (fork F-34).
+- The submission and the plain `.osz` export carry the stems. When the
+  package would pass 95 MB (under the tunnel's 100 MB request body and
+  the server's 100 MiB) the upload travels without them and the creator
+  is told in plain words; the creator's own level keeps them either way
+  (fork F-35).
+- `LevelUpgrade.UpgradeAllAsync` turns the WAV level audio and the WAV
+  voice of the local levels into Ogg (the same samples in, Ogg out),
+  stores the level audio's signature in the set so the editor does not
+  render it again, and attaches the stems from each level's work folder.
+  A level with an imported song is left alone; a second run changes
+  nothing. No UI yet: the architect adds the button.
+- Found on the way and fixed: a kan! level with notes could not be
+  exported or submitted at all (the legacy .osu encoder reads a hit
+  object position, kan! claims legacy id 0, and `KanHitObject` had
+  none). It now carries the centre of the osu! playfield.
+- Measured on "No hay lugar más alto" (6:11, six stems, 44.1 kHz
+  stereo, the owner's data, read only): the six stems are 750 MB as WAV
+  float and 31.4 MB as Ogg at 0.8, encoded in 18 s. The round trip
+  (Ogg back to PCM16) measures 26 to 38 dB SNR per stem: bass 37.7,
+  piano 33.7, drums 32.0, vocals 29.3, guitar 28.0, other 25.9. All six
+  keep their 16,379,904 frames. With the Ogg level audio and voice
+  (about 9 MB) the level is about 41 MB with its stems: one upload, and
+  room for songs up to about 14 minutes.
+- Tests: selftest section 8b (a stereo round trip at 0.8 keeps its
+  frame count and its channels apart, and is no further from the source
+  than the played files at 0.6), `LevelStemsTest`,
+  `PlayNeverOpensStemsTest`, `LevelStemsSubmissionTest`,
+  `LevelUpgradeTest` and `LevelExportTest`, all on levels in a temporary
+  realm.
+
+Next: step 3 (a level made from another level's stems) and the server
+side (a light play package without stems).
 
 ## Acceptance
 
 - [x] The level audio and the voice are Ogg Vorbis; a level with a voice
       of six minutes is under 25 MB without stems.
 - [x] Existing WAV levels keep playing; the next render writes Vorbis.
-- [ ] A demuxed level carries its stems under `stems/`, and the package
-      stays within the server's limit for a song of 6 minutes.
-- [ ] Play opens no stem (measured: the same files open as before).
+- [x] A demuxed level carries its stems under `stems/`, and the package
+      stays within the server's limit for a song of 6 minutes (measured:
+      about 41 MB with stems, one upload, the upload leaves the stems
+      out above 95 MB).
+- [x] Play opens no stem (measured: the same files open as before).
 - [ ] The editor can start a new level from another level's stems,
       without a demux, and credits the source level.
 - [ ] The stems of a level line up with each other and with the level
-      audio to the sample (a test with known input).
+      audio to the sample (a test with known input). What step 2 checks:
+      one separation per level, one frame count for all the stems, and
+      the exact frame count kept through the encoder.

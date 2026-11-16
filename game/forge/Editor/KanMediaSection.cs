@@ -280,7 +280,9 @@ namespace Kan.Forge.Editor
         private string? currentVideoFile()
             => working.Value.BeatmapSetInfo.Files
                       .Select(f => f.Filename)
-                      .FirstOrDefault(MediaAudioExtractor.IsVideo);
+                      // A stem is never the level's video (issue 42: play
+                      // never opens the stems).
+                      .FirstOrDefault(f => !LevelStems.IsStemFile(f) && MediaAudioExtractor.IsVideo(f));
 
         private void maybeExtractVideoAudio()
         {

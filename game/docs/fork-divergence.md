@@ -752,3 +752,51 @@ the `kan!` wordmark.
 - **Merge-conflict cost:** low; a few lines in five files.
 - **Upstream-PR:** no.
 
+### F-34: the level's stems are not hitsounds (2026-11-16)
+
+- **What:** `osu.Game/Beatmaps/KanLevelStems.cs` (new, `Kan.Client`):
+  `IsStem(fileName)`, true for anything under `stems/`. The general
+  verify checks that open every file of the set skip the stems:
+  `CheckTooShortAudioFiles`, `CheckHitsoundsFormat`, `CheckZeroByteFiles`
+  and `CheckDelayedHitsounds`.
+- **Why:** issue 42: a level keeps the separated tracks of its song
+  under `stems/`, as source material for the levels made from it later.
+  Play never opens them. The verify tab must not decode them either (six
+  stems of a six minute song are about 30 MB of Ogg per verify run) and
+  must not flag them as hitsounds in a wrong format.
+- **Verified:** `game/forge/tests/PlayNeverOpensStemsTest`: the checks
+  still flag a too short sample, a corrupt audio file and a zero byte
+  file at the top level of the same level, and say nothing about the
+  same problems under `stems/`; the voice lookup opens no stem there
+  either. `make check` green.
+- **Merge-conflict cost:** low; one new file and one line in each of
+  four check files.
+- **Upstream-PR:** no (stems are kan!'s own concept).
+
+### F-35: an over-long submission travels without its stems (2026-11-16)
+
+- **What:** `KanLevelStems` gains two hooks the kan! side supplies at
+  ruleset init: `SelectSubmissionFiles` (which files a submission
+  package carries) and `StemsTooBigNotice` (the message for the creator
+  when a package must travel without its stems).
+  `SubmissionBeatmapExporter.FileSelector` uses the first;
+  `LegacyArchiveExporter` enumerates its files through a small
+  `GetFilesToExport` virtual so the submission exporter can choose.
+  `BeatmapSubmissionScreen` builds the upload package without `stems/`
+  when the built package passes the limit and posts the message; the
+  local update keeps importing the full package.
+- **Why:** issue 42: a level keeps its stems and the submission carries
+  them, but the Cloudflare tunnel refuses a request body over 100 MB.
+  A level over 95 MB with its stems (about 14 minutes of music) cannot
+  pass, so the upload travels without them and the creator is told in
+  plain words. The upload never fails because of stems: the fallback is
+  the full package, and a failure to build the stripped one is only
+  logged.
+- **Verified:** `game/forge/tests/LevelStemsSubmissionTest`: a
+  submission package of a level with stems has them under `stems/`; one
+  over the limit leaves them out, keeps the rest of the level, and the
+  policy says so in plain words. `make check` green.
+- **Merge-conflict cost:** low; one hook, one small virtual, one block
+  in the submission screen.
+- **Upstream-PR:** no (the limit and the stems are kan!'s own).
+
