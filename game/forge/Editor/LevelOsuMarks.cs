@@ -24,14 +24,18 @@ namespace Kan.Forge.Editor
     {
         /// <summary>The mark objects for a score (one per note, one at the level's end).</summary>
         public static IReadOnlyList<HitObject> ObjectsFor(IReadOnlyList<ScoreNote> notes)
-            => LevelMarks.TimesOf(notes).Select(time => new HitObject { StartTime = time }).ToList();
+            => LevelMarks.TimesOf(notes).Select(EditorObject).ToList();
 
         /// <summary>
-        /// The editor's own object for a mark. The editor holds the ruleset's
-        /// objects (a <c>Beatmap&lt;KanHitObject&gt;</c>), which refuses a plain
+        /// The ruleset's own object for a mark, for the editor and for the
+        /// level's .osu alike. The editor holds the ruleset's objects (a
+        /// <c>Beatmap&lt;KanHitObject&gt;</c>), which refuses a plain
         /// <see cref="HitObject"/>: saving from compose failed with "is not of
-        /// type KanHitObject" (owner 2026-11-16). The ruleset sets this when
-        /// it starts (forge cannot see its types); plain marks otherwise.
+        /// type KanHitObject" (owner 2026-11-16). And the .osu encoder reads a
+        /// position from every object of a level claiming legacy ruleset id
+        /// 0, which a plain <see cref="HitObject"/> lacks (issue 42 step 2).
+        /// The ruleset sets this when it starts (forge cannot see its types);
+        /// plain marks otherwise.
         /// </summary>
         public static Func<double, HitObject> EditorObject { get; set; } = time => new HitObject { StartTime = time };
 

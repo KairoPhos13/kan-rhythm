@@ -61,6 +61,53 @@ namespace Kan.Forge.Tests
             return Task.CompletedTask;
         });
 
+        /// <summary>
+        /// Saving a score writes its marks into the level's .osu through the
+        /// same legacy encoder: the marks must be the ruleset's objects, or
+        /// the save reports "could not keep its marks".
+        /// </summary>
+        [Test]
+        public void TestTheScoreMarksAreWrittenIntoTheLevel() => LevelTestBed.Run(bed =>
+        {
+            var previous = Kan.Forge.Editor.LevelOsuMarks.EditorObject;
+            Kan.Forge.Editor.LevelOsuMarks.EditorObject = time => new Kan.Ruleset.Objects.KanHitObject { StartTime = time };
+
+            try
+            {
+                var score = new KanScore
+                {
+                    LevelId = Guid.NewGuid().ToString("N"),
+                    Notes =
+                    {
+                        new ScoreNote { StartMs = 1000, DurationMs = 250, Midi = 60 },
+                        new ScoreNote { StartMs = 2000, DurationMs = 250, Midi = 64 },
+                    },
+                };
+
+                var set = bed.CreateLevel("Marks", new Dictionary<string, byte[]>
+                {
+                    ["Marks - level audio.ogg"] = "the level audio"u8.ToArray(),
+                });
+
+                string? error = Kan.Forge.Editor.LevelOsuMarks.Sync(bed.WorkingOf(set), bed.Beatmaps, score);
+                Assert.That(error, Is.Null, "the marks could not be written");
+
+                // The level's .osu, fresh from the file store, carries the marks.
+                var osuFiles = bed.FileNames(set.ID).Where(f => f.EndsWith(".osu", StringComparison.OrdinalIgnoreCase)).ToList();
+                Assert.That(osuFiles, Has.Count.EqualTo(1), $"files: {string.Join(", ", bed.FileNames(set.ID))}");
+
+                using var text = new LineBufferedReader(new MemoryStream(bed.ReadFile(set.ID, osuFiles[0])!));
+                Beatmap saved = osu.Game.Beatmaps.Formats.Decoder.GetDecoder<Beatmap>(text).Decode(text);
+                Assert.That(saved.HitObjects.Select(h => h.StartTime).Take(2), Is.EqualTo(new double[] { 1000, 2000 }).Within(0.001));
+            }
+            finally
+            {
+                Kan.Forge.Editor.LevelOsuMarks.EditorObject = previous;
+            }
+
+            return Task.CompletedTask;
+        });
+
         // ------------------------------------------------------------------
 
         /// <summary>The note times of the level's osu! file in the exported package.</summary>
