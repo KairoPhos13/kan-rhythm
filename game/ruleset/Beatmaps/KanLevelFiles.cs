@@ -36,6 +36,11 @@ namespace Kan.Ruleset.Beatmaps
 
             // The editor's objects are the ruleset's own, as the converter makes them.
             Kan.Forge.Editor.LevelOsuMarks.EditorObject = time => new Objects.KanHitObject { StartTime = time };
+
+            // The level's stems travel with the upload within the size limit
+            // (issue 42): the kan! side owns the policy, the fork asks.
+            Kan.Client.KanLevelStems.SelectSubmissionFiles = Kan.Forge.Editor.LevelStems.SubmissionFiles;
+            Kan.Client.KanLevelStems.StemsTooBigNotice = Kan.Forge.Editor.LevelStems.UploadNotice;
         }
 
         /// <summary>

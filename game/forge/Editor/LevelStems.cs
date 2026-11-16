@@ -49,6 +49,27 @@ namespace Kan.Forge.Editor
             => !string.IsNullOrEmpty(fileName)
                && fileName.Replace('\\', '/').StartsWith(FOLDER + "/", StringComparison.OrdinalIgnoreCase);
 
+        /// <summary>
+        /// The largest submission package the server takes: under both the
+        /// Cloudflare tunnel's 100 MB request body and the server's own 100
+        /// MiB. A level over it travels without its stems, never with a
+        /// failed upload.
+        /// </summary>
+        public const long MAX_UPLOAD_BYTES = 95_000_000;
+
+        /// <summary>
+        /// The message for the creator when a submission package of this size
+        /// must travel without its stems (null: the stems travel with it).
+        /// </summary>
+        public static string? UploadNotice(long packageBytes)
+            => packageBytes <= MAX_UPLOAD_BYTES
+                ? null
+                : "The stems are not in this upload: this level is too long to travel with them (over 95 MB). They stay on your computer.";
+
+        /// <summary>The files a submission package carries: the level's whole story, minus its stems.</summary>
+        public static IEnumerable<osu.Game.Database.INamedFileUsage> SubmissionFiles(BeatmapSetInfo set)
+            => set.Files.Where(f => !IsStemFile(f.Filename));
+
         /// <summary>An attach is running (one at a time: a save can follow a render).</summary>
         public static bool Attaching { get; private set; }
 
