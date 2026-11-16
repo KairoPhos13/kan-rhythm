@@ -7,6 +7,30 @@ Frieren). Invariants: `measurement-invariants.md`. Game-side contract:
 
 ---
 
+## Correction (2026-11-15): what the MAESTRO numbers measured
+
+Read issue 41 (`docs/issues/41-polyphonic-live-play.md`) before using
+any number below for judging. The presence figure (96.7-98.8 %) comes
+from the score-anchored offline core, given the performance's own MIDI:
+every note at the exact time it was played, its pitch named. It answers
+"does the audio hold energy that this hypothesis explains", and that
+answer is yes for wrong hypotheses too. Negative controls on the same
+Nocturne (Chopin Op. 9 No. 2, MAESTRO 2011, 1498 notes):
+
+| Score given | "found" (sim >= 0.60) | pitch within 30 c |
+|---|---|---|
+| the right notes at the right times | 94.5 % | 91.7 % |
+| every note a semitone up | 92.9 % | 37 % |
+| 30 % of notes changed by 1 or 2 semitones (those notes) | 90.9 % | 39 % |
+| the whole score 250 ms late | 87.7 % | 74 % |
+
+So "found" does not separate a played note from a wrong one, the pitch
+center rejects about 60 % of wrong notes, and the timing of a note is
+not measured (the score's time is assumed). The game's live path (blind
+describer) was never measured on MAESTRO and does not resolve real piano
+(issue 41). The rows below are kept as they were written; "Presence"
+and "Mistake detection" are not validated for judging piano.
+
 ## 1. What is validated (measured, at scale)
 
 | dimension | state | evidence |
