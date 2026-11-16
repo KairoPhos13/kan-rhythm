@@ -14,7 +14,8 @@
 // Usage:
 //   kan_truth_bench --maestro <dir> --manifest <file>   (excerpts)
 //   kan_truth_bench --audio a.wav --truth a.midi --from 0 --to 60
-//   [--paths blind,expect,core,oracle,yes,bp,bp-la]  (default blind,core)
+//   [--paths blind,expect,core,oracle,yes,bp,bp-la,pair]
+//                           (default blind,core)
 //   [--cases all | right,semitone,...] [--seed N] [--repeat N]
 //                           (all is every case but the detuned controls
 //                           detune20/40/60, which run only when named)
@@ -25,8 +26,18 @@
 //   [--bp-fair-a 0.13 --bp-fair-b 0.25 --bp-fair-c 0.3]
 //                           the fair rule's settings
 //   [--bp-lookahead <ms>]   the look-ahead the bp-la path must respect
-//   [--features <file.csv>] the bp path writes one row per excerpt, case
-//                           and score note (the fusion input)
+//   [--pair-u 0.3 --pair-un 0.15 --pair-c 0.3]
+//   [--pair-a 0.13 --pair-b 0.25 --pair-peak-min 0.15]
+//                           the pair path's decision settings (a rival is
+//                           real when u >= pair-u, un >= pair-un and
+//                           u >= s + pair-c; accept when nmax >= pair-a
+//                           and no real rival out-sustains it by 0.15, or
+//                           when s >= pair-b and no rival is real)
+//   [--features <file.csv>] the bp or the pair path writes one row per
+//                           excerpt, case and score note (the fusion
+//                           input), its own columns; when both paths run,
+//                           the pair rows take the file and the bp rows
+//                           go to a sibling with .bp before .csv
 //   [--dump-posteriors <dir>]
 //                           the bp path writes its whole-recording
 //                           posteriors and the score it was given, one
@@ -51,6 +62,7 @@
 #include "truth_bench.hpp"
 #include "truth_paths.hpp"
 #include "truth_paths_bp.hpp"
+#include "truth_path_pair.hpp"
 
 #include <algorithm>
 #include <atomic>
@@ -325,11 +337,16 @@ void annotate_cpu(CpuStats& cpu, const std::vector<TruthNote>& truth) {
 
 std::unique_ptr<Path> make_path(const std::string& name, const std::vector<TruthNote>& truth,
                                 double bp_th, bp::Rule bp_rule, double bp_lookahead_ms,
-                                const bp::FairParams& bp_fair) {
+                                const bp::FairParams& bp_fair, const pair::PairParams& pair_pp) {
     if (name == "blind") return std::make_unique<BlindPath>();
     if (name == "expect") return std::make_unique<ExpectPath>();
     if (name == "core") return std::make_unique<CorePath>();
     if (name == "oracle") return std::make_unique<OraclePath>(truth);
+    if (name == "pair") {
+        auto p = std::make_unique<pair::PairPath>();
+        p->pp = pair_pp;
+        return p;
+    }
     if (name == "bp") {
         auto p = std::make_unique<bp::BpPath>();
         p->th = bp_th;
@@ -501,6 +518,7 @@ int main(int argc, char** argv) {
                 features_path, dump_posteriors_dir, bp_rule_arg = "fair";
     double from_s = 0.0, to_s = -1.0, bp_th = 0.3, bp_lookahead_ms = -1.0;
     bp::FairParams bp_fair;
+    pair::PairParams pair_pp;
     unsigned seed = 7;
     int repeat = 1, jobs = 1;
     bool bp_sweep = false;
@@ -536,6 +554,12 @@ int main(int argc, char** argv) {
         else if (k == "--bp-fair-b") bp_fair.b = std::atof(value("--bp-fair-b").c_str());
         else if (k == "--bp-fair-c") bp_fair.c = std::atof(value("--bp-fair-c").c_str());
         else if (k == "--bp-lookahead") bp_lookahead_ms = std::atof(value("--bp-lookahead").c_str());
+        else if (k == "--pair-u") pair_pp.u = std::atof(value("--pair-u").c_str());
+        else if (k == "--pair-un") pair_pp.un = std::atof(value("--pair-un").c_str());
+        else if (k == "--pair-c") pair_pp.c = std::atof(value("--pair-c").c_str());
+        else if (k == "--pair-a") pair_pp.a = std::atof(value("--pair-a").c_str());
+        else if (k == "--pair-b") pair_pp.b = std::atof(value("--pair-b").c_str());
+        else if (k == "--pair-peak-min") pair_pp.peak_min = std::atof(value("--pair-peak-min").c_str());
         else if (k == "--bp-sweep") bp_sweep = true;
         else if (k == "--jobs") jobs = std::max(1, std::min(6, std::atoi(value("--jobs").c_str())));
         else if (k == "--dump-events") dump_audio = value("--dump-events");
@@ -575,9 +599,9 @@ int main(int argc, char** argv) {
             const size_t b = paths_arg.find(',', a);
             const std::string name = paths_arg.substr(a, b == std::string::npos ? b : b - a);
             if (name != "blind" && name != "expect" && name != "core" && name != "oracle" &&
-                name != "yes" && name != "bp" && name != "bp-la") {
+                name != "yes" && name != "bp" && name != "bp-la" && name != "pair") {
                 std::fprintf(stderr,
-                             "unknown path %s (blind, expect, core, oracle, yes, bp, bp-la)\n",
+                             "unknown path %s (blind, expect, core, oracle, yes, bp, bp-la, pair)\n",
                              name.c_str());
                 return 2;
             }
@@ -641,6 +665,7 @@ int main(int argc, char** argv) {
                      "--audio a.wav --truth a.midi --from 0 --to 60 "
                      "[--paths blind,core] [--cases all] [--seed N] [--repeat N] [--out <dir>] "
                      "[--bp-th 0.3] [--bp-rule fair] [--bp-lookahead <ms>] [--features <file.csv>] "
+                     "[--pair-u 0.3 --pair-un 0.15 --pair-c 0.3 --pair-a 0.13 --pair-b 0.25] "
                      "[--dump-posteriors <dir>] [--bp-sweep] [--jobs N]\n");
         return 2;
     }
@@ -894,25 +919,55 @@ int main(int argc, char** argv) {
     std::fprintf(csv, "excerpt,path,case,outcome,right,sounding,score_onset_ms,truth_onset_ms,"
                       "measured_onset_ms,midi,reported_midi\n");
 
-    std::FILE* feat = nullptr;
+    // The features files (one row per excerpt, case and score note): the
+    // pair path's rows take --features and its own columns; when the bp
+    // path also runs, its rows go to a sibling file with .bp before .csv.
+    bool has_bp = false, has_pair = false;
+    for (const auto& name : path_names) {
+        has_bp = has_bp || name == "bp";
+        has_pair = has_pair || name == "pair";
+    }
+    std::string bp_features_path, pair_features_path;
     if (!features_path.empty()) {
-        feat = std::fopen(features_path.c_str(), "w");
+        if (has_pair) {
+            pair_features_path = features_path;
+            if (has_bp) {
+                const bool is_csv = features_path.size() > 4 &&
+                                    features_path.compare(features_path.size() - 4, 4, ".csv") == 0;
+                bp_features_path = is_csv ? features_path.substr(0, features_path.size() - 4) +
+                                                ".bp.csv"
+                                          : features_path + ".bp.csv";
+                std::fprintf(stderr, "note: the pair rows go to %s, the bp rows to %s\n",
+                             features_path.c_str(), bp_features_path.c_str());
+            }
+        } else if (has_bp) {
+            bp_features_path = features_path;
+        } else {
+            std::fprintf(stderr, "note: --features writes rows only for the bp and pair paths, which "
+                                 "are not among the paths\n");
+        }
+    }
+    std::FILE* feat = nullptr;
+    if (!bp_features_path.empty()) {
+        feat = std::fopen(bp_features_path.c_str(), "w");
         if (feat == nullptr) {
-            std::fprintf(stderr, "cannot write %s\n", features_path.c_str());
+            std::fprintf(stderr, "cannot write %s\n", bp_features_path.c_str());
             return 1;
         }
         std::fprintf(feat, "excerpt,case,note,right,sounding,midi,score_onset_ms,truth_onset_ms,"
                            "measured_attack_ms,s,r,rival_midi,n_before,n_after,"
                            "c_own,c_up1,c_dn1,c_up2,c_dn2,c_cents\n");
-        bool has_bp = false;
-        for (const auto& name : path_names) has_bp = has_bp || name == "bp";
-        if (!has_bp)
-            std::fprintf(stderr, "note: --features writes rows only for the bp path, which is not "
-                                 "among the paths\n");
+    }
+    std::FILE* pfeat = nullptr;
+    if (!pair_features_path.empty()) {
+        pfeat = std::fopen(pair_features_path.c_str(), "w");
+        if (pfeat == nullptr) {
+            std::fprintf(stderr, "cannot write %s\n", pair_features_path.c_str());
+            return 1;
+        }
+        std::fprintf(pfeat, "%s", pair::kPairFeatureHeader);
     }
     if (!dump_posteriors_dir.empty()) {
-        bool has_bp = false;
-        for (const auto& name : path_names) has_bp = has_bp || name == "bp";
         if (!has_bp)
             std::fprintf(stderr, "note: --dump-posteriors writes dumps only for the bp path, which "
                                  "is not among the paths\n");
@@ -930,7 +985,7 @@ int main(int argc, char** argv) {
     // ---- the excerpts, in parallel ----------------------------------------
     struct ExcerptOut {
         int status = 0;
-        std::string msg, csv, features;
+        std::string msg, csv, features, pair_features;
         std::vector<std::vector<Pool>> pools; // path x case
         std::vector<std::vector<CpuPoint>> cpu;
         std::vector<std::string> dump_rows; // index.csv lines (work package 4c)
@@ -957,8 +1012,8 @@ int main(int argc, char** argv) {
                     // here and only here).
                     std::vector<std::unique_ptr<Path>> run_paths;
                     for (const auto& name : path_names)
-                        run_paths.push_back(
-                            make_path(name, ld.truth, bp_th, bp_rule, bp_lookahead_ms, bp_fair));
+                        run_paths.push_back(make_path(name, ld.truth, bp_th, bp_rule, bp_lookahead_ms,
+                                                      bp_fair, pair_pp));
                     CaseAudio case_audio(ld.audio, 48000.0f);
 
                     const char* label_base = ex.audio.c_str();
@@ -983,6 +1038,10 @@ int main(int argc, char** argv) {
                                 features_path.empty() || path_names[pi] != "bp"
                                     ? nullptr
                                     : dynamic_cast<const bp::BpPath*>(run_paths[pi].get());
+                            const pair::PairPath* prp =
+                                features_path.empty() || path_names[pi] != "pair"
+                                    ? nullptr
+                                    : dynamic_cast<const pair::PairPath*>(run_paths[pi].get());
 
                             for (size_t n = 0; n < built.notes.size(); ++n) {
                                 const ScoreNote& sn = built.notes[n];
@@ -1010,6 +1069,10 @@ int main(int argc, char** argv) {
                                 if (bpp != nullptr)
                                     write_feature_row(out.features, label, case_name(c), n, sn,
                                                       truth_onset, sounding, bpp->measures()[n]);
+                                if (prp != nullptr)
+                                    pair::write_pair_feature_row(out.pair_features, label,
+                                                                 case_name(c), n, sn, truth_onset,
+                                                                 sounding, prp->measures()[n]);
                             }
 
                             // The dump of work package 4c (the bp path
@@ -1053,12 +1116,13 @@ int main(int argc, char** argv) {
                         const BuiltCase right = build_case(Case::Right, ld.truth, seed);
                         for (size_t pi = 0; pi < path_names.size(); ++pi) {
                             if (!make_path(path_names[pi], ld.truth, bp_th, bp_rule, bp_lookahead_ms,
-                                           bp_fair)
+                                           bp_fair, pair_pp)
                                      ->reports_cpu())
                                 continue;
                             for (int rep = 0; rep < repeat; ++rep) {
-                                std::unique_ptr<Path> p = make_path(path_names[pi], ld.truth, bp_th,
-                                                                    bp_rule, bp_lookahead_ms, bp_fair);
+                                std::unique_ptr<Path> p =
+                                    make_path(path_names[pi], ld.truth, bp_th, bp_rule,
+                                              bp_lookahead_ms, bp_fair, pair_pp);
                                 CpuStats cpu;
                                 std::vector<NoteResult> results;
                                 p->run(ld.audio, 48000.0f, right.notes, results, cpu);
@@ -1088,6 +1152,7 @@ int main(int argc, char** argv) {
         }
         std::fwrite(out.csv.data(), 1, out.csv.size(), csv);
         if (feat != nullptr) std::fwrite(out.features.data(), 1, out.features.size(), feat);
+        if (pfeat != nullptr) std::fwrite(out.pair_features.data(), 1, out.pair_features.size(), pfeat);
         if (!out.dump_err.empty()) {
             std::fprintf(stderr, "%s\n", out.dump_err.c_str());
             fatal = true;
@@ -1105,6 +1170,7 @@ int main(int argc, char** argv) {
     }
     std::fclose(csv);
     if (feat != nullptr) std::fclose(feat);
+    if (pfeat != nullptr) std::fclose(pfeat);
     if (!dump_posteriors_dir.empty() && !write_dump_index(dump_posteriors_dir, dump_index)) {
         std::fprintf(stderr, "cannot write %s/index.csv\n", dump_posteriors_dir.c_str());
         return 1;
