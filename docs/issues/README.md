@@ -53,6 +53,9 @@ became issues:
 | [40 Smooth play on low-power machines](40-smooth-play-on-low-power-machines.md) | the game stutters on the Steam Deck |
 | [30 Profile pages](30-profile-pages.md) (updated) | many profile fields come back empty |
 
+Found after the QA (2026-11-15): [41 Polyphonic live play](41-polyphonic-live-play.md),
+piano measured on the game's own path with MAESTRO.
+
 ## Accessibility work (2026-11-12)
 
 Issues 18 and 19 are done: kan!'s own surfaces got colour-blind-safe

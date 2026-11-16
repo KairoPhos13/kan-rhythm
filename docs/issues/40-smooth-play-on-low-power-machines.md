@@ -87,7 +87,44 @@ start of the level (loading, first-time compilation, a collection) and
 at its end, not during play.
 
 `game/tools/bench-play.sh` runs the bench; the play trace now has a
-`load` row each second (the describer's worst block).
+`load` row each second (the describer's worst block, and the frame
+rates reached and aimed at).
+
+**2026-11-15, the frame rate.** The game reaches its frame limiter's
+2x refresh (draw 120, update 240 on a 60 Hz display) on two cores during
+play. The bench had shown 60: a headless display never focuses the
+window and an unfocused game drops to 60 Hz. `KAN_DEV_FOCUSED=1` (set by
+the bench) keeps the focused rates for an unfocused developer run.
+
+**2026-11-15, dense levels (done).** Piano levels made locally from
+MAESTRO (issue 41), up to 15 keys held and ~16 notes a second, were the
+stress test: in autoplay the Chopin Etude Op. 25 No. 10 excerpt ran at a
+third of real time and failed. Four causes, none specific to an
+instrument, so every level gains:
+
+1. **A replay's facts waited while the clock caught up.** The play state
+   returned early while osu!'s frame-stable clock caught up, but the
+   notes were judged then: each closed as not heard before its facts
+   arrived (autoplay "Replay failed", 47 %). The facts now reach the
+   judge during the catch-up too.
+2. **Note drawables alive 10 s ahead.** osu!'s default lifetime kept
+   every note of the next 10 s alive and checked each frame; kan!'s
+   note drawables draw nothing (the staff draws the notes). They live
+   from 2.5 s before the note (the judge's earliest window is 1.12 s).
+3. **Staff views changed note as the notes scrolled.** A note now keeps
+   its view while in sight (index modulo the pool, depth by index), so
+   its text is laid out once.
+4. **The note name's font was set every frame**, and setting a font lays
+   the text out again even when it is the same. It is set when it
+   changes. This was the largest single cost.
+
+Autoplay, same machine (busy with another workload), music seconds per
+5 s of real time in the densest part: 0.8 to 1.2 before, 4.4 to 5 after;
+Chopin 1048/1048 perfect (was failed at 6.8 s), Liszt "Wilde Jagd"
+1051/1051, Nocturne Op. 9 No. 2 580/580 in real time. The Liszt's
+densest bars still run at 60 to 80 % of real time on a loaded machine;
+what remains is osu!'s scene graph spread thin, with no single cause.
+Sakura on two cores: same verdicts and frame rates as before.
 
 ## Acceptance
 
