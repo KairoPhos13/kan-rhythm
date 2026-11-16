@@ -37,7 +37,7 @@ judgement or DSP research inside).
 | # | Package | Needs | Skill | Status |
 |---|---|---|---|---|
 | 0 | Orientation and design note | | A | done 2026-11-15 |
-| 1 | Truth bench, selftest, manifests, baseline of `blind`, `expect`, `core` | | B | building (`agent/truth-bench`) |
+| 1 | Truth bench, selftest, manifests, baseline of `blind`, `expect`, `core` | | B | done 2026-11-15, merged. Open: baseline on all 12 held-out excerpts (4 run so far), one-voice event dumps of the starter references |
 | 2 | Learned evidence in the bench: a `bp` path on offline Basic Pitch posteriors (written note against rivals, attack time), then the same with emulated look-ahead of 50 to 500 ms | 1 | B | next |
 | 3 | Harmonic evidence in the bench: attack curve from short windows, pitch from the tail with long windows, rivals in the joint fit. Prototype as a bench path first | 1 | A then B | open |
 | 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | open |
@@ -69,6 +69,33 @@ judgement or DSP research inside).
 - 2026-11-15, owner. A low piano note rings on after a short key press.
   Time comes from the attack, pitch from the tail. Family physics is
   profile data.
+
+- 2026-11-15, baseline of the truth bench. First 4 held-out excerpts,
+  214 s, 1038 notes, none above 10 sounding. Builder's run, reproduced by
+  the architect on the Nocturne. Output (local):
+  `tools/dataset_bench/data/truth-bench/baseline-heldout/`.
+
+  | Path | Right accepted | Wrong rejected: semitone / tone / octave / added | Attack error of accepted |
+  |---|---|---|---|
+  | `blind` (the game today) | 0.7 % (12.7 % not measured, 86.1 % absent) | 100 / 100 / 100 / 100 (it hears almost nothing) | median +9.7 ms, p95 17 ms |
+  | `expect` | 4.4 % | 99.4 / 99.7 / 97.4 / 97.8 | drifts with a shifted score (late120: median 248 ms) |
+  | `core` (the old claim) | 95.7 % | 31.3 / 34.3 / 12.0 / 7.1 | measures no time |
+  | `oracle` | 100 % | 100 | 0 |
+  | `yes` | 100 % | 0 | reads the shift exactly |
+
+  CPU, share of real time, median of 3 pinned repeats: `blind` 30 %,
+  `expect` 41 %, `core` 24 %. `expect` refuses 78 % of its chord sets.
+- 2026-11-15. The `late250` case is beyond the judge's own window: the
+  oracle accepts only 44 % there (the meh window can be 240 ms, and a
+  repeated pitch pairs with the wrong attack). Read every path's
+  `late250` against the oracle's, and use `late120` (oracle 98 %) as the
+  proof that time is measured.
+- 2026-11-15. The data folder held audio for only 2 of the 12 held-out
+  recordings. The builder fetched the other 10 (921 MB) from the official
+  MAESTRO v3 archive into `tools/dataset_bench/data/maestro-v3.0.0/`.
+  The development list's audio is not all there yet: package 2 needs it.
+- 2026-11-15. A full run of all paths, cases and 3 repeats on 12 excerpts
+  takes about 100 minutes. Run recognition without repeats, and CPU apart.
 
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
