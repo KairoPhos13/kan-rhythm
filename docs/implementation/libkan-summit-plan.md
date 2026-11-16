@@ -269,6 +269,52 @@ judgement or DSP research inside).
     an attack no written note explains. Today a rival may be the next
     note of a melody that moves by step.
 
+- 2026-11-16, pairing first (study on the posterior dumps of package
+  4c, `truth-bench/wp4c-posteriors/`, 1.7 GB local; scripts were scratch
+  and the rule below is all that is needed to rebuild them). Every
+  attack peak of the model (onset posterior at least 0.15) is first
+  claimed by the written note of its pitch whose meh window holds it. A
+  rival of a written note is then only an unclaimed peak at 1, 2 or 12
+  semitones inside the note's perfect window, and it counts as real
+  only when the model's note posterior of that rival also holds after
+  its attack. Held-out list, settings from the development list:
+
+  | Rule | Right accepted | Wrong rejected: semitone / tone / octave / added |
+  |---|---|---|
+  | `fair` (before) | 98.3 % | 78.3 / 74.9 / 47.1 / 69.5 |
+  | paired, hand rule, floor 99 % | 98.4 % | 86.5 / 84.6 / 59.8 / 67.6 |
+  | paired, hand rule, floor 99.5 % | 99.5 % | 76.9 / 75.6 / 55.1 / 31.6 |
+  | paired, boosted trees on ten features, floor 99.5 % | 98.4 % | 92.8 / 92.1 / 71.9 / 72.6 |
+  | paired, boosted trees, floor 98 % | 96.0 % | 97.0 / 96.4 / 82.2 / 88.5 |
+
+  Hand rule (floor 99 %): a rival is real when its peak u >= 0.3, its
+  note posterior after the attack un >= 0.15 and u >= s + 0.3. Accept
+  when the written note's highest note posterior over its written
+  length (at most 1 s) is at least 0.13 and no real rival sustains 0.15
+  above it, or when s >= 0.25 and there is no real rival.
+
+  - **Pairing is the lever.** Same model, same audio: 8 to 17 points
+    more wrong notes rejected at the same floor. The fitted model shows
+    the features hold more than the hand rule takes (the trees are a
+    ceiling to aim at, not a rule to ship: they are not explainable and
+    lose 1.1 points of right notes from one list to the other).
+  - **Two different refusals.** "Another pitch was played" is cheap for
+    right notes: it needs positive evidence. "Nothing was played" is the
+    costly one: it can only rest on weak support, and that is where
+    right low notes are lost. They must stay two facts in libkan
+    (wrong pitch, no attack), each with its own bar.
+  - The model's attack output fires on octaves of a right note (an
+    unclaimed peak with a median of 0.45 next to right notes). Its note
+    output does not (median 0.17). A rival needs both.
+  - What is left: right notes below midi 48 (94 % accepted against
+    99.7 % in the middle), wrong octaves in the middle register (55 %
+    pass), and a written note that was not played at all while other
+    notes sound (a third pass).
+  - Next: the paired rule as a bench path (`pair`), with the two
+    refusals reported apart, then features for what is left (octave:
+    the rival's and the note's sustain compared over the written
+    length; low register: a longer span after the attack).
+
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
 The owner raised moving the judge into libkan (2026-11-15), for faster
