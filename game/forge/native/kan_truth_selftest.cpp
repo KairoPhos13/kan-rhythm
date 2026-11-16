@@ -11,7 +11,11 @@
 // obeys its clauses on hand-written measurements, that the paired rule
 // of work package 4d obeys each of its clauses on hand-written
 // measurements and holds its own floor (98 % of the right notes
-// accepted, 80 % of the wrong semitone notes rejected), that the detuned
+// accepted, 80 % of the wrong semitone notes rejected), that the claim
+// of work package 4e (the claim follows the player's time) takes each
+// note's own repeat of a repeated pitch where the strongest claim takes
+// the wrong repeat, and brings the claims back to their own repeats when
+// every note is 120 ms late, that the detuned
 // control's audio keeps the duration and the attack times, and that the
 // event dump of the same audio twice is identical. It also round trips
 // the posterior dump of work package 4c: one dump of the synthetic piece
@@ -113,6 +117,45 @@ void check(bool ok, const char* what) {
 void check_eq(size_t got, size_t want, const char* what) {
     if (got != want) {
         std::fprintf(stderr, "SELFTEST FAIL: %s: got %zu, want %zu\n", what, got, want);
+        ++failures;
+    }
+}
+
+// A hand-built posterior view for the claim tests of work package 4e:
+// frames every 10 ms, silence except the given attack peaks, so every
+// peak of the claim is exact. A peak sits on a whole frame and no two
+// peaks share a frame or its neighbours.
+struct SynthPeak {
+    double time_ms;
+    int midi;
+    float val;
+};
+
+struct SynthPost {
+    std::vector<float> onset, note;
+    std::vector<double> time_ms;
+    bp::PosteriorView view;
+
+    void build(int frames, const std::vector<SynthPeak>& peaks) {
+        onset.assign(size_t(frames) * bp::kNotes, 0.0f);
+        note.assign(size_t(frames) * bp::kNotes, 0.0f);
+        time_ms.clear();
+        for (int f = 0; f < frames; ++f) time_ms.push_back(10.0 * double(f));
+        for (const SynthPeak& pk : peaks) {
+            const int f = int(std::lround(pk.time_ms / 10.0));
+            onset[size_t(f) * bp::kNotes + size_t(pk.midi - bp::kMidiOffset)] = pk.val;
+        }
+        view.frames = frames;
+        view.onset = onset.data();
+        view.note = note.data();
+        view.contour = nullptr;
+        view.time_ms = time_ms;
+    }
+};
+
+void check_near(double got, double want, const char* what) {
+    if (std::fabs(got - want) > 1e-9) {
+        std::fprintf(stderr, "SELFTEST FAIL: %s: got %.6f, want %.6f\n", what, got, want);
         ++failures;
     }
 }
@@ -574,6 +617,85 @@ int main() {
             std::printf("selftest: pair rejects %.1f %% of the wrong semitone notes (%zu of %zu)\n",
                         rate, rejected, wrong);
             check(rate >= 80.0, "pair must reject at least 80 % of the semitone notes");
+        }
+    }
+
+    // 11. The claim of work package 4e (the claim follows the player's
+    //     time), on hand-built posteriors so every peak is exact. First a
+    //     repeated pitch 250 ms apart where the strongest claim takes the
+    //     wrong repeat and the closeness claim the right one; then every
+    //     score note 120 ms late (the peaks sit 120 ms before the score
+    //     times, as in the late120 case) where the closeness claim with
+    //     no running offset takes the wrong repeat and the offset brings
+    //     the claims back.
+    {
+        const pair::PairParams pp; // the defaults: closeness, off_k 15, off_min 0.3
+        pair::Claim cm;
+        check(pair::claim_from_name("closeness", cm) && cm == pair::Claim::Closeness,
+              "pair: the closeness claim parses");
+        check(pair::claim_from_name("strongest", cm) && cm == pair::Claim::Strongest,
+              "pair: the strongest claim parses");
+        check(!pair::claim_from_name("nope", cm), "pair: an unknown claim does not parse");
+        check(std::string(pair::claim_name(pp.claim)) == "closeness",
+              "pair: the default claim is closeness");
+
+        // A repeated pitch 250 ms apart (meh 240 ms): the true attacks
+        // are at 20 (weak) and 230 (strong). Both peaks sit in the first
+        // note's window, so the strongest claim takes the wrong repeat.
+        // No note is unambiguous (two peaks of the pitch in each window),
+        // so the offset in force is 0.
+        SynthPost a;
+        a.build(61, {{20.0, 60, 0.40f}, {230.0, 60, 0.90f}});
+        std::vector<ScoreNote> score = {{0.0, 200.0, 60, true, -1}, {250.0, 200.0, 60, true, -1}};
+        const ScoreWindows wa = compute_windows(score);
+        {
+            pair::PairParams p = pp;
+            p.claim = pair::Claim::Strongest;
+            const std::vector<pair::PairMeasure> ms = pair::measure(a.view, score, wa, p);
+            check_near(ms[0].attack_ms, 230.0, "pair: the strongest claim takes the wrong repeat");
+            check_near(ms[1].attack_ms, 20.0, "pair: the strongest claim leaves the wrong repeat behind");
+            check(ms[0].n_peaks == 2, "pair: n_peaks counts the candidates at the claim");
+        }
+        {
+            const std::vector<pair::PairMeasure> ms = pair::measure(a.view, score, wa, pp);
+            check_near(ms[0].attack_ms, 20.0, "pair: the closeness claim takes the note's own repeat");
+            check_near(ms[1].attack_ms, 230.0, "pair: the closeness claim leaves each note its own repeat");
+            check_near(ms[0].offset_ms, 0.0, "pair: with no unambiguous note behind, no offset");
+        }
+
+        // Every note 120 ms late: the unambiguous notes of pitch 62
+        // (their windows hold one peak each) teach the offset -120 ms.
+        // The repeated pitch 60 (200 ms apart, meh 240 ms) then claims
+        // its own repeats again. Without the offset the next repeat's
+        // peak (80 ms from the score time) beats the note's own (120 ms).
+        SynthPost b;
+        b.build(321, {{480.0, 62, 0.8f},
+                      {1180.0, 62, 0.8f},
+                      {1880.0, 62, 0.8f},
+                      {2480.0, 60, 0.8f},
+                      {2680.0, 60, 0.9f}});
+        std::vector<ScoreNote> score2 = {{600.0, 200.0, 62, true, -1},
+                                         {1300.0, 200.0, 62, true, -1},
+                                         {2000.0, 200.0, 62, true, -1},
+                                         {2600.0, 200.0, 60, true, -1},
+                                         {2800.0, 200.0, 60, true, -1}};
+        const ScoreWindows wb = compute_windows(score2);
+        {
+            pair::PairParams p = pp;
+            p.off_k = 0;
+            const std::vector<pair::PairMeasure> ms = pair::measure(b.view, score2, wb, p);
+            check_near(ms[3].attack_ms, 2680.0,
+                       "pair: without the offset the claim takes the wrong repeat");
+            check(!ms[4].found, "pair: without the offset the other repeat is left unclaimed");
+        }
+        {
+            const std::vector<pair::PairMeasure> ms = pair::measure(b.view, score2, wb, pp);
+            check_near(ms[1].offset_ms, -120.0, "pair: the running offset follows the player's time");
+            check_near(ms[3].offset_ms, -120.0, "pair: the offset in force reaches the repeats");
+            check_near(ms[3].attack_ms, 2480.0,
+                       "pair: the offset brings the claim back to its own repeat");
+            check_near(ms[4].attack_ms, 2680.0, "pair: the offset brings the other claim back too");
+            check(ms[3].n_peaks == 2, "pair: n_peaks counts the repeats in the window");
         }
     }
 

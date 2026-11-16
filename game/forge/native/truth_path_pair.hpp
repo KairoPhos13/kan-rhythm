@@ -1,9 +1,9 @@
 // truth_path_pair: the paired decision of the truth bench (issue 41,
-// work package 4d). Pairing first (plan findings of 2026-11-16): every
-// attack peak of the model is claimed by the written note of its pitch
-// whose meh window holds it, and a rival of a written note is then only
-// an unclaimed peak no written note explains. A wrong note is judged by
-// positive evidence of another pitch, not by weak support of its own,
+// work packages 4d and 4e). Pairing first (plan findings of 2026-11-16):
+// every attack peak of the model is claimed by the written note of its
+// pitch whose meh window holds it, and a rival of a written note is then
+// only an unclaimed peak no written note explains. A wrong note is judged
+// by positive evidence of another pitch, not by weak support of its own,
 // and the two refusals (wrong pitch, nothing played) stay two facts.
 //
 // The measurement, on the offline Basic Pitch posteriors exactly as the
@@ -14,11 +14,29 @@
 //           frame after) and at least peak_min (0.15). Interior frames
 //           only: the first and the last frame of a recording are never
 //           peaks.
-//   claim   score notes in score order. A note claims the strongest
-//           unclaimed peak of its pitch inside its meh window. s is that
-//           peak's value and the attack time is its frame time. With no
-//           peak, s is the highest onset posterior of the pitch in the
-//           meh window and the attack time is the score time.
+//   offset  before the claims, the unambiguous notes (work package 4e):
+//           a score note with exactly one peak of its pitch of at least
+//           pair-off-min (0.3) inside its meh window. Its offset is that
+//           peak's time minus the score time. The offset in force at a
+//           score note with score time t is the median of the last
+//           pair-off-k (15) unambiguous notes whose score time is at
+//           most t - 300 ms, 0 when there is none. It is causal on
+//           purpose: the claim follows the player's time from what is
+//           already behind.
+//   claim   score notes in score order. A note claims, among the
+//           unclaimed peaks of its pitch inside its meh window (around
+//           the score time), the peak the claim mode picks (pair-claim):
+//           closeness (the default) takes the highest
+//           value * (1 - min(1, d / meh)), where d is the distance of
+//           the peak from the score time plus the offset in force;
+//           strongest takes the highest value (the claim of package 4d,
+//           kept measurable). s is the claimed peak's value and the
+//           attack time is its frame time. With no peak, s is the
+//           highest onset posterior of the pitch in the meh window and
+//           the attack time is the score time. The features file also
+//           carries offset_ms (the offset in force) and n_peaks (the
+//           unclaimed peaks of the pitch that were in the window when
+//           the claim was made).
 //   na      the mean note posterior of the pitch over the frames attack
 //           +1 to attack +12 (0 when the attack sits at the last frame).
 //   nmax    the highest note posterior of the pitch from the attack
@@ -49,6 +67,12 @@
 // (nb) and rivals over the good and meh windows; the brief's feature
 // list has none of them.
 //
+// The claim study of work package 4e (wp4c-posteriors/claim2.py) agrees
+// with the brief except in one edge: it takes the offsets whose score
+// time is strictly before t - 300 ms, the brief says at most t - 300 ms.
+// The brief wins here. The median is the study's median (the mean of the
+// two middle values at an even count).
+//
 // The path sees the audio and the case's score only, never the truth.
 //
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
@@ -62,6 +86,7 @@
 #include <algorithm>
 #include <chrono>
 #include <cmath>
+#include <cstddef>
 #include <cstdio>
 #include <limits>
 #include <string>
@@ -80,11 +105,32 @@ inline double nand_v() { return std::numeric_limits<double>::quiet_NaN(); }
 /// (the 0.15 of the hand rule; not a setting).
 constexpr double kSustainLead = 0.15;
 
+/// How a note picks the peak it claims (work package 4e, deliverable 3):
+/// closeness (the default, the claim that follows the player's time) or
+/// the strongest peak of package 4d, kept measurable.
+enum class Claim { Strongest, Closeness };
+
+inline const char* claim_name(Claim c) { return c == Claim::Strongest ? "strongest" : "closeness"; }
+
+inline bool claim_from_name(const std::string& s, Claim& out) {
+    if (s == "strongest") {
+        out = Claim::Strongest;
+        return true;
+    }
+    if (s == "closeness") {
+        out = Claim::Closeness;
+        return true;
+    }
+    return false;
+}
+
 /// The decision's settings. The defaults are the hand rule (floor 99 %)
 /// of the plan's findings of 2026-11-16, measured on the development
 /// list: a rival peak of 0.3 with a note posterior after its attack of
 /// 0.15 leads the written note's support by 0.3 to be real, the note's
 /// own note posterior carries it at 0.13 and its onset support at 0.25.
+/// The claim settings (claim, off_k, off_min) are the study's of
+/// 2026-11-16 (work package 4e).
 struct PairParams {
     double peak_min = 0.15; // a frame below this is not an attack peak
     double u = 0.3;         // pair-u: a rival's peak must reach this
@@ -92,6 +138,9 @@ struct PairParams {
     double c = 0.3;         // pair-c: its lead over s
     double a = 0.13;        // pair-a: nmax accepts at once
     double b = 0.25;        // pair-b: the onset support bar
+    Claim claim = Claim::Closeness; // pair-claim: how a note picks its peak
+    int off_k = 15;         // pair-off-k: the unambiguous notes behind the offset
+    double off_min = 0.3;   // pair-off-min: an unambiguous note's single peak
 };
 
 /// What the posteriors say about one score note. `found` is true when a
@@ -107,6 +156,8 @@ struct PairMeasure {
     int u_midi = 0;             // 0 when there is no rival
     double rival_ms = nand_v(); // the rival peak's frame time
     bool real = false;
+    double offset_ms = 0.0; // the running time offset in force at the claim
+    int n_peaks = 0;        // unclaimed peaks of the pitch in the window at the claim
 };
 
 /// A rival is real only on positive evidence of all three: its peak, its
@@ -123,10 +174,11 @@ struct Peak {
     bool claimed = false;
 };
 
-/// Measure every score note against the posteriors: peaks, claims, own
-/// sustain and the rival. Score notes are processed in score order and a
-/// claimed peak serves one note only. Ties of the same posterior value
-/// take the earlier frame.
+/// Measure every score note against the posteriors: the running time
+/// offset of the unambiguous notes, the claims, own sustain and the
+/// rival. Score notes are processed in score order and a claimed peak
+/// serves one note only. Ties of the same posterior value take the
+/// earlier frame.
 inline std::vector<PairMeasure> measure(const bp::PosteriorView& p, const std::vector<ScoreNote>& score,
                                         const ScoreWindows& w, const PairParams& pp) {
     std::vector<PairMeasure> out(score.size());
@@ -160,21 +212,73 @@ inline std::vector<PairMeasure> measure(const bp::PosteriorView& p, const std::v
         }
     }
 
+    // The unambiguous notes and their offsets, before any claim (work
+    // package 4e): a score note with exactly one peak of its pitch of at
+    // least off_min inside its meh window. Its offset is that peak's time
+    // minus the score time. The offset in force at score time t is the
+    // median of the last off_k of these whose score time is at most
+    // t - 300 ms, and 0 when there is none (the mean of the two middle
+    // values at an even count, as the study's median). Causal on purpose:
+    // only notes already behind count. The notes are in score order, so
+    // the eligible entries are a prefix of the list.
+    std::vector<double> off_score, off_value;
+    for (size_t i = 0; i < score.size(); ++i) {
+        const int midi = score[i].midi;
+        if (midi < kMinMidi || midi > kMaxMidi) continue;
+        const double t = score[i].onset_ms;
+        const double meh = w.meh_ms[i];
+        const Peak* only = nullptr;
+        int count = 0;
+        for (const Peak& pk : peaks[size_t(midi)]) {
+            const double tq = p.time_ms[size_t(pk.frame)];
+            if (std::fabs(tq - t) > meh || double(pk.val) < pp.off_min) continue;
+            if (++count > 1) break;
+            only = &pk;
+        }
+        if (count == 1) {
+            off_score.push_back(t);
+            off_value.push_back(p.time_ms[size_t(only->frame)] - t);
+        }
+    }
+    auto offset_at = [&](double t) {
+        if (pp.off_k <= 0) return 0.0;
+        const size_t j =
+            size_t(std::upper_bound(off_score.begin(), off_score.end(), t - 300.0) - off_score.begin());
+        if (j == 0) return 0.0;
+        const size_t from = size_t(pp.off_k) < j ? j - size_t(pp.off_k) : 0;
+        std::vector<double> v(off_value.begin() + std::ptrdiff_t(from),
+                              off_value.begin() + std::ptrdiff_t(j));
+        std::sort(v.begin(), v.end());
+        const size_t n = v.size();
+        return n % 2 != 0 ? v[n / 2] : 0.5 * (v[n / 2 - 1] + v[n / 2]);
+    };
+
     // Claims and own sustain, in score order.
     for (size_t i = 0; i < score.size(); ++i) {
         PairMeasure& m = out[i];
         const int midi = score[i].midi;
         m.attack_ms = score[i].onset_ms;
+        m.offset_ms = offset_at(score[i].onset_ms);
         if (midi < kMinMidi || midi > kMaxMidi) continue; // no bin for it
         const double t = score[i].onset_ms;
         const double lo = t - w.meh_ms[i], hi = t + w.meh_ms[i];
 
         Peak* best = nullptr;
+        double best_v = 0.0;
         for (Peak& pk : peaks[size_t(midi)]) {
             if (pk.claimed) continue;
             const double tq = p.time_ms[size_t(pk.frame)];
             if (tq < lo || tq > hi) continue;
-            if (best == nullptr || pk.val > best->val) best = &pk;
+            ++m.n_peaks;
+            double v = double(pk.val);
+            if (pp.claim == Claim::Closeness) {
+                const double d = std::fabs(tq - (t + m.offset_ms));
+                v *= 1.0 - std::min(1.0, d / w.meh_ms[i]);
+            }
+            if (best == nullptr || v > best_v) {
+                best = &pk;
+                best_v = v;
+            }
         }
         if (best != nullptr) {
             best->claimed = true;
@@ -270,11 +374,13 @@ inline NoteResult decide(const PairMeasure& m, const PairParams& pp, int written
 }
 
 /// The pair path's features file columns (deliverable 6). The row is one
-/// score note; found is 1 when a peak was claimed and real is 1 when the
-/// run's settings make the rival real.
+/// score note; found is 1 when a peak was claimed, real is 1 when the
+/// run's settings make the rival real, offset_ms is the running time
+/// offset in force at the claim and n_peaks the unclaimed peaks of the
+/// pitch that were in the window when the claim was made.
 inline constexpr const char* kPairFeatureHeader =
     "excerpt,case,note,right,sounding,midi,score_onset_ms,truth_onset_ms,measured_attack_ms,"
-    "s,na,nmax,u,un,u_midi,found,real\n";
+    "s,na,nmax,u,un,u_midi,found,real,offset_ms,n_peaks\n";
 
 /// One features row of the pair path. `truth_onset_ms` is na for an
 /// added note (the bench fills it; the path never reads it).
@@ -286,10 +392,10 @@ inline void write_pair_feature_row(std::string& out, const char* excerpt, const 
     char line[2048];
     const int len = std::snprintf(
         line, sizeof(line),
-        "%s,%s,%zu,%d,%d,%d,%.3f,%s,%.3f,%.6f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d\n", excerpt, case_label,
-        index, sn.right ? 1 : 0, sounding, sn.midi, sn.onset_ms, truth_s, m.attack_ms, double(m.s),
-        double(m.na), double(m.nmax), double(m.u), double(m.un), m.u_midi, m.found ? 1 : 0,
-        m.real ? 1 : 0);
+        "%s,%s,%zu,%d,%d,%d,%.3f,%s,%.3f,%.6f,%.6f,%.6f,%.6f,%.6f,%d,%d,%d,%.3f,%d\n", excerpt,
+        case_label, index, sn.right ? 1 : 0, sounding, sn.midi, sn.onset_ms, truth_s, m.attack_ms,
+        double(m.s), double(m.na), double(m.nmax), double(m.u), double(m.un), m.u_midi,
+        m.found ? 1 : 0, m.real ? 1 : 0, m.offset_ms, m.n_peaks);
     out.append(line, size_t(std::max(0, std::min(len, int(sizeof(line)) - 1))));
 }
 

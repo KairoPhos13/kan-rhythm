@@ -33,6 +33,18 @@
 //                           u >= s + pair-c; accept when nmax >= pair-a
 //                           and no real rival out-sustains it by 0.15, or
 //                           when s >= pair-b and no rival is real)
+//   [--pair-claim closeness|strongest]
+//                           how a note claims its peak (default
+//                           closeness: the highest value times 1 minus
+//                           its distance from the score time plus the
+//                           running offset, over the meh window;
+//                           strongest is the claim of package 4d)
+//   [--pair-off-k 15 --pair-off-min 0.3]
+//                           the running time offset: the median of the
+//                           last pair-off-k unambiguous notes (exactly
+//                           one peak of at least pair-off-min of the
+//                           pitch in the meh window) written at least
+//                           300 ms earlier; 0 when there is none
 //   [--features <file.csv>] the bp or the pair path writes one row per
 //                           excerpt, case and score note (the fusion
 //                           input), its own columns; when both paths run,
@@ -515,7 +527,8 @@ void print_sweep_header(FILE* f) {
 int main(int argc, char** argv) {
     std::string maestro, manifest, audio_path, truth_path, paths_arg = "blind,core",
                 cases_arg = "all", out_dir, dump_audio, dump_profile, make_manifests_csv,
-                features_path, dump_posteriors_dir, bp_rule_arg = "fair";
+                features_path, dump_posteriors_dir, bp_rule_arg = "fair",
+                pair_claim_arg = "closeness";
     double from_s = 0.0, to_s = -1.0, bp_th = 0.3, bp_lookahead_ms = -1.0;
     bp::FairParams bp_fair;
     pair::PairParams pair_pp;
@@ -560,6 +573,9 @@ int main(int argc, char** argv) {
         else if (k == "--pair-a") pair_pp.a = std::atof(value("--pair-a").c_str());
         else if (k == "--pair-b") pair_pp.b = std::atof(value("--pair-b").c_str());
         else if (k == "--pair-peak-min") pair_pp.peak_min = std::atof(value("--pair-peak-min").c_str());
+        else if (k == "--pair-claim") pair_claim_arg = value("--pair-claim");
+        else if (k == "--pair-off-k") pair_pp.off_k = std::max(0, std::atoi(value("--pair-off-k").c_str()));
+        else if (k == "--pair-off-min") pair_pp.off_min = std::atof(value("--pair-off-min").c_str());
         else if (k == "--bp-sweep") bp_sweep = true;
         else if (k == "--jobs") jobs = std::max(1, std::min(6, std::atoi(value("--jobs").c_str())));
         else if (k == "--dump-events") dump_audio = value("--dump-events");
@@ -577,6 +593,13 @@ int main(int argc, char** argv) {
         std::fprintf(stderr, "unknown rule %s (fair, plain or rival)\n", bp_rule_arg.c_str());
         return 2;
     }
+
+    pair::Claim pair_claim;
+    if (!pair::claim_from_name(pair_claim_arg, pair_claim)) {
+        std::fprintf(stderr, "unknown pair claim %s (closeness or strongest)\n", pair_claim_arg.c_str());
+        return 2;
+    }
+    pair_pp.claim = pair_claim;
 
     if (!make_manifests_csv.empty()) return make_manifests(make_manifests_csv);
 
@@ -666,6 +689,7 @@ int main(int argc, char** argv) {
                      "[--paths blind,core] [--cases all] [--seed N] [--repeat N] [--out <dir>] "
                      "[--bp-th 0.3] [--bp-rule fair] [--bp-lookahead <ms>] [--features <file.csv>] "
                      "[--pair-u 0.3 --pair-un 0.15 --pair-c 0.3 --pair-a 0.13 --pair-b 0.25] "
+                     "[--pair-claim closeness|strongest] [--pair-off-k 15 --pair-off-min 0.3] "
                      "[--dump-posteriors <dir>] [--bp-sweep] [--jobs N]\n");
         return 2;
     }
