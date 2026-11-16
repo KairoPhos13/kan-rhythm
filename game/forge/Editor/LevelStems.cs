@@ -133,15 +133,7 @@ namespace Kan.Forge.Editor
                     return false;
                 }
 
-                // The same stems again: nothing to do (the work is only done
-                // when the sources changed or the level lost its stems).
-                var kinds = sources.Select(t => Path.GetFileNameWithoutExtension(t.Path)).OrderBy(k => k, StringComparer.OrdinalIgnoreCase).ToList();
-                var wanted = kinds.Select(k => FOLDER + "/" + k + BeatmapAudio.PLAY_FILE_EXTENSION).ToList();
-                string signature = sourceSignature(sources);
-
-                if (ReadManifest(working) is { } current && current.SourceSignature == signature
-                    && wanted.All(name => working.BeatmapSetInfo?.GetFile(name) != null))
-                    return true;
+                if (IsUpToDate(working, sources)) return true;
 
                 // Encode each stem (off the update thread) into the work folder.
                 string outDir = Path.Combine(workDir, @"level-stems");
@@ -186,7 +178,7 @@ namespace Kan.Forge.Editor
                     SampleRate = infos[0].SampleRate,
                     Channels = infos[0].Channels,
                     Frames = infos[0].Frames,
-                    SourceSignature = signature,
+                    SourceSignature = sourceSignature(sources),
                     Stems = encoded.Files.Select(f => new Stem
                     {
                         File = f.Kind + BeatmapAudio.PLAY_FILE_EXTENSION,
@@ -252,6 +244,24 @@ namespace Kan.Forge.Editor
             {
                 return null;
             }
+        }
+
+        /// <summary>
+        /// Whether the level already holds these stems: the same sources
+        /// (unchanged since they were attached) and every stem in place. A
+        /// set with nothing to carry is up to date by definition.
+        /// </summary>
+        public static bool IsUpToDate(WorkingBeatmap working, IReadOnlyList<ForgeTrack> separated)
+        {
+            var sources = separated.Where(t => t.IsSeparated && File.Exists(t.Path)).ToList();
+            if (sources.Count == 0) return true;
+
+            if (ReadManifest(working) is not { } manifest || manifest.SourceSignature != sourceSignature(sources))
+                return false;
+
+            return sources
+                   .Select(t => FOLDER + "/" + Path.GetFileNameWithoutExtension(t.Path) + BeatmapAudio.PLAY_FILE_EXTENSION)
+                   .All(name => working.BeatmapSetInfo?.GetFile(name) != null);
         }
 
         /// <summary>One file of a level's stems and what it is.</summary>

@@ -119,9 +119,14 @@ namespace Kan.Forge.Tests
             };
 
             // The game finds a level's osu! file by its content hash
-            // (BeatmapInfo.Path reads the name from the set's files).
+            // (BeatmapInfo.Path reads the name from the set's files), and
+            // decodes it only when the hashes say it is the same file.
             using (var stream = new MemoryStream(osuBytes))
+            {
                 beatmapInfo.Hash = stream.ComputeSHA2Hash();
+                stream.Position = 0;
+                beatmapInfo.MD5Hash = stream.ComputeMD5Hash();
+            }
 
             var set = new BeatmapSetInfo();
             set.Beatmaps.Add(beatmapInfo);
@@ -154,6 +159,29 @@ namespace Kan.Forge.Tests
             stream.CopyTo(memory);
             return memory.ToArray();
         }
+
+        /// <summary>The level's file names, fresh from the realm.</summary>
+        public List<string> FileNames(Guid setId)
+            => Realm.Run(r => r.Find<BeatmapSetInfo>(setId)?.Files.Select(f => f.Filename).ToList() ?? new List<string>());
+
+        /// <summary>What the level's first difficulty says its audio file is, fresh from the realm.</summary>
+        public string? AudioFileOf(Guid setId)
+            => Realm.Run(r => r.Find<BeatmapSetInfo>(setId)?.Beatmaps.FirstOrDefault()?.Metadata.AudioFile);
+
+        /// <summary>The content of one of the level's files, fresh from the file store.</summary>
+        public byte[]? ReadFile(Guid setId, string fileName)
+            => Realm.Run(r =>
+            {
+                var file = r.Find<BeatmapSetInfo>(setId)?.GetFile(fileName);
+                if (file == null) return null;
+
+                using var stream = Storage.GetStorageForDirectory("files").GetStream(file.File.GetStoragePath());
+                if (stream == null) return null;
+
+                using var memory = new MemoryStream();
+                stream.CopyTo(memory);
+                return memory.ToArray();
+            });
 
         public void Dispose()
         {
