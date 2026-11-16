@@ -39,8 +39,8 @@ judgement or DSP research inside).
 | 0 | Orientation and design note | | A | done 2026-11-15 |
 | 1 | Truth bench, selftest, manifests, baseline of `blind`, `expect`, `core` | | B | done 2026-11-15, merged. Baseline of 12 excerpts and one-voice dumps taken (findings) |
 | 2 | Learned evidence in the bench: a `bp` path on offline Basic Pitch posteriors (written note against rivals, attack time), then the same with emulated look-ahead of 50 to 500 ms | 1 | B | done 2026-11-16, merged (findings) |
-| 3 | Harmonic evidence in the bench: attack curve from short windows, pitch from the tail with long windows, rivals in the joint fit. Prototype as a bench path first | 1 | A then B | prototype measured on the development list (`agent/harmonic-evidence`), see findings |
-| 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | open |
+| 3 | Harmonic evidence in the bench: attack curve from short windows, pitch from the tail with long windows, rivals in the joint fit. Prototype as a bench path first | 1 | A then B | prototype v3 measured on both lists and not kept: it adds nothing to the learned evidence (findings 2026-11-16). Branch `agent/harmonic-evidence` stays unmerged. A new design is needed |
+| 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | measured 2026-11-16: the best forgiving rule uses the learned evidence only and is far from the summit (findings). Detuned control still to add |
 | 5 | `ChartMeasurer` in libkan: lanes (provisional attack, final fact, level, close), clock map, offline tests with known input | 4 | B, reviewed by A | open |
 | 6 | Streamed Basic Pitch (incremental CQT and convolutions, causal normalisation), if package 2 shows it earns its place | 2 | B | open |
 | 7 | C API: chart feed, clock map, lane events. `chart` path in the bench | 5 | B | open |
@@ -187,6 +187,54 @@ judgement or DSP research inside).
     veto only by a rival twice as strong) reach 99 % of right notes and
     reject 50 to 70 % of wrong ones. Not enough alone: the harmonic
     evidence has to supply the veto.
+
+- 2026-11-16, fusion (package 4). The features of the learned path and
+  of harmonic prototype v3 were joined note by note on both lists
+  (56 144 development rows, 50 076 held-out rows, none lost). Rules were
+  searched on the development list only. Held-out numbers:
+
+  | Rule (thresholds from the development list) | Right accepted | Wrong rejected: semitone / tone / octave / added |
+  |---|---|---|
+  | learned only, floor 98 % on development | 96.9 % | 89.2 / 84.6 / 63.5 / 81.9 |
+  | learned only, floor 99 % on development | 98.3 % | 78.3 / 74.9 / 47.1 / 69.5 |
+  | learned only, floor 99.5 % on development | 99.5 % | 60.1 / 55.4 / 37.9 / 34.5 |
+  | learned with harmonic vetoes, floor 99 % | 98.5 % | 78.8 / 74.4 / 47.5 / 65.7 |
+  | harmonic rescues weak learned support, floor 98 % | 96.7 % | 89.7 / 86.5 / 59.3 / 84.4 |
+
+  The learned rule: accept when the note posterior after the attack is
+  at least A, or when the onset posterior s is at least B and no rival
+  has r >= s + c. Floor 99 %: A 0.13, B 0.25, c 0.3.
+
+  - **The note posterior is the better witness.** A right note's note
+    posterior after its attack has a median of 0.54. A wrong note's
+    stays at the model's resting level (0.10 to 0.12, 95th centile
+    0.2). Package 2 used only the onset posterior. Any stream of the
+    model (package 6) must carry both outputs.
+  - **Harmonic prototype v3 is dropped as a fusion part.** Used as a
+    veto, as a rescue or inside a fitted model (logistic and boosted
+    trees) it moves no column by more than 2 points on the held-out
+    list. Its features alone reject 41 / 42 / 8 / 32 % at a 98 % floor.
+    The per-partial projection is too weak next to other notes.
+  - **A setting loses about one point of right notes from the
+    development list to the held-out list.** To hold 98 % on new music
+    the floor on the development list must be 99 %.
+  - **Where the right notes are lost:** below midi 48 (94.5 % accepted
+    on development against 99.6 % above). Where the wrong ones pass:
+    the octave (half of them, 89 % when the score has the octave
+    written within 100 ms), and any wrong note whose pitch the score
+    also writes within 1.5 s.
+  - **Honest state against the summit.** Fair to right notes (98 %)
+    today means about three of four wrong semitones and tones caught and
+    half of the octaves. The summit asks 95 %. The gap is in the
+    evidence, not in the rule: no rule over these features closes it.
+  - Next levers, in the order of expected gain: (1) a harmonic check
+    that fits the written notes and the rivals together over a long
+    tail window (the joint fit of `HarmonicChordValidator`), asked only
+    for notes the learned evidence accepts, aimed at the octave and at
+    the low register; (2) the learned model's contour output (three
+    bins per semitone), which the port already computes, as a semitone
+    witness and as the reading for the tuning tracker; (3) the detuned
+    control.
 
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
