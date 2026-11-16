@@ -125,9 +125,12 @@ namespace Kan.Forge.Editor.Compose
             flow.Add(label(@"beats per bar"));
 
             flow.Add(new Container { Width = 14, Height = 26 });
-            flow.Add(label(@"the beat is"));
-            flow.Add(button(FontAwesome.Solid.Compress, @"½", @"Each beat half as long (the BPM doubles: a half note becomes two quarters). Every tempo of the level; the notes stay where they sound and the grid lines where they were. For a level timed with the wrong note value.", () => ScaleBeat(0.5), 50));
-            flow.Add(button(FontAwesome.Solid.Expand, @"×2", @"Each beat twice as long (the BPM halves: two quarters become a half note). Every tempo of the level; the notes stay where they sound and the grid lines where they were. For a level timed with the wrong note value.", () => ScaleBeat(2), 56));
+            // Named by what they do to the BPM, the number shown beside them
+            // (owner 2026-11-16: "×2" made the beat twice as long, so the BPM
+            // halved; the owner pressed it to double and got half).
+            flow.Add(label(@"BPM"));
+            flow.Add(button(FontAwesome.Solid.AngleDoubleDown, @"½", @"Halve the BPM: each beat twice as long (two quarters become a half note). Every tempo of the level; the notes stay where they sound and the grid lines where they were. For a level timed with the wrong note value.", () => ScaleBeat(2), 50));
+            flow.Add(button(FontAwesome.Solid.AngleDoubleUp, @"×2", @"Double the BPM: each beat half as long (a half note becomes two quarters). Every tempo of the level; the notes stay where they sound and the grid lines where they were. For a level timed with the wrong note value.", () => ScaleBeat(0.5), 56));
 
             InternalChild = flow;
 

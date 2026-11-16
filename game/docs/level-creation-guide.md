@@ -290,9 +290,9 @@ The tempo bar shows the tempo at the playhead: **BPM**, **beats per bar**,
 you are in out (the first tempo always stays). **beat here** fits the grid
 to the music: the tempo before the playhead stretches (at most half again
 or half) so its nearest beat lands where you clicked. The notes stay where
-they sound, always. **the beat is** **½** / **×2** counts the same music
-in another note value, for a level timed in quarters whose pulse is whole
-notes.
+they sound, always. **BPM** **½** / **×2** halves or doubles the BPM and
+counts the same music in another note value, for a level timed in quarters
+whose pulse is half notes (½), or the other way round (×2).
 
 When a performance breathes (a cover played without a click), the job is
 yours: kan! proposes no tempo map. Put a tempo change wherever the music
