@@ -141,6 +141,27 @@ The principle stands for the whole path: the chart makes every question
 a closed one. The truth bench also reports the provisional fact's
 latency and how often it differs from the final one.
 
+**Time from the attack, pitch from the tail (owner, 2026-11-15).** The
+two are measured at different moments with different windows, following
+the physics of the instrument family. The family's shape is profile data
+(`InstrumentProfile`), never code for one instrument.
+
+- *Struck and plucked (piano, guitar): a jump, then a decay.* The attack
+  time comes from short windows on the note's upper partials, which
+  answer fast even for a low note. The pitch is confirmed later, with a
+  long window on the ringing tail: a low piano note sounds on after a
+  short key press, and 170 ms of tail separates partials that 43 ms
+  cannot. An attack is a jump in level, so a rival that already rings
+  under the pedal, and only decays, is not an attack. The end of the key
+  is often not observable (the note fades), and is flagged so.
+- *Blown and bowed (ocarina, flute, bowed strings): a held level, then a
+  cut.* The pitch is confirmed during the hold. The close is a clear
+  cut. The attack may carry no transient, as the one-voice path already
+  handles.
+
+So a low note's final fact arrives later than a high note's. Its attack
+time does not move. The game's wait follows the fact's deadline.
+
 **Effort.** All heavy work runs as scheduled units on the describer's
 worker thread. The chart gives the density ahead of time, so the
 schedule is known before the passage arrives. Past the budget a note
