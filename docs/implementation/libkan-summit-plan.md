@@ -38,7 +38,7 @@ judgement or DSP research inside).
 |---|---|---|---|---|
 | 0 | Orientation and design note | | A | done 2026-11-15 |
 | 1 | Truth bench, selftest, manifests, baseline of `blind`, `expect`, `core` | | B | done 2026-11-15, merged. Baseline of 12 excerpts and one-voice dumps taken (findings) |
-| 2 | Learned evidence in the bench: a `bp` path on offline Basic Pitch posteriors (written note against rivals, attack time), then the same with emulated look-ahead of 50 to 500 ms | 1 | B | building (`agent/learned-evidence`) |
+| 2 | Learned evidence in the bench: a `bp` path on offline Basic Pitch posteriors (written note against rivals, attack time), then the same with emulated look-ahead of 50 to 500 ms | 1 | B | done 2026-11-16, merged (findings) |
 | 3 | Harmonic evidence in the bench: attack curve from short windows, pitch from the tail with long windows, rivals in the joint fit. Prototype as a bench path first | 1 | A then B | prototype measured on the development list (`agent/harmonic-evidence`), see findings |
 | 4 | Fusion rule of 2 and 3, tuned on the development list, reported on the held-out list | 2, 3 | A | open |
 | 5 | `ChartMeasurer` in libkan: lanes (provisional attack, final fact, level, close), clock map, offline tests with known input | 4 | B, reviewed by A | open |
@@ -151,6 +151,42 @@ judgement or DSP research inside).
   The truth bench needs a detuned control for it: the same recording
   shifted by 20, 40 and 60 cents must score like the original (add with
   package 4; libkan has `pitch_shift.hpp`).
+
+- 2026-11-16, owner, refining the rule above: forgive even past what
+  is deserved rather than fall short, but a game that accepts everything
+  and does not notice it is being fooled is no game. So: right notes
+  accepted is the floor (aim at 98 % and above), and under that floor
+  wrong notes rejected is pushed as high as it goes and always stated.
+- 2026-11-16, learned evidence (package 2, merged). Basic Pitch's onset
+  posterior of the written pitch, offline, on the 12 held-out excerpts
+  (6260 notes). Output (local):
+  `tools/dataset_bench/data/truth-bench/wp2-learned-evidence/`.
+
+  | Rule, threshold | Right accepted | Wrong rejected: semitone / tone / octave / added |
+  |---|---|---|
+  | `plain` 0.30 | 96.3 % | 83.1 / 79.4 / 45.7 / 80.6 |
+  | `plain` 0.40 | 92.1 % | 94.7 / 91.6 / 61.3 / 90.8 |
+  | `rival` 0.40 | 84.6 % | 97.7 / 96.6 / 89.6 / 92.6 |
+
+  - Attack time of accepted right notes: median +2 ms, 83 % inside the
+    perfect window, p95 about 180 ms. The tail is a wrong peak taken
+    (a repeated pitch), not a blurred one.
+  - **Look-ahead costs nothing in accuracy.** With 100 ms of look-ahead
+    every column is within 0.5 points of the whole recording. A live
+    stream is limited by compute, not by latency: offline `infer` is
+    14 % of one core, a window every 5 frames is about 30 times that.
+    Package 6 (a real incremental stream) earns its place.
+  - The `rival` rule buys octave rejection and pays in right notes: with
+    a shifted score or notes outside the score, real notes become
+    "rivals" (`late120` 69 %, `left_out` 80 %). Under the owner's rule it
+    is the wrong default. A rival must be clearly stronger to veto.
+  - Low register is weakest: 66.8 % accepted below midi 48 under
+    `rival` 0.40, against 86 % in the middle and 90 % above.
+  - Density: 86.6 / 85.6 / 78.8 % for 1, 2 to 4, 5 to 10 sounding.
+  - On the development list, forgiving rules (accept from 0.15 to 0.2,
+    veto only by a rival twice as strong) reach 99 % of right notes and
+    reject 50 to 70 % of wrong ones. Not enough alone: the harmonic
+    evidence has to supply the veto.
 
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
