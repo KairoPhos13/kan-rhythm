@@ -406,6 +406,62 @@ judgement or DSP research inside).
     extremes. The model's note posterior does not rise there, so the
     harmonic check has to carry those notes.
 
+- 2026-11-16, zero misses on right play (owner: it has to reach zero,
+  also on the hardest levels; "let the best approach win"). Study on the
+  features of `pair` (scripts beside the local data,
+  `truth-bench/levels/lv*.py`). Two changes, both in the sense of
+  section 5b:
+
+  1. **A refusal is `clear` only on strong positive evidence**: a real
+     rival with `u - s >= 0.6` and `un - nmax >= 0.4`. Every other
+     refusal is `grey`. With the old bar 25 right notes of the
+     development material were refused as clear (mostly a low note whose
+     octave above the model hears louder); with this bar none in the
+     right case.
+  2. **The protection refills by libkan's known doubt for each note**,
+     not at a flat rate. Doubt is the chance that a right note of this
+     kind is refused, fitted on the development list from what the
+     chart alone says:
+     `logit = -6.35 + 3.01 * max(0, 48 - midi) / 12 + 0.27 * max(0, midi - 84) / 12
+     - 1.34 * ln(min(pace_ms, 400) / 100) + 1.02 * min(sounding, 10) / 5
+     + 0.14 * min(chord_size, 6) / 3`.
+     Each note adds `12 * doubt` tokens, capacity 5. A grey refusal
+     spends one token and is judged as not measured; with none left it
+     is a miss.
+
+  | Right play: misses charged | flat, 1 per 25, 3 tokens | flat, 1 per 5, 8 tokens | by doubt, x12, 5 tokens |
+  |---|---|---|---|
+  | Nocturne | 0 | 0 | **0** |
+  | Etude Op. 25 No. 10 | 15 | 0 | **0** |
+  | Wilde Jagd | 63 | 0 | **0** |
+  | development list (7018 notes) | 2 | 0 | **0** |
+  | held-out list (6260 notes) | 14 | 0 | **0** |
+
+  | Wrong notes that end as a miss (semitone / tone / octave / not played) | flat, 1 per 5, 8 tokens | by doubt, x12, 5 tokens |
+  |---|---|---|
+  | Nocturne | 52.9 / 54.9 / 15.5 / 0.0 % | 77.3 / 72.3 / 46.0 / 36.8 % |
+  | held-out list | 35.3 / 34.5 / 15.1 / 1.3 % | 54.9 / 52.9 / 23.0 / 22.7 % |
+  | Etude | 20.8 / 20.4 / 10.0 / 3.2 % | 18.8 / 15.4 / 8.8 / 3.5 % |
+  | Wilde Jagd | 28.5 / 28.7 / 10.6 / 8.6 % | 22.5 / 24.0 / 8.4 / 9.6 % |
+
+  - **By doubt wins.** Both reach zero misses on right play. The flat
+    budget pays for it everywhere; the budget by doubt stays strict
+    where libkan sees well and forgives where it is known to see badly.
+  - A wrong note that is spared is never credited: it is "not
+    measured", it gives no score and keeps the combo. Wrong notes
+    credited as right stay as in the `pair` table.
+  - Honest limits. The Etude and the Liszt were used to choose the
+    margin and the clear bar, so they are development material now. The
+    controls change 30 % of the notes, far more than a player who slips.
+    On the two virtuoso levels the game today forgives about four of
+    five wrong notes: zero misses there is bought with leniency, until
+    the evidence improves for fast octaves at the ends of the keyboard.
+    With late or jittered right play the result is also zero; with notes
+    left out of the score ("others play too") 1 or 2 misses remain.
+  - Next: package 4f puts both changes and the policy check in the
+    bench so the tables come from the tool, then packages 5 to 8 by
+    `docs/implementation/libkan-summit-game-integration.md`.
+
 ## 5. Decision: where the judge lives (owner approved, 2026-11-15)
 
 The owner raised moving the judge into libkan (2026-11-15), for faster
