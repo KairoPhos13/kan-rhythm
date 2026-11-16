@@ -120,3 +120,18 @@ Always `nice`, at most 6 jobs.
 - by register (midi below 48, 48 to 71, 72 and above): right accepted
   and attack error at the chosen setting;
 - what you could not do or had to decide yourself, and why.
+
+## Notes from work package 1 (2026-11-15)
+
+- The audio of 9 of the 12 development recordings is not in
+  `tools/dataset_bench/data/maestro-v3.0.0/` yet (the held-out audio is).
+  Fetch the missing files first, the way package 1 did: by HTTP range
+  from the official `maestro-v3.0.0.zip`
+  (`https://storage.googleapis.com/magentadata/datasets/maestro/v3.0.0/maestro-v3.0.0.zip`)
+  into that data folder only. Never download the whole 100 GB archive.
+- The `late250` case is beyond the judge's window (the oracle accepts
+  44 % there). Report it next to the oracle's number.
+- A run with every path, case and 3 repeats is slow. Run recognition
+  with `--repeat 1`, and only the paths you need.
+- The build folder of package 1 used `-DKAN_ENABLE_ROFORMER=OFF`. Do the
+  same in your worktree.
