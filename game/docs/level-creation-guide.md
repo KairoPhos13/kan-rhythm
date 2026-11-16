@@ -148,6 +148,12 @@ What separation does:
 - It takes time and shows its own progress, per track. The first run may
   also check the graphics device before it starts.
 
+The level also keeps the separated stems, under `stems/` in its files:
+one Ogg file per instrument plus `stems/stems.json`, which says where
+they came from. They are the raw separation (the whole song, untouched:
+no gain, edits or trims), kept so that another level can start from the
+same song later without separating it again. Play never opens them.
+
 What separation does not do:
 
 - **It is not a remix tool.** The stems are what the model hears; some
