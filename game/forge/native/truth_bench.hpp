@@ -343,6 +343,10 @@ struct Path {
     /// A stats line the bench prints with the path's tables (for example
     /// the refused expectation sets of expect). Optional.
     virtual const char* extra() { return nullptr; }
+    /// False for a path whose CPU time is not meaningful to report (a
+    /// look-ahead emulation run in parallel over excerpts). The bench
+    /// then skips its CPU measuring pass and prints n/a.
+    virtual bool reports_cpu() { return true; }
 };
 
 // ---- scoring ----------------------------------------------------------------

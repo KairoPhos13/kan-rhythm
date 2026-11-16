@@ -4,11 +4,14 @@
 // oracle and the yes path score exactly what a perfect and an accept
 // everything path must score (the controls that prove the bench measures
 // what it claims), that the blind path runs through with counts that add
-// up, and that the event dump of the same audio twice is identical.
+// up, that the bp path of work package 2 runs with counts that add up and
+// that its sweep line with th 0 and rule plain accepts every right note,
+// and that the event dump of the same audio twice is identical.
 //
 // Copyright (c) kan-rhythm contributors. Licensed under the MIT Licence.
 #include "truth_bench.hpp"
 #include "truth_paths.hpp"
+#include "truth_paths_bp.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -230,7 +233,64 @@ int main() {
         check_eq(rejected + accepted_wrong, want_wrong, what);
     }
 
-    // 5. The event dump of the same audio twice is identical.
+    // 5. The learned evidence path of work package 2: bp runs on the
+    //    synthetic piece (one offline pass, cached over the cases), its
+    //    counts add up like the blind path's, and the sweep line with
+    //    th 0 and rule plain accepts 100 % of the right notes.
+    {
+        bp::BpPath bpath; // th 0.3, rule rival: only the counts matter here
+        for (size_t ci = 0; ci < kCaseCount; ++ci) {
+            const Case c = kAllCases[ci];
+            const BuiltCase b = build_case(c, truth, 7);
+            const char* name = case_name(c);
+            char what[128];
+
+            std::vector<NoteResult> res;
+            CpuStats cpu;
+            bpath.run(audio, kSr, b.notes, res, cpu);
+            const CaseStats st = score_case(truth, b.notes, res);
+            size_t right_sum = 0, wrong_sum = 0, outcomes = 0, rejected = 0;
+            for (size_t bk = 0; bk < kBucketCount; ++bk) {
+                right_sum += st.buckets[bk].right_n;
+                wrong_sum += st.buckets[bk].wrong_n;
+                outcomes += st.buckets[bk].accepted + st.buckets[bk].not_measured +
+                            st.buckets[bk].misreported + st.buckets[bk].absent;
+                rejected += st.buckets[bk].rejected;
+            }
+            size_t want_right = 0, want_wrong = 0, accepted_wrong = 0;
+            for (size_t i = 0; i < b.notes.size(); ++i) {
+                (b.notes[i].right ? want_right : want_wrong)++;
+                if (!b.notes[i].right && res[i].outcome == Outcome::Accepted) ++accepted_wrong;
+            }
+            std::snprintf(what, sizeof(what), "%s: bp right counts must add up", name);
+            check_eq(right_sum, want_right, what);
+            std::snprintf(what, sizeof(what), "%s: bp wrong counts must add up", name);
+            check_eq(wrong_sum, want_wrong, what);
+            std::snprintf(what, sizeof(what), "%s: bp outcome counts must add up", name);
+            check_eq(outcomes, want_right, what);
+            std::snprintf(what, sizeof(what), "%s: bp rejection counts must add up", name);
+            check_eq(rejected + accepted_wrong, want_wrong, what);
+        }
+
+        // The sweep line with th 0 and rule plain accepts every right note
+        // of the right case (100 %).
+        const BuiltCase b = build_case(Case::Right, truth, 7);
+        std::vector<NoteResult> res;
+        CpuStats cpu;
+        bpath.run(audio, kSr, b.notes, res, cpu);
+        const std::vector<bp::NoteMeasure>& measures = bpath.measures();
+        size_t right = 0, accepted = 0;
+        for (size_t i = 0; i < b.notes.size(); ++i) {
+            const NoteResult r = bp::decide(measures[i], bp::Rule::Plain, 0.0, b.notes[i].midi);
+            if (!b.notes[i].right) continue;
+            ++right;
+            if (r.outcome == Outcome::Accepted) ++accepted;
+        }
+        check(right > 0, "the synthetic piece must have right notes");
+        check_eq(accepted, right, "bp sweep th 0 plain must accept every right note");
+    }
+
+    // 6. The event dump of the same audio twice is identical.
     const std::string d1 = dump_live_events(audio, kSr, "keyboard");
     const std::string d2 = dump_live_events(audio, kSr, "keyboard");
     check(!d1.empty(), "the event dump of the synthetic piece must not be empty");
