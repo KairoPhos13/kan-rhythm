@@ -196,7 +196,14 @@ namespace Kan.Forge.Editor.Compose
                         return true;
                     }
 
-                    if (roll.Selected.Count == 0) return false; // the editor's own Esc
+                    if (roll.Selected.Count == 0)
+                    {
+                        if (roll.MarkedMidi < 0) return false; // the editor's own Esc
+
+                        roll.ClearMarkedRow();
+                        return true;
+                    }
+
                     roll.Selected.Clear();
                     roll.Invalidate();
                     return true;

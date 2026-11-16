@@ -107,6 +107,17 @@ namespace Kan.Forge.Editor.Compose
         private Box keyHighlight = null!;
         private Box keyPressed = null!;
         private int lastKeyPlayed = -1;
+
+        /// <summary>
+        /// The row marked from the keyboard, or -1 (owner 2026-11-15: clicking
+        /// a key lights its whole row, to see whether notes sit on the pitch
+        /// you have in mind). It stays while you look; clicking the same key
+        /// again clears it.
+        /// </summary>
+        public int MarkedMidi { get; private set; } = -1;
+
+        private Container markedRow = null!;
+        private Box markedKey = null!;
         private Box timeMarker = null!;
         private Container ghost = null!;
         private OsuSpriteText ghostLabel = null!;
@@ -141,6 +152,18 @@ namespace Kan.Forge.Editor.Compose
                         // Layers under the notes (spectrogram, section highlights).
                         overlays,
                         outOfRange = new Container { RelativeSizeAxes = Axes.Both },
+                        // Under the notes, so the notes on the row stay readable.
+                        markedRow = new Container
+                        {
+                            RelativeSizeAxes = Axes.X,
+                            Alpha = 0,
+                            Children = new Drawable[]
+                            {
+                                new Box { RelativeSizeAxes = Axes.Both, Colour = colours.Pink, Alpha = 0.16f },
+                                new Box { RelativeSizeAxes = Axes.X, Height = 1, Colour = colours.Pink, Alpha = 0.7f },
+                                new Box { RelativeSizeAxes = Axes.X, Height = 1, Anchor = Anchor.BottomLeft, Origin = Anchor.BottomLeft, Colour = colours.Pink, Alpha = 0.7f },
+                            },
+                        },
                         notes = new Container { RelativeSizeAxes = Axes.Both },
                         band = new Box { Colour = colourProvider.Highlight1, Alpha = 0 },
                         rowHighlight = new Box { RelativeSizeAxes = Axes.X, Colour = colourProvider.Light4, Alpha = 0 },
@@ -170,6 +193,7 @@ namespace Kan.Forge.Editor.Compose
                     },
                 },
                 keys = new Container { RelativeSizeAxes = Axes.Y, Width = KEYS_WIDTH },
+                markedKey = new Box { Width = KEYS_WIDTH, Colour = colours.Pink, Alpha = 0 },
                 keyHighlight = new Box { Width = KEYS_WIDTH, Colour = colours.Pink, Alpha = 0 },
                 keyPressed = new Box { Width = KEYS_WIDTH, Colour = Color4.White, Alpha = 0 },
             };
@@ -274,6 +298,8 @@ namespace Kan.Forge.Editor.Compose
                 fitPending = false;
                 Fit();
             }
+
+            updateMarkedRow();
 
             if (FollowPlayhead && clock.IsRunning)
             {
@@ -568,13 +594,40 @@ namespace Kan.Forge.Editor.Compose
 
             if (pos.X < 0)
             {
-                // The keyboard: sound the key.
+                // The keyboard: sound the key and mark its row (the same key
+                // again clears the mark).
                 lastKeyPlayed = -1;
+
+                if (pos.Y >= 0 && pos.Y <= DrawHeight)
+                {
+                    int midi = MidiAt(pos.Y);
+                    MarkedMidi = midi == MarkedMidi ? -1 : midi;
+                }
+
                 playKeyAt(pos.Y);
                 return true;
             }
 
             return true; // take the press; clicks and drags decide
+        }
+
+        /// <summary>Clear the row marked from the keyboard.</summary>
+        public void ClearMarkedRow() => MarkedMidi = -1;
+
+        // Follows scrolling and zooming: placed every frame from the pitch.
+        private void updateMarkedRow()
+        {
+            if (MarkedMidi < 0)
+            {
+                markedRow.Alpha = markedKey.Alpha = 0;
+                return;
+            }
+
+            float y = YOf(MarkedMidi);
+            markedRow.Y = markedKey.Y = y;
+            markedRow.Height = markedKey.Height = RowHeight;
+            markedRow.Alpha = 1;
+            markedKey.Alpha = 0.35f;
         }
 
         private void playKeyAt(float y)
@@ -713,6 +766,10 @@ namespace Kan.Forge.Editor.Compose
             {
                 case DragMode.Keys:
                     playKeyAt(pos.Y);
+
+                    // Sliding moves the mark along with the sound.
+                    if (pos.Y >= 0 && pos.Y <= DrawHeight)
+                        MarkedMidi = MidiAt(pos.Y);
                     return;
 
                 case DragMode.Move:
